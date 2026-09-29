@@ -132,8 +132,12 @@ td.r,th.r{text-align:right}
 
 /* price tags */
 .pick{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px 10px}
-.pick label{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
-.pick label:last-child{border-bottom:0}
+.pick .prow{display:flex;gap:10px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+.pick .prow:last-child{border-bottom:0}
+.pick .prow label{display:flex;gap:10px;align-items:center;flex:1;min-width:0;padding:2px 0}
+.pick .qty{width:64px;text-align:center}
+.pick .prow:not(.on) .qty{opacity:.45}
+.qbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 #printArea{display:none}
 @media print{
   @page{size:A4;margin:8mm}
@@ -269,7 +273,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     {n:3, name:"Міні-CRM"},
     {n:4, name:"Інтернет-вітрина"}
   ];
-  const S = {settings:{}, project:{}, tasks:[], ideas:[], products:[], expenses:[], tagSel:new Set(), F:{prod:newF(), tags:newF()}};
+  const S = {settings:{}, project:{}, tasks:[], ideas:[], products:[], expenses:[], tagSel:new Set(), tagQty:{}, F:{prod:newF(), tags:newF()}};
   const TYPES = ["Напої","Цукерки","Печиво і вафлі","Торти і десерти","Інше"];
   const NOTYPE = "Без типу";
   const typeOf = p => p.type || NOTYPE;
@@ -639,16 +643,22 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     return `<div class="pick">${sortByType(list).map((p,i,arr)=>{
       const sub = (i===0||catKey(arr[i-1])!==catKey(p)||typeOf(arr[i-1])!==typeOf(p)) ? `<div class="pick-grp">${esc(catKey(p))}</div>` : "";
       const st = priceState(p), ptxt = st==="none" ? "немає ціни" : money(priceOf(p))+" грн"+(st==="stale" ? " · застаріла" : "");
-      return sub+`<label><input type="checkbox" data-tag="${p.id}" ${S.tagSel.has(p.id)?"checked":""}><span style="flex:1">${esc(p.name)}</span><span class="num">${ptxt}</span></label>`;}).join("")}</div>`;
+      const on = S.tagSel.has(p.id);
+      return sub+`<div class="prow${on?" on":""}" data-row="${p.id}"><label><input type="checkbox" data-tag="${p.id}" ${on?"checked":""}><span style="flex:1">${esc(p.name)}</span><span class="num">${ptxt}</span></label><input type="number" class="qty" min="0" max="500" step="1" inputmode="numeric" data-qty="${p.id}" value="${qtyOf(p.id)}" aria-label="Скільки цінників: ${esc(p.name)}" title="Скільки цінників надрукувати"></div>`;}).join("")}</div>`;
   }
-  const syncChecks = () => document.querySelectorAll("[data-tag]").forEach(cb=>{ cb.checked = S.tagSel.has(cb.dataset.tag); });
+  const qtyOf = id => Math.max(1, Math.min(500, Math.round(S.tagQty[id] || 1)));
+  const syncChecks = () => document.querySelectorAll("[data-tag]").forEach(cb=>{ const on = S.tagSel.has(cb.dataset.tag); cb.checked = on; const r = cb.closest(".prow"); if (r) r.classList.toggle("on", on); const q = r && r.querySelector("[data-qty]"); if (q && document.activeElement!==q) q.value = qtyOf(cb.dataset.tag); });
+  function tagCopies(){ const out = []; sortByType(selectedProducts()).forEach(p=>{ for (let i=0; i<qtyOf(p.id); i++) out.push(p); }); return out; }
+  function perSheet(){ const [tw, th] = TAG_SIZES[tagCfg().size] || TAG_SIZES.s; return Math.floor((210-16)/tw) * Math.floor((297-16)/th); }
   function tags(){
     const f = S.F.tags;
     return `<section class="panel"><h2 class="gap-lg">Цінники</h2>
       ${syncNote()}
       ${filterBar(f)}
       <div class="row" style="margin:8px 0 12px"><button class="btn soft" data-act="selShown">Вибрати всі показані</button><button class="btn soft" data-act="unselShown">Зняти показані</button><button class="btn soft" data-act="selNone">Очистити вибір</button></div>
+      <div class="qbar" style="margin-bottom:8px"><span class="muted">Число праворуч від товару — скільки цінників надрукувати.</span></div>
       <div id="pickBox">${pickList(filtered(f))}</div>
+      <div class="qbar" style="margin-top:10px"><label class="inl">Усім вибраним по <input type="number" id="qtyAll" min="1" max="500" step="1" value="1" style="width:64px;text-align:center"> шт</label><button class="btn soft" data-act="qtyAll">Застосувати</button></div>
       <div class="row" style="margin-top:14px" id="dlRow">
         <button class="btn rasp" data-act="printTags" data-need="any">🖨 Друкувати</button>
         <button class="btn" data-act="dlPdf" data-need="dl">Завантажити PDF</button>
@@ -666,10 +676,11 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     const list = selectedProducts();
     const ts = $("#tsample"); if (ts) ts.innerHTML = tagMarkup(samplePrd());
     const pv = $("#preview"); if(!pv) return;
-    pv.innerHTML = list.length ? list.slice(0,6).map(p=>tagMarkup(p)).join("") + (list.length>6?`<p style="align-self:center;color:#555">і ще ${list.length-6}</p>`:"")
+    const total = list.reduce((a,p)=>a+qtyOf(p.id), 0), sheets = Math.ceil(total / perSheet());
+    pv.innerHTML = list.length ? list.slice(0,6).map(p=>`<div style="position:relative">${tagMarkup(p)}${qtyOf(p.id)>1?`<span class="badge" style="position:absolute;top:4px;right:4px">×${qtyOf(p.id)}</span>`:""}</div>`).join("") + (list.length>6?`<p style="align-self:center;color:#555">і ще ${list.length-6} товарів</p>`:"")
       : `<p style="color:#555">Позначте товари вище, і тут з’являться цінники</p>`;
     const noPrice = list.filter(p=>priceState(p)==="none").length, stale = list.filter(p=>priceState(p)==="stale").length;
-    const c = $("#selCount"); if(c) c.textContent = list.length ? `Вибрано: ${list.length}` + (noPrice ? `, без ціни: ${noPrice}` : "") + (stale ? `, із застарілою ціною: ${stale}` : "") : "";
+    const c = $("#selCount"); if(c) c.textContent = list.length ? `Товарів: ${list.length}, цінників: ${total} (≈ ${sheets} арк. А4)` + (noPrice ? `, без ціни: ${noPrice}` : "") + (stale ? `, із застарілою ціною: ${stale}` : "") : "";
     document.querySelectorAll("#dlRow [data-need]").forEach(b=>{ b.disabled = !list.length || (b.dataset.need==="dl" && !downloads); });
     const h = $("#dlHint"); if (h) h.textContent = !list.length ? "Кнопки друку й завантаження стануть активними, коли ви позначите товари у списку вище." : "";
   }
@@ -687,7 +698,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
 <body><p class="hint">Натисніть Ctrl+P (або «Друк»), щоб надрукувати. Масштаб — 100%.</p><div class="sheet">${list.map(p=>tagMarkup(p)).join("")}</div></body></html>`;
   }
   function printTags(){
-    const list = sortByType(selectedProducts()); if (!list.length) return;
+    const list = tagCopies(); if (!list.length) return;
     let pa = document.getElementById("printArea");
     if (!pa){ pa = document.createElement("div"); pa.id = "printArea"; document.body.appendChild(pa); }
     pa.innerHTML = list.map(p=>tagMarkup(p)).join("");
@@ -776,7 +787,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     return new Blob(parts, {type:"application/pdf"});
   }
   async function makePdf(btn){
-    const list = sortByType(selectedProducts());
+    const list = tagCopies();
     if (!list.length || !downloads) return;
     const label = btn.textContent; btn.disabled = true; btn.textContent = "Готую PDF…";
     try{
@@ -1198,6 +1209,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       const cost=num($("#npCost").value); add("products",{name:n,type:$("#npType").value,category:$("#npCat").value.trim(),pack:$("#npPack").value||null,size:$("#npSize").value.trim()||null,unit:$("#npUnit").value,cost,markup:num($("#npMarkup").value),manualPrice:false,priceAt:cost>0?today():null},"Товар додано"); }
     if (a==="selShown"){ filtered(S.F.tags).forEach(p=>S.tagSel.add(p.id)); syncChecks(); renderPreview(); }
     if (a==="unselShown"){ filtered(S.F.tags).forEach(p=>S.tagSel.delete(p.id)); syncChecks(); renderPreview(); }
+    if (a==="qtyAll"){ const v = Math.max(1, Math.min(500, Math.round(num($("#qtyAll").value)))); if (!S.tagSel.size){ toast("Спершу позначте товари"); return; } S.tagSel.forEach(id=>{ S.tagQty[id] = v; }); syncChecks(); renderPreview(); toast(`Кожному вибраному — по ${v} шт`); }
     if (a==="selNone"){ S.tagSel.clear(); syncChecks(); renderPreview(); }
     if (a==="fReset"){ S.F[tab==="tags"?"tags":"prod"] = newF(); S.openF = null; render(); }
     if (a==="dlPdf"){ makePdf(t); }
@@ -1238,7 +1250,10 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       else if (el.dataset.pf==="markup") upd("products",p.id,{markup:v,manualPrice:false,price:null,priceAt:today()});
       else upd("products",p.id,{cost:v,priceAt:today()}); return; }
     if (el.dataset.exp){ upd("expenses",el.dataset.exp,{amount:num(el.value)}); return; }
-    if (el.dataset.tag){ el.checked ? S.tagSel.add(el.dataset.tag) : S.tagSel.delete(el.dataset.tag); renderPreview(); return; }
+    if (el.dataset.qty){ const id = el.dataset.qty, v = Math.round(num(el.value));
+      if (v <= 0){ S.tagSel.delete(id); S.tagQty[id] = 1; } else { S.tagQty[id] = Math.min(500, v); S.tagSel.add(id); }
+      syncChecks(); renderPreview(); return; }
+    if (el.dataset.tag){ el.checked ? S.tagSel.add(el.dataset.tag) : S.tagSel.delete(el.dataset.tag); syncChecks(); renderPreview(); return; }
     if (el.dataset.tc){ saveTag({[el.dataset.tc]: el.checked}); return; }
     if (el.id==="tcSize"){ saveTag({size:el.value}); return; }
     if (el.id==="tcBorder"){ saveTag({border:el.value}); return; }
@@ -1256,7 +1271,8 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   document.addEventListener("keydown", e=>{
     if (e.key==="Escape" && S.openF){ const k = S.openF; S.openF = null; refreshFilters({t:k}); return; }
     if (e.key!=="Enter") return;
-    const map = {newTask:"addTask", newIdea:"addIdea", npName:"addProd", gsQ:"gsSearch"};
+    if (e.target.dataset && e.target.dataset.qty){ e.target.blur(); return; }
+    const map = {qtyAll:"qtyAll", newTask:"addTask", newIdea:"addIdea", npName:"addProd", gsQ:"gsSearch"};
     if (map[e.target.id]) document.querySelector(`[data-act="${map[e.target.id]}"]`).click();
   });
 
