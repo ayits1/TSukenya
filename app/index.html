@@ -273,7 +273,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     {n:3, name:"Міні-CRM"},
     {n:4, name:"Інтернет-вітрина"}
   ];
-  const S = {settings:{}, project:{}, tasks:[], ideas:[], products:[], expenses:[], tagSel:new Set(), tagQty:{}, F:{prod:newF(), tags:newF()}};
+  const S = {settings:{}, project:{}, tasks:[], ideas:[], products:[], allProducts:[], expenses:[], tagSel:new Set(), tagQty:{}, F:{prod:newF(), tags:newF()}};
   const TYPES = ["Напої","Цукерки","Печиво і вафлі","Торти і десерти","Інше"];
   const NOTYPE = "Без типу";
   const typeOf = p => p.type || NOTYPE;
@@ -396,9 +396,10 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       toast(e && e.code==="invalid_argument" ? "Немає прав змінювати дані" : "Не вдалося зберегти, спробуйте ще раз");
     }
   }
-  const upd = (col,id,data,ok) => write(()=>db.collection(col).doc(id).update(data), ok);
-  const add = (col,data,ok) => write(()=>db.collection(col).add(data), ok);
-  const del = (col,id,ok) => write(()=>db.collection(col).doc(id).delete(), ok);
+  const gsSoon = col => { if (col==="products" && S.settings.gsId){ clearTimeout(S.gsSoonT); S.gsSoonT = setTimeout(()=>gsSync(), 2500); } };
+  const upd = (col,id,data,ok) => write(()=>db.collection(col).doc(id).update(data), ok).then(r=>{ gsSoon(col); return r; });
+  const add = (col,data,ok) => write(()=>db.collection(col).add(data), ok).then(r=>{ gsSoon(col); return r; });
+  const del = (col,id,ok) => write(()=>db.collection(col).doc(id).delete(), ok).then(r=>{ gsSoon(col); return r; });
   async function setDoc(path,data,ok){ await write(async()=>{ const ref=db.doc(path); const s=await ref.get(); s.exists ? await ref.update(data) : await ref.set(data); }, ok); }
 
   function saveTag(patch){
@@ -1080,7 +1081,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   function syncText(){
     const y = S.sync || {};
     if (y.busy) return "Синхронізую…";
-    const ok = y.at ? `Оновлено о ${timeText(y.at)}: у таблиці ${y.n} позицій, додано ${y.added}, змінено ${y.upd}.` : "Ще не синхронізовано.";
+    const ok = y.at ? `Синхронізовано о ${timeText(y.at)}: у таблиці ${y.n} позицій${y.added ? `, нових ${y.added}` : ""}${y.upd ? `, з таблиці оновлено ${y.upd}` : ""}${y.pushed ? `, у таблицю записано ${y.pushed}` : ""}.` : "Ще не синхронізовано.";
     return y.error ? `${y.at ? ok+" " : ""}Помилка: ${y.error}` : ok;
   }
   function syncNote(){
@@ -1101,7 +1102,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       <p style="margin:6px 0">Підключено: ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(st.gsTitle||"таблиця")}</a>` : esc(st.gsTitle||"таблиця")}</p>
       <p class="muted" id="syncText">${esc(syncText())}</p>
       <div class="row" style="margin-top:12px"><button class="btn soft" data-act="gsSyncNow" ${mcp?"":"disabled"}>Синхронізувати зараз</button>${url ? `<a class="btn soft" href="${esc(url)}" target="_blank" rel="noopener">Відкрити таблицю</a>` : ""}<button class="btn soft" data-act="gsUnlink">Відключити</button></div>
-      <p class="muted" style="margin-top:10px">Таблиця головна: якщо змінити в застосунку ціну товару, який є в таблиці, наступна синхронізація поверне значення з таблиці. Порожня «Ціна продажу» означає, що ціна рахується із закупівлі та націнки. Товари, яких у таблиці вже немає, лишаються в базі.</p>`;
+      <p class="muted" style="margin-top:10px">Синхронізація двостороння. Зміни в таблиці з’являються тут приблизно за хвилину, зміни тут потрапляють у таблицю за кілька секунд. Якщо одне й те саме поле змінили і там, і тут, перемагає таблиця. «Ціна продажу» — ціна, задана вручну; якщо вона порожня, ціна рахується із закупівлі та націнки й видна в стовпці «Ціна на цінник». Стовпець ID не змінюйте: за ним застосунок впізнає товар. Видалили рядок у таблиці — товар ховається тут; видалили товар тут — рядок очищується в таблиці.</p>`;
   }
   function renderLink(){ const b = $("#linkBox"); if (b) b.innerHTML = linkInner(); }
   async function gsLink(id, title, url){
@@ -1119,37 +1120,168 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     }catch(e){ toast(driveErr(e)); }
     finally{ btn.disabled = false; btn.textContent = label; }
   }
-  const sameVal = (k, a, b) => k==="manualPrice" ? !!a===!!b : (a ?? null)===(b ?? null);
+  /* SYNC-ENGINE-START */
+  // Двостороння синхронізація товарів із Google Таблицею. Чиста функція: на вході рядки таблиці й товари, на виході — план записів.
+  const GS_COLS = [
+    {k:"name",     h:"Назва",                  m:h=>h==="назва" || h.includes("назв") || h.includes("найменув")},
+    {k:"type",     h:"Група",                  m:h=>h==="група" || h.startsWith("група") || h==="тип"},
+    {k:"category", h:"Категорія",              m:h=>h.includes("категор")},
+    {k:"pack",     h:"Пакування",              m:h=>h.includes("пакуван") || h==="тара"},
+    {k:"size",     h:"Об’єм / вага",           m:h=>h.includes("розмір") || h.includes("фасув") || /об.?[єе]м/.test(h)},
+    {k:"unit",     h:"Од.",                    m:h=>h==="од" || h.startsWith("од ") || h.includes("одиниц")},
+    {k:"cost",     h:"Закупівля, грн",         m:h=>h.includes("закуп")},
+    {k:"markup",   h:"Націнка, %",             m:h=>h.includes("націнк")},
+    {k:"price",    h:"Ціна продажу, грн",      m:h=>h.includes("ціна продаж") || h.includes("ціна вручну")},
+    {k:"per100",   h:"Ціна за 100 г, грн",     m:h=>h.includes("100 г") || h.includes("100г"), calc:true},
+    {k:"priceAt",  h:"Ціна оновлена",          m:h=>h.includes("оновлен"), calc:true},
+    {k:"tagPrice", h:"Ціна на цінник, грн",    m:h=>h.includes("цінник"), calc:true},
+    {k:"id",       h:"ID",                     m:h=>h==="id" || h==="код товару в застосунку", calc:true}
+  ];
+  const SYNC_F = ["name","type","category","pack","size","unit","cost","markup","price"];
+  const n2 = x => { const v = Math.round((+x || 0)*100)/100; return String(v); };
+  function colLetter(i){ let s = ""; i++; while (i > 0){ const m = (i-1) % 26; s = String.fromCharCode(65+m) + s; i = Math.floor((i-1)/26); } return s; }
+  function planSync(values, all, env){
+    // env: {defMarkup, priceOf(p), norm, parseNum, unitNorm, packNorm, today, newId()}
+    const rows = Array.isArray(values) ? values : [];
+    const hdrRaw = (rows[0] || []).map(v=>String(v ?? "").trim());
+    if (!hdrRaw.length) return {error:"У першому рядку таблиці немає заголовків."};
+    const hdr = hdrRaw.map(env.norm), col = {}, used = new Set();
+    for (const c of GS_COLS){ const i = hdr.findIndex((h,i)=>h && !used.has(i) && c.m(h)); if (i>=0){ used.add(i); col[c.k] = i; } }
+    if (col.name === undefined) return {error:"Не знайшов у таблиці стовпець «Назва»."};
+    const newHdr = hdrRaw.slice(); let hdrChanged = false;
+    for (const k of ["tagPrice","id"]) if (col[k] === undefined){ col[k] = newHdr.length; newHdr.push(GS_COLS.find(c=>c.k===k).h); hdrChanged = true; }
+    const width = newHdr.length, last = colLetter(width-1);
+    const def = env.defMarkup;
+    const fromApp = p => ({name:String(p.name||"").trim(), type:String(p.type||"").trim(), category:String(p.category||"").trim(),
+      pack:String(p.pack||"").trim(), size:String(p.size||"").trim(), unit:p.unit||"шт", cost:n2(p.cost),
+      markup:n2(p.markup ?? def), price:p.manualPrice && +p.price>0 ? n2(p.price) : "0"});
+    const cell = (r,k) => col[k]===undefined ? "" : String(r[col[k]] ?? "").trim();
+    const fromSheet = r => {
+      const mkRaw = cell(r,"markup"); let mk = env.parseNum(mkRaw); if (mk>0 && mk<1 && !mkRaw.includes("%")) mk *= 100;
+      return {name:cell(r,"name"), type:cell(r,"type"), category:cell(r,"category"), pack:env.packNorm(cell(r,"pack")) || cell(r,"pack"),
+        size:cell(r,"size"), unit:env.unitNorm(cell(r,"unit")) || "шт", cost:n2(env.parseNum(cell(r,"cost"))),
+        markup:mkRaw==="" ? "" : n2(mk), price:n2(env.parseNum(cell(r,"price")))};
+    };
+    const same = (a,b) => SYNC_F.every(k=>a[k]===b[k]);
+    const toPatch = (m, p) => {
+      const d = {name:m.name, type:m.type || null, category:m.category, pack:m.pack || null, size:m.size || null, unit:m.unit, cost:+m.cost, markup:+m.markup};
+      if (+m.price > 0){ d.price = +m.price; d.manualPrice = true; } else { d.price = null; d.manualPrice = false; }
+      if (!p || n2(p.cost)!==m.cost || n2(p.markup ?? def)!==m.markup || (p.manualPrice && +p.price>0 ? n2(p.price) : "0")!==m.price) d.priceAt = env.today;
+      return d;
+    };
+    const rowOut = (m, id, pr, priceAt) => {
+      const out = new Array(width).fill(null);
+      const put = (k,v) => { if (col[k]!==undefined) out[col[k]] = v; };
+      const numOrBlank = v => +v > 0 ? +v : "";
+      put("name", m.name); put("type", m.type); put("category", m.category); put("pack", m.pack); put("size", m.size ? "'"+m.size : "");
+      put("unit", m.unit); put("cost", numOrBlank(m.cost)); put("markup", +m.markup); put("price", numOrBlank(m.price));
+      put("tagPrice", pr > 0 ? Math.round(pr*100)/100 : ""); put("per100", m.unit==="кг" && pr > 0 ? Math.round(pr*10)/100 : "");
+      put("priceAt", priceAt ? "'"+priceAt : ""); put("id", "'"+id);
+      return out;
+    };
+    const calcSame = (r, out) => ["tagPrice","per100","priceAt","id"].every(k=>{
+      if (col[k]===undefined) return true;
+      const want = out[col[k]], have = cell(r,k);
+      if (typeof want === "number") return Math.abs(env.parseNum(have) - want) < 0.005;
+      return String(want).replace(/^'/,"") === have;
+    });
+    const lastRow = rows.reduce((m, r, i) => (r && r.some(v=>String(v ?? "").trim()!=="")) ? i+1 : m, 1);
+    const plan = {header: hdrChanged ? newHdr : null, last, width, lastRow, rowWrites:[], appends:[], clears:[], dbUpdates:[], dbAdds:[], hides:[], n:0, added:0, changed:0, pushed:0};
+    const byId = new Map(all.map(p=>[p.id, p]));
+    const claimed = new Set(), pending = [];
+    const handle = (r, i, p) => {
+      const s = fromSheet(r), a = fromApp(p), b = p.gsBase || null, m = {};
+      for (const k of SYNC_F){
+        if (!b) m[k] = (s[k]==="" || s[k]==="0") && a[k]!=="" && a[k]!=="0" ? a[k] : s[k];
+        else if (s[k]!==b[k] && a[k]===b[k]) m[k] = s[k];
+        else if (a[k]!==b[k] && s[k]===b[k]) m[k] = a[k];
+        else if (s[k]!==b[k] && a[k]!==b[k]) m[k] = s[k];
+        else m[k] = a[k];
+      }
+      if (!m.name) m.name = a.name;
+      if (m.markup==="") m.markup = n2(def);
+      let patch = null;
+      if (!same(m, a) || p.hidden){ patch = toPatch(m, p); if (p.hidden) patch.hidden = false; plan.changed++; }
+      if (!b || !same(m, b)){ patch = patch || {}; patch.gsBase = m; }
+      if (patch) plan.dbUpdates.push({id:p.id, patch});
+      const after = Object.assign({}, p, patch || {});
+      const out = rowOut(m, p.id, env.priceOf(after), after.priceAt || "");
+      if (!same(m, s) || !calcSame(r, out)){ plan.rowWrites.push({row:i+1, values:out}); if (!same(m, s)) plan.pushed++; }
+    };
+    rows.forEach((r, i) => {
+      if (i===0 || !r || !cell(r,"name")) return;
+      plan.n++;
+      const id = cell(r,"id").replace(/^'/,"");
+      if (id && byId.has(id) && !claimed.has(id)){ claimed.add(id); handle(r, i, byId.get(id)); return; }
+      if (id && !byId.has(id)){ plan.clears.push(i+1); plan.n--; return; } // товар видалили в застосунку
+      pending.push([r, i]);
+    });
+    const byName = new Map(); all.forEach(p=>{ if (!claimed.has(p.id) && !p.hidden){ const k = env.norm(p.name); if (!byName.has(k)) byName.set(k, p); } });
+    for (const [r, i] of pending){
+      const k = env.norm(cell(r,"name")), p = byName.get(k);
+      if (p){ byName.delete(k); claimed.add(p.id); handle(r, i, p); continue; }
+      const s = fromSheet(r); if (s.markup==="") s.markup = n2(def);
+      const id = env.newId(), data = toPatch(s, null);
+      data.gsBase = s; if (!(+s.cost>0 || +s.price>0)) delete data.priceAt;
+      plan.dbAdds.push({id, data}); plan.added++;
+      plan.rowWrites.push({row:i+1, values:rowOut(s, id, env.priceOf(data), data.priceAt || "")});
+    }
+    for (const p of all){
+      if (claimed.has(p.id) || p.hidden) continue;
+      if (p.gsBase){ plan.dbUpdates.push({id:p.id, patch:{hidden:true}}); continue; } // рядок видалили в таблиці
+      const a = fromApp(p);
+      plan.appends.push(rowOut(a, p.id, env.priceOf(p), p.priceAt || ""));
+      plan.dbUpdates.push({id:p.id, patch:{gsBase:a}});
+    }
+    return plan;
+  }
+  /* SYNC-ENGINE-END */
+
+  const SHEETS = "Google Sheets";
+  const sheets = (tool, input) => mcp.callTool(SHEETS, tool, input, {cache:false}).then(pj);
+  function sheetsErr(e){
+    const c = e && e.code;
+    if (c==="server_not_connected") return "Google Sheets не підключений до вашого акаунта Claude. Підключіть його в налаштуваннях конекторів.";
+    if (c==="needs_reauth") return "Потрібно заново підключити Google Sheets у налаштуваннях Claude.";
+    if (c==="consent_required" || c==="approval_required") return "Дозвольте сторінці працювати з Google Sheets, коли з’явиться запит.";
+    if (c==="rate_limited") return "Забагато запитів до Google. Спробую ще раз за хвилину.";
+    if (c==="tool_error") return "Google Sheets відповів помилкою (можливо, немає доступу до таблиці).";
+    return "Не вдалося зв’язатися з Google Sheets. Спробую ще раз за хвилину.";
+  }
+  const clean = o => JSON.parse(JSON.stringify(o));
   async function gsSync(){
     const id = S.settings.gsId; if (!id || !mcp || !db) return;
     const y = S.sync || (S.sync = {});
     if (y.busy){ y.again = true; return; }
     y.busy = true; y.error = null; updateSyncUi();
     try{
-      const d = await drive("download_file_content", {fileId:id, exportMimeType:"text/csv"}, {cache:false});
-      if (!d || typeof d.content!=="string") throw {code:"bad_shape"};
-      const imp = parseSheet(parseCsv(b64ToText(d.content)), S.settings.gsTitle || "таблиця");
-      if (imp.error) throw {sheetErr:imp.error};
-      const plan = buildPlan(imp, true); let added = 0, changed = 0;
-      try{
-        for (const {ex, data} of plan.items){
-          delete data.priceAt;
-          if (!ex){
-            if (data.cost>0 || data.price>0) data.priceAt = today();
-            await db.collection("products").add(JSON.parse(JSON.stringify(data))); added++; continue;
-          }
-          const diff = {};
-          for (const k of Object.keys(data)) if (!sameVal(k, data[k], ex[k])) diff[k] = data[k];
-          if (Object.keys(diff).length){
-            if (["cost","price","markup","manualPrice"].some(k=>k in diff)) diff.priceAt = today();
-            await db.collection("products").doc(ex.id).update(diff); changed++;
-          }
-        }
-      }catch(err){ throw {sheetErr: err && err.code==="invalid_argument" ? "Немає прав змінювати дані в застосунку." : "Не вдалося записати зміни з таблиці. Спробуйте ще раз."}; }
-      Object.assign(y, {at:Date.now(), n:plan.items.length, added, upd:changed});
-    }catch(e){ y.error = (e && e.sheetErr) ? e.sheetErr : driveErr(e); }
+      const d = await sheets("get_values", {spreadsheetId:id, range:"A:Z"});
+      const plan = planSync(d && Array.isArray(d.values) ? d.values : [], S.allProducts, {
+        defMarkup:defMarkup(), priceOf, norm, parseNum, unitNorm, packNorm, today:today(),
+        newId:()=>db.collection("products").doc().id || ("g"+Date.now().toString(36)+Math.random().toString(36).slice(2,7))});
+      if (plan.error) throw {sheetErr:plan.error};
+      const L = plan.last;
+      // 1) нові товари з таблиці — у застосунок (щоб їхні ID вже існували)
+      for (const a of plan.dbAdds) await db.collection("products").doc(a.id).set(clean(a.data));
+      // 2) записи в таблицю
+      if (plan.header) await sheets("update_values", {spreadsheetId:id, range:`A1:${L}1`, values:[plan.header]});
+      if (plan.rowWrites.length){ // один запит на всі змінені рядки: незмінені рядки — null (Google їх пропускає)
+        const lo = Math.min(...plan.rowWrites.map(w=>w.row)), hi = Math.max(...plan.rowWrites.map(w=>w.row));
+        const block = Array.from({length:hi-lo+1}, ()=>new Array(plan.width).fill(null));
+        plan.rowWrites.forEach(w=>{ block[w.row-lo] = w.values; });
+        await sheets("update_values", {spreadsheetId:id, range:`A${lo}:${L}${hi}`, values:block});
+      }
+      if (plan.appends.length){ // дописуємо під останнім заповненим рядком (append_values Google може «вставити» посеред таблиці)
+        const at = plan.lastRow + 1;
+        await sheets("update_values", {spreadsheetId:id, range:`A${at}:${L}${at+plan.appends.length-1}`, values:plan.appends});
+      }
+      if (plan.clears.length) await sheets("batch_clear_values", {spreadsheetId:id, ranges:plan.clears.map(r=>`A${r}:${L}${r}`)});
+      // 3) зміни з таблиці — у застосунок
+      for (const u of plan.dbUpdates) await db.collection("products").doc(u.id).update(clean(u.patch));
+      Object.assign(y, {at:Date.now(), n:plan.n, added:plan.added, upd:plan.changed, pushed:plan.pushed + plan.appends.length});
+    }catch(e){ y.error = (e && e.sheetErr) ? e.sheetErr : /quota|rate/i.test(String(e && (e.message||""))) ? "Google тимчасово обмежив кількість запитів. Спробую ще раз за хвилину." : sheetsErr(e); }
     y.busy = false; updateSyncUi();
-    if (y.again){ y.again = false; gsSync(); }
+    if (y.again){ y.again = false; setTimeout(gsSync, 3000); }
   }
   function syncSetup(){
     clearInterval(S.syncT);
@@ -1290,7 +1422,10 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     }, ()=>{});
     sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
     sub("ideas","ideas",byOrder);
-    sub("products","products",(a,b)=>String(a.name).localeCompare(String(b.name),"uk"));
+    db.collection("products").onSnapshot(s=>{
+      S.allProducts = s.docs.map(x=>({id:x.id, ...x.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name),"uk"));
+      S.products = S.allProducts.filter(p=>!p.hidden); render();
+    }, ()=>{});
     sub("expenses","expenses",byOrder);
     db.doc("settings/main").onSnapshot(s=>{ S.settings = s.exists ? s.data() : {}; render(); syncSetup(); }, ()=>{});
     db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{});
