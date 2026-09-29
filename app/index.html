@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мережа солодощів — панель власника</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF5F1; --paper:#FFFFFF; --ink:#2B1830; --muted:#6D5B70; --line:#D6E2DB;
+  --rasp:#C8235F; --rasp-soft:#FBE3EC; --caramel:#D98E1F; --caramel-soft:#FCEFD9;
+  --mint:#2F9670; --mint-soft:#DDF2E8; --focus:#C8235F;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1A1220; --paper:#251A2C; --ink:#F3EAF4; --muted:#B6A6B9; --line:#3B2D44;
+    --rasp:#FF5C93; --rasp-soft:#3F1B2C; --caramel:#F0B558; --caramel-soft:#3A2B17;
+    --mint:#5CCB9D; --mint-soft:#18342A; --focus:#FF5C93;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1A1220; --paper:#251A2C; --ink:#F3EAF4; --muted:#B6A6B9; --line:#3B2D44;
+  --rasp:#FF5C93; --rasp-soft:#3F1B2C; --caramel:#F0B558; --caramel-soft:#3A2B17;
+  --mint:#5CCB9D; --mint-soft:#18342A; --focus:#FF5C93;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Rubik",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
+h1,h2,h3{line-height:1.2;margin:0}
+h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.35rem;font-weight:600}
+h3{font-size:1.05rem;font-weight:600}
+p{margin:0}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:28px}
+.top .sub{font-size:.95rem}
+.notice{background:var(--caramel-soft);border-left:4px solid var(--caramel);padding:12px 14px;border-radius:8px;margin-bottom:20px}
+
+/* candy path — the one memorable element */
+.path{background:var(--paper);border-radius:22px;padding:28px 24px 24px;margin-bottom:18px}
+.path-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+.stages{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);position:relative}
+.stages::before{content:"";position:absolute;left:12.5%;right:12.5%;top:22px;height:4px;border-radius:2px;
+  background:repeating-linear-gradient(90deg,var(--line) 0 10px,transparent 10px 16px)}
+.stage{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 6px}
+.candy{position:relative;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:700;
+  background:var(--paper);border:3px solid var(--line);color:var(--muted);z-index:1}
+.candy::before,.candy::after{content:"";position:absolute;top:50%;width:0;height:0;border-top:11px solid transparent;border-bottom:11px solid transparent;transform:translateY(-50%)}
+.candy::before{left:-15px;border-right:14px solid var(--line)}
+.candy::after{right:-15px;border-left:14px solid var(--line)}
+.stage.done .candy{background:var(--mint);border-color:var(--mint);color:#fff}
+.stage.done .candy::before{border-right-color:var(--mint)} .stage.done .candy::after{border-left-color:var(--mint)}
+.stage.now .candy{background:var(--rasp);border-color:var(--rasp);color:#fff;transform:scale(1.18)}
+.stage.now .candy::before{border-right-color:var(--rasp)} .stage.now .candy::after{border-left-color:var(--rasp)}
+.stage-name{margin-top:14px;font-weight:600;font-size:.98rem}
+.stage.now .stage-name{color:var(--rasp)}
+.stage-meta{font-size:.85rem;color:var(--muted)}
+.next{display:flex;gap:14px;align-items:flex-start;background:var(--rasp-soft);border-radius:14px;padding:16px 18px;margin-top:26px}
+.next b{display:block;margin-bottom:2px}
+
+/* tabs */
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 2px;margin:26px 0 18px}
+.tab{border:0;background:transparent;padding:10px 16px;border-radius:999px;font-weight:500;white-space:nowrap;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.panel{background:var(--paper);border-radius:18px;padding:22px}
+.panel+.panel{margin-top:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.between{justify-content:space-between}
+.gap-lg{margin-bottom:18px}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.stat{border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.stat .v{font-size:1.5rem;font-weight:600}
+.stat .l{font-size:.9rem;color:var(--muted)}
+
+/* controls */
+.btn{border:0;border-radius:10px;padding:9px 16px;font-weight:500;background:var(--ink);color:var(--bg)}
+.btn.soft{background:var(--bg);color:var(--ink)}
+.btn.rasp{background:var(--rasp);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input[type=text],input[type=number],input:not([type]),select{border:1px solid var(--line);background:var(--paper);border-radius:9px;padding:8px 10px;min-width:0}
+input[type=number]{width:96px;text-align:right}
+label.inl{display:inline-flex;gap:8px;align-items:center}
+
+/* tables */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-weight:500;color:var(--muted);font-size:.9rem}
+td.r,th.r{text-align:right}
+.badge{display:inline-block;font-size:.75rem;padding:1px 8px;border-radius:999px;background:var(--caramel-soft);color:var(--caramel);margin-left:6px}
+.x{border:0;background:transparent;color:var(--muted);font-size:1.2rem;line-height:1;padding:4px 8px;border-radius:6px}
+.x:hover{color:var(--rasp)}
+
+/* tasks */
+.stage-block+.stage-block{margin-top:22px}
+.task{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.task:last-child{border-bottom:0}
+.task .t{flex:1}
+.task.done .t{color:var(--muted);text-decoration:line-through}
+.chip{border:0;border-radius:999px;padding:5px 12px;font-size:.85rem;font-weight:500;min-width:92px}
+.chip.todo{background:var(--bg);color:var(--muted)}
+.chip.doing{background:var(--caramel-soft);color:var(--caramel)}
+.chip.done{background:var(--mint-soft);color:var(--mint)}
+
+/* ideas */
+.ideas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.idea{border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.idea.yes{border-color:var(--mint);background:var(--mint-soft)}
+.idea.no{opacity:.6}
+.idea .acts{display:flex;gap:8px;margin-top:auto}
+
+/* expenses */
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.exp{display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.exp .n{flex:1}
+.total{display:flex;justify-content:space-between;padding-top:10px;font-weight:600}
+.be{background:var(--mint-soft);border-radius:14px;padding:18px;margin-top:18px}
+.be .big{font-size:1.8rem;font-weight:700}
+
+/* price tags */
+.pick{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px 10px}
+.pick label{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.pick label:last-child{border-bottom:0}
+#printArea{display:none}
+@media print{
+  @page{size:A4;margin:8mm}
+  body>*:not(#printArea){display:none!important}
+  body{background:#fff!important;margin:0!important;padding:0!important}
+  #printArea{display:flex!important;flex-wrap:wrap}
+  #printArea .tag{box-sizing:border-box;break-inside:avoid;page-break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #printArea .tag.b-none{border-color:#eee}
+}
+.preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;background:#fff;padding:12px;border-radius:12px;color:#1c1c1c}
+.tag{--k:1;border:1px dashed #999;padding:calc(2mm*var(--k)) calc(3mm*var(--k));display:flex;flex-direction:column;justify-content:space-between;font-family:"Rubik",Arial,sans-serif;background:#fff;color:#1c1c1c;box-sizing:border-box;overflow:hidden}
+.tag.b-solid{border-style:solid;border-color:#555}.tag.b-none{border-color:transparent}
+.tag.s{width:58mm;height:40mm}.tag.m{--k:1.25;width:75mm;height:50mm}.tag.l{--k:1.65;width:100mm;height:70mm}
+.tag .t-hd{display:flex;justify-content:space-between;gap:2mm;font-size:calc(7pt*var(--k));color:#777;line-height:1.2}
+.tag .t-hd span:last-child{text-align:right}
+.tag .t-cu{font-size:calc(8pt*var(--k));font-weight:700;color:#c2185b;line-height:1.2;margin-top:.5mm}
+.tag .nm{font-size:calc(10pt*var(--k));font-weight:600;line-height:1.15;margin-top:.8mm;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tag .nm.big{font-size:calc(12.5pt*var(--k))}
+.tag .t-pk{font-size:calc(7.5pt*var(--k));color:#555;line-height:1.2;margin-top:.5mm}
+.tag .t-top{min-height:0}
+.tag .pr{font-size:calc(22pt*var(--k));font-weight:700;line-height:1}
+.tag .pr small{font-size:.45em;font-weight:600;margin-left:1mm}
+.tag .un{font-size:calc(8pt*var(--k));color:#444;line-height:1.3}
+.tag .ft{display:flex;justify-content:space-between;font-size:calc(7pt*var(--k));color:#777;line-height:1.2}
+.tcfg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin-top:6px}
+@media (max-width:760px){.tcfg{grid-template-columns:minmax(0,1fr)}}
+.tcfg h4{margin:0 0 8px;font-size:14px}
+.tels{display:flex;flex-wrap:wrap;gap:6px 14px}
+.tels label{display:flex;gap:6px;align-items:center;white-space:nowrap}
+.tcfg .row{margin-top:10px}
+.stl{display:flex;flex-direction:column;gap:6px}
+.stl .strow{display:flex;gap:6px;align-items:center}
+.stl .strow input{flex:1;min-width:0}
+.tsample{display:flex;justify-content:center;align-items:center;background:#fff;border-radius:12px;padding:14px;margin-top:12px;overflow:auto}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.tchip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 14px;font-weight:500}
+.tchip[aria-pressed="true"]{background:var(--rasp);border-color:var(--rasp);color:var(--bg)}
+.imp-opts{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:14px 0}
+.warn{background:var(--rasp-soft);border-left:4px solid var(--rasp);padding:10px 12px;border-radius:8px}
+a.btn{display:inline-block;text-decoration:none;line-height:1.5}
+#linkBox a:not(.btn){color:var(--rasp);font-weight:600}
+.gs{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:14px}
+.gsl{margin-top:10px;max-height:280px;overflow:auto}
+.gsrow{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.gsrow:last-child{border-bottom:0}
+.gst{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gsok{margin-top:10px;background:var(--mint-soft);border-left:4px solid var(--mint);padding:10px 12px;border-radius:8px}
+.gsok a{color:inherit;font-weight:600}
+.fbar{position:relative;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.fbar #facets{display:contents}
+.fbar input#q{width:190px;height:38px}
+.fcount{margin-left:auto;font-size:.9rem;white-space:nowrap}
+.fclear{height:38px;padding:0 14px}
+.dd{position:relative}
+.dd-btn{height:38px;border:1px solid var(--line);background:var(--paper);border-radius:9px;padding:0 12px;display:inline-flex;align-items:center;gap:8px;max-width:230px;font-weight:500}
+.dd-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-caret{font-size:.8rem;color:var(--muted);transition:transform .15s}
+.dd.open .dd-caret{transform:rotate(180deg)}
+.dd.active .dd-btn{border-color:var(--rasp);background:var(--rasp-soft);color:var(--rasp)}
+.dd-pop{position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:230px;max-width:min(320px,calc(100vw - 32px));background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px;box-shadow:0 8px 28px rgba(0,0,0,.18)}
+.dd-list{max-height:260px;overflow:auto}
+.dd-opt{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer}
+.dd-opt:hover{background:var(--bg)}
+.dd-opt.zero{opacity:.45}
+.dd-t{flex:1}
+.dd-n{color:var(--muted);font-variant-numeric:tabular-nums;font-size:.9rem}
+.dd-clear{border:0;background:transparent;color:var(--rasp);padding:4px 8px;font-weight:500;font-size:.9rem}
+.dd-stale{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--line);margin-top:6px;padding:10px 8px 4px;font-size:.9rem;color:var(--muted)}
+@media (max-width:640px){.dd{position:static}.dd-pop{left:0;right:0;max-width:none}.fbar input#q{width:100%}.fcount{margin-left:0}}
+.badge.bad{background:var(--rasp-soft);color:var(--rasp)}
+.w-size{width:96px}
+@media (max-width:640px){.flabel{width:100%}}
+.pick-grp{font-weight:600;color:var(--rasp);padding:10px 0 4px;position:sticky;top:0;background:var(--paper)}
+tr.sgrp td{font-weight:600;color:var(--rasp);padding:8px 8px 4px;border-bottom:0}
+tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8px}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+
+@media (max-width:640px){
+  .wrap{padding:16px 12px 48px}
+  .stages{grid-template-columns:1fr;gap:18px}
+  .stages::before{left:21px;right:auto;top:10px;bottom:10px;width:4px;height:auto;background:repeating-linear-gradient(180deg,var(--line) 0 10px,transparent 10px 16px)}
+  .stage{flex-direction:row;align-items:center;text-align:left;gap:18px;padding:0}
+  .stage-name{margin-top:0}
+  .panel{padding:16px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1 id="chainName">Мережа солодощів</h1>
+      <p class="sub muted">Панель власника: де ми зараз і що робимо далі</p>
+    </div>
+    <p class="muted sub" id="updated"></p>
+  </header>
+
+  <div id="noDb" class="notice" hidden>Дані ще завантажуються. Якщо панель лишається порожньою, відкрийте її з чату Claude, де її створено.</div>
+
+  <section class="path" aria-labelledby="pathTitle">
+    <div class="path-head">
+      <h2 id="pathTitle">Де ми зараз</h2>
+      <span class="muted" id="overall"></span>
+    </div>
+    <ol class="stages" id="stages"></ol>
+    <div class="next" id="next" hidden>
+      <div><b>Наступний крок</b><span id="nextText"></span></div>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button class="tab" role="tab" data-tab="overview" aria-selected="true">Огляд</button>
+    <button class="tab" role="tab" data-tab="tasks" aria-selected="false">Задачі</button>
+    <button class="tab" role="tab" data-tab="ideas" aria-selected="false">Ідеї від Claude</button>
+    <button class="tab" role="tab" data-tab="products" aria-selected="false">Товари і ціни</button>
+    <button class="tab" role="tab" data-tab="tags" aria-selected="false">Цінники</button>
+    <button class="tab" role="tab" data-tab="expenses" aria-selected="false">Витрати</button>
+  </nav>
+
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  const STAGES = [
+    {n:1, name:"База товарів і витрат"},
+    {n:2, name:"Цінники з накладних"},
+    {n:3, name:"Міні-CRM"},
+    {n:4, name:"Інтернет-вітрина"}
+  ];
+  const S = {settings:{}, project:{}, tasks:[], ideas:[], products:[], expenses:[], tagSel:new Set(), F:{prod:newF(), tags:newF()}};
+  const TYPES = ["Напої","Цукерки","Печиво і вафлі","Торти і десерти","Інше"];
+  const NOTYPE = "Без типу";
+  const typeOf = p => p.type || NOTYPE;
+  const allTypes = () => [...TYPES, ...new Set(S.products.map(typeOf).filter(t=>t!==NOTYPE && !TYPES.includes(t)))];
+  const typeRank = t => { const i = allTypes().indexOf(t); return i<0 ? 999 : i; };
+  const sortByType = list => list.slice().sort((a,b)=> typeRank(typeOf(a))-typeRank(typeOf(b)) || String(a.category||"").localeCompare(String(b.category||""),"uk") || String(a.name).localeCompare(String(b.name),"uk"));
+  const typeOpts = cur => { const l = allTypes(); if (cur && cur!==NOTYPE && !l.includes(cur)) l.push(cur); return (cur===NOTYPE?`<option value="" selected>${NOTYPE}</option>`:"") + l.map(t=>`<option ${t===cur?"selected":""}>${esc(t)}</option>`).join(""); };
+  let db = null, downloads = null, mcp = null, tab = "overview", pending = false;
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const money = v => (Math.round(v*100)/100).toLocaleString("uk-UA",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const money0 = v => Math.round(v).toLocaleString("uk-UA");
+  const num = v => { const x = parseFloat(String(v).replace(",", ".")); return isFinite(x) ? x : 0; };
+
+  /* ---------- filters model ---------- */
+  const NOPACK = "Без пакування", NOSIZE = "Без розміру", NOCAT = "Без категорії";
+  const UNITS = [["шт","шт — штука"],["кг","кг — кілограм (ваговий)"],["100 г","100 г"],["уп","уп — упаковка"],["пач","пач — пачка"],["кор","кор — коробка"],["л","л — літр (розлив)"],["порц","порц — порція"],["набір","набір"]];
+  const unitOpts = v => (UNITS.some(u=>u[0]===v) ? UNITS : [[v,v],...UNITS]).map(([k,l])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(k)}</option>`).join("");
+  const unitPhrase = u => { u = u || "шт"; return u==="100 г" ? "грн за 100 г" : `грн за 1 ${u}`; };
+  const PACKS = ["Банка","ПЕТ","Скло","Стакан","Коробка","Пакет","Упаковка","Ваговий","Штучно"];
+  const CUPS = ["S","M","L","XL","XXL","3XL"];
+  const PRICE_LABEL = {ok:"Актуальна ціна", stale:"Застаріла ціна", none:"Немає ціни"};
+  const today = () => new Date().toISOString().slice(0,10);
+  const catKey = p => p.category || NOCAT;
+  const packKey = p => p.pack || NOPACK;
+  const sizeKey = p => p.size || NOSIZE;
+  const allPacks = () => [...PACKS, ...new Set(S.products.map(p=>p.pack).filter(x=>x && !PACKS.includes(x)))];
+  const staleDays = () => S.settings.staleDays ?? 30;
+  function priceState(p){
+    if (priceOf(p) <= 0) return "none";
+    const t = p.priceAt ? Date.parse(p.priceAt) : NaN;
+    if (!isFinite(t)) return "stale";
+    return (Date.now()-t)/864e5 > staleDays() ? "stale" : "ok";
+  }
+  function newF(){ return {q:"", types:new Set(), cats:new Set(), packs:new Set(), sizes:new Set(), price:new Set()}; }
+  const FACETS = [
+    {k:"types", label:"Група", val:typeOf},
+    {k:"cats", label:"Категорія", val:catKey},
+    {k:"packs", label:"Пакування", val:packKey},
+    {k:"sizes", label:"Розмір", val:sizeKey},
+    {k:"price", label:"Ціна", val:priceState}];
+  const curF = () => S.F[tab==="tags" ? "tags" : "prod"];
+  const isActive = f => !!f.q.trim() || FACETS.some(fc=>f[fc.k].size>0);
+  function matches(p, f, skip){
+    const q = f.q.trim().toLowerCase();
+    if (q && !String(p.name).toLowerCase().includes(q)) return false;
+    for (const fc of FACETS){ if (fc.k===skip) continue; const st = f[fc.k]; if (st.size && !st.has(fc.val(p))) return false; }
+    return true;
+  }
+  const filtered = f => S.products.filter(p=>matches(p,f,null));
+  function sizeRank(v){
+    if (v===NOSIZE) return 1e9;
+    const ci = CUPS.indexOf(String(v).toUpperCase()); if (ci>=0) return 5e4+ci;
+    const m = String(v).match(/^\s*(\d+(?:[.,]\d+)?)\s*(мл|л|кг|г)/i);
+    if (m){ let x = parseFloat(m[1].replace(",",".")); const u = m[2].toLowerCase(); if (u==="мл"||u==="г") x/=1000; return ((u==="л"||u==="мл") ? 0 : 1e4) + x; }
+    return 1e5;
+  }
+  function facetEntries(fc, f){
+    const m = new Map();
+    if (fc.k==="price") ["ok","stale","none"].forEach(k=>m.set(k,0));
+    S.products.forEach(p=>{ const v = fc.val(p); if (!m.has(v)) m.set(v,0); });
+    S.products.filter(p=>matches(p,f,fc.k)).forEach(p=>{ const v = fc.val(p); m.set(v,(m.get(v)||0)+1); });
+    const last = {types:NOTYPE, cats:NOCAT, packs:NOPACK, sizes:NOSIZE}[fc.k];
+    const pl = allPacks(), po = x => pl.indexOf(x)<0 ? 99 : pl.indexOf(x), PO = ["ok","stale","none"];
+    const ord = {
+      types:(a,b)=>typeRank(a)-typeRank(b),
+      cats:(a,b)=>a.localeCompare(b,"uk"),
+      packs:(a,b)=>po(a)-po(b),
+      sizes:(a,b)=>sizeRank(a)-sizeRank(b) || a.localeCompare(b,"uk"),
+      price:(a,b)=>PO.indexOf(a)-PO.indexOf(b)}[fc.k];
+    return [...m.entries()].sort((a,b)=> (a[0]===last)-(b[0]===last) || ord(a[0],b[0]));
+  }
+  function ddLabel(fc, f){
+    const st = f[fc.k]; if (!st.size) return fc.label;
+    const arr = [...st];
+    return `${fc.label}: ${arr.length===1 ? (fc.k==="price" ? PRICE_LABEL[arr[0]] : arr[0]) : arr.length+" обрано"}`;
+  }
+  function facetRow(fc, f){
+    const ents = facetEntries(fc, f), st = f[fc.k];
+    if (fc.k!=="price" && ents.length<=1 && !st.size) return "";
+    const open = S.openF===fc.k;
+    const opts = ents.map(([v,n])=>`<label class="dd-opt${n===0&&!st.has(v)?" zero":""}"><input type="checkbox" data-f="${fc.k}" data-v="${esc(v)}" ${st.has(v)?"checked":""}><span class="dd-t">${esc(fc.k==="price"?PRICE_LABEL[v]:v)}</span><span class="dd-n">${n}</span></label>`).join("");
+    const extra = fc.k==="price" ? `<label class="dd-stale">Застаріла — старіша за <select id="staleDays" aria-label="Через скільки днів ціна вважається застарілою">${[7,14,30,60,90].map(d=>`<option value="${d}" ${d===staleDays()?"selected":""}>${d} днів</option>`).join("")}</select></label>` : "";
+    return `<div class="dd${open?" open":""}${st.size?" active":""}"><button type="button" class="dd-btn" data-ddtoggle="${fc.k}" aria-expanded="${open}" aria-haspopup="true"><span class="dd-l">${esc(ddLabel(fc,f))}</span><span class="dd-caret" aria-hidden="true">▾</span></button>${open ? `<div class="dd-pop" role="group" aria-label="${fc.label}">${st.size?`<button type="button" class="dd-clear" data-fclear="${fc.k}">Очистити вибір</button>`:""}<div class="dd-list">${opts}</div>${extra}</div>` : ""}</div>`;
+  }
+  const facetsHtml = f => FACETS.map(fc=>facetRow(fc,f)).join("");
+  const countText = f => `${filtered(f).length} з ${S.products.length}`;
+  function filterBar(f){
+    return `<div class="fbar"><input id="q" type="text" placeholder="Пошук за назвою" value="${esc(f.q)}" aria-label="Пошук за назвою"><div id="facets">${facetsHtml(f)}</div><span class="fcount muted" id="fcount" title="Показано товарів з усіх">${countText(f)}</span><button type="button" class="btn soft fclear" id="fResetBtn" data-act="fReset" ${isActive(f)?"":"hidden"}>Скинути</button></div>`;
+  }
+  function refreshFilters(foc){
+    const f = curF(), list = filtered(f);
+    const fx = $("#facets"); if (fx) fx.innerHTML = facetsHtml(f);
+    if (foc && fx){ const e = [...fx.querySelectorAll("[data-f],[data-ddtoggle]")].find(x=> foc.k ? (x.dataset.f===foc.k && x.dataset.v===foc.v) : x.dataset.ddtoggle===foc.t); if (e) e.focus(); }
+    const c = $("#fcount"); if (c) c.textContent = countText(f);
+    const r = $("#fResetBtn"); if (r) r.hidden = !isActive(f);
+    const pl = $("#prodList"); if (pl) pl.innerHTML = productList(list);
+    const pk = $("#pickBox"); if (pk) pk.innerHTML = pickList(list);
+    if (tab==="tags") renderPreview();
+  }
+
+  function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2200); }
+
+  /* ---------- pricing ---------- */
+  const defMarkup = () => S.settings.defaultMarkup ?? 30;
+  function roundPrice(x){ const r = S.settings.rounding ?? 0.5; return Math.ceil(x/r - 1e-9)*r; }
+  function priceOf(p){
+    if (p.manualPrice && p.price != null) return num(p.price);
+    const m = p.markup ?? defMarkup();
+    return roundPrice(num(p.cost)*(1+num(m)/100));
+  }
+  const marginOf = p => { const pr = priceOf(p); return pr>0 ? (pr-num(p.cost))/pr : 0; };
+
+  /* ---------- db writes ---------- */
+  async function write(fn, ok){
+    if (!db) { toast("Зміни зараз не зберігаються"); return; }
+    try { await fn(); if (ok) toast(ok); }
+    catch(e){
+      if (e && e.code==="unavailable"){ await new Promise(r=>setTimeout(r,400+Math.random()*600)); try{ await fn(); if(ok) toast(ok); return; }catch(_){} }
+      toast(e && e.code==="invalid_argument" ? "Немає прав змінювати дані" : "Не вдалося зберегти, спробуйте ще раз");
+    }
+  }
+  const upd = (col,id,data,ok) => write(()=>db.collection(col).doc(id).update(data), ok);
+  const add = (col,data,ok) => write(()=>db.collection(col).add(data), ok);
+  const del = (col,id,ok) => write(()=>db.collection(col).doc(id).delete(), ok);
+  async function setDoc(path,data,ok){ await write(async()=>{ const ref=db.doc(path); const s=await ref.get(); s.exists ? await ref.update(data) : await ref.set(data); }, ok); }
+
+  function saveTag(patch){
+    const c = Object.assign(tagCfg(), patch); S.settings.tag = c; renderPreview();
+    if (db) setDoc("settings/main", {tag:c});
+  }
+  function saveStores(n, ok){
+    S.settings.storeNames = n; S.settings.stores = Math.max(1, n.length);
+    if (tab==="tags") render();
+    if (db) setDoc("settings/main", {storeNames:n, stores:Math.max(1, n.length)}, ok);
+  }
+  /* ---------- header + path ---------- */
+  function renderPath(){
+    $("#chainName").textContent = S.settings.chainName || "Мережа солодощів";
+    const cur = S.project.stage || 1;
+    const html = STAGES.map(st=>{
+      const ts = S.tasks.filter(t=>t.stage===st.n), d = ts.filter(t=>t.status==="done").length;
+      const cls = st.n<cur ? "done" : st.n===cur ? "now" : "";
+      const meta = ts.length ? `${d} з ${ts.length} задач` : "ще не почато";
+      return `<li class="stage ${cls}"><span class="candy" aria-hidden="true">${st.n<cur?"✓":st.n}</span>
+        <div><div class="stage-name">${esc(st.name)}</div><div class="stage-meta">${st.n===cur?"зараз тут · ":""}${meta}</div></div></li>`;
+    }).join("");
+    $("#stages").innerHTML = html;
+    const all = S.tasks.length, done = S.tasks.filter(t=>t.status==="done").length;
+    $("#overall").textContent = all ? `Виконано ${done} з ${all} задач` : "";
+    const nt = S.project.nextStep;
+    $("#next").hidden = !nt; $("#nextText").textContent = nt || "";
+    const u = S.project.updatedAt;
+    $("#updated").textContent = u ? "Оновлено " + new Date(u).toLocaleDateString("uk-UA",{day:"numeric",month:"long"}) : "";
+  }
+
+  /* ---------- tabs ---------- */
+  function render(){
+    const a = document.activeElement;
+    if (a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
+    pending = false;
+    renderPath();
+    const m = $("#main");
+    m.innerHTML = ({overview, tasks, ideas, products, tags, expenses})[tab]();
+    if (tab==="tags") renderPreview();
+  }
+  $("#main").addEventListener("focusout", ()=>setTimeout(()=>{ if(pending) render(); },0));
+  $("#tabs").addEventListener("click", e=>{
+    const b = e.target.closest(".tab"); if(!b) return;
+    tab = b.dataset.tab;
+    document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected", x===b));
+    render();
+  });
+
+  /* ---------- totals ---------- */
+  function totals(){
+    const fixed = S.expenses.filter(e=>e.group==="fixed").reduce((s,e)=>s+num(e.amount),0);
+    const variable = S.expenses.filter(e=>e.group!=="fixed").reduce((s,e)=>s+num(e.amount),0);
+    const ps = S.products.filter(p=>num(p.cost)>0);
+    const avgM = ps.length ? ps.reduce((s,p)=>s+marginOf(p),0)/ps.length : 0;
+    const be = avgM>0 ? (fixed+variable)/avgM : 0;
+    return {fixed, variable, avgM, be};
+  }
+
+  function overview(){
+    const t = totals();
+    const doing = S.tasks.filter(x=>x.status==="doing");
+    const fresh = S.ideas.filter(i=>!i.reaction);
+    return `<section class="panel"><div class="stats">
+      <div class="stat"><div class="v num">${S.products.length}</div><div class="l">товарів у базі</div></div>
+      <div class="stat"><div class="v num">${Math.round(t.avgM*100)}%</div><div class="l">середня маржа в ціні продажу</div></div>
+      <div class="stat"><div class="v num">${money0(t.fixed+t.variable)} грн</div><div class="l">витрати на місяць</div></div>
+      <div class="stat"><div class="v num">${t.be?money0(t.be)+" грн":"—"}</div><div class="l">виручка на місяць, щоб вийти в нуль</div></div>
+    </div></section>
+    <section class="panel"><div class="row between gap-lg"><h2>Зараз у роботі</h2><button class="btn soft" data-go="tasks">Усі задачі</button></div>
+      ${doing.length ? doing.map(taskRow).join("") : `<div class="empty">Нічого не в роботі. Відкрийте «Задачі» й позначте, за що беремося.</div>`}
+    </section>
+    <section class="panel"><div class="row between gap-lg"><h2>Ідеї, що чекають вашої відповіді</h2><button class="btn soft" data-go="ideas">Усі ідеї</button></div>
+      ${fresh.length ? `<div class="ideas">${fresh.slice(0,3).map(ideaCard).join("")}</div>` : `<div class="empty">На всі ідеї ви вже відповіли. Попросіть Claude в чаті запропонувати нові.</div>`}
+    </section>`;
+  }
+
+  /* ---------- tasks ---------- */
+  const ST_LABEL = {todo:"Не почато", doing:"В роботі", done:"Готово"};
+  const ST_NEXT = {todo:"doing", doing:"done", done:"todo"};
+  function taskRow(t){
+    const s = t.status || "todo";
+    return `<div class="task ${s}"><button class="chip ${s}" data-cycle="${t.id}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>
+      <span class="t">${esc(t.title)}</span><button class="x" data-del-task="${t.id}" aria-label="Видалити задачу">×</button></div>`;
+  }
+  function tasks(){
+    const opts = STAGES.map(s=>`<option value="${s.n}">${s.n}. ${esc(s.name)}</option>`).join("");
+    return `<section class="panel"><p class="muted gap-lg">Натискайте на статус задачі, щоб перемкнути його: не почато → в роботі → готово.</p>
+      ${STAGES.map(st=>{
+        const ts = S.tasks.filter(t=>t.stage===st.n);
+        return `<div class="stage-block"><h3>${st.n}. ${esc(st.name)}</h3>${ts.length?ts.map(taskRow).join(""):`<p class="muted" style="padding:8px 0">Задач поки немає</p>`}</div>`;
+      }).join("")}
+    </section>
+    <section class="panel"><h3 class="gap-lg">Додати задачу</h3>
+      <div class="row"><input id="newTask" type="text" placeholder="Що треба зробити" style="flex:1;min-width:200px"><select id="newTaskStage">${opts}</select><button class="btn" data-act="addTask">Додати</button></div>
+    </section>`;
+  }
+
+  /* ---------- ideas ---------- */
+  function ideaCard(i){
+    const r = i.reaction;
+    return `<article class="idea ${r||""}"><h3>${esc(i.title)}</h3><p class="muted">${esc(i.text)}</p>
+      <div class="acts">${r ? `<span class="muted">${r==="yes"?"Беремо в роботу":"Відкладено"}</span><button class="btn soft" data-react="${i.id}" data-v="">Змінити</button>`
+        : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Так, цікаво</button><button class="btn soft" data-react="${i.id}" data-v="no">Не зараз</button>`}</div></article>`;
+  }
+  function ideas(){
+    return `<section class="panel"><p class="muted gap-lg">Claude пропонує ідеї для мережі. Відповідайте «Так» або «Не зараз» — у чаті я побачу вашу відповідь і розпишу план для того, що вам сподобалось.</p>
+      ${S.ideas.length?`<div class="ideas">${S.ideas.map(ideaCard).join("")}</div>`:`<div class="empty">Ідей поки немає</div>`}</section>
+    <section class="panel"><h3 class="gap-lg">Своя ідея</h3><div class="row"><input id="newIdea" type="text" placeholder="Коротко опишіть ідею" style="flex:1;min-width:200px"><button class="btn" data-act="addIdea">Записати</button></div></section>`;
+  }
+
+  /* ---------- products ---------- */
+  const cats = () => [...new Set(S.products.map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"uk"));
+  const packOpts = cur => { const l = allPacks(); if (cur && !l.includes(cur)) l.push(cur); return `<option value="">${NOPACK}</option>` + l.map(x=>`<option ${x===cur?"selected":""}>${esc(x)}</option>`).join(""); };
+  function productList(list){
+    if (!list.length) return `<div class="empty">${S.products.length ? `Нічого не знайдено за цими фільтрами. <button class="btn soft" data-act="fReset">Скинути фільтри</button>` : "Товарів ще немає. Надішліть накладну в чат або додайте товар нижче."}</div>`;
+    return `<div class="scroll"><table><thead><tr><th>Назва</th><th>Тип</th><th>Пакування</th><th>Об’єм / вага</th><th>Од.</th><th class="r">Закупівля, грн</th><th class="r">Націнка, %</th><th class="r">Ціна продажу, грн</th><th class="r">Заробіток з одиниці</th><th>Ціна оновлена</th><th></th></tr></thead><tbody>
+      ${sortByType(list).map((p,i,arr)=>{const pr=priceOf(p), st=priceState(p);
+        const head = (i===0||typeOf(arr[i-1])!==typeOf(p)) ? `<tr class="grp"><th colspan="11">${esc(typeOf(p))} · ${arr.filter(x=>typeOf(x)===typeOf(p)).length}</th></tr>` : "";
+        const sub = (i===0||typeOf(arr[i-1])!==typeOf(p)||catKey(arr[i-1])!==catKey(p)) ? `<tr class="sgrp"><td colspan="11">${esc(catKey(p))}</td></tr>` : "";
+        const when = p.priceAt ? new Date(p.priceAt).toLocaleDateString("uk-UA",{day:"numeric",month:"short"}) : "—";
+        const stCell = st==="none" ? `<span class="badge bad">немає ціни</span>` : st==="stale" ? `<span class="badge">застаріла</span> ${when}` : `<span class="muted">${when}</span>`;
+        return head+sub+`<tr>
+        <td>${esc(p.name)}${p.example?'<span class="badge">приклад</span>':""}</td>
+        <td><select data-ptype data-id="${p.id}" aria-label="Тип товару">${typeOpts(typeOf(p))}</select></td>
+        <td><select data-ppack data-id="${p.id}" aria-label="Пакування">${packOpts(p.pack||"")}</select></td>
+        <td><input type="text" class="w-size" value="${esc(p.size||"")}" data-psize data-id="${p.id}" aria-label="Розмір" placeholder="—"></td>
+        <td><select data-punit data-id="${p.id}" aria-label="Одиниця продажу">${unitOpts(p.unit||"шт")}</select></td>
+        <td class="r"><input type="number" step="0.01" min="0" value="${num(p.cost)}" data-pf="cost" data-id="${p.id}" aria-label="Закупівля"></td>
+        <td class="r"><input type="number" step="1" value="${p.markup??defMarkup()}" data-pf="markup" data-id="${p.id}" aria-label="Націнка"></td>
+        <td class="r"><input type="number" step="0.01" min="0" value="${pr}" data-pf="price" data-id="${p.id}" aria-label="Ціна продажу" title="${p.manualPrice?"Ціну задано вручну":"Ціна рахується з націнки"}"></td>
+        <td class="r num">${num(p.cost)>0 ? `${money(pr-num(p.cost))} грн · ${Math.round(marginOf(p)*100)}%` : "—"}</td>
+        <td>${stCell}</td>
+        <td><button class="x" data-del-prod="${p.id}" aria-label="Видалити товар">×</button></td></tr>`;}).join("")}
+      </tbody></table></div>`;
+  }
+  function products(){
+    const f = S.F.prod, hasEx = S.products.some(p=>p.example);
+    return `<section class="panel"><div id="linkBox">${linkInner()}</div></section>
+    <section class="panel">
+      <h2 class="gap-lg">Товари і ціни</h2>
+      <div class="notice">Щоб додати товари з прибуткової накладної, надішліть її в чат Claude (Excel, PDF або фото) і скажіть націнку, наприклад «+30%». Я внесу все сюди.</div>
+      ${filterBar(f)}
+      ${hasEx?`<p class="muted gap-lg">Товари з позначкою «приклад» — для орієнтиру. <button class="btn soft" data-act="clearEx">Прибрати приклади</button></p>`:""}
+      <div id="prodList">${productList(filtered(f))}</div>
+    </section>
+    <section class="panel"><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></section>
+    <section class="panel"><h3 class="gap-lg">Змінити націнку одним махом</h3>
+      <div class="row"><label class="inl">Нова націнка <input id="bulkM" type="number" value="${defMarkup()}"> %</label>
+      <select id="bulkC"><option value="">для всіх товарів</option><option value="__f">лише показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join("")}</select>
+      <button class="btn" data-act="bulk">Застосувати</button></div>
+      <div class="row" style="margin-top:14px"><label class="inl">Округлення цін
+        <select id="rounding">${[[0.01,"до копійки"],[0.1,"до 10 коп."],[0.5,"до 50 коп."],[1,"до гривні"]].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?"selected":""}>${l}</option>`).join("")}</select></label></div>
+    </section>
+    <section class="panel"><h3 class="gap-lg">Додати товар вручну</h3>
+      <div class="row"><input id="npName" type="text" placeholder="Назва" style="flex:2;min-width:180px"><select id="npType" aria-label="Тип">${typeOpts(TYPES[0])}</select><input id="npCat" type="text" placeholder="Категорія" list="catList" style="flex:1;min-width:120px">
+      <datalist id="catList">${cats().map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
+      <select id="npPack" aria-label="Пакування">${packOpts("")}</select><input id="npSize" type="text" class="w-size" placeholder="Розмір: 0,5 л" aria-label="Розмір">
+      <select id="npUnit">${UNITS.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select>
+      <label class="inl">Закупівля <input id="npCost" type="number" step="0.01" min="0"></label>
+      <label class="inl">Націнка <input id="npMarkup" type="number" value="${defMarkup()}"> %</label>
+      <button class="btn" data-act="addProd">Додати</button></div></section>`;
+  }
+
+  /* ---------- price tags ---------- */
+  const TAG_DEF = {size:"s", border:"dash", chain:true, store:true, storeIdx:0, name:true, nameBig:false, pack:true, psize:true, price:true, kop:false, unit:true, per100:true, category:true, date:true, custom:""};
+  const TAG_EL = [["chain","Назва мережі"],["store","Назва магазину"],["name","Назва товару"],["pack","Тип пакування"],["psize","Об’єм / вага"],["price","Ціна"],["unit","Одиниця (грн за 1 шт/кг)"],["per100","Ціна за 100 г (вагові)"],["category","Категорія"],["date","Дата"]];
+  const TAG_SIZES = {s:[58,40,"малий 58×40 мм"], m:[75,50,"середній 75×50 мм"], l:[100,70,"великий 100×70 мм"]};
+  const tagCfg = () => Object.assign({}, TAG_DEF, S.settings.tag || {});
+  const storeNames = () => Array.isArray(S.settings.storeNames) ? S.settings.storeNames : [];
+  const PACK_LBL = {"ПЕТ":"Пляшка ПЕТ", "Скло":"Скляна пляшка", "Ваговий":"На вагу", "Штучно":"Поштучно"};
+  const packLabel = v => v ? (PACK_LBL[v] || v) : "";
+  function sizeLabel(p){
+    let v = String(p.size||"").trim(); if (!v) return "";
+    if (/^\d+([.,]\d+)?$/.test(v)){ // число без одиниць: здогадуємось за пакуванням
+      const n = parseFloat(v.replace(",", "."));
+      v += ["ПЕТ","Скло","Банка"].includes(p.pack) ? (n < 10 ? " л" : " мл") : " г";
+    }
+    if (/\d\s*(л|мл|l|ml)(?![a-zа-яіїєґ])/i.test(v)) return "об’єм " + v;
+    if (/\d\s*(г|кг|g|kg)(?![a-zа-яіїєґ])/i.test(v)) return "вага " + v;
+    return (p.pack==="Стакан" ? "розмір " : "") + v;
+  }
+  function tagParts(p, c){
+    const pr = priceOf(p), kg = p.unit==="кг", st = storeNames()[c.storeIdx] || "";
+    const priceTxt = c.kop ? money(pr) : (Math.abs(pr-Math.round(pr))<0.005 ? money0(pr) : money(pr));
+    const packTxt = [c.pack ? packLabel(p.pack) : "", c.psize ? sizeLabel(p) : ""].filter(Boolean).join(" · ");
+    return {
+      hl: c.chain ? (S.settings.chainName || "Мережа солодощів") : "",
+      hr: c.store ? st : "",
+      custom: (c.custom||"").trim(),
+      name: c.name ? (p.name||"") : "",
+      pack: packTxt,
+      price: c.price ? priceTxt : "",
+      unit: [c.unit ? unitPhrase(p.unit) : "", c.per100 && kg && pr>0 ? `100 г — ${money(pr/10)} грн` : ""].filter(Boolean).join(" · "),
+      fl: c.category ? (p.category||"") : "",
+      fr: c.date ? new Date().toLocaleDateString("uk-UA") : ""
+    };
+  }
+  function tagMarkup(p, c = tagCfg()){
+    const t = tagParts(p, c);
+    return `<div class="tag ${c.size} b-${c.border}"><div class="t-top">
+      ${t.hl||t.hr ? `<div class="t-hd"><span>${esc(t.hl)}</span><span>${esc(t.hr)}</span></div>` : ""}
+      ${t.custom ? `<div class="t-cu">${esc(t.custom)}</div>` : ""}
+      ${t.name ? `<div class="nm${c.nameBig?" big":""}">${esc(t.name)}</div>` : ""}
+      ${t.pack ? `<div class="t-pk">${esc(t.pack)}</div>` : ""}</div>
+      <div>${t.price ? `<div class="pr">${esc(t.price)}${c.unit?"":`<small>грн</small>`}</div>` : ""}${t.unit ? `<div class="un">${esc(t.unit)}</div>` : ""}
+      ${t.fl||t.fr ? `<div class="ft"><span>${esc(t.fl)}</span><span>${esc(t.fr)}</span></div>` : ""}</div></div>`;
+  }
+  const SAMPLE = {name:"Капучино XL", category:"Кав'ярня", pack:"Стакан", size:"XL", unit:"шт", manualPrice:true, price:49};
+  function samplePrd(){ const sel = selectedProducts(); return sel[0] || S.products.find(p=>priceOf(p)>0) || SAMPLE; }
+  function storeList(){
+    const n = storeNames();
+    return `<div class="stl">${n.map((v,i)=>`<div class="strow"><input type="text" data-store="${i}" value="${esc(v)}" placeholder="Напр. «ТЦ Глобус» або «вул. Шевченка, 12»" aria-label="Назва магазину ${i+1}"><button class="btn soft" data-act="delStore" data-i="${i}" aria-label="Видалити магазин">✕</button></div>`).join("") || `<p class="muted">Магазинів ще немає.</p>`}</div>
+      <div class="row"><button class="btn soft" data-act="addStore">+ Додати магазин</button></div>`;
+  }
+  function tagBuilder(){
+    const c = tagCfg(), n = storeNames();
+    return `<section class="panel"><h2 class="gap-lg">Конструктор цінника</h2>
+      <div class="tcfg"><div>
+        <h4>Що є на цінику</h4>
+        <div class="tels">${TAG_EL.map(([k,l])=>`<label><input type="checkbox" data-tc="${k}" ${c[k]?"checked":""}> ${l}</label>`).join("")}</div>
+        <div class="row"><label class="inl">Свій напис <input type="text" id="tcCustom" maxlength="40" value="${esc(c.custom)}" placeholder="Напр. Акція, Новинка, −20%" style="width:200px"></label></div>
+        <div class="row">
+          <label class="inl">Розмір <select id="tcSize">${Object.entries(TAG_SIZES).map(([k,v])=>`<option value="${k}" ${c.size===k?"selected":""}>${v[2]}</option>`).join("")}</select></label>
+          <label class="inl">Рамка <select id="tcBorder"><option value="dash" ${c.border==="dash"?"selected":""}>пунктир (для різання)</option><option value="solid" ${c.border==="solid"?"selected":""}>суцільна</option><option value="none" ${c.border==="none"?"selected":""}>без рамки</option></select></label></div>
+        <div class="row">
+          <label class="inl"><input type="checkbox" data-tc="nameBig" ${c.nameBig?"checked":""}> Велика назва</label>
+          <label class="inl"><input type="checkbox" data-tc="kop" ${c.kop?"checked":""}> Завжди з копійками (49,00)</label></div>
+      </div><div>
+        <h4>Магазини</h4>
+        <div class="row" style="margin-top:0"><label class="inl">Назва мережі <input type="text" id="chainIn" value="${esc(S.settings.chainName||"")}" placeholder="Мережа солодощів" style="width:220px"></label></div>
+        <div style="margin-top:10px">${storeList()}</div>
+        ${n.length ? `<div class="row"><label class="inl">Друкуємо для <select id="tcStore">${n.map((v,i)=>`<option value="${i}" ${c.storeIdx===i?"selected":""}>${esc(v||`Магазин ${i+1}`)}</option>`).join("")}</select></label></div>` : ""}
+      </div></div>
+      <div class="tsample" id="tsample">${tagMarkup(samplePrd(), c)}</div>
+      <p class="muted" style="margin-top:8px">Зразок оновлюється одразу. Налаштування зберігаються і діють для друку, PDF і для всіх, хто відкриває дашборд.</p>
+    </section>`;
+  }
+  function pickList(list){
+    if (!S.products.length) return `<div class="empty">Спершу додайте товари у вкладці «Товари і ціни»</div>`;
+    if (!list.length) return `<div class="empty">Нічого не знайдено за цими фільтрами. <button class="btn soft" data-act="fReset">Скинути фільтри</button></div>`;
+    return `<div class="pick">${sortByType(list).map((p,i,arr)=>{
+      const sub = (i===0||catKey(arr[i-1])!==catKey(p)||typeOf(arr[i-1])!==typeOf(p)) ? `<div class="pick-grp">${esc(catKey(p))}</div>` : "";
+      const st = priceState(p), ptxt = st==="none" ? "немає ціни" : money(priceOf(p))+" грн"+(st==="stale" ? " · застаріла" : "");
+      return sub+`<label><input type="checkbox" data-tag="${p.id}" ${S.tagSel.has(p.id)?"checked":""}><span style="flex:1">${esc(p.name)}</span><span class="num">${ptxt}</span></label>`;}).join("")}</div>`;
+  }
+  const syncChecks = () => document.querySelectorAll("[data-tag]").forEach(cb=>{ cb.checked = S.tagSel.has(cb.dataset.tag); });
+  function tags(){
+    const f = S.F.tags;
+    return `<section class="panel"><h2 class="gap-lg">Цінники</h2>
+      ${syncNote()}
+      ${filterBar(f)}
+      <div class="row" style="margin:8px 0 12px"><button class="btn soft" data-act="selShown">Вибрати всі показані</button><button class="btn soft" data-act="unselShown">Зняти показані</button><button class="btn soft" data-act="selNone">Очистити вибір</button></div>
+      <div id="pickBox">${pickList(filtered(f))}</div>
+      <div class="row" style="margin-top:14px" id="dlRow">
+        <button class="btn rasp" data-act="printTags" data-need="any">🖨 Друкувати</button>
+        <button class="btn" data-act="dlPdf" data-need="dl">Завантажити PDF</button>
+        ${sheetBtn()}
+        <button class="btn soft" data-act="dlCsv" data-need="dl">Завантажити CSV</button>
+        <span class="muted" id="selCount"></span></div>
+      <p class="muted" id="dlHint" style="margin-top:10px"></p>
+      <p class="muted" id="dlNote" style="margin-top:10px">${downloads?"У PDF цінники розкладені на аркуші А4 з пунктиром для різання. Друкуйте в масштабі 100%, без «вмістити на сторінку».":"Завантаження файлів тут недоступне. Напишіть у чат «зроби цінники в PDF» — і я надішлю готовий файл."}</p>
+    </section>
+    ${tagBuilder()}
+    <section class="panel"><h3>Вибрані цінники</h3><div class="preview" id="preview"></div></section>`;
+  }
+  function selectedProducts(){ return S.products.filter(p=>S.tagSel.has(p.id)); }
+  function renderPreview(){
+    const list = selectedProducts();
+    const ts = $("#tsample"); if (ts) ts.innerHTML = tagMarkup(samplePrd());
+    const pv = $("#preview"); if(!pv) return;
+    pv.innerHTML = list.length ? list.slice(0,6).map(p=>tagMarkup(p)).join("") + (list.length>6?`<p style="align-self:center;color:#555">і ще ${list.length-6}</p>`:"")
+      : `<p style="color:#555">Позначте товари вище, і тут з’являться цінники</p>`;
+    const noPrice = list.filter(p=>priceState(p)==="none").length, stale = list.filter(p=>priceState(p)==="stale").length;
+    const c = $("#selCount"); if(c) c.textContent = list.length ? `Вибрано: ${list.length}` + (noPrice ? `, без ціни: ${noPrice}` : "") + (stale ? `, із застарілою ціною: ${stale}` : "") : "";
+    document.querySelectorAll("#dlRow [data-need]").forEach(b=>{ b.disabled = !list.length || (b.dataset.need==="dl" && !downloads); });
+    const h = $("#dlHint"); if (h) h.textContent = !list.length ? "Кнопки друку й завантаження стануть активними, коли ви позначите товари у списку вище." : "";
+  }
+  function printableHtml(list){
+    const css = [...document.styleSheets[1]?.cssRules||[]].length ? "" : "";
+    return `<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"><title>Цінники</title>
+<style>@page{size:A4;margin:8mm}body{margin:0;font-family:Arial,sans-serif}
+.sheet{display:flex;flex-wrap:wrap;gap:0}
+.tag{border:1px dashed #999;padding:2mm 3mm;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;break-inside:avoid;color:#1c1c1c}
+.tag.s{width:58mm;height:40mm}.tag.m{width:75mm;height:50mm}.tag.l{width:100mm;height:70mm}
+.ch{font-size:7pt;color:#777}.nm{font-size:10pt;font-weight:bold;line-height:1.15}
+.pr{font-size:22pt;font-weight:bold;line-height:1}.tag.m .pr{font-size:28pt}
+.un{font-size:8pt;color:#444}.ft{display:flex;justify-content:space-between;font-size:7pt;color:#777}
+.hint{font-size:12px;color:#555;margin:0 0 6mm}@media print{.hint{display:none}}</style></head>
+<body><p class="hint">Натисніть Ctrl+P (або «Друк»), щоб надрукувати. Масштаб — 100%.</p><div class="sheet">${list.map(p=>tagMarkup(p)).join("")}</div></body></html>`;
+  }
+  function printTags(){
+    const list = sortByType(selectedProducts()); if (!list.length) return;
+    let pa = document.getElementById("printArea");
+    if (!pa){ pa = document.createElement("div"); pa.id = "printArea"; document.body.appendChild(pa); }
+    pa.innerHTML = list.map(p=>tagMarkup(p)).join("");
+    const t0 = Date.now();
+    try{ window.print(); }catch(e){}
+    // якщо вікно друку не відкрилося (браузер заблокував), print() повертається миттєво
+    if (Date.now()-t0 < 150) toast("Якщо вікно друку не з’явилося, натисніть Ctrl+P (на Mac — Cmd+P) або скористайтеся кнопкою «Завантажити PDF».");
+  }
+  /* ---------- PDF (без бібліотек: малюємо аркуші на canvas і пакуємо в PDF) ---------- */
+  const PX_MM = 300/25.4, PT = 300/72;
+  function wrapText(ctx, text, maxW, maxLines){
+    const words = String(text).split(/\s+/), lines = []; let cur = "";
+    for (const w of words){
+      const t = cur ? cur+" "+w : w;
+      if (!cur || ctx.measureText(t).width <= maxW) cur = t; else { lines.push(cur); cur = w; }
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines){
+      let last = lines.slice(maxLines-1).join(" ");
+      while (last.length>1 && ctx.measureText(last+"…").width > maxW) last = last.slice(0,-1);
+      lines.length = maxLines-1; lines.push(last+"…");
+    }
+    return lines;
+  }
+  function drawTag(ctx, x, y, p, c){
+    const [wm, hm] = TAG_SIZES[c.size] || TAG_SIZES.s, k = c.size==="l" ? 1.65 : c.size==="m" ? 1.25 : 1;
+    const w = wm*PX_MM, h = hm*PX_MM, padX = 3*k*PX_MM, padY = 2*k*PX_MM, iw = w-2*padX;
+    const F = 'Rubik, Arial, sans-serif', t = tagParts(p, c), pt = v => v*k*PT;
+    ctx.save();
+    if (c.border!=="none"){
+      if (c.border==="dash") ctx.setLineDash([PX_MM*1.2, PX_MM*0.8]);
+      ctx.lineWidth = 2; ctx.strokeStyle = c.border==="solid" ? "#555" : "#999"; ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
+    } else { ctx.lineWidth = 1; ctx.strokeStyle = "#eee"; ctx.strokeRect(x, y, w, h); }
+    ctx.textBaseline = "top";
+    const fit = (txt, maxW) => { let v = String(txt); if (ctx.measureText(v).width <= maxW) return v; while (v.length>1 && ctx.measureText(v+"…").width > maxW) v = v.slice(0,-1); return v+"…"; };
+    // верх
+    let ty = y+padY;
+    if (t.hl || t.hr){
+      ctx.fillStyle = "#777"; ctx.font = `400 ${pt(7)}px ${F}`;
+      const rw = t.hr ? Math.min(ctx.measureText(t.hr).width, t.hl ? iw*0.55 : iw) : 0;
+      if (t.hl){ ctx.textAlign = "left"; ctx.fillText(fit(t.hl, t.hr ? iw-rw-2*PX_MM : iw), x+padX, ty); }
+      if (t.hr){ ctx.textAlign = "right"; ctx.fillText(fit(t.hr, rw+1), x+w-padX, ty); }
+      ty += pt(7)*1.25;
+    }
+    ctx.textAlign = "left";
+    if (t.custom){ ctx.fillStyle = "#c2185b"; ctx.font = `700 ${pt(8)}px ${F}`; ty += 0.5*PX_MM; ctx.fillText(fit(t.custom, iw), x+padX, ty); ty += pt(8)*1.2; }
+    if (t.name){
+      const ns = c.nameBig ? 12.5 : 10;
+      ctx.fillStyle = "#1c1c1c"; ctx.font = `600 ${pt(ns)}px ${F}`; ty += 0.8*PX_MM;
+      wrapText(ctx, t.name, iw, 2).forEach(l=>{ ctx.fillText(l, x+padX, ty); ty += pt(ns)*1.15; });
+    }
+    if (t.pack){ ctx.fillStyle = "#555"; ctx.font = `400 ${pt(7.5)}px ${F}`; ty += 0.5*PX_MM; ctx.fillText(fit(t.pack, iw), x+padX, ty); }
+    // низ (знизу вгору)
+    let by = y+h-padY;
+    if (t.fl || t.fr){
+      ctx.fillStyle = "#777"; ctx.font = `400 ${pt(7)}px ${F}`; by -= pt(7)*1.2;
+      if (t.fl){ ctx.textAlign = "left"; ctx.fillText(fit(t.fl, t.fr ? iw*0.62 : iw), x+padX, by); }
+      if (t.fr){ ctx.textAlign = "right"; ctx.fillText(t.fr, x+w-padX, by); }
+      ctx.textAlign = "left";
+    }
+    if (t.unit){ ctx.fillStyle = "#444"; ctx.font = `400 ${pt(8)}px ${F}`; by -= pt(8)*1.3; ctx.fillText(fit(t.unit, iw), x+padX, by); }
+    if (t.price){
+      const ps = pt(22); by -= ps*1.02;
+      ctx.fillStyle = "#1c1c1c"; ctx.font = `700 ${ps}px ${F}`; ctx.fillText(t.price, x+padX, by);
+      if (!c.unit){ const pw = ctx.measureText(t.price).width; ctx.font = `600 ${ps*0.45}px ${F}`; ctx.fillText("грн", x+padX+pw+1*PX_MM, by+ps*0.5); }
+    }
+    ctx.restore();
+  }
+  function pdfFromJpegs(pages){
+    const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+    const put = d => { const u = typeof d==="string" ? enc.encode(d) : d; parts.push(u); len += u.length; };
+    const PW = 595.28, PH = 841.89, n = pages.length;
+    put("%PDF-1.4\n");
+    offs[1] = len; put("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+    offs[2] = len; put(`2 0 obj\n<< /Type /Pages /Count ${n} /Kids [${pages.map((_,i)=>`${3+3*i} 0 R`).join(" ")}] >>\nendobj\n`);
+    pages.forEach((pg,i)=>{
+      const pid = 3+3*i, cid = pid+1, iid = pid+2, content = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
+      offs[pid] = len; put(`${pid} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${iid} 0 R >> >> /Contents ${cid} 0 R >>\nendobj\n`);
+      offs[cid] = len; put(`${cid} 0 obj\n<< /Length ${content.length} >>\nstream\n${content}\nendstream\nendobj\n`);
+      offs[iid] = len; put(`${iid} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pg.w} /Height ${pg.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${pg.bytes.length} >>\nstream\n`);
+      put(pg.bytes); put("\nendstream\nendobj\n");
+    });
+    const total = 3+3*n, xref = len;
+    put(`xref\n0 ${total}\n0000000000 65535 f \n` + offs.slice(1).map(o=>String(o).padStart(10,"0")+" 00000 n \n").join(""));
+    put(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(parts, {type:"application/pdf"});
+  }
+  async function makePdf(btn){
+    const list = sortByType(selectedProducts());
+    if (!list.length || !downloads) return;
+    const label = btn.textContent; btn.disabled = true; btn.textContent = "Готую PDF…";
+    try{
+      try{ const txt = "Абвгґдеєжзиіїйклмнопрстуфхцчшщьюя АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ 0123456789 ABCabc";
+        await Promise.all(["400","600","700"].map(wt=>document.fonts.load(`${wt} 20px Rubik`, txt))); }catch(_){}
+      const c = tagCfg(), [tw, th] = TAG_SIZES[c.size] || TAG_SIZES.s, M = 8;
+      const cols = Math.floor((210-2*M)/tw), rows = Math.floor((297-2*M)/th), per = cols*rows;
+      const W = Math.round(210*PX_MM), H = Math.round(297*PX_MM);
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      const ctx = cv.getContext("2d"), pages = [];
+      for (let i=0; i<list.length; i+=per){
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+        list.slice(i, i+per).forEach((p,j)=> drawTag(ctx, (M+(j%cols)*tw)*PX_MM, (M+Math.floor(j/cols)*th)*PX_MM, p, c));
+        const blob = await new Promise(r=>cv.toBlob(r, "image/jpeg", 0.92));
+        pages.push({bytes:new Uint8Array(await blob.arrayBuffer()), w:W, h:H});
+      }
+      await save(`tsinnyky-${new Date().toISOString().slice(0,10)}.pdf`, pdfFromJpegs(pages));
+    }catch(e){ toast("Не вдалося зібрати PDF, спробуйте ще раз"); }
+    finally{ btn.textContent = label; renderPreview(); }
+  }
+  function csv(list){
+    const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
+    const rows = [["Назва","Категорія","Одиниця","Ціна, грн","Ціна за 100 г, грн"]].concat(list.map(p=>{const pr=priceOf(p);return [p.name,p.category||"",p.unit||"шт",money(pr),p.unit==="кг"?money(pr/10):""];}));
+    return "\uFEFF" + rows.map(r=>r.map(q).join(";")).join("\r\n");
+  }
+  async function save(filename, data){
+    if(!downloads) return;
+    try{ await downloads.save({filename, data}); toast("Файл збережено"); }
+    catch(e){ if(e&&e.code==="declined") return; toast(e&&e.code==="rate_limited"?"Зачекайте кілька секунд і спробуйте ще раз":"Не вдалося зберегти файл"); }
+  }
+
+  /* ---------- import from Excel ---------- */
+  let xlsxP = null;
+  const loadXlsx = () => xlsxP || (xlsxP = new Promise((res, rej)=>{
+    if (window.XLSX) return res(window.XLSX);
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = () => res(window.XLSX);
+    s.onerror = () => { xlsxP = null; rej(new Error("load")); };
+    document.head.appendChild(s);
+  }));
+  const norm = v => String(v ?? "").toLowerCase().replace(/[.,:;()№]/g, " ").replace(/\s+/g, " ").trim();
+  function parseNum(v){
+    if (typeof v === "number") return isFinite(v) ? v : 0;
+    const x = parseFloat(String(v ?? "").replace(/[\s ]/g, "").replace(/грн|₴|uah/gi, "").replace(",", "."));
+    return isFinite(x) ? x : 0;
+  }
+  function unitNorm(v){
+    const s = norm(v);
+    if (!s) return "";
+    if (["кг","kg","кілограм","кілограми","кілограмів"].includes(s)) return "кг";
+    if (["100 г","100г","100 гр","100 g"].includes(s)) return "100 г";
+    if (["уп","упак","упаковка","pack"].includes(s)) return "уп";
+    if (["пач","пачка","пачок"].includes(s)) return "пач";
+    if (["кор","коробка","короб","box"].includes(s)) return "кор";
+    if (["л","літр","литр","l"].includes(s)) return "л";
+    if (["порц","порція","порция"].includes(s)) return "порц";
+    if (["набір","набор","set"].includes(s)) return "набір";
+    return "шт";
+  }
+
+  function typeNorm(v){
+    const raw = String(v ?? "").trim(); if (!raw) return "";
+    return allTypes().find(t=>norm(t)===norm(raw)) || raw;
+  }
+  const packNorm = v => { const t = norm(v); if (!t) return ""; return allPacks().find(x=>norm(x)===t) || String(v).trim(); };
+  function packFromName(n){
+    if (/банк/i.test(n)) return "Банка";
+    if (/скл(о|ян)/i.test(n)) return "Скло";
+    if (/(^|[^а-яіїєґ])пет([^а-яіїєґ]|$)/i.test(n)) return "ПЕТ";
+    return "";
+  }
+  function sizeFromName(n){
+    const m = String(n).match(/(\d+(?:[.,]\d+)?)\s*(мл|л|кг|г)(?![а-яіїєґ])/i);
+    return m ? `${m[1].replace(".",",")} ${m[2].toLowerCase()}` : "";
+  }
+  function parseSheet(aoa, fileName){
+    const isName = h => h==="назва" || h==="товар" || h==="name" || h.includes("назв") || h.includes("найменув") || h.includes("номенклатур");
+    const hi = aoa.slice(0, 20).findIndex(r => r.map(norm).some(isName) && r.filter(c=>String(c).trim()!=="").length >= 2);
+    if (hi < 0) return {fileName, error:"Не знайшов стовпець із назвою товару. Назвіть його «Назва» або «Найменування» у рядку із заголовками таблиці."};
+    const hdr = aoa[hi].map(norm), used = new Set(), col = {};
+    const take = (key, pred) => { const i = hdr.findIndex((h,i)=>h && !used.has(i) && pred(h)); if (i>=0){ used.add(i); col[key]=i; } };
+    take("name", isName);
+    take("price", h=>h.includes("ціна продаж") || h.includes("ціна прод") || h.includes("роздр") || h==="продаж" || h==="price");
+    take("cost", h=>h.includes("закупів") || h.includes("закуп") || h.includes("собівартість") || h.includes("вхідн") || h.includes("ціна прихо") || h==="cost");
+    take("markup", h=>h.includes("націнк") || h==="%" || h==="markup");
+    take("type", h=>h==="тип" || h.startsWith("тип ") || h.startsWith("група") || h==="вид");
+    take("category", h=>h.includes("категор"));
+    take("pack", h=>h.includes("пакуван") || h==="тара");
+    take("size", h=>h.includes("розмір") || h.includes("фасув") || /об.?[єе]м/.test(h));
+    take("unit", h=>h==="од" || h.startsWith("од ") || h.includes("одиниц") || h.includes("вим") || h==="unit" || h==="шт/кг");
+    if (col.cost === undefined && col.price === undefined) take("generic", h=>h.startsWith("ціна"));
+    const c = (r,k) => col[k]===undefined ? "" : r[col[k]];
+    const rows = aoa.slice(hi+1).map(r=>{
+      let mk = c(r,"markup"); const mkRaw = String(mk); mk = parseNum(mk); if (mk>0 && mk<1 && !mkRaw.includes("%")) mk *= 100;
+      const nm = String(c(r,"name")).trim();
+      return {name:nm, cost:parseNum(c(r,"cost")), price:parseNum(c(r,"price")), generic:parseNum(c(r,"generic")),
+        markup:mk, category:String(c(r,"category")).trim(), type:typeNorm(c(r,"type")), unit:unitNorm(c(r,"unit")), pack:packNorm(c(r,"pack")) || packFromName(nm), size:String(c(r,"size")).trim() || sizeFromName(nm)};
+    }).filter(r=>r.name && !/^(разом|всього|итого|підсумок)/i.test(r.name));
+    const labels = {name:"Назва", price:"Ціна продажу", cost:"Закупівля", generic:"Ціна", markup:"Націнка", type:"Тип", category:"Категорія", pack:"Пакування", size:"Розмір", unit:"Од."};
+    const mapping = Object.keys(col).map(k=>`${labels[k]} ← «${String(aoa[hi][col[k]]).trim()}»`);
+    return {fileName, rows, mapping, hasGeneric: col.generic!==undefined, genericAs:"cost", markup:defMarkup(), defType:""};
+  }
+  function buildPlan(imp = S.imp, sync = false){
+    const byName = new Map(S.products.map(p=>[norm(p.name), p]));
+    const seen = new Set(), items = []; let skipped = 0, dup = 0;
+    for (const r of imp.rows){
+      const k = norm(r.name);
+      if (seen.has(k)) { dup++; continue; }
+      let cost = r.cost, price = r.price;
+      if (imp.hasGeneric){ if (imp.genericAs==="price") price = price || r.generic; else cost = cost || r.generic; }
+      if (!(cost>0 || price>0) && !sync) { skipped++; continue; }
+      seen.add(k);
+      const ex = byName.get(k), data = {name:r.name, unit:r.unit || ex?.unit || "шт"};
+      if (cost>0) data.cost = cost; else if (!ex) data.cost = 0;
+      if (price>0){ data.price = price; data.manualPrice = true; }
+      else { if (r.markup>0) data.markup = r.markup; else if (!sync || !ex) data.markup = imp.markup; data.manualPrice = false; data.price = null; }
+      if (r.category) data.category = r.category; else if (!ex) data.category = "";
+      if (r.pack) data.pack = r.pack; if (r.size) data.size = r.size; data.priceAt = today();
+      const t = r.type || ex?.type || imp.defType; if (t) data.type = t;
+      items.push({ex, data});
+    }
+    return {items, skipped, dup, nNew: items.filter(i=>!i.ex).length, nUpd: items.filter(i=>i.ex).length};
+  }
+  function importInner(){
+    const imp = S.imp, head = `<h3>Завантажити товари з Excel</h3>`;
+    if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Тип, Категорія, Пакування, Розмір, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
+      <div class="row"><button class="btn rasp" data-act="pickFile">Обрати файл</button><button class="btn soft" data-act="gsOpen" ${mcp?"":"disabled"} title="${mcp?"":"Google Drive тут ще не підключений"}">З Google Таблиці</button><button class="btn soft" data-act="tplXlsx" ${downloads?"":"disabled"}>Завантажити шаблон</button></div>${gsPanel("import")}
+      <p class="muted" style="margin-top:10px">Файл не відкривається? Надішліть його в чат Claude, і я внесу товари сам.</p>`;
+    if (imp.error) return `${head}<div class="warn" style="margin:10px 0 14px">${esc(imp.error)}</div>
+      <div class="row"><button class="btn rasp" data-act="pickFile">Обрати інший файл</button><button class="btn soft" data-act="impCancel">Закрити</button></div>`;
+    const plan = buildPlan(), n = plan.items.length;
+    const typeSel = `<select id="impType" aria-label="Тип для товарів без типу"><option value="">не вказувати</option>${allTypes().map(t=>`<option ${t===imp.defType?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
+    const gen = imp.hasGeneric ? `<label class="inl">Стовпець «Ціна» — це <select id="impGen"><option value="cost" ${imp.genericAs==="cost"?"selected":""}>закупівельна ціна</option><option value="price" ${imp.genericAs==="price"?"selected":""}>ціна продажу</option></select></label>` : "";
+    const rows = plan.items.slice(0, 8).map(({ex,data})=>{
+      const v = {...(ex||{}), ...data}, pr = priceOf(v);
+      return `<tr><td>${esc(data.name)}</td><td>${esc(v.unit||"шт")}</td><td class="r num">${num(v.cost)?money(num(v.cost)):"—"}</td><td class="r num">${money(pr)}</td><td>${esc(v.type||"без типу")}</td><td><span class="badge">${ex?"оновлення":"новий"}</span></td></tr>`;
+    }).join("");
+    return `${head}<p class="muted" style="margin:6px 0">Файл: ${esc(imp.fileName)}. Розпізнав стовпці: ${imp.mapping.map(esc).join("; ")}.</p>
+      <div class="imp-opts">${gen}
+        <label class="inl">Націнка для товарів без ціни продажу <input id="impMarkup" type="number" step="1" value="${imp.markup}"> %</label>
+        <label class="inl">Тип для товарів без типу ${typeSel}</label></div>
+      <p style="margin-bottom:10px"><b>Нових: ${plan.nNew}</b> · оновлень: ${plan.nUpd}${plan.skipped?` · пропущено без ціни: ${plan.skipped}`:""}${plan.dup?` · повторів у файлі пропущено: ${plan.dup}`:""}</p>
+      ${n ? `<div class="scroll"><table><thead><tr><th>Назва</th><th>Од.</th><th class="r">Закупівля, грн</th><th class="r">Ціна продажу, грн</th><th>Тип</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${n>8?`<p class="muted" style="margin-top:6px">і ще ${n-8}</p>`:""}`
+        : `<div class="warn">У файлі немає товарів із ціною. Додайте стовпець із закупівельною ціною або ціною продажу.</div>`}
+      <div class="row" style="margin-top:14px"><button class="btn rasp" data-act="impGo" ${n?"":"disabled"}>Додати в базу${n?` (${n})`:""}</button>
+        <button class="btn soft" data-act="pickFile">Обрати інший файл</button><button class="btn soft" data-act="impCancel">Скасувати</button></div>`;
+  }
+  const renderImport = () => { const b = $("#impBox"); if (b) b.innerHTML = importInner(); };
+  async function handleFile(file){
+    if (!file) return;
+    const box = $("#impBox"); if (box) box.innerHTML = `<p class="muted">Читаю файл…</p>`;
+    try{
+      let aoa;
+      if (/\.csv$/i.test(file.name)) aoa = parseCsv(await file.text());
+      else { const X = await loadXlsx(); const wb = X.read(await file.arrayBuffer(), {type:"array"}); aoa = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:true, defval:""}); }
+      S.imp = parseSheet(aoa, file.name);
+    }catch(e){
+      S.imp = {fileName:file.name, error: e && e.message==="load" ? "Не вдалося завантажити модуль читання Excel. Перевірте інтернет або надішліть файл у чат Claude." : "Не вдалося прочитати файл. Перевірте, що це Excel (.xlsx, .xls) або .csv."};
+    }
+    renderImport();
+  }
+  async function applyImport(btn){
+    if (!db) { toast("Зміни зараз не зберігаються"); return; }
+    const plan = buildPlan(), total = plan.items.length; if (!total) return;
+    btn.disabled = true; let done = 0, fail = 0, stop = "";
+    const run = it => it.ex ? db.collection("products").doc(it.ex.id).update(it.data) : db.collection("products").add(it.data);
+    for (const it of plan.items){
+      btn.textContent = `Додаю ${done+1} з ${total}…`;
+      try{ await run(it); }
+      catch(e){
+        if (e && (e.code==="unavailable" || e.code==="resource_exhausted")){
+          await new Promise(r=>setTimeout(r, 1200));
+          try{ await run(it); } catch(e2){ fail++; }
+        } else if (e && e.code==="quota_exceeded"){ stop = "У базі закінчилося місце для нових товарів."; break; }
+        else if (e && e.code==="invalid_argument"){ stop = "Немає прав змінювати дані."; break; }
+        else fail++;
+      }
+      done++;
+    }
+    const ok = done - fail;
+    S.imp = null; renderImport();
+    toast(stop || (fail ? `Готово: ${ok} з ${total}, не вдалося ${fail}` : `Готово: додано ${plan.nNew}, оновлено ${plan.nUpd}`));
+  }
+  async function tplXlsx(){
+    if (!downloads) { toast("Завантаження файлів тут недоступне"); return; }
+    try{
+      const X = await loadXlsx();
+      const ws = X.utils.aoa_to_sheet([
+        ["Назва","Тип","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн"],
+        ["Цукерки шоколадні вагові","Цукерки","Цукерки","Ваговий","","кг",210,30,""],
+        ["Печиво вівсяне 300 г","Печиво і вафлі","Печиво","Упаковка","300 г","шт",32,35,""],
+        ["Coca-Cola 0,5 л","Напої","Готові напої","ПЕТ","0,5 л","шт",24,30,""],
+        ["Лате XL","Напої","Кав'ярня","Стакан","XL","шт","","",49]]);
+      ws["!cols"] = [{wch:32},{wch:18},{wch:16},{wch:12},{wch:10},{wch:8},{wch:16},{wch:12},{wch:18}];
+      const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Товари");
+      await save("shablon-tovary.xlsx", X.write(wb, {bookType:"xlsx", type:"array"}));
+    }catch(e){ toast("Не вдалося створити шаблон"); }
+  }
+
+  /* ---------- Google Sheets через Drive ---------- */
+  const DRIVE = "Google Drive";
+  const pj = r => { let x = r && r.payload; if (typeof x==="string"){ try{ x = JSON.parse(x); }catch(_){} } return x; };
+  const drive = (tool, input, opts) => mcp.callTool(DRIVE, tool, input, opts).then(pj);
+  const b64ToText = b => new TextDecoder("utf-8").decode(Uint8Array.from(atob(b), c=>c.charCodeAt(0)));
+  function driveErr(e){
+    const m = {
+      needs_reauth:"Потрібно заново підключити Google Drive в налаштуваннях Claude.",
+      server_not_connected:"Google Drive не підключений до вашого акаунта Claude. Підключіть його в налаштуваннях коннекторів.",
+      consent_required:"Дозвольте сторінці працювати з Google Drive, коли з’явиться запит, і спробуйте ще раз.",
+      approval_required:"Дозвольте сторінці працювати з Google Drive, коли з’явиться запит, і спробуйте ще раз.",
+      not_in_manifest:"Цю дію з Google Drive не дозволено для сторінки.",
+      blocked_by_policy:"Ваша організація забороняє цю дію в Google Drive.",
+      rate_limited:"Забагато запитів. Зачекайте хвилину й спробуйте ще раз.",
+      cancelled:"Скасовано."}[e && e.code];
+    return m || "Google Drive відповів помилкою. Спробуйте ще раз.";
+  }
+  function parseCsv(text){
+    text = String(text).replace(/^﻿/, "");
+    const first = text.split(/\r?\n/, 1)[0] || "";
+    const d = (first.split(";").length > first.split(",").length) ? ";" : ",";
+    const rows = []; let row = [], cur = "", q = false;
+    for (let i=0; i<text.length; i++){
+      const ch = text[i];
+      if (q){ if (ch==='"'){ if (text[i+1]==='"'){ cur += '"'; i++; } else q = false; } else cur += ch; }
+      else if (ch==='"') q = true;
+      else if (ch===d){ row.push(cur); cur = ""; }
+      else if (ch==="\n" || ch==="\r"){ if (ch==="\r" && text[i+1]==="\n") i++; row.push(cur); cur = ""; rows.push(row); row = []; }
+      else cur += ch;
+    }
+    if (cur!=="" || row.length){ row.push(cur); rows.push(row); }
+    return rows;
+  }
+  const dec = x => String(Math.round(x*100)/100).replace(".", ",");
+  function tagsCsv(list){
+    const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+    const rows = [["Назва","Ціна, грн","Од.","Ціна за 100 г, грн","Група","Категорія","Пакування","Розмір","Ціна оновлена"]].concat(list.map(p=>{
+      const pr = priceOf(p);
+      return [p.name, pr>0 ? dec(pr) : "", p.unit||"шт", (pr>0 && p.unit==="кг") ? dec(pr/10) : "", typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.priceAt||""];
+    }));
+    return rows.map(r=>r.map(q).join(",")).join("\r\n");
+  }
+  function sheetBtn(){
+    const url = safeUrl(S.settings.gsUrl);
+    if (S.settings.gsId && url) return `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Відкрити Google-таблицю</a>`;
+    return `<button class="btn" data-go="products" title="Спершу підключіть таблицю у вкладці «Товари і ціни»">Відкрити Google-таблицю</button>`;
+  }
+  const renderGs = () => { renderImport(); renderLink(); };
+  function gsPanel(mode){
+    const g = S.gs; if (!g || g.mode!==mode) return "";
+    const list = g.busy ? `<p class="muted">Зачекайте…</p>` : g.error ? `<div class="warn">${esc(g.error)}</div>`
+      : g.files ? (g.files.length ? g.files.map(f=>`<div class="gsrow"><span class="gst">${esc(f.title)}</span><span class="muted">${f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString("uk-UA") : ""}</span><button class="btn soft" data-gsid="${esc(f.id)}" data-gst="${esc(f.title)}" data-gsu="${esc(f.viewUrl||"")}">Обрати</button></div>`).join("") : `<p class="muted">Google-таблиць не знайдено. Змініть пошук або створіть таблицю з поточної бази.</p>`) : "";
+    return `<div class="gs"><div class="row"><input id="gsQ" type="text" placeholder="Назва таблиці (можна залишити порожнім)" value="${esc(g.q||"")}" style="flex:1;min-width:200px" aria-label="Назва таблиці"><button class="btn" data-act="gsSearch">Знайти</button><button class="btn soft" data-act="gsClose">Закрити</button></div><div class="gsl">${list}</div><p class="muted" style="margin-top:8px">Береться перший аркуш. У першому рядку мають бути заголовки: Назва, Закупівля, Націнка, Ціна продажу тощо.</p></div>`;
+  }
+  async function gsSearch(){
+    if (!mcp) return;
+    const g = S.gs || (S.gs = {mode:"import"}), qe = $("#gsQ"); if (qe) g.q = qe.value.trim();
+    g.busy = true; g.error = null; renderGs();
+    try{
+      const q = (g.q||"").replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+      const d = await drive("search_files", {query:`mimeType = 'application/vnd.google-apps.spreadsheet'${q ? ` and title contains '${q}'` : ""}`, pageSize:10, excludeContentSnippets:true});
+      g.files = Array.isArray(d && d.files) ? d.files : [];
+    }catch(e){ g.error = driveErr(e); }
+    g.busy = false; renderGs(); const i = $("#gsQ"); if (i) i.focus();
+  }
+  function safeUrl(u){ return (typeof u==="string" && /^https:\/\/(docs|drive)\.google\.com\//.test(u)) ? u : ""; }
+  async function gsPick(id, title, url){
+    if (!mcp || !S.gs) return;
+    if (S.gs.mode==="link"){ await gsLink(id, title, url); return; }
+    S.gs.busy = true; renderGs();
+    try{
+      const d = await drive("download_file_content", {fileId:id, exportMimeType:"text/csv"});
+      if (!d || typeof d.content!=="string") throw {code:"bad_shape"};
+      S.imp = parseSheet(parseCsv(b64ToText(d.content)), (d.title || title));
+      S.gs = null;
+    }catch(e){ S.gs.busy = false; S.gs.error = driveErr(e); }
+    renderGs();
+  }
+
+  /* ---------- Google Таблиця як джерело: автосинхронізація ---------- */
+  function baseCsv(list){
+    const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+    const rows = [["Назва","Група","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн","Ціна на цінник, грн"]].concat(list.map(p=>{
+      const pr = priceOf(p), c = num(p.cost), man = p.manualPrice && p.price!=null;
+      return [p.name, typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.unit||"шт", c>0 ? dec(c) : "", man ? "" : dec(num(p.markup ?? defMarkup())), man ? dec(num(p.price)) : "", pr>0 ? dec(pr) : ""];
+    }));
+    return rows.map(r=>r.map(q).join(",")).join("\r\n");
+  }
+  const timeText = t => new Date(t).toLocaleTimeString("uk-UA",{hour:"2-digit",minute:"2-digit"});
+  function syncText(){
+    const y = S.sync || {};
+    if (y.busy) return "Синхронізую…";
+    const ok = y.at ? `Оновлено о ${timeText(y.at)}: у таблиці ${y.n} позицій, додано ${y.added}, змінено ${y.upd}.` : "Ще не синхронізовано.";
+    return y.error ? `${y.at ? ok+" " : ""}Помилка: ${y.error}` : ok;
+  }
+  function syncNote(){
+    return S.settings.gsId ? `<p class="muted" id="syncNote" style="margin-bottom:12px">Дані з Google Таблиці «${esc(S.settings.gsTitle||"")}». <span id="syncNoteT">${esc(syncText())}</span></p>` : "";
+  }
+  function updateSyncUi(){
+    const a = $("#syncText"); if (a) a.textContent = syncText();
+    const b = $("#syncNoteT"); if (b) b.textContent = syncText();
+  }
+  function linkInner(){
+    const st = S.settings;
+    if (!st.gsId) return `<h3>Google Таблиця як джерело</h3>
+      <p class="muted" style="margin:6px 0 14px">Підключіть таблицю: усе, що ви впишете в неї (нові товари, закупівельні ціни, націнки), з’явиться тут і в цінниках само, приблизно за хвилину.</p>
+      <div class="row"><button class="btn rasp" data-act="gsLinkOpen" ${mcp?"":"disabled"}>Обрати таблицю</button><button class="btn soft" data-act="gsLinkNew" ${mcp && S.products.length ? "" : "disabled"}>Створити таблицю з поточної бази</button></div>
+      ${mcp ? "" : `<p class="muted" style="margin-top:10px">Щоб підключити таблицю, дозвольте сторінці доступ до Google Drive. Якщо запиту не було, оновіть сторінку.</p>`}${gsPanel("link")}`;
+    const url = safeUrl(st.gsUrl);
+    return `<h3>Google Таблиця як джерело</h3>
+      <p style="margin:6px 0">Підключено: ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(st.gsTitle||"таблиця")}</a>` : esc(st.gsTitle||"таблиця")}</p>
+      <p class="muted" id="syncText">${esc(syncText())}</p>
+      <div class="row" style="margin-top:12px"><button class="btn soft" data-act="gsSyncNow" ${mcp?"":"disabled"}>Синхронізувати зараз</button>${url ? `<a class="btn soft" href="${esc(url)}" target="_blank" rel="noopener">Відкрити таблицю</a>` : ""}<button class="btn soft" data-act="gsUnlink">Відключити</button></div>
+      <p class="muted" style="margin-top:10px">Таблиця головна: якщо змінити в застосунку ціну товару, який є в таблиці, наступна синхронізація поверне значення з таблиці. Порожня «Ціна продажу» означає, що ціна рахується із закупівлі та націнки. Товари, яких у таблиці вже немає, лишаються в базі.</p>`;
+  }
+  function renderLink(){ const b = $("#linkBox"); if (b) b.innerHTML = linkInner(); }
+  async function gsLink(id, title, url){
+    await setDoc("settings/main", {gsId:id, gsTitle:title, gsUrl:safeUrl(url)||null}, "Таблицю підключено");
+    S.gs = null; S.sync = null; renderGs();
+  }
+  async function gsCreateBase(btn){
+    if (!mcp || !S.products.length) return;
+    const label = btn.textContent; btn.disabled = true; btn.textContent = "Створюю таблицю…";
+    try{
+      const title = `База товарів ${today()}`;
+      const f = pj(await mcp.callTool(DRIVE, "create_file", {title, contentMimeType:"text/csv", textContent:baseCsv(sortByType(S.products))}));
+      if (!f || !f.id) throw {code:"bad_shape"};
+      await gsLink(f.id, f.title || title, f.viewUrl);
+    }catch(e){ toast(driveErr(e)); }
+    finally{ btn.disabled = false; btn.textContent = label; }
+  }
+  const sameVal = (k, a, b) => k==="manualPrice" ? !!a===!!b : (a ?? null)===(b ?? null);
+  async function gsSync(){
+    const id = S.settings.gsId; if (!id || !mcp || !db) return;
+    const y = S.sync || (S.sync = {});
+    if (y.busy){ y.again = true; return; }
+    y.busy = true; y.error = null; updateSyncUi();
+    try{
+      const d = await drive("download_file_content", {fileId:id, exportMimeType:"text/csv"}, {cache:false});
+      if (!d || typeof d.content!=="string") throw {code:"bad_shape"};
+      const imp = parseSheet(parseCsv(b64ToText(d.content)), S.settings.gsTitle || "таблиця");
+      if (imp.error) throw {sheetErr:imp.error};
+      const plan = buildPlan(imp, true); let added = 0, changed = 0;
+      try{
+        for (const {ex, data} of plan.items){
+          delete data.priceAt;
+          if (!ex){
+            if (data.cost>0 || data.price>0) data.priceAt = today();
+            await db.collection("products").add(JSON.parse(JSON.stringify(data))); added++; continue;
+          }
+          const diff = {};
+          for (const k of Object.keys(data)) if (!sameVal(k, data[k], ex[k])) diff[k] = data[k];
+          if (Object.keys(diff).length){
+            if (["cost","price","markup","manualPrice"].some(k=>k in diff)) diff.priceAt = today();
+            await db.collection("products").doc(ex.id).update(diff); changed++;
+          }
+        }
+      }catch(err){ throw {sheetErr: err && err.code==="invalid_argument" ? "Немає прав змінювати дані в застосунку." : "Не вдалося записати зміни з таблиці. Спробуйте ще раз."}; }
+      Object.assign(y, {at:Date.now(), n:plan.items.length, added, upd:changed});
+    }catch(e){ y.error = (e && e.sheetErr) ? e.sheetErr : driveErr(e); }
+    y.busy = false; updateSyncUi();
+    if (y.again){ y.again = false; gsSync(); }
+  }
+  function syncSetup(){
+    clearInterval(S.syncT);
+    if (mcp && db && S.settings.gsId){
+      if (S.syncKey !== S.settings.gsId){ S.syncKey = S.settings.gsId; gsSync(); }
+      S.syncT = setInterval(()=>{ if (!document.hidden) gsSync(); }, 60000);
+    } else S.syncKey = null;
+  }
+  document.addEventListener("visibilitychange", ()=>{ if (!document.hidden && S.syncKey) gsSync(); });
+
+  /* ---------- expenses ---------- */
+  function expRow(e){
+    return `<div class="exp"><span class="n">${esc(e.name)}</span><input type="number" min="0" step="100" value="${num(e.amount)}" data-exp="${e.id}" aria-label="${esc(e.name)}, грн на місяць"><span class="muted">грн</span><button class="x" data-del-exp="${e.id}" aria-label="Видалити статтю">×</button></div>`;
+  }
+  function expenses(){
+    const t = totals(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
+    const block = (title, hint, list, g, sum) => `<div><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
+      ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
+      <div class="row" style="margin-top:10px"><input type="text" placeholder="Нова стаття" data-newexp="${g}" style="flex:1"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
+      <div class="total"><span>Разом на місяць</span><span class="num">${money0(sum)} грн</span></div></div>`;
+    return `<section class="panel"><div class="row between gap-lg"><h2>Витрати мережі на місяць</h2>
+      <label class="inl">Магазинів у мережі <input id="stores" type="number" min="1" step="1" value="${S.settings.stores||1}" style="width:70px"></label></div>
+      <p class="muted gap-lg">Впишіть суми за місяць на всю мережу. Зміни зберігаються, щойно ви перейдете до іншого поля.</p>
+      <div class="cols">
+        ${block("Постійні","Платите щомісяця, навіть якщо продажів мало",fx,"fixed",t.fixed)}
+        ${block("Змінні","Залежать від обсягу закупівель і продажів",vr,"variable",t.variable)}
+      </div>
+      <div class="be">${t.be ? `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div>
+        <div class="big num">${money0(t.be)} грн на місяць</div>
+        <div class="muted">≈ ${money0(t.be/30)} грн на день${(S.settings.stores||1)>1?` · ≈ ${money0(t.be/30/(S.settings.stores||1))} грн на день з кожного магазину`:""}. Розрахунок за середньою маржею ${Math.round(t.avgM*100)}%.</div>`
+        : `<div>Точка беззбитковості з’явиться, коли будуть суми витрат і товари з цінами.</div>`}</div>
+    </section>`;
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener("click", e=>{
+    if (S.openF && !e.target.closest(".dd")){ S.openF = null; refreshFilters(); }
+    const t = e.target.closest("button"); if(!t) return;
+    if (t.dataset.go){ document.querySelector(`.tab[data-tab="${t.dataset.go}"]`).click(); return; }
+    if (t.dataset.gsid){ gsPick(t.dataset.gsid, t.dataset.gst, t.dataset.gsu); return; }
+    if (t.dataset.ddtoggle!==undefined){ const k = t.dataset.ddtoggle; S.openF = S.openF===k ? null : k; refreshFilters({t:k}); return; }
+    if (t.dataset.fclear!==undefined){ curF()[t.dataset.fclear].clear(); refreshFilters({t:t.dataset.fclear}); return; }
+    if (t.dataset.cycle){ const k=S.tasks.find(x=>x.id===t.dataset.cycle); upd("tasks",k.id,{status:ST_NEXT[k.status||"todo"]}); return; }
+    if (t.dataset.delTask){ if(confirm("Видалити задачу?")) del("tasks",t.dataset.delTask,"Задачу видалено"); return; }
+    if (t.dataset.react!==undefined && t.dataset.react){ upd("ideas",t.dataset.react,{reaction:t.dataset.v||null}, t.dataset.v==="yes"?"Записав: беремо в роботу":t.dataset.v==="no"?"Записав: відкладаємо":null); return; }
+    if (t.dataset.delProd){ if(confirm("Видалити товар?")) del("products",t.dataset.delProd,"Товар видалено"); return; }
+    if (t.dataset.delExp){ if(confirm("Видалити статтю витрат?")) del("expenses",t.dataset.delExp); return; }
+    const a = t.dataset.act;
+    if (a==="addTask"){ const v=$("#newTask").value.trim(); if(!v) return; const st=+$("#newTaskStage").value;
+      add("tasks",{title:v,stage:st,status:"todo",order:Date.now()},"Задачу додано"); }
+    if (a==="addIdea"){ const v=$("#newIdea").value.trim(); if(!v) return; add("ideas",{title:v,text:"Ідея власника",reaction:"yes",order:Date.now(),byOwner:true},"Ідею записано"); }
+    if (a==="clearEx"){ if(confirm("Прибрати всі товари-приклади?")) S.products.filter(p=>p.example).reduce((pr,p)=>pr.then(()=>del("products",p.id)),Promise.resolve()).then(()=>toast("Приклади прибрано")); }
+    if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? filtered(S.F.prod) : S.products.filter(p=>!c||p.category===c);
+      if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
+      (async()=>{ for(const p of list) await upd("products",p.id,{markup:m,manualPrice:false,price:null,priceAt:today()}); if(!c) await setDoc("settings/main",{defaultMarkup:m}); toast("Ціни перераховано"); })(); }
+    if (a==="addProd"){ const n=$("#npName").value.trim(); if(!n) return;
+      const cost=num($("#npCost").value); add("products",{name:n,type:$("#npType").value,category:$("#npCat").value.trim(),pack:$("#npPack").value||null,size:$("#npSize").value.trim()||null,unit:$("#npUnit").value,cost,markup:num($("#npMarkup").value),manualPrice:false,priceAt:cost>0?today():null},"Товар додано"); }
+    if (a==="selShown"){ filtered(S.F.tags).forEach(p=>S.tagSel.add(p.id)); syncChecks(); renderPreview(); }
+    if (a==="unselShown"){ filtered(S.F.tags).forEach(p=>S.tagSel.delete(p.id)); syncChecks(); renderPreview(); }
+    if (a==="selNone"){ S.tagSel.clear(); syncChecks(); renderPreview(); }
+    if (a==="fReset"){ S.F[tab==="tags"?"tags":"prod"] = newF(); S.openF = null; render(); }
+    if (a==="dlPdf"){ makePdf(t); }
+    if (a==="printTags"){ printTags(); }
+    if (a==="addStore"){ const n = storeNames().slice(); n.push(""); saveStores(n); setTimeout(()=>{ const i = document.querySelector(`[data-store="${n.length-1}"]`); if (i) i.focus(); }, 60); }
+    if (a==="delStore"){ const i = +t.dataset.i, n = storeNames().slice(), nm = n[i];
+      if (nm && !confirm(`Видалити магазин «${nm}»?`)) return;
+      n.splice(i,1); const c = tagCfg(); saveStores(n, "Магазин видалено"); if (c.storeIdx >= n.length) saveTag({storeIdx:Math.max(0,n.length-1)}); }
+    if (a==="pickFile"){ $("#impFile").click(); }
+    if (a==="impCancel"){ S.imp = null; renderImport(); }
+    if (a==="impGo"){ applyImport(t); }
+    if (a==="tplXlsx"){ tplXlsx(); }
+    if (a==="gsOpen"){ S.gs = {mode:"import", q:"", files:null}; renderGs(); gsSearch(); }
+    if (a==="gsLinkOpen"){ S.gs = {mode:"link", q:"", files:null}; renderGs(); gsSearch(); }
+    if (a==="gsLinkNew"){ gsCreateBase(t); }
+    if (a==="gsSyncNow"){ gsSync(); }
+    if (a==="gsUnlink"){ if (confirm("Відключити таблицю? Товари в застосунку залишаться.")) setDoc("settings/main", {gsId:null, gsTitle:null, gsUrl:null}, "Таблицю відключено").then(()=>{ S.sync = null; }); }
+    if (a==="gsSearch"){ gsSearch(); }
+    if (a==="gsClose"){ S.gs = null; renderGs(); }
+    if (a==="dlCsv"){ save(`tsinnyky-${new Date().toISOString().slice(0,10)}.csv`, csv(selectedProducts())); }
+    if (a==="addExp"){ const g=t.dataset.g, inp=document.querySelector(`[data-newexp="${g}"]`), v=inp.value.trim(); if(!v) return;
+      add("expenses",{name:v,group:g,amount:0,order:Date.now()},"Статтю додано"); }
+  });
+  document.addEventListener("change", e=>{
+    const el = e.target;
+    if (el.dataset.f!==undefined){ const st = curF()[el.dataset.f], v = el.dataset.v; el.checked ? st.add(v) : st.delete(v); refreshFilters({k:el.dataset.f, v}); return; }
+    if (el.dataset.ptype!==undefined){ upd("products",el.dataset.id,{type:el.value||null}); return; }
+    if (el.dataset.punit!==undefined){ upd("products",el.dataset.id,{unit:el.value||"шт"}); return; }
+    if (el.dataset.ppack!==undefined){ upd("products",el.dataset.id,{pack:el.value||null}); return; }
+    if (el.dataset.psize!==undefined){ upd("products",el.dataset.id,{size:el.value.trim()||null}); return; }
+    if (el.id==="staleDays"){ S.settings.staleDays = +el.value; refreshFilters(); setDoc("settings/main",{staleDays:+el.value},"Термін застарілості змінено"); return; }
+    if (el.id==="impFile"){ const f = el.files[0]; el.value = ""; handleFile(f); return; }
+    if (el.id==="impMarkup" && S.imp){ S.imp.markup = num(el.value); renderImport(); return; }
+    if (el.id==="impType" && S.imp){ S.imp.defType = el.value; renderImport(); return; }
+    if (el.id==="impGen" && S.imp){ S.imp.genericAs = el.value; renderImport(); return; }
+    if (el.dataset.pf){ const p=S.products.find(x=>x.id===el.dataset.id); if(!p) return; const v=num(el.value);
+      if (el.dataset.pf==="price") upd("products",p.id,{price:v,manualPrice:true,priceAt:today()});
+      else if (el.dataset.pf==="markup") upd("products",p.id,{markup:v,manualPrice:false,price:null,priceAt:today()});
+      else upd("products",p.id,{cost:v,priceAt:today()}); return; }
+    if (el.dataset.exp){ upd("expenses",el.dataset.exp,{amount:num(el.value)}); return; }
+    if (el.dataset.tag){ el.checked ? S.tagSel.add(el.dataset.tag) : S.tagSel.delete(el.dataset.tag); renderPreview(); return; }
+    if (el.dataset.tc){ saveTag({[el.dataset.tc]: el.checked}); return; }
+    if (el.id==="tcSize"){ saveTag({size:el.value}); return; }
+    if (el.id==="tcBorder"){ saveTag({border:el.value}); return; }
+    if (el.id==="tcStore"){ saveTag({storeIdx:+el.value}); return; }
+    if (el.id==="tcCustom"){ saveTag({custom:el.value.trim().slice(0,40)}); return; }
+    if (el.id==="chainIn"){ const v = el.value.trim(); S.settings.chainName = v; renderPreview(); setDoc("settings/main",{chainName:v||"Мережа солодощів"},"Назву мережі збережено"); return; }
+    if (el.dataset.store!==undefined){ const n = storeNames().slice(); n[+el.dataset.store] = el.value.trim(); saveStores(n, "Назву магазину збережено"); return; }
+    if (el.id==="rounding"){ setDoc("settings/main",{rounding:num(el.value)},"Округлення змінено"); }
+    if (el.id==="stores"){ setDoc("settings/main",{stores:Math.max(1,Math.round(num(el.value)))}); }
+  });
+  document.addEventListener("input", e=>{
+    if (e.target.id==="tcCustom"){ S.settings.tag = Object.assign(tagCfg(), {custom:e.target.value}); renderPreview(); return; }
+    if (e.target.id==="q"){ curF().q = e.target.value; clearTimeout(refreshFilters._t); refreshFilters._t = setTimeout(refreshFilters, 180); }
+  });
+  document.addEventListener("keydown", e=>{
+    if (e.key==="Escape" && S.openF){ const k = S.openF; S.openF = null; refreshFilters({t:k}); return; }
+    if (e.key!=="Enter") return;
+    const map = {newTask:"addTask", newIdea:"addIdea", npName:"addProd", gsQ:"gsSearch"};
+    if (map[e.target.id]) document.querySelector(`[data-act="${map[e.target.id]}"]`).click();
+  });
+
+  /* ---------- data ---------- */
+  render();
+  const noDbTimer = setTimeout(()=>{ if(!db) $("#noDb").hidden=false; }, 4000);
+  window.claude?.use?.("downloads").then(d=>{ downloads=d; if(tab==="tags") render(); }).catch(()=>{});
+  window.claude?.use?.("mcp").then(m=>{ mcp=m; if(tab==="tags"||tab==="products") render(); syncSetup(); }).catch(()=>{});
+  (window.claude?.use ? window.claude.use("db") : Promise.resolve(null)).then(d=>{
+    if(!d){ $("#noDb").hidden=false; clearTimeout(noDbTimer); return; }
+    db = d; clearTimeout(noDbTimer);
+    const byOrder = (a,b)=>(a.order??0)-(b.order??0);
+    const sub = (col, key, sort) => db.collection(col).onSnapshot(s=>{
+      S[key] = s.docs.map(x=>({id:x.id, ...x.data()})).sort(sort); render();
+    }, ()=>{});
+    sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
+    sub("ideas","ideas",byOrder);
+    sub("products","products",(a,b)=>String(a.name).localeCompare(String(b.name),"uk"));
+    sub("expenses","expenses",byOrder);
+    db.doc("settings/main").onSnapshot(s=>{ S.settings = s.exists ? s.data() : {}; render(); syncSetup(); }, ()=>{});
+    db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{});
+  }).catch(()=>{ $("#noDb").hidden=false; });
+})();
+</script>
+</body>
+</html>
