@@ -148,20 +148,20 @@ td.r,th.r{text-align:right}
   #printArea .tag.b-none{border-color:#eee}
 }
 .preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;background:#fff;padding:12px;border-radius:12px;color:#1c1c1c}
-.tag{--k:1;border:1px dashed #999;padding:calc(2mm*var(--k)) calc(3mm*var(--k));display:flex;flex-direction:column;justify-content:space-between;font-family:"Rubik",Arial,sans-serif;background:#fff;color:#1c1c1c;box-sizing:border-box;overflow:hidden}
+.tag{--k:1;--n:1;--g:1;--q:1;border:1px dashed #999;padding:calc(2mm*var(--k)) calc(3mm*var(--k));display:flex;flex-direction:column;justify-content:space-between;font-family:"Rubik",Arial,sans-serif;background:#fff;color:#1c1c1c;box-sizing:border-box;overflow:hidden}
 .tag.b-solid{border-style:solid;border-color:#555}.tag.b-none{border-color:transparent}
 .tag.s{width:58mm;height:40mm}.tag.m{--k:1.25;width:75mm;height:50mm}.tag.l{--k:1.65;width:100mm;height:70mm}
-.tag .t-hd{display:flex;justify-content:space-between;gap:2mm;font-size:calc(7pt*var(--k));color:#777;line-height:1.2}
+.tag .t-hd{display:flex;justify-content:space-between;gap:2mm;font-size:calc(7pt*var(--k)*var(--g)*var(--x,1));color:#777;line-height:1.2}
 .tag .t-hd span:last-child{text-align:right}
-.tag .t-cu{font-size:calc(8pt*var(--k));font-weight:700;color:#c2185b;line-height:1.2;margin-top:.5mm}
-.tag .nm{font-size:calc(10pt*var(--k));font-weight:600;line-height:1.15;margin-top:.8mm;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.tag .nm.big{font-size:calc(12.5pt*var(--k))}
-.tag .t-pk{font-size:calc(7.5pt*var(--k));color:#555;line-height:1.2;margin-top:.5mm}
-.tag .t-top{min-height:0}
-.tag .pr{font-size:calc(22pt*var(--k));font-weight:700;line-height:1}
+.tag .t-cu{font-size:calc(8pt*var(--k)*var(--g)*var(--x,1));font-weight:700;color:#c2185b;line-height:1.2;margin-top:.5mm}
+.tag .nm{font-size:calc(10pt*var(--k)*var(--n)*var(--x,1));font-weight:600;line-height:1.15;margin-top:.8mm;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tag .nm.big{font-size:calc(12.5pt*var(--k)*var(--n)*var(--x,1))}
+.tag .t-pk{font-size:calc(7.5pt*var(--k)*var(--g)*var(--x,1));color:#555;line-height:1.2;margin-top:.5mm}
+.tag .t-top{min-height:0;overflow:hidden}
+.tag .pr{font-size:calc(22pt*var(--k)*var(--q)*var(--x,1));font-weight:700;line-height:1}
 .tag .pr small{font-size:.45em;font-weight:600;margin-left:1mm}
-.tag .un{font-size:calc(8pt*var(--k));color:#444;line-height:1.3}
-.tag .ft{display:flex;justify-content:space-between;font-size:calc(7pt*var(--k));color:#777;line-height:1.2}
+.tag .un{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:calc(8pt*var(--k)*var(--n)*var(--x,1));color:#444;line-height:1.3}
+.tag .ft{display:flex;justify-content:space-between;font-size:calc(7pt*var(--k)*var(--g)*var(--x,1));color:#777;line-height:1.2}
 .tcfg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin-top:6px}
 @media (max-width:760px){.tcfg{grid-template-columns:minmax(0,1fr)}}
 .tcfg h4{margin:0 0 8px;font-size:14px}
@@ -565,7 +565,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
 
   /* ---------- price tags ---------- */
-  const TAG_DEF = {size:"s", border:"dash", chain:true, store:true, storeIdx:0, name:true, nameBig:false, pack:true, psize:true, price:true, kop:false, unit:true, per100:true, category:true, date:true, custom:""};
+  const TAG_DEF = {size:"s", border:"dash", chain:true, store:true, storeIdx:0, name:true, nameBig:false, pack:true, psize:true, price:true, kop:false, unit:true, per100:true, category:true, date:true, custom:"", font:1.25};
   const TAG_EL = [["chain","Назва мережі"],["store","Назва магазину"],["name","Назва товару"],["pack","Тип пакування"],["psize","Об’єм / вага"],["price","Ціна"],["unit","Одиниця (грн за 1 шт/кг)"],["per100","Ціна за 100 г (вагові)"],["category","Категорія"],["date","Дата"]];
   const TAG_SIZES = {s:[58,40,"малий 58×40 мм"], m:[75,50,"середній 75×50 мм"], l:[100,70,"великий 100×70 мм"]};
   const tagCfg = () => Object.assign({}, TAG_DEF, S.settings.tag || {});
@@ -600,7 +600,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
   function tagMarkup(p, c = tagCfg()){
     const t = tagParts(p, c);
-    return `<div class="tag ${c.size} b-${c.border}"><div class="t-top">
+    return `<div class="tag ${c.size} b-${c.border}" style="--n:${fscale(c).n};--g:${fscale(c).g};--q:${fscale(c).q};--x:${fitFactor(p,c)}"><div class="t-top">
       ${t.hl||t.hr ? `<div class="t-hd"><span>${esc(t.hl)}</span><span>${esc(t.hr)}</span></div>` : ""}
       ${t.custom ? `<div class="t-cu">${esc(t.custom)}</div>` : ""}
       ${t.name ? `<div class="nm${c.nameBig?" big":""}">${esc(t.name)}</div>` : ""}
@@ -625,6 +625,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
         <div class="row">
           <label class="inl">Розмір <select id="tcSize">${Object.entries(TAG_SIZES).map(([k,v])=>`<option value="${k}" ${c.size===k?"selected":""}>${v[2]}</option>`).join("")}</select></label>
           <label class="inl">Рамка <select id="tcBorder"><option value="dash" ${c.border==="dash"?"selected":""}>пунктир (для різання)</option><option value="solid" ${c.border==="solid"?"selected":""}>суцільна</option><option value="none" ${c.border==="none"?"selected":""}>без рамки</option></select></label></div>
+        <div class="row"><label class="inl">Розмір шрифту <select id="tcFont">${[[1,"стандартний"],[1.25,"більший"],[1.5,"великий"],[1.75,"дуже великий"]].map(([v,l])=>`<option value="${v}" ${+c.font===v?"selected":""}>${l}</option>`).join("")}</select></label></div>
         <div class="row">
           <label class="inl"><input type="checkbox" data-tc="nameBig" ${c.nameBig?"checked":""}> Велика назва</label>
           <label class="inl"><input type="checkbox" data-tc="kop" ${c.kop?"checked":""}> Завжди з копійками (49,00)</label></div>
@@ -724,10 +725,11 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     }
     return lines;
   }
-  function drawTag(ctx, x, y, p, c){
+  function fscale(c){ const f=+c.font||1; return {n:f, g:+(1+(f-1)*0.35).toFixed(3), q:+(1+(f-1)*0.6).toFixed(3)}; }
+  function drawTag(ctx, x, y, p, c, fx = 1){
     const [wm, hm] = TAG_SIZES[c.size] || TAG_SIZES.s, k = c.size==="l" ? 1.65 : c.size==="m" ? 1.25 : 1;
     const w = wm*PX_MM, h = hm*PX_MM, padX = 3*k*PX_MM, padY = 2*k*PX_MM, iw = w-2*padX;
-    const F = 'Rubik, Arial, sans-serif', t = tagParts(p, c), pt = v => v*k*PT;
+    const F = 'Rubik, Arial, sans-serif', t = tagParts(p, c), FS = fscale(c), pt = (v,g) => v*k*(g||FS.g)*fx*PT;
     ctx.save();
     if (c.border!=="none"){
       if (c.border==="dash") ctx.setLineDash([PX_MM*1.2, PX_MM*0.8]);
@@ -748,10 +750,11 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (t.custom){ ctx.fillStyle = "#c2185b"; ctx.font = `700 ${pt(8)}px ${F}`; ty += 0.5*PX_MM; ctx.fillText(fit(t.custom, iw), x+padX, ty); ty += pt(8)*1.2; }
     if (t.name){
       const ns = c.nameBig ? 12.5 : 10;
-      ctx.fillStyle = "#1c1c1c"; ctx.font = `600 ${pt(ns)}px ${F}`; ty += 0.8*PX_MM;
-      wrapText(ctx, t.name, iw, 2).forEach(l=>{ ctx.fillText(l, x+padX, ty); ty += pt(ns)*1.15; });
+      ctx.fillStyle = "#1c1c1c"; ctx.font = `600 ${pt(ns,FS.n)}px ${F}`; ty += 0.8*PX_MM;
+      wrapText(ctx, t.name, iw, 2).forEach(l=>{ ctx.fillText(l, x+padX, ty); ty += pt(ns,FS.n)*1.15; });
     }
-    if (t.pack){ ctx.fillStyle = "#555"; ctx.font = `400 ${pt(7.5)}px ${F}`; ty += 0.5*PX_MM; ctx.fillText(fit(t.pack, iw), x+padX, ty); }
+    if (t.pack){ ctx.fillStyle = "#555"; ctx.font = `400 ${pt(7.5)}px ${F}`; ty += 0.5*PX_MM; ctx.fillText(fit(t.pack, iw), x+padX, ty); ty += pt(7.5)*1.2; }
+    const topEnd = ty;
     // низ (знизу вгору)
     let by = y+h-padY;
     if (t.fl || t.fr){
@@ -760,13 +763,24 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       if (t.fr){ ctx.textAlign = "right"; ctx.fillText(t.fr, x+w-padX, by); }
       ctx.textAlign = "left";
     }
-    if (t.unit){ ctx.fillStyle = "#444"; ctx.font = `400 ${pt(8)}px ${F}`; by -= pt(8)*1.3; ctx.fillText(fit(t.unit, iw), x+padX, by); }
+    if (t.unit){ ctx.fillStyle = "#444"; ctx.font = `400 ${pt(8,FS.n)}px ${F}`; by -= pt(8,FS.n)*1.3; ctx.fillText(fit(t.unit, iw), x+padX, by); }
     if (t.price){
-      const ps = pt(22); by -= ps*1.02;
+      const ps = pt(22,FS.q); by -= ps*1.02;
       ctx.fillStyle = "#1c1c1c"; ctx.font = `700 ${ps}px ${F}`; ctx.fillText(t.price, x+padX, by);
       if (!c.unit){ const pw = ctx.measureText(t.price).width; ctx.font = `600 ${ps*0.45}px ${F}`; ctx.fillText("грн", x+padX+pw+1*PX_MM, by+ps*0.5); }
     }
     ctx.restore();
+    return topEnd <= by - 0.4*PX_MM;
+  }
+  const _fitCache = new Map();
+  function fitFactor(p, c){
+    const key = JSON.stringify([p.name,p.pack,p.size,p.unit,priceOf(p),p.category,c]);
+    if (_fitCache.has(key)) return _fitCache.get(key);
+    if (_fitCache.size > 500) _fitCache.clear();
+    const cv = document.createElement("canvas"); cv.width = 700; cv.height = 500;
+    const ctx = cv.getContext("2d"); let fx = 1;
+    for (let i=0; i<14; i++){ if (drawTag(ctx, 0, 0, p, c, fx)) break; fx = +(fx*0.94).toFixed(3); }
+    _fitCache.set(key, fx); return fx;
   }
   function pdfFromJpegs(pages){
     const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
@@ -801,7 +815,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       const ctx = cv.getContext("2d"), pages = [];
       for (let i=0; i<list.length; i+=per){
         ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
-        list.slice(i, i+per).forEach((p,j)=> drawTag(ctx, (M+(j%cols)*tw)*PX_MM, (M+Math.floor(j/cols)*th)*PX_MM, p, c));
+        list.slice(i, i+per).forEach((p,j)=> drawTag(ctx, (M+(j%cols)*tw)*PX_MM, (M+Math.floor(j/cols)*th)*PX_MM, p, c, fitFactor(p,c)));
         const blob = await new Promise(r=>cv.toBlob(r, "image/jpeg", 0.92));
         pages.push({bytes:new Uint8Array(await blob.arrayBuffer()), w:W, h:H});
       }
@@ -1388,6 +1402,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (el.dataset.tag){ el.checked ? S.tagSel.add(el.dataset.tag) : S.tagSel.delete(el.dataset.tag); syncChecks(); renderPreview(); return; }
     if (el.dataset.tc){ saveTag({[el.dataset.tc]: el.checked}); return; }
     if (el.id==="tcSize"){ saveTag({size:el.value}); return; }
+    if (el.id==="tcFont"){ saveTag({font:+el.value}); return; }
     if (el.id==="tcBorder"){ saveTag({border:el.value}); return; }
     if (el.id==="tcStore"){ saveTag({storeIdx:+el.value}); return; }
     if (el.id==="tcCustom"){ saveTag({custom:el.value.trim().slice(0,40)}); return; }
