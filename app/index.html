@@ -276,6 +276,7 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
 
   <nav class="workspace-nav" aria-label="Робочі простори">
     <a class="workspace-link" data-workspace="operations" href="#operations/overview"><b>Операційна робота</b><span>Товари, цінники, задачі та витрати</span></a>
+    <a class="workspace-link" data-workspace="trade" href="#trade/purchases"><b>Облік торгівлі</b><span>Закупівлі, склад, продажі та розрахунки</span></a>
     <a class="workspace-link" data-workspace="development" href="#development/devOverview"><b>Розвиток бізнесу</b><span>Ідеї, рішення та план реалізації</span></a>
   </nav>
   <div class="section-heading"><div><p class="eyebrow" id="workspaceLabel"></p><h2 id="pageTitle"></h2><p class="muted" id="pageDescription"></p></div></div>
@@ -284,7 +285,15 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
     <a class="tab" data-tab="products" href="#operations/products">Товари й ціни</a>
     <a class="tab" data-tab="tags" href="#operations/tags">Цінники</a>
     <a class="tab" data-tab="work" href="#operations/work">Поточні задачі</a>
-    <a class="tab" data-tab="expenses" href="#operations/expenses">Витрати</a>
+    <a class="tab" data-tab="expenses" href="#operations/expenses">Бюджет витрат</a>
+    <a class="tab" data-tab="purchases" href="#trade/purchases">Закупівлі</a>
+    <a class="tab" data-tab="stock" href="#trade/stock">Склад</a>
+    <a class="tab" data-tab="sales" href="#trade/sales">Продажі</a>
+    <a class="tab" data-tab="finance" href="#trade/finance">Фінанси</a>
+    <a class="tab" data-tab="staff" href="#trade/staff">Команда й зарплата</a>
+    <a class="tab" data-tab="customers" href="#trade/customers">Клієнти</a>
+    <a class="tab" data-tab="reports" href="#trade/reports">Звіти</a>
+    <a class="tab" data-tab="setup" href="#trade/setup">Налаштування</a>
     <a class="tab" data-tab="devOverview" href="#development/devOverview">Огляд розвитку</a>
     <a class="tab" data-tab="ideas" href="#development/ideas">Ідеї</a>
     <a class="tab" data-tab="tasks" href="#development/tasks">План реалізації</a>
@@ -414,6 +423,14 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
     const r = $("#fResetBtn"); if (r) r.hidden = !isActive(f);
     const pl = $("#prodList"); if (pl) pl.innerHTML = productList(list);
     const pk = $("#pickBox"); if (pk) pk.innerHTML = pickList(list);
+    if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner'){
+      const role=window.TSUKENYA_ROLE,editCatalog=['manager','warehouse'].includes(role);
+      m.querySelectorAll('[data-pf],[data-promotion],[data-edit-product],[data-act="newProduct"]').forEach(x=>{if(!editCatalog)x.disabled=true;});
+      m.querySelectorAll('[data-disclosure="bulk"],[data-disclosure="sync"],.identity-settings').forEach(x=>x.hidden=true);
+      if(tab==='tags')m.querySelectorAll('[data-style],[data-field-visible],[data-act="resetField"],[id^="tc"]').forEach(x=>x.disabled=true);
+      document.querySelector('[data-workspace="development"]').hidden=true;
+      document.querySelectorAll('.tab[data-tab="expenses"],.tab[data-tab="devOverview"],.tab[data-tab="ideas"],.tab[data-tab="tasks"]').forEach(x=>x.hidden=true);
+    }
     if (tab==="tags") renderPreview();
   }
 
@@ -480,6 +497,8 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
     const a = document.activeElement;
     if (!force && a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
     pending = false;
+    if(window.Trade?.handles(tab)){ window.Trade.mount(tab); return; }
+    window.Trade?.leave();
     renderPath();
     const m = $("#main"),openPanels=[...m.querySelectorAll("[data-disclosure][open]")].map(el=>el.dataset.disclosure),scrolls=[...m.querySelectorAll(".pick,.field-list")].map(el=>[el.className,el.scrollTop,el.scrollLeft]);
     m.innerHTML = ({overview, devOverview, work, tasks, ideas, products, tags, expenses})[tab]();
@@ -489,11 +508,19 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
   }
   $("#main").addEventListener("focusout", ()=>setTimeout(()=>{ if(pending) render(); },0));
   const SECTIONS = {
+    purchases:['trade','Закупівлі','Замовлення, надходження та розрахунки з постачальниками.'],
+    stock:['trade','Складський облік','Залишки, партії, терміни придатності та рух товарів.'],
+    sales:['trade','Продажі та каса','Касові зміни, продажі, оплати й повернення.'],
+    finance:['trade','Фінанси','Рахунки, платежі, заборгованість та фактичні витрати.'],
+    staff:['trade','Команда й зарплата','Оплата за зміну плюс відсоток від виторгу за касову зміну.'],
+    customers:['trade','Клієнти','Контакти, замовлення й історія взаємодії.'],
+    reports:['trade','Звіти','Виторг, собівартість, прибуток і рух коштів.'],
+    setup:['trade','Налаштування обліку','Магазини, склади, рахунки, доступ і облікові періоди.'],
     overview:['operations','Операційний огляд','Стан каталогу, цін і поточних задач.'],
     products:['operations','Товари й ціни','Каталог товарів, закупівельні ціни та націнка.'],
     tags:['operations','Цінники','Виберіть товари, налаштуйте макет і перевірте аркуші перед друком.'],
     work:['operations','Поточні задачі','Щоденні справи магазину з термінами виконання.'],
-    expenses:['operations','Витрати','Витрати мережі та розрахунок точки беззбитковості.'],
+    expenses:['operations','Бюджет витрат','Планові місячні витрати й точка беззбитковості. Фактичні платежі — у розділі «Фінанси» обліку торгівлі.'],
     devOverview:['development','Розвиток бізнесу','Рішення, які варто перевірити, та робота над їх реалізацією.'],
     ideas:['development','Ідеї та можливості','Зберігайте пропозиції, обирайте пріоритети й переводьте їх у план.'],
     tasks:['development','План реалізації','Задачі розвитку бізнесу та впровадження інструментів.']
@@ -506,7 +533,7 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
     workspace=SECTIONS[tab][0];
     document.querySelectorAll('[data-workspace]').forEach(x=>x.setAttribute('aria-current',x.dataset.workspace===workspace?'page':'false'));
     document.querySelectorAll('.tab').forEach(x=>{x.hidden=SECTIONS[x.dataset.tab][0]!==workspace;x.setAttribute('aria-current',x.dataset.tab===tab?'page':'false');});
-    $('#workspaceLabel').textContent=workspace==='operations'?'Операційна робота':'Розвиток бізнесу';
+    $('#workspaceLabel').textContent=workspace==='operations'?'Операційна робота':workspace==='trade'?'Облік торгівлі':'Розвиток бізнесу';
     $('#pageTitle').textContent=SECTIONS[tab][1]; $('#pageDescription').textContent=SECTIONS[tab][2];
     $('#developmentPath').hidden=workspace!=='development'||tab==='ideas';
     document.title=SECTIONS[tab][1]+' · Цукерня'; render(true);
@@ -530,9 +557,9 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
       <div class="stat"><div class="l">Товарів у каталозі</div><div class="v num">${S.products.length}</div></div>
       <div class="stat"><div class="l">Потребують ціни</div><div class="v num">${noPrice}</div></div>
       <div class="stat"><div class="l">Поточні задачі</div><div class="v num">${current.length}</div></div>
-      <div class="stat"><div class="l">Витрати на місяць</div><div class="v num">${money0(t.fixed+t.variable)} грн</div></div>
+      <div class="stat"><div class="l">План витрат на місяць</div><div class="v num">${money0(t.fixed+t.variable)} грн</div></div>
     </div></section>
-    <section class="panel"><div class="row between gap-lg"><h3>Швидкі дії</h3></div><div class="quick-actions"><a href="#operations/products">Оновити каталог<span>Ціни, закупівля та націнка</span></a><a href="#operations/tags">Підготувати цінники<span>Макет, PDF і друк</span></a><a href="#operations/work">Запланувати роботу<span>Задачі та терміни</span></a></div></section>
+    <section class="panel"><div class="row between gap-lg"><h3>Швидкі дії</h3></div><div class="quick-actions"><a href="#trade/purchases">Облік торгівлі<span>Закупівлі, склад і продажі</span></a><a href="#operations/products">Оновити каталог<span>Ціни, закупівля та націнка</span></a><a href="#operations/tags">Підготувати цінники<span>Макет, PDF і друк</span></a><a href="#operations/work">Запланувати роботу<span>Задачі та терміни</span></a></div></section>
     <section class="panel"><div class="row between gap-lg"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${noPrice?`${noPrice} товарів без ціни. Заповніть ціну перед друком.`:'У всіх товарів є ціна.'} ${stale?`${stale} товарів мають застарілу дату ціни.`:''}</p></section>
     <section class="panel"><div class="row between gap-lg"><h3>Найближчі задачі</h3><a class="btn soft" href="#operations/work">Усі поточні задачі</a></div>${current.length?current.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')).slice(0,5).map(taskRow).join(''):'<div class="empty">Поточних задач немає. Додайте першу справу магазину.</div>'}</section>`;
   }
@@ -611,6 +638,7 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
       <label class="form-field span-all">Назва товару<input name="name" value="${esc(p.name)}" required maxlength="250" autocomplete="off"></label>
       <label class="form-field">Група<select name="type">${typeOpts(id?typeOf(p):TYPES[0])}</select></label><label class="form-field">Категорія<input name="category" value="${esc(p.category||'')}" autocomplete="off"></label>
       <label class="form-field">Пакування<select name="pack">${packOpts(p.pack||'')}</select></label><label class="form-field">Об’єм / вага<input name="size" value="${esc(p.size||'')}" autocomplete="off"></label>
+      <label class="form-field">Штрихкод<input name="barcode" value="${esc(p.barcode||'')}" maxlength="80" autocomplete="off"></label><label class="form-field">Мінімальний залишок<input name="minStock" type="number" min="0" step="0.001" value="${num(p.minStock)}"></label>
       <label class="form-field">Одиниця продажу<select name="unit">${unitOpts(p.unit||'шт')}</select></label><label class="form-field">Дата перевірки ціни<input name="priceAt" type="date" value="${esc(p.priceAt||today())}"></label>
       <label class="form-field">Закупівля, грн<input name="cost" type="number" min="0" step="0.01" value="${num(p.cost)}"></label><label class="form-field">Націнка, %<input name="markup" type="number" min="0" step="0.1" value="${p.markup??defMarkup()}"></label>
       <label class="form-field">Розрахунок ціни<select name="priceMode"><option value="calculated" ${!p.manualPrice?'selected':''}>Закупівля + націнка</option><option value="manual" ${p.manualPrice?'selected':''}>Задати вручну</option></select></label><label class="form-field">Ручна ціна, грн<input name="price" type="number" min="0" step="0.01" value="${p.manualPrice?num(p.price):''}" ${p.manualPrice?'':'disabled'}></label>
@@ -621,15 +649,15 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
   async function deleteEditedProduct(button){
     if(!confirm('Видалити цей товар?'))return;button.disabled=true;
     try{await db.collection('products').doc(S.productEditId).delete();S.editDirty=false;$('#productEditor').close();toast('Товар видалено');}
-    catch(error){$('#productError').textContent='Не вдалося видалити товар. Перевірте з’єднання і повторіть.';button.disabled=false;}
+    catch(error){$('#productError').textContent=error.message||'Не вдалося видалити товар.';button.disabled=false;}
   }
   function closeProduct(){if(S.editDirty&&!confirm('Закрити редактор без збереження змін?'))return;$('#productEditor').close();S.editDirty=false;}
   document.addEventListener('submit',async e=>{
     if(e.target.id!=='productForm')return;e.preventDefault();const f=e.target, v=Object.fromEntries(new FormData(f)),manual=v.priceMode==='manual';
     if(manual&&!v.price){$('#productError').textContent='Вкажіть ручну ціну або оберіть розрахунок за націнкою.';f.elements.price.focus();return;}
-    const payload={name:v.name.trim(),type:v.type,category:v.category.trim(),pack:v.pack||null,size:v.size.trim()||null,unit:v.unit,cost:num(v.cost),markup:num(v.markup),manualPrice:manual,price:manual?num(v.price):null,priceAt:v.priceAt||null,promotion:f.elements.promotion.checked};
+    const payload={barcode:v.barcode.trim(),minStock:num(v.minStock),name:v.name.trim(),type:v.type,category:v.category.trim(),pack:v.pack||null,size:v.size.trim()||null,unit:v.unit,cost:num(v.cost),markup:num(v.markup),manualPrice:manual,price:manual?num(v.price):null,priceAt:v.priceAt||null,promotion:f.elements.promotion.checked};
     if(!payload.name)return;const b=f.querySelector('[type=submit]');b.disabled=true;b.textContent='Збереження…';
-    try{if(S.productEditId)await db.collection('products').doc(S.productEditId).update(payload);else await db.collection('products').add(payload);S.editDirty=false;$('#productEditor').close();toast('Товар збережено');}catch(err){$('#productError').textContent='Не вдалося зберегти товар. Перевірте з’єднання і спробуйте знову.';}finally{b.disabled=false;b.textContent='Зберегти товар';}
+    try{if(S.productEditId)await db.collection('products').doc(S.productEditId).update(payload);else await db.collection('products').add(payload);S.editDirty=false;$('#productEditor').close();toast('Товар збережено');}catch(err){$('#productError').textContent=err.message||'Не вдалося зберегти товар.';}finally{b.disabled=false;b.textContent='Зберегти товар';}
   });
 
   /* ---------- price tags ---------- */

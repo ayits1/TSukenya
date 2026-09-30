@@ -2,6 +2,6 @@
   "name": "tsukenya-portal",
   "version": "1.0.0",
   "private": true,
-  "scripts": {"test": "node tests/sync-sim.js", "test:ui": "node tests/portal-ui.cjs"},
+  "scripts": {"test": "node tests/sync-sim.js", "test:ui": "node tests/portal-ui.cjs", "test:crm:ui": "node tests/crm-ui.cjs"},
   "devDependencies": {"playwright": "1.63.0"}
 }

@@ -1,0 +1,50 @@
+/* Isolated trading workflow, UI forms, access controls and responsive layouts. */
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
+const root=path.resolve(__dirname,'..'),data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-crm-ui-')),python=process.env.PYTHON_BIN||'python3',port=18201,base=`http://localhost:${port}`,password='isolated-crm-test-password';
+const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-crm-test-password"))'],{cwd:root,encoding:'utf8'}).trim();
+const server=spawn(python,['-m','server.main'],{cwd:root,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash},stdio:'ignore'});
+let browser;
+const wait=async f=>{for(let i=0;i<120;i++){if(await f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
+(async()=>{
+await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
+browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined),headless:true});const ctx=await browser.newContext({viewport:{width:1440,height:1050}}),page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto(base);await page.locator('[name=username]').fill('tester');await page.locator('[name=password]').fill(password);await page.locator('button[type=submit]').click();await page.waitForSelector('#main .stats');
+const api=(endpoint,method='GET',body)=>page.evaluate(async({endpoint,method,body})=>{const s=await(await fetch('/api/state')).json(),r=await fetch('/api/erp/'+endpoint,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:body===undefined?undefined:JSON.stringify(body)});return{status:r.status,data:await r.json()};},{endpoint,method,body});
+const ok=async(...args)=>{const r=await api(...args);assert(r.status<300,JSON.stringify(r));return r.data;};
+const state=await ok('state'),store=state.stores[0].id,wh=state.warehouses[0].id,cash=state.accounts.find(a=>a.kind==='cash').id;
+const supplier=(await ok('entities/parties','POST',{name:'Тестовий постачальник',kind:'supplier'})).id;
+const customer=(await ok('entities/parties','POST',{name:'Тестовий покупець',kind:'customer',phone:'0000'})).id;
+const employee=(await ok('entities/employees','POST',{name:'Працівник тесту',store,shift_rate:400,bonus_percent:5,bonus_basis:'store'})).id;
+const p=await page.evaluate(async()=>{const s=await(await fetch('/api/state')).json();return s.data.products[0].id;});
+const go=async tab=>{await page.goto(base+'/#trade/'+tab);await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'));assert(!(await page.locator('#main').innerText()).includes('Цей розділ недоступний'));};
+const date=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Kyiv',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
+const voucher=async body=>{const v=await ok('vouchers','POST',{store,warehouse:wh,date,...body});return ok('vouchers/'+v.id+'/post','POST',{});};
+await voucher({kind:'cash_opening',amount:1000,account:cash});
+// Receive stock using the form, not the API.
+await go('purchases');await page.locator('[data-trade=new-voucher][data-kind=receipt]').click();await page.locator('#tradeVoucherForm').waitFor();
+let f=page.locator('#tradeVoucherForm');await f.locator('[name=party]').selectOption(String(supplier));await f.locator('[data-line=product]').selectOption(p);await f.locator('[data-line=quantity]').fill('10');await f.locator('[data-line=price]').fill('10');await page.locator('[type=submit][form=tradeVoucherForm][value=post]').click();await page.locator('.trade-dialog-head h2').filter({hasText:'Надходження ·'}).waitFor();const received=(await ok('vouchers?kind=receipt')).items[0];assert.equal(received.total,'100.00');assert.equal(received.outstanding,'100.00');
+await voucher({kind:'payment',reference:received.id,account:cash,amount:100});
+const shift=(await ok('shifts','POST',{account:cash,employee})).id;
+await go('sales');await page.locator('[data-trade=new-voucher][data-kind=sale]').click();f=page.locator('#tradeVoucherForm');await f.locator('[name=employee]').selectOption(String(employee));await f.locator('[name=party]').selectOption(String(customer));await f.locator('[data-line=product]').selectOption(p);await f.locator('[data-line=quantity]').fill('2');await f.locator('[data-line=price]').fill('20');await page.locator('[data-trade=full-payment]').click();assert.equal(await page.locator('[data-payment=amount]').inputValue(),'40.00');await page.locator('[type=submit][form=tradeVoucherForm][value=post]').click();await page.locator('.trade-dialog-head h2').filter({hasText:'Продаж ·'}).waitFor();const sold=(await ok('vouchers?kind=sale')).items[0];assert.equal(sold.cost,'20.00');
+await voucher({kind:'customer_return',reference:sold.id,party:customer,lines:[{product:p,quantity:1,price:20}],payload:{payments:[{account:cash,amount:20}]}});
+await voucher({kind:'expense',account:cash,amount:10,payload:{category:'Комунальні'}});
+await ok('shifts','POST',{id:shift,action:'close',counted:910});
+const ws=(await ok('work-shifts','POST',{employee,date,cash_shift:shift,units:1})).id;
+await go('staff');await page.locator('[data-trade=new-voucher][data-kind=payroll]').click();f=page.locator('#tradeVoucherForm');await f.locator('[name=employee]').selectOption(String(employee));await f.locator('[name=shift_ids]').check();await page.locator('[type=submit][form=tradeVoucherForm][value=post]').click();await page.locator('.trade-dialog-head h2').filter({hasText:'Нарахування зарплати ·'}).waitFor();const wages=(await ok('vouchers?kind=payroll')).items[0];assert.equal(wages.total,'401.00');
+await voucher({kind:'payroll_payment',employee,account:cash,amount:100});const rep=await ok('report');assert.equal(Number(rep.profit),-401);assert.equal(Number(rep.revenue),20);assert.equal(Number(rep.cogs),10);assert.equal(Number((await ok('state')).payroll_debts[0].amount),301);
+const stock=await ok('stock');assert.equal(Number(stock.totals[0].quantity),9);assert.equal(Number(stock.totals[0].value),90);
+// Check forbidden writes and role data filtering.
+const csrfStatus=await page.evaluate(async()=> (await fetch('/api/erp/entities/parties',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'bad',kind:'customer'})})).status);assert.equal(csrfStatus,403);
+await ok('users','POST',{username:'cashier',password:'isolated-cashier-password',role:'cashier',store});
+const cashierCtx=await browser.newContext(),cp=await cashierCtx.newPage();await cp.goto(base);await cp.locator('[name=username]').fill('cashier');await cp.locator('[name=password]').fill('isolated-cashier-password');await cp.locator('button[type=submit]').click();await cp.waitForSelector('#main .stats');const denied=await cp.evaluate(async()=>({salary:(await fetch('/api/erp/vouchers?kind=payroll')).status,state:await(await fetch('/api/erp/state')).json(),report:(await fetch('/api/erp/report')).status}));assert.equal(denied.report,403);assert.equal(denied.state.work_shifts,undefined);assert.equal(denied.state.employees[0].shift_rate,undefined);await cashierCtx.close();
+for(const width of [1440,1024,768,390,320]){await page.setViewportSize({width,height:844});for(const tab of ['purchases','stock','sales','finance','staff','customers','reports','setup']){await go(tab);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${tab}: overflow ${width}`);}await go('sales');await page.locator('[data-trade=new-voucher][data-kind=sale]').click();assert(await page.locator('.trade-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1),`sale dialog overflow ${width}`);await page.locator('.trade-dialog [data-trade=close]').click();}
+await page.setViewportSize({width:1440,height:1050});await go('reports');await page.screenshot({path:path.join(os.tmpdir(),'tsukenya-crm-reports.png')});await go('sales');await page.locator('[data-trade=new-voucher][data-kind=sale]').click();await page.locator('.trade-dialog[open] #tradeVoucherForm').waitFor();await page.locator('.trade-dialog[open]').screenshot({path:path.join(os.tmpdir(),'tsukenya-crm-sale-dialog.png')});
+// The draft and mixed-payment totals use exactly the server's per-line cent rounding.
+const productIds=await page.evaluate(async()=> (await(await fetch('/api/state')).json()).data.products.slice(0,3).map(p=>p.id));
+for(let i=0;i<3;i++){if(i)await page.locator('[data-trade=add-line]').click();const row=page.locator('.trade-line').nth(i);await row.locator('[data-line=product]').selectOption(productIds[i]);await row.locator('[data-line=quantity]').fill('1');await row.locator('[data-line=price]').fill('0.3333');}
+await page.locator('[data-trade=full-payment]').click();assert.equal(await page.locator('[data-payment=amount]').inputValue(),'0.99');
+await page.locator('.trade-line').first().locator('[data-line=quantity]').fill('.5');await page.locator('[data-trade=full-payment]').click();assert.equal(await page.locator('[data-payment=amount]').inputValue(),'0.83');
+page.once('dialog',d=>d.accept());await page.locator('.trade-dialog [data-trade=close]').click();await page.setViewportSize({width:390,height:844});await go('staff');await page.screenshot({path:path.join(os.tmpdir(),'tsukenya-crm-staff-mobile.png')});assert.deepEqual(errors,[]);
+console.log('PASS: receipt/sale/payroll forms; actual stock, COGS, cash and debts; supplier payments/customer refund; shift-rate + percent payroll; CSRF/roles; 8 screens and sale editor at 5 widths.');
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill('SIGTERM');await new Promise(r=>server.once('exit',r));fs.rmSync(data,{recursive:true,force:true});});

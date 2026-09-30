@@ -6,21 +6,53 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      DB_HOST: tsukenya-postgres
+      DB_NAME: tsukenya
+      DB_USER: tsukenya_app
       DATA_DIR: /data
-      PORT: "8080"
     volumes:
-      - ./storage:/data
+      - ./storage:/data:ro
     networks:
       - tsukenya_edge
+      - accounting
+    depends_on:
+      tsukenya-postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
-      interval: 30s
+      interval: 20s
       timeout: 5s
-      retries: 3
-    mem_limit: 512m
+      retries: 5
+      start_period: 60s
+    mem_limit: 768m
     cpus: 1.0
     pids_limit: 128
-
+  tsukenya-postgres:
+    image: postgres:18@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    restart: unless-stopped
+    env_file: .env.database
+    environment:
+      POSTGRES_DB: tsukenya
+      POSTGRES_USER: tsukenya
+      PGDATA: /var/lib/postgresql/18/data
+    volumes:
+      - accounting_data:/var/lib/postgresql
+    networks:
+      - accounting
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tsukenya -d tsukenya"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=50"]
+    mem_limit: 1024m
+    cpus: 1.0
+    pids_limit: 256
+    shm_size: 128m
 networks:
   tsukenya_edge:
     name: tsukenya_edge
+  accounting:
+    internal: true
+volumes:
+  accounting_data:

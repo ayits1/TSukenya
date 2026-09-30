@@ -29,6 +29,7 @@
       const result = await response.json();
       const changed = JSON.stringify(data) !== JSON.stringify(result.data);
       data = result.data;
+      window.TSUKENYA_ROLE = result.role || "owner";
       csrf = result.csrf;
       if (changed) notify();
     })().finally(() => { loading = null; });

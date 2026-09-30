@@ -1,10 +1,7 @@
 .git
-.env
+.env*
 .private
 storage
-__pycache__
-*.pyc
-tests
-docs
-deploy
 node_modules
+**/__pycache__
+**/*.pyc

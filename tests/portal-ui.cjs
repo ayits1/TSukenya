@@ -4,8 +4,9 @@ const fs=require('node:fs');const os=require('node:os');const path=require('node
 const {spawn,execFileSync}=require('node:child_process');const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-ui-'));
 const port=18199,base=`http://localhost:${port}`,password='isolated-browser-test-password';
-const hash=execFileSync('python3',['-c','from server.main import hash_password; print(hash_password("isolated-browser-test-password"))'],{cwd:root,encoding:'utf8'}).trim();
-const server=spawn('python3',['-m','server.main'],{cwd:root,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash},stdio:'ignore'});
+const python=process.env.PYTHON_BIN||'python3';
+const hash=execFileSync(python,['-c','from server.main import hash_password; print(hash_password("isolated-browser-test-password"))'],{cwd:root,encoding:'utf8'}).trim();
+const server=spawn(python,['-m','server.main'],{cwd:root,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash},stdio:'ignore'});
 let browser;
 async function check(condition,message){for(let i=0;i<80;i++){if(await condition())return;await new Promise(r=>setTimeout(r,100));}throw Error(message);}
 (async()=>{
