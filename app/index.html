@@ -3,33 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Мережа солодощів — панель власника</title>
+<title>Цукерня — бізнес-портал</title>
+<meta name="theme-color" content="#f4f6f8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#EEF5F1; --paper:#FFFFFF; --ink:#2B1830; --muted:#6D5B70; --line:#D6E2DB;
-  --rasp:#C8235F; --rasp-soft:#FBE3EC; --caramel:#D98E1F; --caramel-soft:#FCEFD9;
-  --mint:#2F9670; --mint-soft:#DDF2E8; --focus:#C8235F;
+  --bg:#F4F6F8; --paper:#FFFFFF; --ink:#172B3A; --muted:#526575; --line:#D7DFE6;
+  --rasp:#205C91; --rasp-soft:#EAF1F8; --caramel:#966114; --caramel-soft:#FFF5DF;
+  --mint:#26745E; --mint-soft:#EAF5EF; --focus:#205C91;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#1A1220; --paper:#251A2C; --ink:#F3EAF4; --muted:#B6A6B9; --line:#3B2D44;
-    --rasp:#FF5C93; --rasp-soft:#3F1B2C; --caramel:#F0B558; --caramel-soft:#3A2B17;
-    --mint:#5CCB9D; --mint-soft:#18342A; --focus:#FF5C93;
+    --bg:#111B24; --paper:#192733; --ink:#E8EEF3; --muted:#A8BAC8; --line:#334655;
+    --rasp:#8BBDF0; --rasp-soft:#203B52; --caramel:#E3B963; --caramel-soft:#3B321F;
+    --mint:#80C4AA; --mint-soft:#203D33; --focus:#8BBDF0;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#1A1220; --paper:#251A2C; --ink:#F3EAF4; --muted:#B6A6B9; --line:#3B2D44;
-  --rasp:#FF5C93; --rasp-soft:#3F1B2C; --caramel:#F0B558; --caramel-soft:#3A2B17;
-  --mint:#5CCB9D; --mint-soft:#18342A; --focus:#FF5C93;
+  --bg:#111B24; --paper:#192733; --ink:#E8EEF3; --muted:#A8BAC8; --line:#334655;
+  --rasp:#8BBDF0; --rasp-soft:#203B52; --caramel:#E3B963; --caramel-soft:#3B321F;
+  --mint:#80C4AA; --mint-soft:#203D33; --focus:#8BBDF0;
 }
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Rubik",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.5}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.5}
 .wrap{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
 h1,h2,h3{line-height:1.2;margin:0}
 h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;letter-spacing:-.01em}
@@ -47,22 +49,13 @@ button{cursor:pointer}
 .top .sub{font-size:.95rem}
 .notice{background:var(--caramel-soft);border-left:4px solid var(--caramel);padding:12px 14px;border-radius:8px;margin-bottom:20px}
 
-/* candy path — the one memorable element */
+/* development roadmap */
 .path{background:var(--paper);border-radius:22px;padding:28px 24px 24px;margin-bottom:18px}
 .path-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:26px}
 .stages{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);position:relative}
 .stages::before{content:"";position:absolute;left:12.5%;right:12.5%;top:22px;height:4px;border-radius:2px;
   background:repeating-linear-gradient(90deg,var(--line) 0 10px,transparent 10px 16px)}
 .stage{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 6px}
-.candy{position:relative;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:700;
-  background:var(--paper);border:3px solid var(--line);color:var(--muted);z-index:1}
-.candy::before,.candy::after{content:"";position:absolute;top:50%;width:0;height:0;border-top:11px solid transparent;border-bottom:11px solid transparent;transform:translateY(-50%)}
-.candy::before{left:-15px;border-right:14px solid var(--line)}
-.candy::after{right:-15px;border-left:14px solid var(--line)}
-.stage.done .candy{background:var(--mint);border-color:var(--mint);color:#fff}
-.stage.done .candy::before{border-right-color:var(--mint)} .stage.done .candy::after{border-left-color:var(--mint)}
-.stage.now .candy{background:var(--rasp);border-color:var(--rasp);color:#fff;transform:scale(1.18)}
-.stage.now .candy::before{border-right-color:var(--rasp)} .stage.now .candy::after{border-left-color:var(--rasp)}
 .stage-name{margin-top:14px;font-weight:600;font-size:.98rem}
 .stage.now .stage-name{color:var(--rasp)}
 .stage-meta{font-size:.85rem;color:var(--muted)}
@@ -72,7 +65,6 @@ button{cursor:pointer}
 /* tabs */
 .tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 2px;margin:26px 0 18px}
 .tab{border:0;background:transparent;padding:10px 16px;border-radius:999px;font-weight:500;white-space:nowrap;color:var(--muted)}
-.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
 .panel{background:var(--paper);border-radius:18px;padding:22px}
 .panel+.panel{margin-top:16px}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
@@ -123,7 +115,7 @@ td.r,th.r{text-align:right}
 .idea .acts{display:flex;gap:8px;margin-top:auto}
 
 /* expenses */
-.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}
 .exp{display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
 .exp .n{flex:1}
 .total{display:flex;justify-content:space-between;padding-top:10px;font-weight:600}
@@ -164,23 +156,9 @@ td.r,th.r{text-align:right}
 .tag .pr small{font-size:.45em;font-weight:600;margin-left:1mm}
 .tag .un,.tag .per100{line-height:1.3}
 .tag-field{overflow-wrap:anywhere}
-.tcfg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin-top:6px}
-@media (max-width:760px){.tcfg{grid-template-columns:minmax(0,1fr)}}
-.tcfg h4{margin:0 0 8px;font-size:14px}
-.tels{display:flex;flex-wrap:wrap;gap:6px 14px}
-.tels label{display:flex;gap:6px;align-items:center;white-space:nowrap}
-.tcfg .row{margin-top:10px}
 .stl{display:flex;flex-direction:column;gap:6px}
 .stl .strow{display:flex;gap:6px;align-items:center}
 .stl .strow input{flex:1;min-width:0}
-.tsample{display:flex;justify-content:center;align-items:center;background:#fff;border-radius:12px;padding:14px;margin-top:12px;overflow:auto}
-.style-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:10px;margin-top:12px}
-.style-card{border:1px solid var(--line);border-radius:12px;padding:10px}
-.style-card h4{margin:0 0 8px}
-.style-card .row{margin-top:6px}
-.style-card input[type=color]{width:44px;height:36px;padding:2px;border:1px solid var(--line);border-radius:7px;background:var(--paper)}
-.style-card input[type=number]{width:68px}
-.style-card select{max-width:130px}
 .individual-preview{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;margin-top:12px}
 .individual-preview .tag{flex:none}
 .print-preview-pages{overflow:auto;max-height:75vh;background:var(--bg);padding:12px;border-radius:12px}
@@ -242,23 +220,78 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   .panel{padding:16px}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+/* Business portal components */
+[hidden]{display:none!important}
+:root{color-scheme:light} :root[data-theme="dark"]{color-scheme:dark}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark}}
+button,a,input,select{touch-action:manipulation}
+.wrap{max-width:1280px;padding:28px 32px 64px}
+.top{align-items:center;padding-bottom:22px;margin-bottom:24px;border-bottom:1px solid var(--line)}
+h1{font-size:26px;letter-spacing:-.4px}h2{font-size:23px}h3{font-size:17px}h1,h2,h3{text-wrap:balance}
+.top .sub{font-size:14px;margin-top:4px}
+.workspace-nav{display:flex;gap:0;border:1px solid var(--line);background:var(--paper);margin-bottom:28px;border-radius:8px;overflow:hidden}
+.workspace-link{flex:1;min-width:0;padding:16px 20px;color:var(--muted);text-decoration:none;border-left:3px solid transparent}
+.workspace-link+ .workspace-link{border-left:1px solid var(--line)}
+.workspace-link b{display:block;font-size:17px;font-weight:600}.workspace-link span{display:block;font-size:13px;margin-top:3px}
+.workspace-link[aria-current="page"]{color:var(--ink);background:var(--rasp-soft);box-shadow:inset 0 -3px var(--rasp)}
+.workspace-link:hover{background:var(--bg)}
+.section-heading{margin-bottom:20px}.section-heading p{max-width:72ch;margin-top:7px}.eyebrow{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:6px}
+.tabs{margin:0 0 24px;gap:22px;border-bottom:1px solid var(--line);padding:0;overflow-x:auto}
+.tab{display:inline-block;border-radius:0;text-decoration:none;padding:12px 0;border-bottom:2px solid transparent;font-weight:500;color:var(--muted)}
+.tab[aria-current="page"]{color:var(--rasp);border-bottom-color:var(--rasp)}.tab:hover{color:var(--ink)}
+.panel{border:1px solid var(--line);border-radius:8px;padding:22px;background:var(--paper)}
+.stats{gap:0}.stat{border:0;border-radius:0;padding:8px 18px}.stat+ .stat{border-left:1px solid var(--line)}.stat .v{margin-top:8px;font-size:28px;font-weight:600}.stat .l{font-size:13px}
+.btn{border-radius:5px;font-size:14px;padding:9px 14px;font-weight:500}.btn.soft{border:1px solid var(--line);background:transparent}.btn:hover{filter:brightness(.95)}.btn.soft:hover{background:var(--bg)}.btn.danger{background:transparent;color:#a12626;border:1px solid #dfbcbc}
+.notice,.warn{border-radius:4px}.empty{border:1px solid var(--line);border-radius:5px;padding:26px;font-size:14px}
+.quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}.quick-actions a{padding:12px 20px 12px 0;color:var(--rasp);text-decoration:none;font-weight:500}.quick-actions a+ a{border-left:1px solid var(--line);padding-left:20px}.quick-actions span{display:block;font-size:13px;font-weight:400;color:var(--muted);margin-top:5px}.quick-actions a:hover{text-decoration:underline}
+.path{padding:20px;border:1px solid var(--line);border-radius:8px;margin-bottom:20px}.path-head{margin-bottom:18px}.stages{gap:14px}.stages::before{display:none}.stage{align-items:flex-start;text-align:left;border-top:2px solid var(--line);padding:12px 0 0}.stage.now{border-color:var(--rasp)}.stage.done{border-color:var(--mint)}.stage-num{font-size:13px;font-weight:600;color:var(--muted)}.stage-name{margin-top:5px;font-size:14px}.stage-meta{font-size:12px}.next{border-radius:4px;background:var(--bg);padding:12px;margin-top:18px}
+.task{padding:14px 0}.task .t{min-width:0;overflow-wrap:anywhere}.task-date{display:block;color:var(--muted);font-size:12px;margin-top:3px}.chip{border-radius:4px;padding:7px 10px}.ideas{gap:16px}.idea{border-radius:6px}.idea.no{opacity:1}.idea .acts{flex-wrap:wrap}.be{border-radius:6px}
+.form-field{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500;min-width:0;margin-bottom:12px}.form-field input,.form-field select,.form-field textarea{width:100%;max-width:100%;font:inherit;font-size:14px;font-weight:400;border:1px solid var(--line);background:var(--paper);border-radius:5px;padding:9px 10px;color:var(--ink);text-align:left}.form-field textarea{min-height:84px;resize:vertical}.form-field input[type=color]{height:39px;padding:4px}.grow{flex:1}.form-error{color:#a12626;font-size:14px;margin:12px 0}.form-error:empty{display:none}
+.disclosure summary{cursor:pointer;font-weight:500;list-style:revert}.disclosure[open] summary{margin-bottom:20px}.identity-settings{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.save-status{padding:0;border:0;background:transparent;color:var(--muted);font-size:13px}.save-status:hover{color:var(--rasp)}
+.catalog-pagination{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;padding-top:18px;font-size:13px}.catalog-pagination select{padding:6px;width:65px}.pick .prow{content-visibility:auto;contain-intrinsic-size:auto 42px}dialog,.pick,.print-preview-pages{overscroll-behavior:contain}.exp .n{min-width:0;overflow-wrap:anywhere}.btn.rasp{background:#205C91;color:#fff}
+.catalog-table{width:100%;min-width:0;table-layout:fixed}.catalog-table th{font-size:12px;vertical-align:bottom}.catalog-table th:first-child{width:36%}.catalog-table th:nth-child(2),.catalog-table th:nth-child(3),.catalog-table th:nth-child(4){width:12%}.catalog-table th:nth-child(5){width:10%}.catalog-table th:last-child{width:14%}.catalog-table td{padding:14px 8px;vertical-align:top}.catalog-table input[type=number]{width:100%;max-width:100%;padding:7px 5px;border-radius:4px;font-size:14px}.catalog-table small,.catalog-name small{display:block;color:var(--muted);font-size:12px;margin-top:4px;overflow-wrap:anywhere}.product-name{border:0;background:transparent;text-align:left;padding:0;color:var(--ink);font-weight:500;line-height:1.4;overflow-wrap:anywhere}.product-name:hover{color:var(--rasp);text-decoration:underline}.catalog-actions .btn{padding:7px;font-size:12px;width:100%}.price-status{font-size:11px;display:inline-block;margin-top:5px;color:var(--muted)}.price-status.none,.price-status.stale{color:var(--caramel)}.promotion-toggle{display:flex;gap:7px;align-items:center;font-size:13px;cursor:pointer}.promotion-toggle input{accent-color:var(--rasp);width:16px;height:16px}.promotion-toggle:has(input:checked){color:var(--caramel);font-weight:600}
+dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);padding:28px;overflow:auto}dialog::backdrop{background:rgba(16,32,44,.5)}.editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 20px}.span-all{grid-column:1/-1}.editor-footer{margin-top:20px;border-top:1px solid var(--line);padding-top:20px}.editor-grid .form-field input[type=number]{text-align:left}
+.builder-toolbar{display:flex;gap:20px;border-bottom:1px solid var(--line);margin-bottom:20px}.builder-toolbar .form-field{flex:1}.builder-workspace{display:grid;grid-template-columns:180px minmax(0,1fr) 230px;gap:20px;align-items:start}.field-list{display:flex;flex-direction:column;gap:2px}.field-item{border:0;border-left:2px solid transparent;border-radius:0;background:transparent;color:var(--ink);padding:9px 12px;text-align:left;font-size:13px}.field-item small{display:block;color:var(--muted);font-size:11px;margin-top:2px}.field-item[aria-current="true"]{background:var(--rasp-soft);border-color:var(--rasp);font-weight:600}.field-item:hover{background:var(--bg)}.builder-stage{min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:18px}.builder-stage .individual-preview{margin:18px 0;display:flex;justify-content:center;overflow:auto;padding:12px 4px}.builder-stage .tag{flex:none;box-shadow:0 2px 8px #172b3a15}.builder-stage p{font-size:12px}.field-inspector{padding-left:18px;border-left:1px solid var(--line);min-width:0}.inspector-description{font-size:12px;margin:8px 0 14px}.visibility-switch{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:20px}.field-inspector>.muted{font-size:12px;margin:10px 0}.inspector-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stage-hint{margin-top:10px}#individualPreview [data-field]{cursor:pointer;position:relative}#individualPreview .field-selected{outline:1px solid #205c91;outline-offset:2px;background-color:transparent}#individualPreview [data-field]:hover{outline:1px dashed #205c91}#individualPreview .t-promo.field-selected{background:#fff1c2}.tag .t-promo{display:block;width:100%;background:#fff1c2;padding:.4mm 1mm;margin-bottom:.5mm;line-height:1.35;border-radius:0;color:#9a3412}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.skip-link{position:fixed;top:-80px;left:16px;z-index:100;padding:10px;background:var(--paper);color:var(--ink)}.skip-link:focus{top:12px}#main:focus-visible{outline:2px solid var(--focus);outline-offset:4px}
+@media(max-width:1000px){.builder-workspace{grid-template-columns:145px minmax(0,1fr)}.field-inspector{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 20px;border-left:0;border-top:1px solid var(--line);padding:20px 0 0}.field-inspector h3,.field-inspector .inspector-description{grid-column:1/-1;margin:0}.field-inspector>.muted{grid-column:1/-1}.catalog-table th:first-child{width:34%}.catalog-table th:last-child{width:14%}}
+@media(max-width:760px){.wrap{padding:18px 14px 48px}.top{gap:16px}.workspace-link{padding:12px}.workspace-link b{font-size:15px}.workspace-link span{font-size:12px}.workspace-nav{margin-bottom:22px}.panel{padding:16px}.tabs{gap:18px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.stat{padding:0}.stat+ .stat{border-left:0}.stat .v{font-size:24px}.quick-actions{grid-template-columns:1fr}.quick-actions a+ a{border-left:0;border-top:1px solid var(--line);padding-left:0}.stages{grid-template-columns:repeat(2,minmax(0,1fr))}.stage{display:block}.catalog-table thead{display:none}.catalog-table,.catalog-table tbody{display:block}.catalog-table tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:16px 0;border-bottom:1px solid var(--line)}.catalog-table td{display:block;padding:0;border:0;min-width:0}.catalog-name{grid-column:1/-1}.catalog-table td[data-label]:not(.catalog-name)::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted);margin-bottom:5px}.catalog-table .catalog-actions{grid-column:2/4}.catalog-actions .btn{padding:8px}.builder-toolbar{flex-wrap:wrap;gap:8px 16px}.builder-toolbar .form-field{min-width:140px}.builder-workspace{grid-template-columns:1fr}.field-list{flex-direction:row;overflow:auto;padding-bottom:6px}.field-item{flex:none;border-left:0;border-bottom:2px solid transparent}.field-inspector{grid-template-columns:repeat(2,minmax(0,1fr))}.builder-stage{padding:12px}.editor-grid{grid-template-columns:1fr}.editor-footer{gap:16px}.editor-footer>.row{width:100%;justify-content:flex-end}.builder-stage .individual-preview{justify-content:flex-start}.form-field.grow{flex-basis:100%}dialog{padding:20px}.identity-settings .strow{flex-wrap:nowrap}}
+@media print{.field-selected{outline:none!important}.tag .t-promo{background:#fff1c2!important}}
+
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Перейти до вмісту</a>
 <div class="wrap">
   <header class="top">
     <div>
       <h1 id="chainName">Мережа солодощів</h1>
-      <p class="sub muted">Панель власника: де ми зараз і що робимо далі</p>
+      <p class="sub muted">Бізнес-портал · управління торгівлею та розвитком</p>
     </div>
     <div class="row"><p class="muted sub" id="updated"></p><a class="btn soft" href="/account" id="accountLink" hidden>Обліковий запис</a></div>
   </header>
 
   <div id="noDb" class="notice" hidden>Не вдалося завантажити дані. Оновіть сторінку або перевірте з’єднання.</div>
 
-  <section class="path" aria-labelledby="pathTitle">
+  <nav class="workspace-nav" aria-label="Робочі простори">
+    <a class="workspace-link" data-workspace="operations" href="#operations/overview"><b>Операційна робота</b><span>Товари, цінники, задачі та витрати</span></a>
+    <a class="workspace-link" data-workspace="development" href="#development/devOverview"><b>Розвиток бізнесу</b><span>Ідеї, рішення та план реалізації</span></a>
+  </nav>
+  <div class="section-heading"><div><p class="eyebrow" id="workspaceLabel"></p><h2 id="pageTitle"></h2><p class="muted" id="pageDescription"></p></div></div>
+  <nav class="tabs" id="tabs" aria-label="Розділи порталу">
+    <a class="tab" data-tab="overview" href="#operations/overview">Огляд</a>
+    <a class="tab" data-tab="products" href="#operations/products">Товари й ціни</a>
+    <a class="tab" data-tab="tags" href="#operations/tags">Цінники</a>
+    <a class="tab" data-tab="work" href="#operations/work">Поточні задачі</a>
+    <a class="tab" data-tab="expenses" href="#operations/expenses">Витрати</a>
+    <a class="tab" data-tab="devOverview" href="#development/devOverview">Огляд розвитку</a>
+    <a class="tab" data-tab="ideas" href="#development/ideas">Ідеї</a>
+    <a class="tab" data-tab="tasks" href="#development/tasks">План реалізації</a>
+  </nav>
+  <section class="path" id="developmentPath" aria-labelledby="pathTitle" hidden>
     <div class="path-head">
-      <h2 id="pathTitle">Де ми зараз</h2>
+      <h2 id="pathTitle">Етапи розвитку</h2>
       <span class="muted" id="overall"></span>
     </div>
     <ol class="stages" id="stages"></ol>
@@ -267,17 +300,9 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     </div>
   </section>
 
-  <nav class="tabs" role="tablist" id="tabs">
-    <button class="tab" role="tab" data-tab="overview" aria-selected="true">Огляд</button>
-    <button class="tab" role="tab" data-tab="tasks" aria-selected="false">Задачі</button>
-    <button class="tab" role="tab" data-tab="ideas" aria-selected="false">Ідеї від Claude</button>
-    <button class="tab" role="tab" data-tab="products" aria-selected="false">Товари і ціни</button>
-    <button class="tab" role="tab" data-tab="tags" aria-selected="false">Цінники</button>
-    <button class="tab" role="tab" data-tab="expenses" aria-selected="false">Витрати</button>
-  </nav>
-
-  <main id="main"></main>
+  <main id="main" tabindex="-1" aria-labelledby="pageTitle"></main>
 </div>
+<dialog id="productEditor" aria-labelledby="productDialogTitle"></dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -288,7 +313,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     {n:3, name:"Міні-CRM"},
     {n:4, name:"Інтернет-вітрина"}
   ];
-  const S = {settings:{}, project:{}, tasks:[], ideas:[], products:[], allProducts:[], expenses:[], tagSel:new Set(), tagQty:{}, F:{prod:newF(), tags:newF()}};
+  const S = {settings:{}, project:{}, tasks:[], ideas:[], products:[], allProducts:[], expenses:[], tagSel:new Set(), tagQty:{}, catalogPage:1, catalogPageSize:20, F:{prod:newF(), tags:newF()}};
   const TYPES = ["Напої","Цукерки","Печиво і вафлі","Торти і десерти","Інше"];
   const NOTYPE = "Без типу";
   const typeOf = p => p.type || NOTYPE;
@@ -296,7 +321,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const typeRank = t => { const i = allTypes().indexOf(t); return i<0 ? 999 : i; };
   const sortByType = list => list.slice().sort((a,b)=> typeRank(typeOf(a))-typeRank(typeOf(b)) || String(a.category||"").localeCompare(String(b.category||""),"uk") || String(a.name).localeCompare(String(b.name),"uk"));
   const typeOpts = cur => { const l = allTypes(); if (cur && cur!==NOTYPE && !l.includes(cur)) l.push(cur); return (cur===NOTYPE?`<option value="" selected>${NOTYPE}</option>`:"") + l.map(t=>`<option ${t===cur?"selected":""}>${esc(t)}</option>`).join(""); };
-  let db = null, downloads = null, mcp = null, tab = "overview", pending = false;
+  let db = null, downloads = null, mcp = null, tab = "overview", workspace = "operations", pending = false;
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const money = v => (Math.round(v*100)/100).toLocaleString("uk-UA",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -312,7 +337,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const PACKS = ["Банка","ПЕТ","Скло","Стакан","Коробка","Пакет","Упаковка","Ваговий","Штучно"];
   const CUPS = ["S","M","L","XL","XXL","3XL"];
   const PRICE_LABEL = {ok:"Актуальна ціна", stale:"Застаріла ціна", none:"Немає ціни"};
-  const today = () => new Date().toISOString().slice(0,10);
+  const today = () => {const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
   const catKey = p => p.category || NOCAT;
   const packKey = p => p.pack || NOPACK;
   const sizeKey = p => p.size || NOSIZE;
@@ -324,13 +349,14 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (!isFinite(t)) return "stale";
     return (Date.now()-t)/864e5 > staleDays() ? "stale" : "ok";
   }
-  function newF(){ return {q:"", types:new Set(), cats:new Set(), packs:new Set(), sizes:new Set(), price:new Set()}; }
+  function newF(){ return {q:"", types:new Set(), cats:new Set(), packs:new Set(), sizes:new Set(), price:new Set(),promotion:new Set()}; }
   const FACETS = [
     {k:"types", label:"Група", val:typeOf},
     {k:"cats", label:"Категорія", val:catKey},
     {k:"packs", label:"Пакування", val:packKey},
     {k:"sizes", label:"Розмір", val:sizeKey},
-    {k:"price", label:"Ціна", val:priceState}];
+    {k:"price", label:"Ціна", val:priceState},
+    {k:"promotion",label:"Акція",val:p=>p.promotion?"Так":"Ні"}];
   const curF = () => S.F[tab==="tags" ? "tags" : "prod"];
   const isActive = f => !!f.q.trim() || FACETS.some(fc=>f[fc.k].size>0);
   function matches(p, f, skip){
@@ -359,7 +385,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       cats:(a,b)=>a.localeCompare(b,"uk"),
       packs:(a,b)=>po(a)-po(b),
       sizes:(a,b)=>sizeRank(a)-sizeRank(b) || a.localeCompare(b,"uk"),
-      price:(a,b)=>PO.indexOf(a)-PO.indexOf(b)}[fc.k];
+      price:(a,b)=>PO.indexOf(a)-PO.indexOf(b),promotion:(a,b)=>a.localeCompare(b,"uk")}[fc.k];
     return [...m.entries()].sort((a,b)=> (a[0]===last)-(b[0]===last) || ord(a[0],b[0]));
   }
   function ddLabel(fc, f){
@@ -395,7 +421,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
 
   /* ---------- pricing ---------- */
   const defMarkup = () => S.settings.defaultMarkup ?? 30;
-  function roundPrice(x){ const r = S.settings.rounding ?? 0.5; return Math.ceil(x/r - 1e-9)*r; }
+  function roundPrice(x){ const r = S.settings.rounding ?? 0.5; const price=Math.ceil(x/r - 1e-9)*r;return price===0?0:price; }
   function priceOf(p){
     if (p.manualPrice && p.price != null) return num(p.price);
     const m = p.markup ?? defMarkup();
@@ -406,21 +432,23 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   /* ---------- db writes ---------- */
   async function write(fn, ok){
     if (!db) { toast("Зміни зараз не зберігаються"); return; }
-    try { await fn(); if (ok) toast(ok); }
+    try { await fn(); if (ok) toast(ok); return true; }
     catch(e){
-      if (e && e.code==="unavailable"){ await new Promise(r=>setTimeout(r,400+Math.random()*600)); try{ await fn(); if(ok) toast(ok); return; }catch(_){} }
-      toast(e && e.code==="invalid_argument" ? "Немає прав змінювати дані" : "Не вдалося зберегти, спробуйте ще раз");
+      if (e && e.code==="unavailable"){ await new Promise(r=>setTimeout(r,400+Math.random()*600)); try{ await fn(); if(ok) toast(ok); return true; }catch(_){} }
+      toast(e && e.code==="invalid_argument" ? "Немає прав змінювати дані" : "Не вдалося зберегти, спробуйте ще раз");return false;
     }
   }
   const gsSoon = col => { if (col==="products" && S.settings.gsId){ clearTimeout(S.gsSoonT); S.gsSoonT = setTimeout(()=>gsSync(), 2500); } };
   const upd = (col,id,data,ok) => write(()=>db.collection(col).doc(id).update(data), ok).then(r=>{ gsSoon(col); return r; });
   const add = (col,data,ok) => write(()=>db.collection(col).add(data), ok).then(r=>{ gsSoon(col); return r; });
   const del = (col,id,ok) => write(()=>db.collection(col).doc(id).delete(), ok).then(r=>{ gsSoon(col); return r; });
-  async function setDoc(path,data,ok){ await write(async()=>{ const ref=db.doc(path); const s=await ref.get(); s.exists ? await ref.update(data) : await ref.set(data); }, ok); }
+  async function setDoc(path,data,ok){ return write(async()=>{ const ref=db.doc(path); const s=await ref.get(); s.exists ? await ref.update(data) : await ref.set(data); }, ok); }
 
+  let tagSaveQueue=Promise.resolve();
+  function tagSaveStatus(){const el=$('#tagSaveStatus');if(el)el.textContent=S.tagSaving?'Збереження…':S.tagSaveFailed?'Не збережено. Натисніть, щоб повторити.':'Макет збережено';}
   function saveTag(patch){
-    const c = Object.assign(tagCfg(), patch); S.settings.tag = c; renderPreview();
-    if (db) setDoc("settings/main", {tag:c});
+    const c=Object.assign(tagCfg(),patch);S.settings.tag=c;renderPreview();S.tagSaving=(S.tagSaving||0)+1;tagSaveStatus();
+    tagSaveQueue=tagSaveQueue.then(()=>setDoc('settings/main',{tag:c})).then(ok=>{S.tagSaving--;S.tagSaveFailed=!ok;tagSaveStatus();});
   }
   function saveStores(n, ok){
     S.settings.storeNames = n; S.settings.stores = Math.max(1, n.length);
@@ -432,14 +460,14 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     $("#chainName").textContent = S.settings.chainName || "Мережа солодощів";
     const cur = S.project.stage || 1;
     const html = STAGES.map(st=>{
-      const ts = S.tasks.filter(t=>t.stage===st.n), d = ts.filter(t=>t.status==="done").length;
+      const ts = developmentTasks().filter(t=>t.stage===st.n), d = ts.filter(t=>t.status==="done").length;
       const cls = st.n<cur ? "done" : st.n===cur ? "now" : "";
       const meta = ts.length ? `${d} з ${ts.length} задач` : "ще не почато";
-      return `<li class="stage ${cls}"><span class="candy" aria-hidden="true">${st.n<cur?"✓":st.n}</span>
+      return `<li class="stage ${cls}"><span class="stage-num" aria-hidden="true">${st.n<cur?"✓":st.n}</span>
         <div><div class="stage-name">${esc(st.name)}</div><div class="stage-meta">${st.n===cur?"зараз тут · ":""}${meta}</div></div></li>`;
     }).join("");
     $("#stages").innerHTML = html;
-    const all = S.tasks.length, done = S.tasks.filter(t=>t.status==="done").length;
+    const all = developmentTasks().length, done = developmentTasks().filter(t=>t.status==="done").length;
     $("#overall").textContent = all ? `Виконано ${done} з ${all} задач` : "";
     const nt = S.project.nextStep;
     $("#next").hidden = !nt; $("#nextText").textContent = nt || "";
@@ -448,22 +476,43 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
 
   /* ---------- tabs ---------- */
-  function render(){
+  function render(force=false){
     const a = document.activeElement;
-    if (a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
+    if (!force && a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
     pending = false;
     renderPath();
-    const m = $("#main");
-    m.innerHTML = ({overview, tasks, ideas, products, tags, expenses})[tab]();
+    const m = $("#main"),openPanels=[...m.querySelectorAll("[data-disclosure][open]")].map(el=>el.dataset.disclosure),scrolls=[...m.querySelectorAll(".pick,.field-list")].map(el=>[el.className,el.scrollTop,el.scrollLeft]);
+    m.innerHTML = ({overview, devOverview, work, tasks, ideas, products, tags, expenses})[tab]();
+    for(const key of openPanels)m.querySelector(`[data-disclosure="${key}"]`)?.setAttribute("open","");
+    for(const [cls,top,left]of scrolls){const el=m.getElementsByClassName(cls)[0];if(el){el.scrollTop=top;el.scrollLeft=left;}}
     if (tab==="tags") renderPreview();
   }
   $("#main").addEventListener("focusout", ()=>setTimeout(()=>{ if(pending) render(); },0));
-  $("#tabs").addEventListener("click", e=>{
-    const b = e.target.closest(".tab"); if(!b) return;
-    tab = b.dataset.tab;
-    document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected", x===b));
-    render();
-  });
+  const SECTIONS = {
+    overview:['operations','Операційний огляд','Стан каталогу, цін і поточних задач.'],
+    products:['operations','Товари й ціни','Каталог товарів, закупівельні ціни та націнка.'],
+    tags:['operations','Цінники','Виберіть товари, налаштуйте макет і перевірте аркуші перед друком.'],
+    work:['operations','Поточні задачі','Щоденні справи магазину з термінами виконання.'],
+    expenses:['operations','Витрати','Витрати мережі та розрахунок точки беззбитковості.'],
+    devOverview:['development','Розвиток бізнесу','Рішення, які варто перевірити, та робота над їх реалізацією.'],
+    ideas:['development','Ідеї та можливості','Зберігайте пропозиції, обирайте пріоритети й переводьте їх у план.'],
+    tasks:['development','План реалізації','Задачі розвитку бізнесу та впровадження інструментів.']
+  };
+  const developmentTasks = () => S.tasks.filter(t=>t.scope!=='operations');
+  const operationTasks = () => S.tasks.filter(t=>t.scope==='operations');
+  function route(){
+    const parts=location.hash.slice(1).split('/'), requested=parts[1];
+    tab=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
+    workspace=SECTIONS[tab][0];
+    document.querySelectorAll('[data-workspace]').forEach(x=>x.setAttribute('aria-current',x.dataset.workspace===workspace?'page':'false'));
+    document.querySelectorAll('.tab').forEach(x=>{x.hidden=SECTIONS[x.dataset.tab][0]!==workspace;x.setAttribute('aria-current',x.dataset.tab===tab?'page':'false');});
+    $('#workspaceLabel').textContent=workspace==='operations'?'Операційна робота':'Розвиток бізнесу';
+    $('#pageTitle').textContent=SECTIONS[tab][1]; $('#pageDescription').textContent=SECTIONS[tab][2];
+    $('#developmentPath').hidden=workspace!=='development'||tab==='ideas';
+    document.title=SECTIONS[tab][1]+' · Цукерня'; render(true);
+  }
+  function navigate(next){ location.hash=SECTIONS[next][0]+'/'+next; }
+  window.addEventListener('hashchange',route);
 
   /* ---------- totals ---------- */
   function totals(){
@@ -476,21 +525,26 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
 
   function overview(){
-    const t = totals();
-    const doing = S.tasks.filter(x=>x.status==="doing");
-    const fresh = S.ideas.filter(i=>!i.reaction);
+    const t=totals(), current=operationTasks().filter(x=>x.status!=='done'), noPrice=S.products.filter(p=>priceState(p)==='none').length, stale=S.products.filter(p=>priceState(p)==='stale').length;
     return `<section class="panel"><div class="stats">
-      <div class="stat"><div class="v num">${S.products.length}</div><div class="l">товарів у базі</div></div>
-      <div class="stat"><div class="v num">${Math.round(t.avgM*100)}%</div><div class="l">середня маржа в ціні продажу</div></div>
-      <div class="stat"><div class="v num">${money0(t.fixed+t.variable)} грн</div><div class="l">витрати на місяць</div></div>
-      <div class="stat"><div class="v num">${t.be?money0(t.be)+" грн":"—"}</div><div class="l">виручка на місяць, щоб вийти в нуль</div></div>
+      <div class="stat"><div class="l">Товарів у каталозі</div><div class="v num">${S.products.length}</div></div>
+      <div class="stat"><div class="l">Потребують ціни</div><div class="v num">${noPrice}</div></div>
+      <div class="stat"><div class="l">Поточні задачі</div><div class="v num">${current.length}</div></div>
+      <div class="stat"><div class="l">Витрати на місяць</div><div class="v num">${money0(t.fixed+t.variable)} грн</div></div>
     </div></section>
-    <section class="panel"><div class="row between gap-lg"><h2>Зараз у роботі</h2><button class="btn soft" data-go="tasks">Усі задачі</button></div>
-      ${doing.length ? doing.map(taskRow).join("") : `<div class="empty">Нічого не в роботі. Відкрийте «Задачі» й позначте, за що беремося.</div>`}
-    </section>
-    <section class="panel"><div class="row between gap-lg"><h2>Ідеї, що чекають вашої відповіді</h2><button class="btn soft" data-go="ideas">Усі ідеї</button></div>
-      ${fresh.length ? `<div class="ideas">${fresh.slice(0,3).map(ideaCard).join("")}</div>` : `<div class="empty">На всі ідеї ви вже відповіли. Попросіть Claude в чаті запропонувати нові.</div>`}
-    </section>`;
+    <section class="panel"><div class="row between gap-lg"><h3>Швидкі дії</h3></div><div class="quick-actions"><a href="#operations/products">Оновити каталог<span>Ціни, закупівля та націнка</span></a><a href="#operations/tags">Підготувати цінники<span>Макет, PDF і друк</span></a><a href="#operations/work">Запланувати роботу<span>Задачі та терміни</span></a></div></section>
+    <section class="panel"><div class="row between gap-lg"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${noPrice?`${noPrice} товарів без ціни. Заповніть ціну перед друком.`:'У всіх товарів є ціна.'} ${stale?`${stale} товарів мають застарілу дату ціни.`:''}</p></section>
+    <section class="panel"><div class="row between gap-lg"><h3>Найближчі задачі</h3><a class="btn soft" href="#operations/work">Усі поточні задачі</a></div>${current.length?current.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')).slice(0,5).map(taskRow).join(''):'<div class="empty">Поточних задач немає. Додайте першу справу магазину.</div>'}</section>`;
+  }
+  function devOverview(){
+    const list=developmentTasks(), active=list.filter(t=>t.status==='doing'), accepted=S.ideas.filter(i=>i.reaction==='yes'), awaiting=S.ideas.filter(i=>!i.reaction);
+    return `<section class="panel"><div class="stats"><div class="stat"><div class="l">Ідей на розгляді</div><div class="v num">${awaiting.length}</div></div><div class="stat"><div class="l">Обраних ідей</div><div class="v num">${accepted.length}</div></div><div class="stat"><div class="l">Задач у реалізації</div><div class="v num">${active.length}</div></div><div class="stat"><div class="l">Виконаних задач</div><div class="v num">${list.filter(t=>t.status==='done').length}</div></div></div></section>
+    <section class="panel"><h3 class="gap-lg">Від ідеї до результату</h3><div class="quick-actions"><a href="#development/ideas">1. Записати ідею<span>Можливість для бізнесу або новий інструмент</span></a><a href="#development/ideas">2. Обрати для реалізації<span>Оцінити пропозицію й визначити пріоритет</span></a><a href="#development/tasks">3. Виконати план<span>Конкретні задачі та їхній стан</span></a></div></section>
+    <section class="panel"><div class="row between gap-lg"><h3>Зараз у реалізації</h3><a class="btn soft" href="#development/tasks">План реалізації</a></div>${active.length?active.map(taskRow).join(''):'<div class="empty">Активних задач розвитку поки немає.</div>'}</section>`;
+  }
+  function work(){
+    const list=operationTasks();
+    return `<section class="panel"><div class="row between gap-lg"><h3>Справи магазину</h3><span class="muted">${list.filter(t=>t.status!=='done').length} незавершених</span></div>${['doing','todo','done'].map(status=>{const group=list.filter(t=>(t.status||'todo')===status);return group.length?`<div class="stage-block"><h3>${ST_LABEL[status]}</h3>${group.map(taskRow).join('')}</div>`:''}).join('')||'<div class="empty">Додайте задачу: перевірити ціни, замовити товар або підготувати цінники.</div>'}</section><section class="panel"><h3 class="gap-lg">Нова поточна задача</h3><div class="row"><label class="form-field grow">Що зробити<input id="newWork" type="text" placeholder="Наприклад, оновити цінники…" autocomplete="off"></label><label class="form-field">Термін<input id="newWorkDue" type="date"></label><button class="btn rasp" data-act="addWork">Додати задачу</button></div></section>`;
   }
 
   /* ---------- tasks ---------- */
@@ -499,95 +553,97 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   function taskRow(t){
     const s = t.status || "todo";
     return `<div class="task ${s}"><button class="chip ${s}" data-cycle="${t.id}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>
-      <span class="t">${esc(t.title)}</span><button class="x" data-del-task="${t.id}" aria-label="Видалити задачу">×</button></div>`;
+      <span class="t">${esc(t.title)}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span><button class="x" data-del-task="${t.id}" aria-label="Видалити задачу">×</button></div>`;
   }
   function tasks(){
     const opts = STAGES.map(s=>`<option value="${s.n}">${s.n}. ${esc(s.name)}</option>`).join("");
     return `<section class="panel"><p class="muted gap-lg">Натискайте на статус задачі, щоб перемкнути його: не почато → в роботі → готово.</p>
       ${STAGES.map(st=>{
-        const ts = S.tasks.filter(t=>t.stage===st.n);
+        const ts = developmentTasks().filter(t=>t.stage===st.n);
         return `<div class="stage-block"><h3>${st.n}. ${esc(st.name)}</h3>${ts.length?ts.map(taskRow).join(""):`<p class="muted" style="padding:8px 0">Задач поки немає</p>`}</div>`;
       }).join("")}
     </section>
     <section class="panel"><h3 class="gap-lg">Додати задачу</h3>
-      <div class="row"><input id="newTask" type="text" placeholder="Що треба зробити" style="flex:1;min-width:200px"><select id="newTaskStage">${opts}</select><button class="btn" data-act="addTask">Додати</button></div>
+      <div class="row"><input id="newTask" type="text" aria-label="Назва задачі розвитку" placeholder="Що треба зробити…" style="flex:1;min-width:200px"><select id="newTaskStage" aria-label="Етап розвитку">${opts}</select><button class="btn" data-act="addTask">Додати</button></div>
     </section>`;
   }
 
   /* ---------- ideas ---------- */
   function ideaCard(i){
-    const r = i.reaction;
+    const r = i.reaction, linked=developmentTasks().find(t=>t.ideaId===i.id);
     return `<article class="idea ${r||""}"><h3>${esc(i.title)}</h3><p class="muted">${esc(i.text)}</p>
-      <div class="acts">${r ? `<span class="muted">${r==="yes"?"Беремо в роботу":"Відкладено"}</span><button class="btn soft" data-react="${i.id}" data-v="">Змінити</button>`
-        : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Так, цікаво</button><button class="btn soft" data-react="${i.id}" data-v="no">Не зараз</button>`}</div></article>`;
+      <div class="acts">${r ? `<span class="muted">${r==="yes"?"Обрано для реалізації":"Відкладено"}</span><button class="btn soft" data-react="${i.id}" data-v="">Змінити</button>`
+        : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Обрати</button><button class="btn soft" data-react="${i.id}" data-v="no">Відкласти</button>`}${r==='yes'?(linked?'<a class="btn soft" href="#development/tasks">Перейти до плану</a>':`<button class="btn" data-idea-task="${esc(i.id)}">Створити задачу</button>`):''}</div></article>`;
   }
   function ideas(){
-    return `<section class="panel"><p class="muted gap-lg">Claude пропонує ідеї для мережі. Відповідайте «Так» або «Не зараз» — у чаті я побачу вашу відповідь і розпишу план для того, що вам сподобалось.</p>
+    return `<section class="panel"><p class="muted gap-lg">Зберігайте ідеї розвитку бізнесу та програмних інструментів. Обрані ідеї можна перевести в задачу плану реалізації.</p>
       ${S.ideas.length?`<div class="ideas">${S.ideas.map(ideaCard).join("")}</div>`:`<div class="empty">Ідей поки немає</div>`}</section>
-    <section class="panel"><h3 class="gap-lg">Своя ідея</h3><div class="row"><input id="newIdea" type="text" placeholder="Коротко опишіть ідею" style="flex:1;min-width:200px"><button class="btn" data-act="addIdea">Записати</button></div></section>`;
+    <section class="panel"><h3 class="gap-lg">Своя ідея</h3><div class="row"><input id="newIdea" type="text" aria-label="Нова ідея" placeholder="Коротко опишіть ідею…" style="flex:1;min-width:200px"><button class="btn" data-act="addIdea">Записати</button></div></section>`;
   }
 
   /* ---------- products ---------- */
   const cats = () => [...new Set(S.products.map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"uk"));
   const packOpts = cur => { const l = allPacks(); if (cur && !l.includes(cur)) l.push(cur); return `<option value="">${NOPACK}</option>` + l.map(x=>`<option ${x===cur?"selected":""}>${esc(x)}</option>`).join(""); };
   function productList(list){
-    if (!list.length) return `<div class="empty">${S.products.length ? `Нічого не знайдено за цими фільтрами. <button class="btn soft" data-act="fReset">Скинути фільтри</button>` : "Товарів ще немає. Надішліть накладну в чат або додайте товар нижче."}</div>`;
-    return `<div class="scroll"><table><thead><tr><th>Назва</th><th>Тип</th><th>Пакування</th><th>Об’єм / вага</th><th>Од.</th><th class="r">Закупівля, грн</th><th class="r">Націнка, %</th><th class="r">Ціна продажу, грн</th><th class="r">Заробіток з одиниці</th><th>Ціна оновлена</th><th></th></tr></thead><tbody>
-      ${sortByType(list).map((p,i,arr)=>{const pr=priceOf(p), st=priceState(p);
-        const head = (i===0||typeOf(arr[i-1])!==typeOf(p)) ? `<tr class="grp"><th colspan="11">${esc(typeOf(p))} · ${arr.filter(x=>typeOf(x)===typeOf(p)).length}</th></tr>` : "";
-        const sub = (i===0||typeOf(arr[i-1])!==typeOf(p)||catKey(arr[i-1])!==catKey(p)) ? `<tr class="sgrp"><td colspan="11">${esc(catKey(p))}</td></tr>` : "";
-        const when = p.priceAt ? new Date(p.priceAt).toLocaleDateString("uk-UA",{day:"numeric",month:"short"}) : "—";
-        const stCell = st==="none" ? `<span class="badge bad">немає ціни</span>` : st==="stale" ? `<span class="badge">застаріла</span> ${when}` : `<span class="muted">${when}</span>`;
-        return head+sub+`<tr>
-        <td>${esc(p.name)}${p.example?'<span class="badge">приклад</span>':""}</td>
-        <td><select data-ptype data-id="${p.id}" aria-label="Тип товару">${typeOpts(typeOf(p))}</select></td>
-        <td><select data-ppack data-id="${p.id}" aria-label="Пакування">${packOpts(p.pack||"")}</select></td>
-        <td><input type="text" class="w-size" value="${esc(p.size||"")}" data-psize data-id="${p.id}" aria-label="Розмір" placeholder="—"></td>
-        <td><select data-punit data-id="${p.id}" aria-label="Одиниця продажу">${unitOpts(p.unit||"шт")}</select></td>
-        <td class="r"><input type="number" step="0.01" min="0" value="${num(p.cost)}" data-pf="cost" data-id="${p.id}" aria-label="Закупівля"></td>
-        <td class="r"><input type="number" step="1" value="${p.markup??defMarkup()}" data-pf="markup" data-id="${p.id}" aria-label="Націнка"></td>
-        <td class="r"><input type="number" step="0.01" min="0" value="${pr}" data-pf="price" data-id="${p.id}" aria-label="Ціна продажу" title="${p.manualPrice?"Ціну задано вручну":"Ціна рахується з націнки"}"></td>
-        <td class="r num">${num(p.cost)>0 ? `${money(pr-num(p.cost))} грн · ${Math.round(marginOf(p)*100)}%` : "—"}</td>
-        <td>${stCell}</td>
-        <td><button class="x" data-del-prod="${p.id}" aria-label="Видалити товар">×</button></td></tr>`;}).join("")}
-      </tbody></table></div>`;
+    if(!list.length) return `<div class="empty">${S.products.length?'За цими фільтрами товарів немає. Змініть умови пошуку.':'Додайте товар або імпортуйте файл.'}</div>`;
+    const pages=Math.ceil(list.length/S.catalogPageSize);S.catalogPage=Math.max(1,Math.min(S.catalogPage,pages));const start=(S.catalogPage-1)*S.catalogPageSize;
+    return `<table class="catalog-table"><thead><tr><th>Товар</th><th>Закупівля, грн</th><th>Націнка, %</th><th>Продаж, грн</th><th>Акція</th><th><span class="sr-only">Дії</span></th></tr></thead><tbody>${sortByType(list).slice(start,start+S.catalogPageSize).map(p=>{
+      const st=priceState(p),meta=[p.type,p.category,p.pack,p.size,p.unit].filter(Boolean).join(' · ');
+      return `<tr><td class="catalog-name" data-label="Товар"><button class="product-name" data-edit-product="${esc(p.id)}">${esc(p.name)}</button><small>${esc(meta)}</small><span class="price-status ${st}">${st==='none'?'Немає ціни':st==='stale'?'Перевірте дату ціни':`Оновлено ${esc(new Date(p.priceAt).toLocaleDateString('uk-UA'))}`}</span></td>
+      <td data-label="Закупівля, грн"><input type="number" step="0.01" min="0" value="${num(p.cost)}" data-pf="cost" data-id="${esc(p.id)}" aria-label="Закупівля: ${esc(p.name)}"></td>
+      <td data-label="Націнка, %"><input type="number" step="1" value="${p.markup??defMarkup()}" data-pf="markup" data-id="${esc(p.id)}" aria-label="Націнка: ${esc(p.name)}"></td>
+      <td data-label="Продаж, грн"><input type="number" step="0.01" min="0" value="${priceOf(p)}" data-pf="price" data-id="${esc(p.id)}" aria-label="Ціна продажу: ${esc(p.name)}"><small>${p.manualPrice?'Ручна ціна':'За націнкою'}</small></td>
+      <td data-label="Акція"><label class="promotion-toggle"><input type="checkbox" data-promotion="${esc(p.id)}" ${p.promotion?'checked':''}><span>${p.promotion?'Акція':'Ні'}</span><span class="sr-only"> для ${esc(p.name)}</span></label></td>
+      <td class="catalog-actions"><button class="btn soft" data-edit-product="${esc(p.id)}" aria-label="Редагувати ${esc(p.name)}">Редагувати</button></td></tr>`;
+    }).join('')}</tbody></table><nav class="catalog-pagination" aria-label="Сторінки каталогу"><span class="muted">${start+1}–${Math.min(start+S.catalogPageSize,list.length)} із ${list.length}</span><label class="inl">На сторінці <select id="catalogPageSize">${[10,20,50].map(n=>`<option value="${n}" ${n===S.catalogPageSize?'selected':''}>${n}</option>`).join('')}</select></label><div class="row"><button class="btn soft" data-page="${S.catalogPage-1}" ${S.catalogPage===1?'disabled':''}>Попередня</button><span class="muted" aria-live="polite">${S.catalogPage} / ${pages}</span><button class="btn soft" data-page="${S.catalogPage+1}" ${S.catalogPage===pages?'disabled':''}>Наступна</button></div></nav>`;
   }
   function products(){
-    const f = S.F.prod, hasEx = S.products.some(p=>p.example);
-    return `<section class="panel"><div id="linkBox">${linkInner()}</div></section>
-    <section class="panel">
-      <h2 class="gap-lg">Товари і ціни</h2>
-      <div class="notice">Щоб додати товари з прибуткової накладної, надішліть її в чат Claude (Excel, PDF або фото) і скажіть націнку, наприклад «+30%». Я внесу все сюди.</div>
-      ${filterBar(f)}
-      ${hasEx?`<p class="muted gap-lg">Товари з позначкою «приклад» — для орієнтиру. <button class="btn soft" data-act="clearEx">Прибрати приклади</button></p>`:""}
-      <div id="prodList">${productList(filtered(f))}</div>
-    </section>
-    <section class="panel"><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></section>
-    <section class="panel"><h3 class="gap-lg">Змінити націнку одним махом</h3>
-      <div class="row"><label class="inl">Нова націнка <input id="bulkM" type="number" value="${defMarkup()}"> %</label>
-      <select id="bulkC"><option value="">для всіх товарів</option><option value="__f">лише показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join("")}</select>
-      <button class="btn" data-act="bulk">Застосувати</button></div>
-      <div class="row" style="margin-top:14px"><label class="inl">Округлення цін
-        <select id="rounding">${[[0.01,"до копійки"],[0.1,"до 10 коп."],[0.5,"до 50 коп."],[1,"до гривні"]].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?"selected":""}>${l}</option>`).join("")}</select></label></div>
-    </section>
-    <section class="panel"><h3 class="gap-lg">Додати товар вручну</h3>
-      <div class="row"><input id="npName" type="text" placeholder="Назва" style="flex:2;min-width:180px"><select id="npType" aria-label="Тип">${typeOpts(TYPES[0])}</select><input id="npCat" type="text" placeholder="Категорія" list="catList" style="flex:1;min-width:120px">
-      <datalist id="catList">${cats().map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
-      <select id="npPack" aria-label="Пакування">${packOpts("")}</select><input id="npSize" type="text" class="w-size" placeholder="Розмір: 0,5 л" aria-label="Розмір">
-      <select id="npUnit">${UNITS.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select>
-      <label class="inl">Закупівля <input id="npCost" type="number" step="0.01" min="0"></label>
-      <label class="inl">Націнка <input id="npMarkup" type="number" value="${defMarkup()}"> %</label>
-      <button class="btn" data-act="addProd">Додати</button></div></section>`;
+    const f=S.F.prod;
+    return `<section class="panel"><div class="row between gap-lg"><h3>Каталог товарів</h3><button class="btn rasp" data-act="newProduct">Додати товар</button></div>${filterBar(f)}<div id="prodList">${productList(filtered(f))}</div></section>
+    <details class="panel disclosure" data-disclosure="import"><summary>Імпорт товарів із CSV або Excel</summary><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></details>
+    <details class="panel disclosure" data-disclosure="sheets"><summary>Спільна Google-таблиця</summary><div id="linkBox">${linkInner()}</div></details>
+    <details class="panel disclosure" data-disclosure="bulk"><summary>Масове оновлення націнки та округлення</summary><div class="row"><label class="form-field">Націнка, %<input id="bulkM" type="number" value="${defMarkup()}"></label><label class="form-field">Застосувати до<select id="bulkC"><option value="">Усі товари</option><option value="__f">Показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><button class="btn" data-act="bulk">Оновити ціни</button><label class="form-field">Округлення<select id="rounding">${[[0.01,'До копійки'],[0.1,'До 10 коп.'],[0.5,'До 50 коп.'],[1,'До гривні']].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?'selected':''}>${l}</option>`).join('')}</select></label></div></details>`;
   }
+  function openProduct(id){
+    const p=S.products.find(x=>x.id===id)||{name:'',cost:0,markup:defMarkup(),unit:'шт'}, d=$('#productEditor');
+    S.productEditId=id||null;S.editDirty=false;
+    d.innerHTML=`<form id="productForm"><div class="row between gap-lg"><h2 id="productDialogTitle">${id?'Редагувати товар':'Новий товар'}</h2><button type="button" class="x" data-act="closeProduct" aria-label="Закрити редактор">×</button></div><div class="editor-grid">
+      <label class="form-field span-all">Назва товару<input name="name" value="${esc(p.name)}" required maxlength="250" autocomplete="off"></label>
+      <label class="form-field">Група<select name="type">${typeOpts(id?typeOf(p):TYPES[0])}</select></label><label class="form-field">Категорія<input name="category" value="${esc(p.category||'')}" autocomplete="off"></label>
+      <label class="form-field">Пакування<select name="pack">${packOpts(p.pack||'')}</select></label><label class="form-field">Об’єм / вага<input name="size" value="${esc(p.size||'')}" autocomplete="off"></label>
+      <label class="form-field">Одиниця продажу<select name="unit">${unitOpts(p.unit||'шт')}</select></label><label class="form-field">Дата перевірки ціни<input name="priceAt" type="date" value="${esc(p.priceAt||today())}"></label>
+      <label class="form-field">Закупівля, грн<input name="cost" type="number" min="0" step="0.01" value="${num(p.cost)}"></label><label class="form-field">Націнка, %<input name="markup" type="number" min="0" step="0.1" value="${p.markup??defMarkup()}"></label>
+      <label class="form-field">Розрахунок ціни<select name="priceMode"><option value="calculated" ${!p.manualPrice?'selected':''}>Закупівля + націнка</option><option value="manual" ${p.manualPrice?'selected':''}>Задати вручну</option></select></label><label class="form-field">Ручна ціна, грн<input name="price" type="number" min="0" step="0.01" value="${p.manualPrice?num(p.price):''}" ${p.manualPrice?'':'disabled'}></label>
+      <label class="promotion-toggle span-all"><input name="promotion" type="checkbox" ${p.promotion?'checked':''}><span>Акційний товар — показувати «Акція» на ціннику</span></label></div>
+      <p id="productError" class="form-error" role="alert"></p><div class="row between editor-footer"><div>${id?`<button type="button" class="btn danger" data-act="deleteEditedProduct">Видалити товар</button>`:''}</div><div class="row"><button type="button" class="btn soft" data-act="closeProduct">Скасувати</button><button type="submit" class="btn rasp">Зберегти товар</button></div></div></form>`;
+    d.showModal(); d.querySelector('[name=name]').focus();
+  }
+  async function deleteEditedProduct(button){
+    if(!confirm('Видалити цей товар?'))return;button.disabled=true;
+    try{await db.collection('products').doc(S.productEditId).delete();S.editDirty=false;$('#productEditor').close();toast('Товар видалено');}
+    catch(error){$('#productError').textContent='Не вдалося видалити товар. Перевірте з’єднання і повторіть.';button.disabled=false;}
+  }
+  function closeProduct(){if(S.editDirty&&!confirm('Закрити редактор без збереження змін?'))return;$('#productEditor').close();S.editDirty=false;}
+  document.addEventListener('submit',async e=>{
+    if(e.target.id!=='productForm')return;e.preventDefault();const f=e.target, v=Object.fromEntries(new FormData(f)),manual=v.priceMode==='manual';
+    if(manual&&!v.price){$('#productError').textContent='Вкажіть ручну ціну або оберіть розрахунок за націнкою.';f.elements.price.focus();return;}
+    const payload={name:v.name.trim(),type:v.type,category:v.category.trim(),pack:v.pack||null,size:v.size.trim()||null,unit:v.unit,cost:num(v.cost),markup:num(v.markup),manualPrice:manual,price:manual?num(v.price):null,priceAt:v.priceAt||null,promotion:f.elements.promotion.checked};
+    if(!payload.name)return;const b=f.querySelector('[type=submit]');b.disabled=true;b.textContent='Збереження…';
+    try{if(S.productEditId)await db.collection('products').doc(S.productEditId).update(payload);else await db.collection('products').add(payload);S.editDirty=false;$('#productEditor').close();toast('Товар збережено');}catch(err){$('#productError').textContent='Не вдалося зберегти товар. Перевірте з’єднання і спробуйте знову.';}finally{b.disabled=false;b.textContent='Зберегти товар';}
+  });
 
   /* ---------- price tags ---------- */
-  const TAG_DEF = {size:"s", border:"dash", chain:true, store:true, storeIdx:0, name:true, nameBig:false, pack:true, psize:true, price:true, kop:false, unit:true, per100:true, category:true, date:true, custom:""};
+  const TAG_DEF = {size:"s", border:"dash", chain:true, store:true, storeIdx:0, name:true, nameBig:false, pack:true, psize:true, price:true, kop:false, unit:true, per100:true, category:true, date:true, custom:"",customEnabled:true,promo:true};
   const TAG_EL = [["chain","Назва мережі"],["store","Назва магазину"],["name","Назва товару"],["pack","Тип пакування"],["psize","Об’єм / вага"],["price","Ціна"],["unit","Одиниця (грн за 1 шт/кг)"],["per100","Ціна за 100 г (вагові)"],["category","Категорія"],["date","Дата"]];
   const TAG_SIZES = {s:[58,40,"малий 58×40 мм"], m:[75,50,"середній 75×50 мм"], l:[100,70,"великий 100×70 мм"]};
-  const tagCfg = () => Object.assign({}, TAG_DEF, S.settings.tag || {});
+  function tagCfg(){
+    const c=Object.assign({},TAG_DEF,S.settings.tag||{}),k=c.size==='l'?1.65:c.size==='m'?1.25:1;
+    if(c.styleVersion!==2){c.styles=Object.fromEntries(Object.entries(c.styles||{}).map(([key,v])=>[key,{...v,...(v.size!=null?{size:Number(v.size)*k}:{})}]));c.styleVersion=2;}
+    return c;
+  }
   const TAG_FONT = {rubik:'Rubik,Arial,sans-serif', arial:'Arial,sans-serif', georgia:'Georgia,serif', courier:'Courier New,monospace'};
   const TAG_STYLE_DEFAULT = {
-    chain:[7,'#777777','400','left'], store:[7,'#777777','400','right'], custom:[8,'#c2185b','700','left'],
+    promo:[8,'#9A3412','700','left'], chain:[7,'#777777','400','left'], store:[7,'#777777','400','right'], custom:[8,'#c2185b','700','left'],
     name:[10,'#1c1c1c','600','left'], pack:[7.5,'#555555','400','left'], psize:[7.5,'#555555','400','left'],
     price:[22,'#1c1c1c','700','left'], unit:[8,'#444444','400','left'], per100:[8,'#444444','400','left'],
     category:[7,'#777777','400','left'], date:[7,'#777777','400','right']
@@ -595,13 +651,13 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const clamp = (n,min,max) => Math.max(min, Math.min(max, Number(n)||min));
   function fieldStyle(c, key){
     const raw = c.styles && c.styles[key] || {}, def = TAG_STYLE_DEFAULT[key];
-    return {font: TAG_FONT[raw.font] ? raw.font : 'rubik', size:clamp(raw.size ?? (key==='name' && c.nameBig ? 12.5 : def[0]),5,36),
+    return {font: TAG_FONT[raw.font] ? raw.font : 'rubik', size:clamp(raw.size ?? (key==='name' && c.nameBig ? 12.5 : def[0])*(c.size==='l'?1.65:c.size==='m'?1.25:1),5,72),
       color:/^#[0-9a-f]{6}$/i.test(raw.color) ? raw.color : def[1], weight:['400','600','700'].includes(String(raw.weight)) ? String(raw.weight) : def[2],
       align:['left','center','right'].includes(raw.align) ? raw.align : def[3]};
   }
   function fieldAttr(c,key){
-    const s=fieldStyle(c,key), k=c.size==='l'?1.65:c.size==='m'?1.25:1;
-    return `data-field="${key}" style="font-family:${TAG_FONT[s.font]};font-size:${s.size*k}pt;font-weight:${s.weight};color:${s.color};text-align:${s.align}"`;
+    const s=fieldStyle(c,key);
+    return `data-field="${key}" style="font-family:${TAG_FONT[s.font]};font-size:${s.size}pt;font-weight:${s.weight};color:${s.color};text-align:${s.align}"`;
   }
   const storeNames = () => Array.isArray(S.settings.storeNames) ? S.settings.storeNames : [];
   const PACK_LBL = {"ПЕТ":"Пляшка ПЕТ", "Скло":"Скляна пляшка", "Ваговий":"На вагу", "Штучно":"Поштучно"};
@@ -618,11 +674,12 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
   function tagParts(p, c){
     const pr = priceOf(p), kg = p.unit==="кг", st = storeNames()[c.storeIdx] || "";
-    const priceTxt = c.kop ? money(pr) : (Math.abs(pr-Math.round(pr))<0.005 ? money0(pr) : money(pr));
+    const priceTxt = pr<=0 ? "—" : c.kop ? money(pr) : (Math.abs(pr-Math.round(pr))<0.005 ? money0(pr) : money(pr));
     return {
       hl: c.chain ? (S.settings.chainName || "Мережа солодощів") : "",
       hr: c.store ? st : "",
-      custom: (c.custom||"").trim(),
+      promo:c.promo && p.promotion ? "Акція" : "",
+      custom: c.customEnabled ? (c.custom||"").trim() : "",
       name: c.name ? (p.name||"") : "",
       pack: c.pack ? packLabel(p.pack) : "", size:c.psize ? sizeLabel(p) : "",
       price: c.price ? priceTxt : "",
@@ -636,55 +693,40 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     const el=(key,cls,value)=>value ? `<div class="${cls}" ${fieldAttr(c,key)}>${esc(value)}</div>` : "";
     return `<div class="tag ${TAG_SIZES[c.size]?c.size:'s'} b-${['dash','solid','none'].includes(c.border)?c.border:'dash'}" data-product="${esc(p.id||'sample')}"><div class="t-top">
       ${t.hl||t.hr ? `<div class="t-hd">${el('chain','',t.hl)}${el('store','',t.hr)}</div>` : ""}
-      ${el('custom','t-cu',t.custom)}${el('name','nm',t.name)}${el('pack','t-pk',t.pack)}${el('psize','t-size',t.size)}</div>
+      ${el('promo','t-promo',t.promo)}${el('custom','t-cu',t.custom)}${el('name','nm',t.name)}${el('pack','t-pk',t.pack)}${el('psize','t-size',t.size)}</div>
       <div class="t-bottom">${t.price ? `<div class="pr" ${fieldAttr(c,'price')}>${esc(t.price)}${c.unit?'':`<small>грн</small>`}</div>` : ""}
       ${el('unit','un',t.unit)}${el('per100','per100',t.per100)}
       ${t.category||t.date ? `<div class="ft">${el('category','',t.category)}${el('date','',t.date)}</div>` : ""}</div></div>`;
   }
   const SAMPLE = {name:"Капучино XL", category:"Кав'ярня", pack:"Стакан", size:"XL", unit:"шт", manualPrice:true, price:49};
-  function samplePrd(){ const sel = selectedProducts(); return sel[0] || S.products.find(p=>priceOf(p)>0) || SAMPLE; }
   function storeList(){
     const n = storeNames();
     return `<div class="stl">${n.map((v,i)=>`<div class="strow"><input type="text" data-store="${i}" value="${esc(v)}" placeholder="Напр. «ТЦ Глобус» або «вул. Шевченка, 12»" aria-label="Назва магазину ${i+1}"><button class="btn soft" data-act="delStore" data-i="${i}" aria-label="Видалити магазин">✕</button></div>`).join("") || `<p class="muted">Магазинів ще немає.</p>`}</div>
       <div class="row"><button class="btn soft" data-act="addStore">+ Додати магазин</button></div>`;
   }
+  const FIELD_LABELS=Object.fromEntries([['promo','Акція'],...TAG_EL,['custom','Додатковий напис']]);
+  const fieldVisible=(c,key)=>key==='custom'?c.customEnabled!==false:!!c[key];
   function styleControls(c){
-    const labels = Object.fromEntries([...TAG_EL,['custom','Свій напис']]);
-    return `<details id="styleDetails" ${S.styleOpen?'open':''}><summary><b>Шрифт і колір кожного поля</b></summary>
-      <p class="muted" style="margin-top:8px">Розмір у пунктах для малого цінника; для більших форматів він масштабується автоматично.</p>
-      <div class="style-grid">${Object.keys(TAG_STYLE_DEFAULT).map(key=>{
-        const s=fieldStyle(c,key), title=labels[key];
-        return `<fieldset class="style-card"><legend>${esc(title)}</legend>
-          <div class="row"><label>Шрифт <select data-style="${key}" data-prop="font" aria-label="Шрифт: ${esc(title)}">${[['rubik','Rubik'],['arial','Arial'],['georgia','Georgia'],['courier','Courier']].map(([v,n])=>`<option value="${v}" ${s.font===v?'selected':''}>${n}</option>`).join('')}</select></label>
-          <label>Розмір <input type="number" min="5" max="36" step="0.5" data-style="${key}" data-prop="size" value="${s.size}" aria-label="Розмір шрифту: ${esc(title)}"></label>
-          <label>Колір <input type="color" data-style="${key}" data-prop="color" value="${s.color}" aria-label="Колір: ${esc(title)}"></label></div>
-          <div class="row"><label>Насиченість <select data-style="${key}" data-prop="weight" aria-label="Насиченість: ${esc(title)}">${[['400','Звичайний'],['600','Напівжирний'],['700','Жирний']].map(([v,n])=>`<option value="${v}" ${s.weight===v?'selected':''}>${n}</option>`).join('')}</select></label>
-          <label>Вирівнювання <select data-style="${key}" data-prop="align" aria-label="Вирівнювання: ${esc(title)}">${[['left','Ліворуч'],['center','По центру'],['right','Праворуч']].map(([v,n])=>`<option value="${v}" ${s.align===v?'selected':''}>${n}</option>`).join('')}</select></label></div></fieldset>`;
-      }).join('')}</div><div class="row"><button class="btn soft" data-act="resetStyles">Скинути оформлення полів</button></div></details>`;
+    const key=S.tagField||'name',title=FIELD_LABELS[key],st=fieldStyle(c,key);
+    return `<h3>${esc(title)}</h3><p class="muted inspector-description">Оформлення цього елемента застосовується до всіх цінників.</p><label class="visibility-switch"><input type="checkbox" data-field-visible="${key}" ${fieldVisible(c,key)?'checked':''}> Показувати на ціннику</label>
+      ${key==='promo'?'<p class="muted">Позначка з’являється лише для товарів із увімкненою ознакою «Акція».</p>':''}
+      ${key==='custom'?`<label class="form-field">Текст напису<input type="text" id="tcCustom" maxlength="40" value="${esc(c.custom)}" placeholder="Наприклад, новинка…"></label>`:''}
+      <label class="form-field">Шрифт<select data-style="${key}" data-prop="font">${[['rubik','Rubik'],['arial','Arial'],['georgia','Georgia'],['courier','Courier']].map(([v,n])=>`<option value="${v}" ${st.font===v?'selected':''}>${n}</option>`).join('')}</select></label>
+      <div class="inspector-pair"><label class="form-field">Розмір, pt<input type="number" min="5" max="72" step="0.5" data-style="${key}" data-prop="size" value="${Math.round(st.size*100)/100}"></label><label class="form-field">Колір<input type="color" data-style="${key}" data-prop="color" value="${st.color}"></label></div>
+      <label class="form-field">Насиченість<select data-style="${key}" data-prop="weight">${[['400','Звичайний'],['600','Напівжирний'],['700','Жирний']].map(([v,n])=>`<option value="${v}" ${st.weight===v?'selected':''}>${n}</option>`).join('')}</select></label>
+      <label class="form-field">Вирівнювання<select data-style="${key}" data-prop="align">${[['left','Ліворуч'],['center','По центру'],['right','Праворуч']].map(([v,n])=>`<option value="${v}" ${st.align===v?'selected':''}>${n}</option>`).join('')}</select></label>
+      <p class="muted">Вказаний розмір — фактичний розмір шрифту у друці та PDF.</p><button class="btn soft" data-act="resetField">Скинути цей елемент</button>`;
   }
+  function fieldList(c){return Object.entries(FIELD_LABELS).map(([key,label])=>`<button class="field-item" data-edit-field="${key}" aria-current="${key===(S.tagField||'name')?'true':'false'}"><span>${esc(label)}</span><small>${fieldVisible(c,key)?'Показано':'Приховано'}</small></button>`).join('');}
   function tagBuilder(){
-    const c = tagCfg(), n = storeNames();
-    return `<section class="panel"><h2 class="gap-lg">Конструктор цінника</h2>
-      <div class="tcfg"><div>
-        <h4>Що є на ціннику</h4>
-        <div class="tels">${TAG_EL.map(([k,l])=>`<label><input type="checkbox" data-tc="${k}" ${c[k]?"checked":""}> ${l}</label>`).join("")}</div>
-        <div class="row"><label class="inl">Свій напис <input type="text" id="tcCustom" maxlength="40" value="${esc(c.custom)}" placeholder="Напр. Акція, Новинка, −20%" style="width:200px"></label></div>
-        <div class="row">
-          <label class="inl">Розмір <select id="tcSize">${Object.entries(TAG_SIZES).map(([k,v])=>`<option value="${k}" ${c.size===k?"selected":""}>${v[2]}</option>`).join("")}</select></label>
-          <label class="inl">Рамка <select id="tcBorder"><option value="dash" ${c.border==="dash"?"selected":""}>пунктир (для різання)</option><option value="solid" ${c.border==="solid"?"selected":""}>суцільна</option><option value="none" ${c.border==="none"?"selected":""}>без рамки</option></select></label></div>
-        <div class="row">
-          <label class="inl"><input type="checkbox" data-tc="kop" ${c.kop?"checked":""}> Завжди з копійками (49,00)</label></div>
-      </div><div>
-        <h4>Магазини</h4>
-        <div class="row" style="margin-top:0"><label class="inl">Назва мережі <input type="text" id="chainIn" value="${esc(S.settings.chainName||"")}" placeholder="Мережа солодощів" style="width:220px"></label></div>
-        <div style="margin-top:10px">${storeList()}</div>
-        ${n.length ? `<div class="row"><label class="inl">Друкуємо для <select id="tcStore">${n.map((v,i)=>`<option value="${i}" ${c.storeIdx===i?"selected":""}>${esc(v||`Магазин ${i+1}`)}</option>`).join("")}</select></label></div>` : ""}
-      </div></div>
-      ${styleControls(c)}
-      <div class="tsample" id="tsample">${tagMarkup(samplePrd(), c)}</div>
-      <p class="muted" style="margin-top:8px">Зразок оновлюється одразу. Налаштування зберігаються і діють для друку, PDF і для всіх, хто відкриває дашборд.</p>
-    </section>`;
+    const c=tagCfg(),n=storeNames();
+    return `<section class="panel builder-panel"><div class="row between gap-lg"><h3>2. Налаштуйте макет</h3><button type="button" class="save-status" id="tagSaveStatus" data-act="retryTagSave" aria-live="polite">${S.tagSaving?"Збереження…":S.tagSaveFailed?"Не збережено. Натисніть, щоб повторити.":"Макет збережено"}</button></div>
+      <div class="builder-toolbar"><label class="form-field">Формат цінника<select id="tcSize">${Object.entries(TAG_SIZES).map(([key,v])=>`<option value="${key}" ${c.size===key?'selected':''}>${v[2]}</option>`).join('')}</select></label><label class="form-field">Рамка<select id="tcBorder">${[['dash','Пунктир для різання'],['solid','Суцільна'],['none','Без рамки']].map(([v,l])=>`<option value="${v}" ${c.border===v?'selected':''}>${l}</option>`).join('')}</select></label><label class="form-field">Відображення ціни<select id="tcDecimals"><option value="auto" ${!c.kop?'selected':''}>Без зайвих нулів</option><option value="always" ${c.kop?'selected':''}>Завжди з копійками</option></select></label></div>
+      <div class="builder-workspace"><aside class="field-list" aria-label="Елементи цінника">${fieldList(c)}</aside><div class="builder-stage"><label class="form-field">Товар для перегляду<select id="previewProduct"></select></label><div class="individual-preview" id="individualPreview"></div><p class="muted" id="previewQty"></p><p class="muted stage-hint">Оберіть елемент у списку або натисніть на нього в макеті.</p><p id="singlePreviewWarning" class="form-error" role="status"></p></div><aside id="fieldInspector" class="field-inspector" aria-label="Параметри елемента">${styleControls(c)}</aside></div>
+      <details class="disclosure identity-settings" data-disclosure="identity"><summary>Назва мережі та магазини</summary><div class="editor-grid"><label class="form-field">Назва мережі<input id="chainIn" type="text" value="${esc(S.settings.chainName||'')}" autocomplete="off"></label><div>${storeList()}</div>${n.length?`<label class="form-field">Друкувати для магазину<select id="tcStore">${n.map((v,i)=>`<option value="${i}" ${c.storeIdx===i?'selected':''}>${esc(v||`Магазин ${i+1}`)}</option>`).join('')}</select></label>`:''}</div></details></section>`;
   }
+  function selectField(key){if(!FIELD_LABELS[key])return;S.tagField=key;$('#fieldInspector').innerHTML=styleControls(tagCfg());document.querySelectorAll('[data-edit-field]').forEach(b=>b.setAttribute('aria-current',b.dataset.editField===key?'true':'false'));highlightField();}
+  function highlightField(){document.querySelectorAll('#individualPreview [data-field]').forEach(el=>{el.classList.toggle('field-selected',el.dataset.field===(S.tagField||'name'));el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label','Налаштувати: '+FIELD_LABELS[el.dataset.field]);});}
   function pickList(list){
     if (!S.products.length) return `<div class="empty">Спершу додайте товари у вкладці «Товари і ціни»</div>`;
     if (!list.length) return `<div class="empty">Нічого не знайдено за цими фільтрами. <button class="btn soft" data-act="fReset">Скинути фільтри</button></div>`;
@@ -714,7 +756,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
   function tags(){
     const f = S.F.tags;
-    return `<section class="panel"><h2 class="gap-lg">Цінники</h2>
+    return `<section class="panel"><h3 class="gap-lg">1. Виберіть товари та кількість</h3>
       ${syncNote()}
       ${filterBar(f)}
       <div class="row" style="margin:8px 0 12px"><button class="btn soft" data-act="selShown">Вибрати всі показані</button><button class="btn soft" data-act="unselShown">Зняти показані</button><button class="btn soft" data-act="selNone">Очистити вибір</button></div>
@@ -722,31 +764,32 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       <div id="pickBox">${pickList(filtered(f))}</div>
       <div class="qbar" style="margin-top:10px"><label class="inl">Усім вибраним по <input type="number" id="qtyAll" min="1" max="500" step="1" value="1" style="width:64px;text-align:center"> шт</label><button class="btn soft" data-act="qtyAll">Застосувати</button></div>
       <div class="row" style="margin-top:14px" id="dlRow">
-        <button class="btn rasp" data-act="printReview" data-need="any">🖨 Перевірити перед друком</button>
+        <button class="btn rasp" data-act="printReview" data-need="any">Перевірити перед друком</button>
         <button class="btn" data-act="dlPdf" data-need="dl">Завантажити PDF</button>
         ${sheetBtn()}
         <button class="btn soft" data-act="dlCsv" data-need="dl">Завантажити CSV</button>
         <span class="muted" id="selCount"></span></div>
       <p class="muted" id="dlHint" style="margin-top:10px"></p>
-      <p class="muted" id="dlNote" style="margin-top:10px">${downloads?"У PDF цінники розкладені на аркуші А4. Друкуйте в масштабі 100%, без «вмістити на сторінку».":"Завантаження файлів тут недоступне. Напишіть у чат «зроби цінники в PDF» — і я надішлю готовий файл."}</p>
+      <p class="muted" id="dlNote" style="margin-top:10px">${downloads?"У PDF цінники розкладені на аркуші А4. Друкуйте в масштабі 100%, без «вмістити на сторінку».":"Завантаження файлів тут недоступне. Оновіть сторінку та повторіть спробу."}</p>
     </section>
     ${tagBuilder()}
-    <section class="panel"><h3>Окремий цінник</h3><div class="row" style="margin-top:12px"><label>Вибраний товар <select id="previewProduct" aria-label="Товар для попереднього перегляду"></select></label><span class="muted" id="previewQty"></span></div><div class="individual-preview" id="individualPreview"></div></section>
-    ${S.printReview ? `<section class="panel" id="printReview"><h3>Перевірка макета А4</h3><p class="muted">Нижче показано порядок і розкладку цінників на аркушах А4. Перед друком оберіть масштаб 100% і вимкніть колонтитули.</p><div id="printIssues" role="status"></div><div class="row"><label><input type="checkbox" id="staleAck" ${S.staleAck?'checked':''}> Я перевірив застарілі ціни</label><button class="btn rasp" data-act="confirmOutput">${S.printIntent==='pdf'?'Завантажити PDF':'Відкрити системний перегляд друку'}</button><button class="btn soft" data-act="closePrintReview">Закрити</button></div><div class="print-preview-pages" id="printPages"></div></section>`:''}`;
+    ${S.printReview ? `<section class="panel" id="printReview"><h3>3. Перевірте аркуші А4</h3><p class="muted">Нижче показано порядок і розкладку цінників на аркушах А4. Перед друком оберіть масштаб 100% і вимкніть колонтитули.</p><div id="printIssues" role="status"></div><div class="row"><label><input type="checkbox" id="staleAck" ${S.staleAck?'checked':''}> Я перевірив застарілі ціни</label><button class="btn rasp" data-act="confirmOutput">${S.printIntent==='pdf'?'Завантажити PDF':'Відкрити системний перегляд друку'}</button><button class="btn soft" data-act="closePrintReview">Закрити</button></div><div class="print-preview-pages" id="printPages"></div></section>`:''}`;
   }
   function selectedProducts(){ return S.products.filter(p=>S.tagSel.has(p.id)); }
   function renderPreview(){
     const list = selectedProducts();
-    const ts = $("#tsample"); if (ts) ts.innerHTML = tagMarkup(samplePrd());
     const total = list.reduce((a,p)=>a+qtyOf(p.id), 0), sheets = Math.ceil(total / perSheet());
     const pv=$("#individualPreview"), picker=$("#previewProduct");
     if(picker && pv){
-      if(!list.some(p=>p.id===S.tagPreviewId)) S.tagPreviewId=list[0]?.id||null;
-      picker.innerHTML=list.map(p=>`<option value="${esc(p.id)}" ${p.id===S.tagPreviewId?'selected':''}>${esc(p.name)}</option>`).join('');
-      picker.disabled=!list.length;
-      const p=list.find(p=>p.id===S.tagPreviewId);
+      const available=list.length?list:S.products;
+      if(!available.some(p=>p.id===S.tagPreviewId)) S.tagPreviewId=available.find(p=>priceOf(p)>0)?.id||available[0]?.id||null;
+      picker.innerHTML=available.map(p=>`<option value="${esc(p.id)}" ${p.id===S.tagPreviewId?'selected':''}>${esc(p.name)}</option>`).join('');
+      picker.disabled=!available.length;
+      const p=available.find(p=>p.id===S.tagPreviewId)||SAMPLE;
       pv.innerHTML=p ? tagMarkup(p) : '<p class="muted">Виберіть товар вище, щоб побачити його цінник.</p>';
-      const q=$("#previewQty"); if(q) q.textContent=p?`До друку: ${qtyOf(p.id)} шт.`:'';
+      const q=$("#previewQty"); if(q) q.textContent=list.some(x=>x.id===p.id)?`До друку: ${qtyOf(p.id)} шт.`:'Перегляд макета. Товар не додано до друку.';
+      highlightField();
+      const warning=$('#singlePreviewWarning');if(warning)warning.textContent=clippedTag(pv.querySelector('.tag'))?'Текст виходить за межі цінника. Зменште шрифт або приховайте зайвий елемент.':'';
     }
     const noPrice = list.filter(p=>priceState(p)==="none").length, stale = list.filter(p=>priceState(p)==="stale").length;
     const c = $("#selCount"); if(c) c.textContent = list.length ? `${list.length} ${countWord(list.length,'товар','товари','товарів')}, ${total} ${countWord(total,'цінник','цінники','цінників')} (≈ ${sheets} арк. А4)` + (noPrice ? `, без ціни: ${noPrice}` : "") + (stale ? `, із застарілою ціною: ${stale}` : "") : "";
@@ -762,7 +805,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       if(box) box.innerHTML=`<p style="margin:10px 0">${list.length} ${countWord(list.length,'товар','товари','товарів')} · ${total} ${countWord(total,'цінник','цінники','цінників')} · ${sheets} ${countWord(sheets,'аркуш','аркуші','аркушів')} А4</p>`+
         (issues.noPrice.length?`<div class="warn">Немає ціни: ${esc(issues.noPrice.slice(0,5).join(', '))}${issues.noPrice.length>5?' та інші':''}. Друк заблоковано.</div>`:'')+
         (issues.stale.length?`<div class="warn">Перевірте застарілі ціни: ${esc(issues.stale.slice(0,5).join(', '))}${issues.stale.length>5?' та інші':''}.</div>`:'')+
-        (clipped.length?`<div class="warn">Текст не вміщується на ${clipped.length} цінниках. Зменште шрифт або вимкніть зайві поля, потім перевірте макет знову. Друк заблоковано.</div>`:'');
+        (clipped.length?`<div class="warn">Текст не вміщується: ${esc(clipped.slice(0,3).map(id=>S.products.find(p=>p.id===id)?.name||id).join(', '))}${clipped.length>3?' та інші':''}. Зменште шрифт або вимкніть зайві поля, потім перевірте макет знову. Друк заблоковано.</div>`:'');
       const btn=document.querySelector('[data-act="confirmOutput"]'); if(btn) btn.disabled=!!issues.noPrice.length||overLimit||!!clipped.length||(!!issues.stale.length&&!S.staleAck);
     }
   }
@@ -775,71 +818,37 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
   window.addEventListener('afterprint',()=>{ const area=$('#printArea'); if(area) area.remove(); });
   /* ---------- PDF (без бібліотек: малюємо аркуші на canvas і пакуємо в PDF) ---------- */
-  const PX_MM = 300/25.4, PT = 300/72;
-  function wrapText(ctx, text, maxW, maxLines){
-    const words = String(text).split(/\s+/), lines = []; let cur = "";
-    for (const w of words){
-      const t = cur ? cur+" "+w : w;
-      if (!cur || ctx.measureText(t).width <= maxW) cur = t; else { lines.push(cur); cur = w; }
-    }
-    if (cur) lines.push(cur);
-    if (lines.length > maxLines){
-      let last = lines.slice(maxLines-1).join(" ");
-      while (last.length>1 && ctx.measureText(last+"…").width > maxW) last = last.slice(0,-1);
-      lines.length = maxLines-1; lines.push(last+"…");
-    }
-    return lines;
+  const PX_MM = 300/25.4;
+  function captureTag(p,c,ctx){
+    const host=document.createElement('div');host.style.cssText='position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none';host.innerHTML=tagMarkup(p,c);document.body.append(host);
+    try{
+      const tag=host.firstElementChild,rect=tag.getBoundingClientRect(),scale=300/96;
+      if(clippedTag(tag))throw new Error('Label content does not fit');
+      const box=el=>{const r=el.getBoundingClientRect();return {x:(r.left-rect.left)*scale,y:(r.top-rect.top)*scale,w:r.width*scale,h:r.height*scale};};
+      const layout={w:rect.width*scale,h:rect.height*scale,background:[],text:[]};
+      const badge=tag.querySelector('.t-promo');if(badge)layout.background.push({...box(badge),color:getComputedStyle(badge).backgroundColor});
+      const walker=document.createTreeWalker(tag,NodeFilter.SHOW_TEXT);
+      while(walker.nextNode()){
+        const node=walker.currentNode;if(!node.textContent.trim())continue;
+        const style=getComputedStyle(node.parentElement),size=parseFloat(style.fontSize)*scale,font=`${style.fontWeight} ${size}px ${style.fontFamily}`;
+        ctx.font=font;const ascent=ctx.measureText('Аg').fontBoundingBoxAscent||size*.9;
+        let offset=0,current=null;
+        for(const char of node.textContent){
+          const range=document.createRange();range.setStart(node,offset);offset+=char.length;range.setEnd(node,offset);const r=range.getBoundingClientRect();
+          if(!r.width||!r.height)continue;
+          const x=(r.left-rect.left)*scale,y=(r.top-rect.top)*scale;
+          if(!current||Math.abs(current.y-y)>1){current={x,y,font,color:style.color,ascent,value:char};layout.text.push(current);}else current.value+=char;
+        }
+      }
+      return layout;
+    }finally{host.remove();}
   }
-  function drawTag(ctx, x, y, p, c){
-    const [wm, hm] = TAG_SIZES[c.size] || TAG_SIZES.s, k = c.size==="l" ? 1.65 : c.size==="m" ? 1.25 : 1;
-    const w = wm*PX_MM, h = hm*PX_MM, padX = 3*k*PX_MM, padY = 2*k*PX_MM, iw = w-2*padX;
-    const t = tagParts(p, c);
-    ctx.save();
-    if (c.border!=="none"){
-      if (c.border==="dash") ctx.setLineDash([PX_MM*1.2, PX_MM*0.8]);
-      ctx.lineWidth = 2; ctx.strokeStyle = c.border==="solid" ? "#555" : "#999"; ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
-    }
-    ctx.textBaseline = "top";
-    const setField = key => { const s=fieldStyle(c,key); ctx.font=`${s.weight} ${s.size*k*PT}px ${TAG_FONT[s.font]}`; ctx.fillStyle=s.color; return s; };
-    const fit = (txt, maxW) => { let v = String(txt); if (ctx.measureText(v).width <= maxW) return v; while (v.length>1 && ctx.measureText(v+"…").width > maxW) v = v.slice(0,-1); return v+"…"; };
-    const line = (key, value, top, left=x+padX, width=iw) => {
-      if(!value) return 0;
-      const s=setField(key), size=s.size*k*PT, xx=s.align==='right'?left+width:s.align==='center'?left+width/2:left;
-      ctx.textAlign=s.align; ctx.fillText(fit(value,width),xx,top); ctx.textAlign='left';
-      return size*(key==='price'?1:key==='unit'||key==='per100'?1.3:key==='name'?1.15:1.2);
-    };
-    // Верхні поля
-    let ty = y+padY;
-    if (t.hl || t.hr){
-      const half=t.hl&&t.hr?(iw-2*PX_MM)/2:iw;
-      if(t.hl) line('chain',t.hl,ty,x+padX,half);
-      if(t.hr) line('store',t.hr,ty,x+padX+(t.hl?half+2*PX_MM:0),half);
-      ty+=Math.max(t.hl?fieldStyle(c,'chain').size:0,t.hr?fieldStyle(c,'store').size:0)*k*PT*1.2;
-    }
-    if (t.custom){ ty += 0.5*PX_MM; ty += line('custom',t.custom,ty); }
-    if (t.name){
-      ty += 0.8*PX_MM; const s=setField('name'), size=s.size*k*PT;
-      const xx=s.align==='right'?x+padX+iw:s.align==='center'?x+padX+iw/2:x+padX;
-      ctx.textAlign=s.align;
-      wrapText(ctx,t.name,iw,2).forEach(v=>{ctx.fillText(fit(v,iw),xx,ty);ty+=size*1.15;}); ctx.textAlign='left';
-    }
-    if (t.pack){ty+=0.5*PX_MM;ty+=line('pack',t.pack,ty);}
-    if (t.size){ty+=0.5*PX_MM;ty+=line('psize',t.size,ty);}
-    // Нижні поля, від низу догори
-    let by = y+h-padY;
-    if (t.category || t.date){
-      by-=Math.max(t.category?fieldStyle(c,'category').size:0,t.date?fieldStyle(c,'date').size:0)*k*PT*1.2;
-      const half=t.category&&t.date?(iw-2*PX_MM)/2:iw;
-      if(t.category) line('category',t.category,by,x+padX,half);
-      if(t.date) line('date',t.date,by,x+padX+(t.category?half+2*PX_MM:0),half);
-    }
-    if (t.per100){by-=fieldStyle(c,'per100').size*k*PT*1.3;line('per100',t.per100,by);}
-    if (t.unit){by-=fieldStyle(c,'unit').size*k*PT*1.3;line('unit',t.unit,by);}
-    if (t.price){
-      const s=setField('price'), ps=s.size*k*PT; by-=ps*1.02;
-      const suffix=c.unit?'':' грн';
-      line('price',t.price+suffix,by);
-    }
+  function drawTag(ctx,x,y,layout,c){
+    ctx.save();ctx.translate(x,y);ctx.beginPath();ctx.rect(0,0,layout.w,layout.h);ctx.clip();
+    for(const bg of layout.background){ctx.fillStyle=bg.color;ctx.fillRect(bg.x,bg.y,bg.w,bg.h);}
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    for(const line of layout.text){ctx.font=line.font;ctx.fillStyle=line.color;ctx.fillText(line.value,line.x,line.y+line.ascent);}
+    if(c.border!=='none'){const px=300/96;ctx.lineWidth=px;ctx.strokeStyle=c.border==='solid'?'#555':'#999';if(c.border==='dash')ctx.setLineDash([px*3,px*3]);ctx.strokeRect(px/2,px/2,layout.w-px,layout.h-px);}
     ctx.restore();
   }
   function pdfFromJpegs(pages){
@@ -868,24 +877,26 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     try{
       try{ const txt = "Абвгґдеєжзиіїйклмнопрстуфхцчшщьюя АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ 0123456789 ABCabc";
         await Promise.all(["400","600","700"].map(wt=>document.fonts.load(`${wt} 20px Rubik`, txt))); }catch(_){}
+      await document.fonts.ready;
       const c = tagCfg(), [tw, th] = TAG_SIZES[c.size] || TAG_SIZES.s, M = 8;
       const cols = Math.floor((210-2*M)/tw), rows = Math.floor((297-2*M)/th), per = cols*rows;
       const W = Math.round(210*PX_MM), H = Math.round(297*PX_MM);
       const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-      const ctx = cv.getContext("2d"), pages = [];
+      const ctx = cv.getContext("2d"), pages = [],layouts=new Map();
+      for(const p of selectedProducts())layouts.set(p.id,captureTag(p,c,ctx));
       for (let i=0; i<list.length; i+=per){
         ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
-        list.slice(i, i+per).forEach((p,j)=> drawTag(ctx, (M+(j%cols)*tw)*PX_MM, (M+Math.floor(j/cols)*th)*PX_MM, p, c));
+        list.slice(i, i+per).forEach((p,j)=> drawTag(ctx, (M+(j%cols)*tw)*PX_MM, (M+Math.floor(j/cols)*th)*PX_MM, layouts.get(p.id), c));
         const blob = await new Promise(r=>cv.toBlob(r, "image/jpeg", 0.92));
         pages.push({bytes:new Uint8Array(await blob.arrayBuffer()), w:W, h:H});
       }
       await save(`tsinnyky-${new Date().toISOString().slice(0,10)}.pdf`, pdfFromJpegs(pages));
-    }catch(e){ toast("Не вдалося зібрати PDF, спробуйте ще раз"); }
+    }catch(e){ toast("Не вдалося створити PDF. Перевірте, чи текст уміщується, і повторіть"); }
     finally{ btn.textContent = label; renderPreview(); }
   }
   function csv(list){
     const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
-    const rows = [["Назва","Категорія","Одиниця","Ціна, грн","Ціна за 100 г, грн"]].concat(list.map(p=>{const pr=priceOf(p);return [p.name,p.category||"",p.unit||"шт",money(pr),p.unit==="кг"?money(pr/10):""];}));
+    const rows = [["Назва","Категорія","Одиниця","Ціна, грн","Ціна за 100 г, грн","Акція"]].concat(list.map(p=>{const pr=priceOf(p);return [p.name,p.category||"",p.unit||"шт",money(pr),p.unit==="кг"?money(pr/10):"",p.promotion?"Так":"Ні"];}));
     return "\uFEFF" + rows.map(r=>r.map(q).join(";")).join("\r\n");
   }
   async function save(filename, data){
@@ -951,6 +962,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     take("markup", h=>h.includes("націнк") || h==="%" || h==="markup");
     take("type", h=>h==="тип" || h.startsWith("тип ") || h.startsWith("група") || h==="вид");
     take("category", h=>h.includes("категор"));
+    take("promotion", h=>h==="акція"||h==="promotion");
     take("pack", h=>h.includes("пакуван") || h==="тара");
     take("size", h=>h.includes("розмір") || h.includes("фасув") || /об.?[єе]м/.test(h));
     take("unit", h=>h==="од" || h.startsWith("од ") || h.includes("одиниц") || h.includes("вим") || h==="unit" || h==="шт/кг");
@@ -959,10 +971,10 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     const rows = aoa.slice(hi+1).map(r=>{
       let mk = c(r,"markup"); const mkRaw = String(mk); mk = parseNum(mk); if (mk>0 && mk<1 && !mkRaw.includes("%")) mk *= 100;
       const nm = String(c(r,"name")).trim();
-      return {name:nm, cost:parseNum(c(r,"cost")), price:parseNum(c(r,"price")), generic:parseNum(c(r,"generic")),
+      return {name:nm,...(col.promotion!==undefined?{promotion:/^(так|true|1|акція|yes)$/i.test(String(c(r,"promotion")).trim())}:{}),cost:parseNum(c(r,"cost")), price:parseNum(c(r,"price")), generic:parseNum(c(r,"generic")),
         markup:mk, category:String(c(r,"category")).trim(), type:typeNorm(c(r,"type")), unit:unitNorm(c(r,"unit")), pack:packNorm(c(r,"pack")) || packFromName(nm), size:String(c(r,"size")).trim() || sizeFromName(nm)};
     }).filter(r=>r.name && !/^(разом|всього|итого|підсумок)/i.test(r.name));
-    const labels = {name:"Назва", price:"Ціна продажу", cost:"Закупівля", generic:"Ціна", markup:"Націнка", type:"Тип", category:"Категорія", pack:"Пакування", size:"Розмір", unit:"Од."};
+    const labels = {name:"Назва", price:"Ціна продажу", cost:"Закупівля", generic:"Ціна", markup:"Націнка", type:"Тип", category:"Категорія",promotion:"Акція", pack:"Пакування", size:"Розмір", unit:"Од."};
     const mapping = Object.keys(col).map(k=>`${labels[k]} ← «${String(aoa[hi][col[k]]).trim()}»`);
     return {fileName, rows, mapping, hasGeneric: col.generic!==undefined, genericAs:"cost", markup:defMarkup(), defType:""};
   }
@@ -980,6 +992,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       if (cost>0) data.cost = cost; else if (!ex) data.cost = 0;
       if (price>0){ data.price = price; data.manualPrice = true; }
       else { if (r.markup>0) data.markup = r.markup; else if (!sync || !ex) data.markup = imp.markup; data.manualPrice = false; data.price = null; }
+      if(typeof r.promotion==="boolean")data.promotion=r.promotion;
       if (r.category) data.category = r.category; else if (!ex) data.category = "";
       if (r.pack) data.pack = r.pack; if (r.size) data.size = r.size; data.priceAt = today();
       const t = r.type || ex?.type || imp.defType; if (t) data.type = t;
@@ -989,9 +1002,9 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
   function importInner(){
     const imp = S.imp, head = `<h3>Завантажити товари з Excel</h3>`;
-    if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Тип, Категорія, Пакування, Розмір, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
+    if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Тип, Категорія, Акція (Так / Ні), Пакування, Розмір, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
       <div class="row"><button class="btn rasp" data-act="pickFile">Обрати файл</button><button class="btn soft" data-act="gsOpen" ${mcp?"":"disabled"} title="${mcp?"":"Google Drive тут ще не підключений"}">З Google Таблиці</button><button class="btn soft" data-act="tplXlsx" ${downloads?"":"disabled"}>Завантажити шаблон</button></div>${gsPanel("import")}
-      <p class="muted" style="margin-top:10px">Файл не відкривається? Надішліть його в чат Claude, і я внесу товари сам.</p>`;
+      <p class="muted" style="margin-top:10px">Для Google-таблиці завантажте аркуш «Товари» у форматі CSV або Excel.</p>`;
     if (imp.error) return `${head}<div class="warn" style="margin:10px 0 14px">${esc(imp.error)}</div>
       <div class="row"><button class="btn rasp" data-act="pickFile">Обрати інший файл</button><button class="btn soft" data-act="impCancel">Закрити</button></div>`;
     const plan = buildPlan(), n = plan.items.length;
@@ -1021,7 +1034,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       else { const X = await loadXlsx(); const wb = X.read(await file.arrayBuffer(), {type:"array"}); aoa = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:true, defval:""}); }
       S.imp = parseSheet(aoa, file.name);
     }catch(e){
-      S.imp = {fileName:file.name, error: e && e.message==="load" ? "Не вдалося завантажити модуль читання Excel. Перевірте інтернет або надішліть файл у чат Claude." : "Не вдалося прочитати файл. Перевірте, що це Excel (.xlsx, .xls) або .csv."};
+      S.imp = {fileName:file.name, error: e && e.message==="load" ? "Не вдалося завантажити модуль читання Excel. Перевірте інтернет або використайте CSV." : "Не вдалося прочитати файл. Перевірте, що це Excel (.xlsx, .xls) або .csv."};
     }
     renderImport();
   }
@@ -1052,8 +1065,8 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     try{
       const X = await loadXlsx();
       const ws = X.utils.aoa_to_sheet([
-        ["Назва","Тип","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн"],
-        ["Цукерки шоколадні вагові","Цукерки","Цукерки","Ваговий","","кг",210,30,""],
+        ["Назва","Тип","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн","Акція"],
+        ["Цукерки шоколадні вагові","Цукерки","Цукерки","Ваговий","","кг",210,30,"","Так"],
         ["Печиво вівсяне 300 г","Печиво і вафлі","Печиво","Упаковка","300 г","шт",32,35,""],
         ["Coca-Cola 0,5 л","Напої","Готові напої","ПЕТ","0,5 л","шт",24,30,""],
         ["Лате XL","Напої","Кав'ярня","Стакан","XL","шт","","",49]]);
@@ -1389,7 +1402,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     const t = totals(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
     const block = (title, hint, list, g, sum) => `<div><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
       ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
-      <div class="row" style="margin-top:10px"><input type="text" placeholder="Нова стаття" data-newexp="${g}" style="flex:1"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
+      <div class="row" style="margin-top:10px"><input type="text" placeholder="Нова стаття" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off" style="flex:1"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
       <div class="total"><span>Разом на місяць</span><span class="num">${money0(sum)} грн</span></div></div>`;
     return `<section class="panel"><div class="row between gap-lg"><h2>Витрати мережі на місяць</h2>
       <label class="inl">Магазинів у мережі <input id="stores" type="number" min="1" step="1" value="${S.settings.stores||1}" style="width:70px"></label></div>
@@ -1407,21 +1420,33 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
 
   /* ---------- events ---------- */
   document.addEventListener("click", e=>{
+    if(e.target.closest(".skip-link")){e.preventDefault();$("#main").focus();return;}
     if (S.openF && !e.target.closest(".dd")){ S.openF = null; refreshFilters(); }
+    const field=e.target.closest('#individualPreview [data-field]');if(field){selectField(field.dataset.field);return;}
     const t = e.target.closest("button"); if(!t) return;
-    if (t.dataset.go){ document.querySelector(`.tab[data-tab="${t.dataset.go}"]`).click(); return; }
+    if(t.dataset.page){S.catalogPage=Number(t.dataset.page);refreshFilters();$("#prodList").scrollIntoView({block:"start"});return;}
+    if(t.dataset.editField){selectField(t.dataset.editField);return;}
+    if(t.dataset.editProduct){openProduct(t.dataset.editProduct);return;}
+    if(t.dataset.ideaTask){const idea=S.ideas.find(i=>i.id===t.dataset.ideaTask);if(idea&&!developmentTasks().some(x=>x.ideaId===idea.id)){t.disabled=true;add('tasks',{title:idea.title,scope:'development',ideaId:idea.id,stage:S.project.stage||1,status:'todo',order:Date.now()},'Задачу створено');}return;}
+    if (t.dataset.go){ navigate(t.dataset.go); return; }
     if (t.dataset.gsid){ gsPick(t.dataset.gsid, t.dataset.gst, t.dataset.gsu); return; }
     if (t.dataset.ddtoggle!==undefined){ const k = t.dataset.ddtoggle; S.openF = S.openF===k ? null : k; refreshFilters({t:k}); return; }
-    if (t.dataset.fclear!==undefined){ curF()[t.dataset.fclear].clear(); refreshFilters({t:t.dataset.fclear}); return; }
+    if (t.dataset.fclear!==undefined){ S.catalogPage=1;curF()[t.dataset.fclear].clear(); refreshFilters({t:t.dataset.fclear}); return; }
     if (t.dataset.cycle){ const k=S.tasks.find(x=>x.id===t.dataset.cycle); upd("tasks",k.id,{status:ST_NEXT[k.status||"todo"]}); return; }
     if (t.dataset.delTask){ if(confirm("Видалити задачу?")) del("tasks",t.dataset.delTask,"Задачу видалено"); return; }
-    if (t.dataset.react!==undefined && t.dataset.react){ upd("ideas",t.dataset.react,{reaction:t.dataset.v||null}, t.dataset.v==="yes"?"Записав: беремо в роботу":t.dataset.v==="no"?"Записав: відкладаємо":null); return; }
+    if (t.dataset.react!==undefined && t.dataset.react){ upd("ideas",t.dataset.react,{reaction:t.dataset.v||null}, t.dataset.v==="yes"?"Ідею обрано":t.dataset.v==="no"?"Записав: відкладаємо":null); return; }
     if (t.dataset.delProd){ if(confirm("Видалити товар?")) del("products",t.dataset.delProd,"Товар видалено"); return; }
     if (t.dataset.delExp){ if(confirm("Видалити статтю витрат?")) del("expenses",t.dataset.delExp); return; }
     const a = t.dataset.act;
+    if(a==='retryTagSave'){if(S.tagSaveFailed)saveTag({});return;}
+    if(a==='newProduct'){openProduct();return;}
+    if(a==='closeProduct'){closeProduct();return;}
+    if(a==='deleteEditedProduct'){deleteEditedProduct(t);return;}
+    if(a==='resetField'){const styles={...(tagCfg().styles||{})};delete styles[S.tagField||'name'];saveTag({styles,nameBig:false});selectField(S.tagField||'name');return;}
+    if(a==='addWork'){const v=$('#newWork').value.trim();if(!v)return;add('tasks',{title:v,scope:'operations',dueDate:$('#newWorkDue').value||null,status:'todo',order:Date.now()},'Поточну задачу додано');return;}
     if (a==="addTask"){ const v=$("#newTask").value.trim(); if(!v) return; const st=+$("#newTaskStage").value;
-      add("tasks",{title:v,stage:st,status:"todo",order:Date.now()},"Задачу додано"); }
-    if (a==="addIdea"){ const v=$("#newIdea").value.trim(); if(!v) return; add("ideas",{title:v,text:"Ідея власника",reaction:"yes",order:Date.now(),byOwner:true},"Ідею записано"); }
+      add("tasks",{title:v,scope:"development",stage:st,status:"todo",order:Date.now()},"Задачу додано"); }
+    if (a==="addIdea"){ const v=$("#newIdea").value.trim(); if(!v) return; add("ideas",{title:v,text:"Ідея власника",reaction:null,order:Date.now(),byOwner:true},"Ідею записано"); }
     if (a==="clearEx"){ if(confirm("Прибрати всі товари-приклади?")) S.products.filter(p=>p.example).reduce((pr,p)=>pr.then(()=>del("products",p.id)),Promise.resolve()).then(()=>toast("Приклади прибрано")); }
     if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? filtered(S.F.prod) : S.products.filter(p=>!c||p.category===c);
       if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
@@ -1432,11 +1457,10 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (a==="unselShown"){ filtered(S.F.tags).forEach(p=>S.tagSel.delete(p.id)); syncChecks(); renderPreview(); }
     if (a==="qtyAll"){ const v = Math.max(1, Math.min(500, Math.round(num($("#qtyAll").value)))); if (!S.tagSel.size){ toast("Спершу позначте товари"); return; } S.tagSel.forEach(id=>{ S.tagQty[id] = v; }); syncChecks(); renderPreview(); toast(`Кожному вибраному — по ${v} шт`); }
     if (a==="selNone"){ S.tagSel.clear(); syncChecks(); renderPreview(); }
-    if (a==="resetStyles"){ saveTag({styles:{},nameBig:false}); render(); }
-    if (a==="fReset"){ S.F[tab==="tags"?"tags":"prod"] = newF(); S.openF = null; render(); }
+    if (a==="fReset"){ S.catalogPage=1;S.F[tab==="tags"?"tags":"prod"] = newF(); S.openF = null; render(); }
     if (a==="dlPdf" || a==="printReview"){
       S.printIntent=a==="dlPdf"?'pdf':'print'; S.printReview=true; S.staleAck=false; render();
-      $("#printReview")?.scrollIntoView({behavior:'smooth',block:'start'}); return;
+      $("#printReview")?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'}); return;
     }
     if (a==="closePrintReview"){ S.printReview=false; render(); return; }
     if (a==="confirmOutput"){
@@ -1465,15 +1489,20 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   });
   document.addEventListener("change", e=>{
     const el = e.target;
+    if(el.closest('#productForm')){S.editDirty=true;if(el.name==='priceMode'){$('#productForm').elements.price.disabled=el.value!=='manual';}return;}
+    if(el.id==='catalogPageSize'){S.catalogPageSize=Number(el.value);S.catalogPage=1;refreshFilters();return;}
+    if(el.dataset.promotion){upd('products',el.dataset.promotion,{promotion:el.checked},'Ознаку акції збережено');return;}
+    if(el.dataset.fieldVisible){saveTag({[el.dataset.fieldVisible==='custom'?'customEnabled':el.dataset.fieldVisible]:el.checked});$('.field-list').innerHTML=fieldList(tagCfg());return;}
+    if(el.id==='tcDecimals'){saveTag({kop:el.value==='always'});return;}
     if(el.id==="previewProduct"){ S.tagPreviewId=el.value; renderPreview(); return; }
     if(el.id==="staleAck"){ S.staleAck=el.checked; renderPreview(); return; }
     if(el.dataset.style){
       const key=el.dataset.style, prop=el.dataset.prop;
       if(!TAG_STYLE_DEFAULT[key] || !['font','size','color','weight','align'].includes(prop)) return;
-      const styles={...(tagCfg().styles||{}),[key]:{...((tagCfg().styles||{})[key]||{}),[prop]:prop==='size'?clamp(el.value,5,36):el.value}};
+      const styles={...(tagCfg().styles||{}),[key]:{...((tagCfg().styles||{})[key]||{}),[prop]:prop==='size'?clamp(el.value,5,72):el.value}};
       saveTag({styles}); return;
     }
-    if (el.dataset.f!==undefined){ const st = curF()[el.dataset.f], v = el.dataset.v; el.checked ? st.add(v) : st.delete(v); refreshFilters({k:el.dataset.f, v}); return; }
+    if (el.dataset.f!==undefined){ S.catalogPage=1;const st = curF()[el.dataset.f], v = el.dataset.v; el.checked ? st.add(v) : st.delete(v); refreshFilters({k:el.dataset.f, v}); return; }
     if (el.dataset.ptype!==undefined){ upd("products",el.dataset.id,{type:el.value||null}); return; }
     if (el.dataset.punit!==undefined){ upd("products",el.dataset.id,{unit:el.value||"шт"}); return; }
     if (el.dataset.ppack!==undefined){ upd("products",el.dataset.id,{pack:el.value||null}); return; }
@@ -1492,8 +1521,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       if (v <= 0){ S.tagSel.delete(id); S.tagQty[id] = 1; } else { S.tagQty[id] = Math.min(500, v); S.tagSel.add(id); }
       syncChecks(); renderPreview(); return; }
     if (el.dataset.tag){ el.checked ? S.tagSel.add(el.dataset.tag) : S.tagSel.delete(el.dataset.tag); syncChecks(); renderPreview(); return; }
-    if (el.dataset.tc){ saveTag({[el.dataset.tc]: el.checked}); return; }
-    if (el.id==="tcSize"){ saveTag({size:el.value}); return; }
+    if (el.id==="tcSize"){ saveTag({size:el.value}); selectField(S.tagField||'name'); return; }
     if (el.id==="tcBorder"){ saveTag({border:el.value}); return; }
     if (el.id==="tcStore"){ saveTag({storeIdx:+el.value}); return; }
     if (el.id==="tcCustom"){ saveTag({custom:el.value.trim().slice(0,40)}); return; }
@@ -1502,24 +1530,27 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (el.id==="rounding"){ setDoc("settings/main",{rounding:num(el.value)},"Округлення змінено"); }
     if (el.id==="stores"){ setDoc("settings/main",{stores:Math.max(1,Math.round(num(el.value)))}); }
   });
+  $('#productEditor').addEventListener('cancel',e=>{if(S.editDirty){e.preventDefault();closeProduct();}});
+  window.addEventListener('beforeunload',e=>{if(S.editDirty||S.tagSaving||S.tagSaveFailed){e.preventDefault();e.returnValue='';}});
   document.addEventListener("input", e=>{
+    if(e.target.closest('#productForm')){S.editDirty=true;return;}
+    if(e.target.dataset.style){const el=e.target;if(el.dataset.prop==='size'&&!el.value)return;const styles={...(tagCfg().styles||{}),[el.dataset.style]:{...((tagCfg().styles||{})[el.dataset.style]||{}),[el.dataset.prop]:el.dataset.prop==='size'?clamp(el.value,5,72):el.value}};S.settings.tag={...tagCfg(),styles};renderPreview();return;}
     if (e.target.id==="tcCustom"){ S.settings.tag = Object.assign(tagCfg(), {custom:e.target.value}); renderPreview(); return; }
-    if (e.target.id==="q"){ curF().q = e.target.value; clearTimeout(refreshFilters._t); refreshFilters._t = setTimeout(refreshFilters, 180); }
-  });
-  document.addEventListener('click', e=>{
-    if(e.target.closest('#styleDetails summary')) setTimeout(()=>{ S.styleOpen=!!$('#styleDetails')?.open; },0);
+    if (e.target.id==="q"){ S.catalogPage=1;curF().q = e.target.value; clearTimeout(refreshFilters._t); refreshFilters._t = setTimeout(refreshFilters, 180); }
   });
   document.addEventListener("keydown", e=>{
+    const field=e.target.closest('#individualPreview [data-field]');if(field&&(e.key==='Enter'||e.key===' ')){e.preventDefault();selectField(field.dataset.field);return;}
     if (e.key==="Escape" && S.openF){ const k = S.openF; S.openF = null; refreshFilters({t:k}); return; }
     if (e.key!=="Enter") return;
     if (e.target.dataset && e.target.dataset.qty){ e.target.blur(); return; }
-    const map = {qtyAll:"qtyAll", newTask:"addTask", newIdea:"addIdea", npName:"addProd", gsQ:"gsSearch"};
+    const map = {qtyAll:"qtyAll", newTask:"addTask", newWork:"addWork", newIdea:"addIdea", npName:"addProd", gsQ:"gsSearch"};
     if (map[e.target.id]) document.querySelector(`[data-act="${map[e.target.id]}"]`).click();
   });
 
   /* ---------- data ---------- */
   if (window.TSUKENYA_SERVER) $("#accountLink").hidden = false;
-  render();
+  route();
+  document.fonts.ready.then(()=>{if(tab==="tags")renderPreview();});
   const noDbTimer = setTimeout(()=>{ if(!db) $("#noDb").hidden=false; }, 4000);
   window.claude?.use?.("downloads").then(d=>{ downloads=d; if(tab==="tags") render(); }).catch(()=>{});
   window.claude?.use?.("mcp").then(m=>{ mcp=m; if(tab==="tags"||tab==="products") render(); syncSetup(); }).catch(()=>{});
@@ -1538,7 +1569,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       S.products = S.allProducts.filter(p=>!p.hidden); S.productsLoaded=true; render(); if(firstProducts) syncSetup();
     }, ()=>{});
     sub("expenses","expenses",byOrder);
-    db.doc("settings/main").onSnapshot(s=>{ S.settings = s.exists ? s.data() : {}; render(); syncSetup(); }, ()=>{});
+    db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;render();syncSetup(); }, ()=>{});
     db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{});
   }).catch(()=>{ $("#noDb").hidden=false; });
 })();
