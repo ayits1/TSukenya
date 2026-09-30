@@ -123,7 +123,7 @@ td.r,th.r{text-align:right}
 .be .big{font-size:1.8rem;font-weight:700}
 
 /* price tags */
-.pick{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px 10px}
+.pick{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:0 10px;isolation:isolate;scroll-padding-block-start:44px}
 .pick .prow{display:flex;gap:10px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
 .pick .prow:last-child{border-bottom:0}
 .pick .prow label{display:flex;gap:10px;align-items:center;flex:1;min-width:0;padding:2px 0}
@@ -204,7 +204,9 @@ a.btn{display:inline-block;text-decoration:none;line-height:1.5}
 .badge.bad{background:var(--rasp-soft);color:var(--rasp)}
 .w-size{width:96px}
 @media (max-width:640px){.flabel{width:100%}}
-.pick-grp{font-weight:600;color:var(--rasp);padding:10px 0 4px;position:sticky;top:0;background:var(--paper)}
+.pick-group{position:relative}
+.pick-grp{font-weight:600;color:var(--rasp);padding:10px;margin-inline:-10px;position:sticky;top:0;z-index:2;background:var(--paper);border-bottom:1px solid var(--line)}
+.pick .prow{position:relative;z-index:0}
 tr.sgrp td{font-weight:600;color:var(--rasp);padding:8px 8px 4px;border-bottom:0}
 tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8px}
 .empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
@@ -258,6 +260,13 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
 @media(max-width:1000px){.builder-workspace{grid-template-columns:145px minmax(0,1fr)}.field-inspector{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 20px;border-left:0;border-top:1px solid var(--line);padding:20px 0 0}.field-inspector h3,.field-inspector .inspector-description{grid-column:1/-1;margin:0}.field-inspector>.muted{grid-column:1/-1}.catalog-table th:first-child{width:34%}.catalog-table th:last-child{width:14%}}
 @media(max-width:760px){.wrap{padding:18px 14px 48px}.top{gap:16px}.workspace-link{padding:12px}.workspace-link b{font-size:15px}.workspace-link span{font-size:12px}.workspace-nav{margin-bottom:22px}.panel{padding:16px}.tabs{gap:18px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.stat{padding:0}.stat+ .stat{border-left:0}.stat .v{font-size:24px}.quick-actions{grid-template-columns:1fr}.quick-actions a+ a{border-left:0;border-top:1px solid var(--line);padding-left:0}.stages{grid-template-columns:repeat(2,minmax(0,1fr))}.stage{display:block}.catalog-table thead{display:none}.catalog-table,.catalog-table tbody{display:block}.catalog-table tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:16px 0;border-bottom:1px solid var(--line)}.catalog-table td{display:block;padding:0;border:0;min-width:0}.catalog-name{grid-column:1/-1}.catalog-table td[data-label]:not(.catalog-name)::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted);margin-bottom:5px}.catalog-table .catalog-actions{grid-column:2/4}.catalog-actions .btn{padding:8px}.builder-toolbar{flex-wrap:wrap;gap:8px 16px}.builder-toolbar .form-field{min-width:140px}.builder-workspace{grid-template-columns:1fr}.field-list{flex-direction:row;overflow:auto;padding-bottom:6px}.field-item{flex:none;border-left:0;border-bottom:2px solid transparent}.field-inspector{grid-template-columns:repeat(2,minmax(0,1fr))}.builder-stage{padding:12px}.editor-grid{grid-template-columns:1fr}.editor-footer{gap:16px}.editor-footer>.row{width:100%;justify-content:flex-end}.builder-stage .individual-preview{justify-content:flex-start}.form-field.grow{flex-basis:100%}dialog{padding:20px}.identity-settings .strow{flex-wrap:nowrap}}
 @media print{.field-selected{outline:none!important}.tag .t-promo{background:#fff1c2!important}}
+
+/* Keep the select indicator inside its own reserved space in every form. */
+:root{--select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23526575' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+:root[data-theme="dark"]{--select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23A8BAC8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23A8BAC8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}}
+:root select:not([multiple]):not([size]){appearance:none;-webkit-appearance:none;background-color:var(--paper);background-image:var(--select-arrow);background-repeat:no-repeat;background-position:right 10px center;background-size:12px 8px;padding-right:34px;color:var(--ink);text-overflow:ellipsis}
+@media(forced-colors:active){:root select:not([multiple]):not([size]){appearance:auto;-webkit-appearance:auto;background-image:none;padding-right:10px}}
 
 </style>
 </head>
@@ -758,11 +767,12 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
   function pickList(list){
     if (!S.products.length) return `<div class="empty">Спершу додайте товари у вкладці «Товари і ціни»</div>`;
     if (!list.length) return `<div class="empty">Нічого не знайдено за цими фільтрами. <button class="btn soft" data-act="fReset">Скинути фільтри</button></div>`;
-    return `<div class="pick">${sortByType(list).map((p,i,arr)=>{
-      const sub = (i===0||catKey(arr[i-1])!==catKey(p)||typeOf(arr[i-1])!==typeOf(p)) ? `<div class="pick-grp">${esc(catKey(p))}</div>` : "";
+    const groups=[];
+    sortByType(list).forEach(p=>{const last=groups[groups.length-1];if(!last||last.category!==catKey(p)||last.type!==typeOf(p))groups.push({category:catKey(p),type:typeOf(p),products:[p]});else last.products.push(p);});
+    return `<div class="pick">${groups.map(group=>`<section class="pick-group" aria-label="${esc(group.category)}"><div class="pick-grp">${esc(group.category)}</div>${group.products.map(p=>{
       const st = priceState(p), ptxt = st==="none" ? "немає ціни" : money(priceOf(p))+" грн"+(st==="stale" ? " · застаріла" : "");
       const on = S.tagSel.has(p.id);
-      return sub+`<div class="prow${on?" on":""}" data-row="${p.id}"><label><input type="checkbox" data-tag="${p.id}" ${on?"checked":""}><span style="flex:1">${esc(p.name)}</span><span class="num">${ptxt}</span></label><input type="number" class="qty" min="0" max="500" step="1" inputmode="numeric" data-qty="${p.id}" value="${qtyOf(p.id)}" aria-label="Скільки цінників: ${esc(p.name)}" title="Скільки цінників надрукувати"></div>`;}).join("")}</div>`;
+      return `<div class="prow${on?" on":""}" data-row="${p.id}"><label><input type="checkbox" data-tag="${p.id}" ${on?"checked":""}><span style="flex:1">${esc(p.name)}</span><span class="num">${ptxt}</span></label><input type="number" class="qty" min="0" max="500" step="1" inputmode="numeric" data-qty="${p.id}" value="${qtyOf(p.id)}" aria-label="Скільки цінників: ${esc(p.name)}" title="Скільки цінників надрукувати"></div>`;}).join("")}</section>`).join("")}</div>`;
   }
   const qtyOf = id => Math.max(1, Math.min(500, Math.round(S.tagQty[id] || 1)));
   const syncChecks = () => document.querySelectorAll("[data-tag]").forEach(cb=>{ const on = S.tagSel.has(cb.dataset.tag); cb.checked = on; const r = cb.closest(".prow"); if (r) r.classList.toggle("on", on); const q = r && r.querySelector("[data-qty]"); if (q && document.activeElement!==q) q.value = qtyOf(cb.dataset.tag); });
