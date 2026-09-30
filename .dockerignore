@@ -1,0 +1,9 @@
+.git
+.env
+.private
+storage
+__pycache__
+*.pyc
+tests
+docs
+deploy
