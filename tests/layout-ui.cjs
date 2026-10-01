@@ -25,6 +25,11 @@ async function checkSelects(page){
    await page.locator('#activeField').selectOption('name');assert.equal(await page.locator('#fieldInspector h3').innerText(),'Назва товару');
    await page.locator('#navToggle').click();assert(await page.locator('#portalSidebar').isVisible());await page.keyboard.press('Escape');assert(!(await page.locator('#portalSidebar').isVisible()));assert(await page.locator('#navToggle').evaluate(el=>el===document.activeElement));
   }
+  const combo=page.locator('#previewProduct');await combo.click();assert.equal(await combo.getAttribute('aria-expanded'),'true');
+  const box=await page.locator('.ui-combo-popup').boundingBox();assert(box.x>=0&&box.x+box.width<=width+1&&box.y>=0&&box.y+box.height<=1001,'combobox viewport bounds: '+JSON.stringify(box));
+  if(theme==='light'&&(width===1440||width===390))await page.locator('.builder-stage').screenshot({path:path.join(os.tmpdir(),'tsukenya-combo-'+width+'.png')});
+  assert(await page.locator('.ui-combo-toggle').evaluate(el=>{const b=el.getBoundingClientRect(),i=el.parentElement.querySelector('input').getBoundingClientRect();return Math.abs(b.right-i.right)<=2&&Math.abs((b.y+b.height/2)-(i.y+i.height/2))<=1;}),'combobox indicator alignment');
+  await combo.fill('Американо');await combo.press('Enter');assert.equal(await page.locator('#individualPreview [data-field=name]').innerText(),'Американо');
   await page.locator('.pick').scrollIntoViewIfNeeded();
   // Hit testing catches rows painting over the pinned header, including the old top gap.
   const result=await page.locator('.pick').evaluate(async pick=>{
@@ -55,7 +60,8 @@ async function checkSelects(page){
  if(process.env.QA_BROWSER!=='webkit'){
   const touch=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,storageState:await page.context().storageState()});const t=await touch.newPage();
   await t.goto(base+'/#operations/tags');await t.locator('#activeField').waitFor();
-  const sizes=await t.locator('.ui-button:visible,.ui-select:visible,.ui-input:visible').evaluateAll(nodes=>nodes.map(el=>({name:el.id||el.name||el.textContent.trim(),h:el.getBoundingClientRect().height})));
+  await t.locator('#previewProduct').tap();assert(await t.locator('.ui-combo-popup').isVisible());const touchChoice=await t.locator('#previewProductList [role=option]').nth(1).innerText();await t.locator('#previewProductList [role=option]').nth(1).tap();assert.equal(await t.locator('#previewProduct').inputValue(),touchChoice);assert.equal(await t.locator('#previewProduct').getAttribute('aria-expanded'),'false');
+  const sizes=await t.locator('.ui-button:visible,.ui-select:visible,.ui-input:visible,.ui-combo-toggle:visible').evaluateAll(nodes=>nodes.map(el=>({name:el.id||el.name||el.textContent.trim(),h:el.getBoundingClientRect().height})));
   assert(sizes.every(x=>x.h>=44),'touch heights: '+JSON.stringify(sizes.filter(x=>x.h<44)));
   await t.emulateMedia({forcedColors:'active'});assert.equal(await t.locator('#activeField').evaluate(el=>getComputedStyle(el).appearance),'auto');assert.equal(await t.locator('#activeField').evaluate(el=>getComputedStyle(el).backgroundImage),'none');await touch.close();
   // Chrome's actual persisted page zoom, not CSS zoom or a simulated viewport.

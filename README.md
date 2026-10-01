@@ -91,3 +91,5 @@ PYTHON_BIN=.venv/bin/python npm run test:crm:ui
 ```
 
 Перевірки конкуренції виконуються лише на PostgreSQL. Браузерні перевірки використовують окремі тимчасові бази.
+
+Стек для подальшого зростання та поетапний перехід фронтенду — [STACK-EVOLUTION.md](docs/STACK-EVOLUTION.md). Це рекомендація; поточний інтерфейс залишається HTML/CSS/JavaScript.

@@ -433,7 +433,7 @@
     const c=tagCfg(),n=storeNames();
     return `<section class="panel builder-panel" id="tagBuilder"><div class="row between gap-lg"><h3>Макет цінника</h3><button type="button" class="save-status" id="tagSaveStatus" data-act="retryTagSave" aria-live="polite">${S.tagSaving?"Збереження…":S.tagSaveFailed?"Не збережено. Натисніть, щоб повторити.":"Макет збережено"}</button></div>
       <div class="builder-toolbar"><label class="form-field">Формат цінника<select id="tcSize">${Object.entries(TAG_SIZES).map(([key,v])=>`<option value="${key}" ${c.size===key?'selected':''}>${v[2]}</option>`).join('')}</select></label><label class="form-field">Рамка<select id="tcBorder">${[['dash','Пунктир для різання'],['solid','Суцільна'],['none','Без рамки']].map(([v,l])=>`<option value="${v}" ${c.border===v?'selected':''}>${l}</option>`).join('')}</select></label><label class="form-field">Відображення ціни<select id="tcDecimals"><option value="auto" ${!c.kop?'selected':''}>Без зайвих нулів</option><option value="always" ${c.kop?'selected':''}>Завжди з копійками</option></select></label></div>
-      <label class="form-field field-picker">Елемент цінника<select id="activeField">${Object.entries(FIELD_LABELS).map(([key,label])=>`<option value="${key}" ${key===(S.tagField||'name')?'selected':''}>${esc(label)}</option>`).join('')}</select></label><div class="builder-workspace"><aside class="field-list" aria-label="Елементи цінника">${fieldList(c)}</aside><div class="builder-stage"><label class="form-field">Товар для перегляду<select id="previewProduct"></select></label><div class="individual-preview" id="individualPreview"></div><p class="muted" id="previewQty"></p><p class="muted stage-hint">Оберіть елемент у списку або натисніть на нього в макеті.</p><p id="singlePreviewWarning" class="form-error" role="status"></p></div><aside id="fieldInspector" class="field-inspector" aria-label="Параметри елемента">${styleControls(c)}</aside></div>
+      <label class="form-field field-picker">Елемент цінника<select id="activeField">${Object.entries(FIELD_LABELS).map(([key,label])=>`<option value="${key}" ${key===(S.tagField||'name')?'selected':''}>${esc(label)}</option>`).join('')}</select></label><div class="builder-workspace"><aside class="field-list" aria-label="Елементи цінника">${fieldList(c)}</aside><div class="builder-stage"><div class="form-field"><label for="previewProduct">Товар для перегляду</label><div id="previewProductCombo"></div></div><div class="individual-preview" id="individualPreview"></div><p class="muted" id="previewQty"></p><p class="muted stage-hint">Оберіть елемент у списку або натисніть на нього в макеті.</p><p id="singlePreviewWarning" class="form-error" role="status"></p></div><aside id="fieldInspector" class="field-inspector" aria-label="Параметри елемента">${styleControls(c)}</aside></div>
       <details class="disclosure identity-settings" data-disclosure="identity"><summary>Назва мережі та магазини</summary><div class="editor-grid"><label class="form-field">Назва мережі<input id="chainIn" type="text" value="${esc(S.settings.chainName||'')}" autocomplete="off"></label><div>${storeList()}</div>${n.length?`<label class="form-field">Друкувати для магазину<select id="tcStore">${n.map((v,i)=>`<option value="${i}" ${c.storeIdx===i?'selected':''}>${esc(v||`Магазин ${i+1}`)}</option>`).join('')}</select></label>`:''}</div></details></section>`;
   }
   function selectField(key){if(!FIELD_LABELS[key])return;S.tagField=key;if($('#activeField'))$('#activeField').value=key;$('#fieldInspector').innerHTML=styleControls(tagCfg());document.querySelectorAll('[data-edit-field]').forEach(b=>b.setAttribute('aria-current',b.dataset.editField===key?'true':'false'));highlightField();}
@@ -490,12 +490,11 @@
   function renderPreview(){
     const list = selectedProducts();
     const total = list.reduce((a,p)=>a+qtyOf(p.id), 0), sheets = Math.ceil(total / perSheet());
-    const pv=$("#individualPreview"), picker=$("#previewProduct");
+    const pv=$("#individualPreview"), picker=$("#previewProductCombo");
     if(picker && pv){
       const available=S.products;
       if(!available.some(p=>p.id===S.tagPreviewId)) S.tagPreviewId=available.find(p=>priceOf(p)>0)?.id||available[0]?.id||null;
-      picker.innerHTML=available.map(p=>`<option value="${esc(p.id)}" ${p.id===S.tagPreviewId?'selected':''}>${esc(p.name)}</option>`).join('');
-      picker.disabled=!available.length;
+      window.PortalCombo.mount(picker,{id:"previewProduct",options:available.map(p=>({value:p.id,label:p.name})),value:S.tagPreviewId,onChange:id=>{S.tagPreviewId=id;renderPreview();}});
       const p=available.find(p=>p.id===S.tagPreviewId)||SAMPLE;
       pv.innerHTML=p ? tagMarkup(p) : '<p class="muted">Виберіть товар вище, щоб побачити його цінник.</p>';
       const q=$("#previewQty"); if(q) q.textContent=list.some(x=>x.id===p.id)?`До друку: ${qtyOf(p.id)} шт.`:'Перегляд макета. Товар не додано до друку.';
@@ -1205,7 +1204,6 @@
     if(el.dataset.promotion){upd('products',el.dataset.promotion,{promotion:el.checked},'Ознаку акції збережено');return;}
     if(el.dataset.fieldVisible){saveTag({[el.dataset.fieldVisible==='custom'?'customEnabled':el.dataset.fieldVisible]:el.checked});$('.field-list').innerHTML=fieldList(tagCfg());return;}
     if(el.id==='tcDecimals'){saveTag({kop:el.value==='always'});return;}
-    if(el.id==="previewProduct"){ S.tagPreviewId=el.value; renderPreview(); return; }
     if(el.id==="staleAck"){ S.staleAck=el.checked; renderPreview(); return; }
     if(el.dataset.style){
       const key=el.dataset.style, prop=el.dataset.prop;

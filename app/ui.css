@@ -87,3 +87,18 @@
   .ui-select { appearance: auto; -webkit-appearance: auto; background-image: none; padding-right: 12px; }
   .ui-button--primary { color: ButtonText; background: ButtonFace; border-color: ButtonText; }
 }
+
+/* Editable combobox: input and indicator share one reserved gutter. */
+.ui-combo { position:relative;min-width:0;font-weight:400; }
+.ui-combo > .ui-input { padding-right:48px; }
+.ui-combo-toggle { position:absolute;right:1px;top:0;width:44px;height:var(--ui-control-height);display:flex;align-items:center;justify-content:center;border:0;border-radius:0 var(--ui-radius) var(--ui-radius) 0;color:var(--ui-muted);background:transparent;cursor:pointer; }
+.ui-combo-toggle:hover { color:var(--ui-ink);background:var(--ui-brand-soft); }
+.ui-combo-toggle:disabled { cursor:default;opacity:.5; }
+.ui-combo-popup { position:absolute;z-index:40;top:calc(100% + 4px);left:0;right:0;overflow:auto;overscroll-behavior:contain;padding:4px;border:1px solid var(--ui-input-line);border-radius:var(--ui-radius);background:var(--ui-paper);box-shadow:0 8px 24px #20272c18; }
+.ui-combo-above .ui-combo-popup { top:auto;bottom:calc(100% + 4px); }
+.ui-combo-popup ul { margin:0;padding:0;list-style:none; }
+.ui-combo-popup [role=option] { display:flex;align-items:center;min-height:40px;padding:8px 12px;border-radius:4px;overflow-wrap:anywhere;cursor:pointer; }
+.ui-combo-popup [role=option]:hover,.ui-combo-popup [aria-selected=true] { background:var(--ui-brand-soft);color:var(--ui-brand); }
+.ui-combo-note { margin:0;padding:12px;color:var(--ui-muted);font-size:13px; }
+@media(pointer:coarse){.ui-combo-toggle{height:var(--ui-control-height)}.ui-combo-popup [role=option]{min-height:44px}}
+@media(forced-colors:active){.ui-combo-popup [aria-selected=true]{outline:1px solid Highlight;color:Highlight}.ui-combo-toggle svg{color:ButtonText}.ui-combo-popup{border-color:CanvasText}}
