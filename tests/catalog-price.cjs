@@ -55,6 +55,8 @@ module.exports = async (page, until) => {
     await prices.scrollIntoViewIfNeeded();
     const bounds = await prices.locator('.tk-money-group').evaluateAll(groups => groups.map(group => ({ right: group.getBoundingClientRect().right, overflow: group.scrollWidth > group.clientWidth + 1 })));
     assert(bounds.every(group => !group.overflow && group.right <= width + 1), 'purchase and sale prices fit at ' + width);
+    const inputWidths = await prices.locator('.tk-money-input').evaluateAll(inputs => inputs.map(input => input.getBoundingClientRect().width));
+    assert(inputWidths.every(inputWidth => inputWidth >= 44), 'both editable parts remain usable at ' + width);
     await prices.screenshot({ path: path.join(os.tmpdir(), `tsukenya-promotion-editor-${width}.png`) });
   }
 
