@@ -307,8 +307,8 @@ input {
   outline: none;
 }
 /* The compound control owns one focus ring, including inside the legacy shell. */
-.tk-root .tk-combo-group :is(.tk-combo-input, .tk-combo-toggle):focus-visible,
-.tk-root .tk-combo-group :is(.tk-combo-input, .tk-combo-toggle)[data-focus-visible] {
+.tk-combo-group :is(.tk-combo-input, .tk-combo-toggle):focus-visible,
+.tk-combo-group :is(.tk-combo-input, .tk-combo-toggle)[data-focus-visible] {
   outline: none;
 }
 .tk-combo-toggle {
@@ -316,6 +316,7 @@ input {
   align-items: center;
   justify-content: center;
   flex: 0 0 44px;
+  min-height: 44px;
   border: 0;
   border-radius: var(--tk-radius);
   background: transparent;
@@ -382,13 +383,15 @@ input {
 .tk-button--primary[data-hovered] {
   background: #194733;
 }
-.tk-button[data-disabled],
-.tk-field[data-disabled] {
+.tk-button[data-disabled] {
   opacity: 0.6;
 }
-.tk-money[data-disabled],
-.tk-date[data-disabled] {
+.tk-field[data-disabled] {
   opacity: 1;
+}
+.tk-field[data-disabled] :is(.tk-input, .tk-combo-group, .tk-select-trigger, .tk-date-group) {
+  background: var(--tk-bg);
+  color: var(--tk-muted);
 }
 .tk-button[data-disabled],
 .tk-field[data-disabled] button {

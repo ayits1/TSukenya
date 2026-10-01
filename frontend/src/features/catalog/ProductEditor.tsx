@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ModalOverlay, Modal, Dialog, Heading, Form, Checkbox } from 'react-aria-components';
 import { TextField } from '../../shared/ui/TextField';
 import { MoneyField } from '../../shared/ui/MoneyField';
 import { DatePicker, ukraineToday } from '../../shared/ui/DatePicker';
+import { CatalogReferenceField } from './CatalogReferenceField';
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
 import {
@@ -12,7 +13,18 @@ import {
   type Product,
   type ProductCreate,
   type ProductPatch,
+  type ReferenceField,
+  type ReferenceData,
+  referenceKey,
 } from './api';
+
+const referenceLabels: Record<ReferenceField, string> = {
+  type: 'Група',
+  category: 'Категорія',
+  pack: 'Пакування',
+  size: 'Об’єм / вага',
+  unit: 'Одиниця',
+};
 
 function initial(product: Product | undefined, markup: string): Required<ProductCreate> {
   return {
@@ -60,7 +72,55 @@ export function ProductEditor({
     promotion: original.promotion || activatePromotion,
   }));
   const [notice, setNotice] = useState('');
-  const dirty = JSON.stringify(original) !== JSON.stringify(draft);
+  const client = useQueryClient();
+  const referenceButtons = useRef<Partial<Record<ReferenceField, HTMLButtonElement>>>({});
+  const focusAfterCreation = useRef<ReferenceField | null>(null);
+  const [creation, setCreation] = useState<{ field: ReferenceField; value: string } | null>(null);
+  const references = useQuery({
+    queryKey: ['catalog-references'],
+    queryFn: ({ signal }) => api.references(signal),
+    staleTime: 15_000,
+    retry: false,
+  });
+  const chooseReference = (field: ReferenceField, value: string) => {
+    setDraft((old) => ({
+      ...old,
+      [field]: value,
+      ...(field === 'type' && referenceKey(value) !== referenceKey(old.type)
+        ? { category: '' }
+        : {}),
+    }));
+  };
+  const focusReference = (field: ReferenceField) => {
+    focusAfterCreation.current = field;
+  };
+  const addReference = useMutation({
+    mutationFn: () => {
+      if (!creation) throw new Error('Виберіть довідник для додавання.');
+      return api.createReference({
+        field: creation.field,
+        value: creation.value,
+        ...(creation.field === 'category' ? { parentType: draft.type } : {}),
+      });
+    },
+    retry: false,
+    onSuccess: (item) => {
+      client.setQueryData<ReferenceData>(['catalog-references'], (data) =>
+        data
+          ? {
+              ...data,
+              items: [...data.items.filter((old) => old.id !== item.id), item],
+            }
+          : data,
+      );
+      chooseReference(item.field, item.value);
+      setCreation(null);
+      setNotice(`Вибрано з довідника: ${item.value}`);
+      void client.invalidateQueries({ queryKey: ['catalog-references'] });
+      focusReference(item.field);
+    },
+  });
+  const dirty = JSON.stringify(original) !== JSON.stringify(draft) || !!creation?.value;
   useEffect(() => {
     onDirty(dirty);
     return () => onDirty(false);
@@ -102,30 +162,84 @@ export function ProductEditor({
     },
   });
   const close = () => {
-    if (mutation.isPending || reload.isPending || deletion.isPending) return;
+    if (mutation.isPending || reload.isPending || deletion.isPending || addReference.isPending)
+      return;
     if (!dirty || window.confirm('Відкинути незбережені зміни товару?')) onClose();
   };
-  const text = (
-    key:
-      | 'name'
-      | 'type'
-      | 'category'
-      | 'pack'
-      | 'size'
-      | 'unit'
-      | 'barcode'
-      | 'cost'
-      | 'markup'
-      | 'minStock',
-    label: string,
-  ) => (
+  const text = (key: 'name' | 'barcode' | 'cost' | 'markup' | 'minStock', label: string) => (
     <TextField
       key={key}
       label={label}
       value={draft[key]}
       onChange={(value) => setDraft((old) => ({ ...old, [key]: value }))}
-      isRequired={key === 'name' || key === 'unit'}
+      isRequired={key === 'name'}
       {...(key === 'name' ? { autoFocus: true, maxLength: 250 } : {})}
+    />
+  );
+  const referenceBusy =
+    mutation.isPending || reload.isPending || deletion.isPending || addReference.isPending;
+  useEffect(() => {
+    if (!referenceBusy && !creation && focusAfterCreation.current) {
+      referenceButtons.current[focusAfterCreation.current]?.focus();
+      focusAfterCreation.current = null;
+    }
+  }, [referenceBusy, creation]);
+  const reference = (field: ReferenceField) => (
+    <CatalogReferenceField
+      label={referenceLabels[field]}
+      value={draft[field]}
+      options={(references.data?.items || []).filter(
+        (item) =>
+          item.field === field &&
+          (field !== 'category' || referenceKey(item.parentType) === referenceKey(draft.type)),
+      )}
+      onChange={(value) => chooseReference(field, value)}
+      addButtonRef={(button) => {
+        if (button) referenceButtons.current[field] = button;
+      }}
+      isRequired={field === 'unit'}
+      isDisabled={
+        referenceBusy ||
+        references.isPending ||
+        !!references.error ||
+        !!creation ||
+        (field === 'category' && !draft.type)
+      }
+      canAdd={
+        !!references.data?.canEdit &&
+        !referenceBusy &&
+        !references.error &&
+        !creation &&
+        (field !== 'category' || !!draft.type)
+      }
+      {...(field === 'category'
+        ? {
+            description: draft.type ? `Категорії групи «${draft.type}»` : 'Спочатку виберіть групу',
+          }
+        : {})}
+      onAdd={() => {
+        addReference.reset();
+        setCreation({ field, value: '' });
+      }}
+      {...(creation?.field === field
+        ? {
+            creation: {
+              value: creation.value,
+              error: addReference.error?.message || '',
+              pending: addReference.isPending,
+              onChange: (value: string) => {
+                addReference.reset();
+                setCreation({ field, value });
+              },
+              onSave: () => addReference.mutate(),
+              onCancel: () => {
+                setCreation(null);
+                addReference.reset();
+                focusReference(field);
+              },
+            },
+          }
+        : {})}
     />
   );
   return (
@@ -142,6 +256,7 @@ export function ProductEditor({
           <Form
             onSubmit={(event) => {
               event.preventDefault();
+              if (referenceBusy || creation || !references.data || references.error) return;
               mutation.mutate();
             }}
           >
@@ -150,23 +265,32 @@ export function ProductEditor({
                 <Heading slot="title">{current ? 'Редагувати товар' : 'Новий товар'}</Heading>
                 <p>Зміни одразу доступні в каталозі та цінниках.</p>
               </div>
-              <Button
-                aria-label="Закрити редактор"
-                onPress={close}
-                isDisabled={mutation.isPending || reload.isPending || deletion.isPending}
-              >
+              <Button aria-label="Закрити редактор" onPress={close} isDisabled={referenceBusy}>
                 Закрити
               </Button>
             </header>
             <fieldset disabled={mutation.isPending || reload.isPending || deletion.isPending}>
               <legend>Товар</legend>
               {text('name', 'Назва товару')}
+              {references.isPending ? <p role="status">Завантажуємо довідники…</p> : null}
+              {references.error ? (
+                <div className="tk-catalog-error" role="alert">
+                  <p>{references.error.message}</p>
+                  <Button
+                    onPress={() => {
+                      void references.refetch();
+                    }}
+                  >
+                    Завантажити довідники повторно
+                  </Button>
+                </div>
+              ) : null}
               <div className="tk-editor-grid">
-                {text('type', 'Група')}
-                {text('category', 'Категорія')}
-                {text('pack', 'Пакування')}
-                {text('size', 'Об’єм / вага')}
-                {text('unit', 'Одиниця')}
+                {reference('type')}
+                {reference('category')}
+                {reference('pack')}
+                {reference('size')}
+                {reference('unit')}
                 {text('barcode', 'Штрихкод')}
                 {text('minStock', 'Мінімальний залишок')}
               </div>
@@ -282,7 +406,7 @@ export function ProductEditor({
             <footer>
               {current ? (
                 <Button
-                  isDisabled={mutation.isPending || deletion.isPending}
+                  isDisabled={referenceBusy}
                   onPress={() => {
                     if (
                       window.confirm(
@@ -295,16 +419,15 @@ export function ProductEditor({
                   Видалити товар
                 </Button>
               ) : null}
-              <Button
-                onPress={close}
-                isDisabled={mutation.isPending || reload.isPending || deletion.isPending}
-              >
+              <Button onPress={close} isDisabled={referenceBusy}>
                 Скасувати
               </Button>
               <Button
                 type="submit"
                 variant="primary"
-                isDisabled={mutation.isPending || reload.isPending || deletion.isPending}
+                isDisabled={
+                  referenceBusy || !!creation || references.isPending || !!references.error
+                }
               >
                 {mutation.isPending ? 'Зберігаємо…' : 'Зберегти товар'}
               </Button>

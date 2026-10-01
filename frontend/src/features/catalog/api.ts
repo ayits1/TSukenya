@@ -14,6 +14,13 @@ export type ProductPage = components['schemas']['ProductPage'];
 export type ProductCreate = components['schemas']['ProductCreate'];
 export type ProductPatch = components['schemas']['ProductPatch'];
 export type Session = components['schemas']['Session'];
+export const referenceFields = ['type', 'category', 'pack', 'size', 'unit'] as const;
+export type ReferenceField = (typeof referenceFields)[number];
+export type ReferenceItem = components['schemas']['ReferenceItem'];
+export type ReferenceData = components['schemas']['ReferenceData'];
+export type ReferenceCreate = components['schemas']['ReferenceCreate'];
+export const referenceKey = (value: string) =>
+  value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('uk-UA');
 export type Filters = {
   q: string;
   type: string;
@@ -103,6 +110,29 @@ function decodeSession(value: unknown): Session {
     throw new Error('Invalid session');
   return session as Session;
 }
+export function decodeReference(value: unknown): ReferenceItem {
+  const item = object(value);
+  if (
+    typeof item.id !== 'string' ||
+    !item.id ||
+    !referenceFields.some((field) => field === item.field) ||
+    typeof item.value !== 'string' ||
+    !item.value.trim() ||
+    typeof item.parentType !== 'string' ||
+    (item.field !== 'category' && item.parentType !== '')
+  )
+    throw new Error('Invalid reference');
+  return item as ReferenceItem;
+}
+export function decodeReferences(value: unknown): ReferenceData {
+  const data = object(value);
+  if (!Array.isArray(data.items) || typeof data.canEdit !== 'boolean')
+    throw new Error('Invalid references');
+  const items = data.items.map(decodeReference);
+  if (new Set(items.map((item) => item.id)).size !== items.length)
+    throw new Error('Duplicate reference ids');
+  return { items, canEdit: data.canEdit };
+}
 export function createCatalogApi() {
   let csrf: string | undefined;
   const client = createApiClient({ getCsrf: () => csrf });
@@ -120,6 +150,12 @@ export function createCatalogApi() {
     },
     product(id: string) {
       return client.get(`/api/v1/catalog/products/${encodeURIComponent(id)}`, decodeProduct);
+    },
+    references(signal?: AbortSignal) {
+      return client.get('/api/v1/catalog/references', decodeReferences, signal);
+    },
+    createReference(reference: ReferenceCreate) {
+      return client.mutate('POST', '/api/v1/catalog/references', reference, decodeReference);
     },
     remove(product: Product) {
       return client.mutate(

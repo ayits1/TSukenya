@@ -48,6 +48,7 @@ export function Catalog({
   useEffect(() => {
     const refresh = () => {
       void client.invalidateQueries({ queryKey: ['catalog'] });
+      void client.invalidateQueries({ queryKey: ['catalog-references'] });
     };
     window.addEventListener('tsukenya:data-changed', refresh);
     return () => window.removeEventListener('tsukenya:data-changed', refresh);

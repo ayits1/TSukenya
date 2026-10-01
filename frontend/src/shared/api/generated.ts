@@ -147,6 +147,7 @@ export interface paths {
       };
     };
     put?: never;
+    /** @description Create a product. Nonempty dictionary fields must exist in references; category must belong to type. Legacy imports retain their text compatibility. */
     post: {
       parameters: {
         query?: never;
@@ -328,6 +329,7 @@ export interface paths {
     };
     options?: never;
     head?: never;
+    /** @description Changed dictionary fields must exist in references; changing type also validates category. Unchanged historical values are preserved. */
     patch: {
       parameters: {
         query?: never;
@@ -418,6 +420,129 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['prepareLabels'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/references': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Persistent reference entries merged with distinct legacy product values, including default unit шт. Category parentType uses canonical group spelling. No product data is rewritten. */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Reference dictionaries */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ReferenceData'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    put?: never;
+    /** @description Create a persistent choice. Retries return the same canonical item and ID (200); new value 201. Requires catalogue edit role. Category requires a known nonempty group. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['ReferenceCreate'];
+        };
+      };
+      responses: {
+        /** @description Existing canonical choice */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ReferenceItem'];
+          };
+        };
+        /** @description Created choice */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ReferenceItem'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
     delete?: never;
     options?: never;
     head?: never;
@@ -609,6 +734,25 @@ export interface components {
       /** Format: date */
       date: string;
       snapshot: string;
+    };
+    /** @enum {string} */
+    ReferenceField: 'type' | 'category' | 'pack' | 'size' | 'unit';
+    ReferenceItem: {
+      id: string;
+      field: components['schemas']['ReferenceField'];
+      value: string;
+      parentType: string;
+    };
+    ReferenceData: {
+      items: components['schemas']['ReferenceItem'][];
+      canEdit: boolean;
+    };
+    ReferenceCreate: {
+      field: components['schemas']['ReferenceField'];
+      /** @description Whitespace normalized; unit limited to 30 characters. Duplicates match case-insensitively. */
+      value: string;
+      /** @description Required existing group for category; otherwise absent or empty. */
+      parentType?: string;
     };
   };
   responses: never;

@@ -1,0 +1,125 @@
+import type { Ref } from 'react';
+import { ComboBox } from '../../shared/ui/ComboBox';
+import { TextField } from '../../shared/ui/TextField';
+import { Button } from '../../shared/ui/Button';
+import { referenceKey, type ReferenceItem } from './api';
+
+export type ReferenceCreation = {
+  value: string;
+  error: string;
+  pending: boolean;
+  onChange: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+};
+
+/** Selection is committed only from an option; creation is an explicit separate action. */
+export function CatalogReferenceField({
+  label,
+  value,
+  options,
+  onChange,
+  onAdd,
+  canAdd,
+  isDisabled,
+  isRequired = false,
+  description,
+  creation,
+  addButtonRef,
+}: {
+  label: string;
+  value: string;
+  options: ReferenceItem[];
+  onChange: (value: string) => void;
+  onAdd: () => void;
+  canAdd: boolean;
+  isDisabled: boolean;
+  isRequired?: boolean;
+  description?: string;
+  creation?: ReferenceCreation;
+  addButtonRef?: Ref<HTMLButtonElement>;
+}) {
+  const selected = options.find((item) => referenceKey(item.value) === referenceKey(value));
+  // Preserve an unchanged historical value even when its parent has no current option.
+  const choices = selected || !value ? options : [{ id: 'historical', value }, ...options];
+  return (
+    <div className="tk-reference-field">
+      <ComboBox
+        label={label}
+        options={choices.map((item) => ({ id: item.id, label: item.value }))}
+        selectedKey={selected?.id || (value ? 'historical' : null)}
+        onSelectionChange={(key) => {
+          const item = options.find((option) => option.id === key);
+          if (item) onChange(item.value);
+        }}
+        isDisabled={isDisabled}
+        isRequired={isRequired}
+        placeholder="Виберіть або знайдіть"
+        {...(description ? { description } : {})}
+      />
+      <div className="tk-reference-actions">
+        <Button
+          ref={addButtonRef}
+          onPress={onAdd}
+          isDisabled={!canAdd}
+          aria-label={`Додати запис: ${label}`}
+        >
+          + Додати
+        </Button>
+        {!isRequired && value ? (
+          <Button
+            onPress={() => onChange('')}
+            isDisabled={isDisabled}
+            aria-label={`Очистити: ${label}`}
+          >
+            Очистити
+          </Button>
+        ) : null}
+      </div>
+      {creation ? (
+        <section
+          className="tk-reference-create"
+          aria-label={`Новий запис: ${label}`}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+              event.preventDefault();
+              if (!creation.pending && creation.value.trim()) creation.onSave();
+            }
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!creation.pending) creation.onCancel();
+            }
+          }}
+        >
+          <TextField
+            label={`Новий запис: ${label}`}
+            value={creation.value}
+            onChange={creation.onChange}
+            autoFocus
+            maxLength={label === 'Одиниця' ? 30 : 160}
+            isReadOnly={creation.pending}
+          />
+          <p className="tk-help">Запис залишиться в довіднику, навіть якщо товар не зберегти.</p>
+          {creation.error ? (
+            <p className="tk-error" role="alert">
+              {creation.error}
+            </p>
+          ) : null}
+          <div className="tk-reference-actions">
+            <Button
+              variant="primary"
+              onPress={creation.onSave}
+              isDisabled={creation.pending || !creation.value.trim()}
+            >
+              {creation.pending ? 'Додаємо…' : 'Додати й вибрати'}
+            </Button>
+            <Button onPress={creation.onCancel} isDisabled={creation.pending}>
+              Скасувати додавання
+            </Button>
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}

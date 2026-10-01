@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, within, waitFor } from 'storybook/test';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProductEditor } from './ProductEditor';
-import type { CatalogApi } from './api';
-import { catalogProducts } from './fixtures';
+import type { CatalogApi, ReferenceItem } from './api';
+import { catalogProducts, catalogReferences } from './fixtures';
 import './catalog.css';
 
 const product = catalogProducts[0]!;
+const created: ReferenceItem[] = [];
 const meta = {
   title: 'Catalogue/Product Editor',
   component: ProductEditor,
@@ -22,6 +23,27 @@ const meta = {
       product: async () => product,
       remove: async () => true,
       save: fn(async () => product),
+      references: async () => ({
+        ...catalogReferences,
+        items: [...catalogReferences.items, ...created],
+      }),
+      createReference: fn(async (input) => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        const existing = [...catalogReferences.items, ...created].find(
+          (item) =>
+            item.field === input.field &&
+            item.value === input.value &&
+            item.parentType === (input.parentType || ''),
+        );
+        if (existing) return existing;
+        const item = {
+          id: `fixture-created-${input.field}-${created.length}`,
+          ...input,
+          parentType: input.parentType || '',
+        };
+        created.push(item);
+        return item;
+      }),
     } satisfies CatalogApi,
     onClose: fn(),
     onSaved: fn(),
@@ -86,5 +108,79 @@ export const SavedPromotionNeedsReview: Story = {
     ).toBeVisible();
     await expect(form.getByRole('textbox', { name: 'Акційна ціна: гривні' })).toHaveValue('29');
     await expect(form.getByRole('textbox', { name: 'Акційна ціна: копійки' })).toHaveValue('99');
+  },
+};
+export const ReferenceSelectionAndCreation: Story = {
+  play: async ({ args }) => {
+    const form = within(within(document.body).getByRole('dialog'));
+    const group = form.getByRole('combobox', { name: 'Група' });
+    await waitFor(() => expect(group).toBeEnabled());
+    await userEvent.clear(group);
+    await userEvent.type(group, 'Цукерки');
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect(group).toHaveValue('Цукерки');
+    const category = form.getByRole('combobox', { name: 'Категорія' });
+    await expect(category).toHaveValue('');
+    await userEvent.click(category);
+    await expect(within(document.body).queryByRole('option', { name: 'Кава' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(form.getByRole('button', { name: 'Додати запис: Категорія' }));
+    const input = form.getByRole('textbox', { name: 'Новий запис: Категорія' });
+    await expect(input).toHaveFocus();
+    await userEvent.type(input, 'Асорті');
+    await userEvent.click(form.getByRole('button', { name: 'Додати й вибрати' }));
+    await waitFor(() => expect(category).toHaveValue('Асорті'));
+    await waitFor(() =>
+      expect(form.getByRole('button', { name: 'Додати запис: Категорія' })).toHaveFocus(),
+    );
+    await expect(args.api.createReference).toHaveBeenCalledWith({
+      field: 'category',
+      value: 'Асорті',
+      parentType: 'Цукерки',
+    });
+    await expect(args.api.save).not.toHaveBeenCalled();
+  },
+};
+export const ReferenceCreationError: Story = {
+  args: {
+    api: {
+      ...meta.args.api,
+      createReference: fn(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        throw new Error('Не вдалося створити запис. Спробуйте ще раз.');
+      }),
+    },
+  },
+  play: async () => {
+    const form = within(within(document.body).getByRole('dialog'));
+    const add = form.getByRole('button', { name: 'Додати запис: Пакування' });
+    await waitFor(() => expect(add).toBeEnabled());
+    await userEvent.click(add);
+    const input = form.getByRole('textbox', { name: 'Новий запис: Пакування' });
+    await userEvent.type(input, 'Новий пакет');
+    await userEvent.click(form.getByRole('button', { name: 'Додати й вибрати' }));
+    await expect(await form.findByRole('alert')).toHaveTextContent('Не вдалося створити запис');
+    await expect(input).toHaveValue('Новий пакет');
+    await userEvent.click(form.getByRole('button', { name: 'Скасувати додавання' }));
+    await waitFor(() =>
+      expect(form.getByRole('button', { name: 'Додати запис: Пакування' })).toHaveFocus(),
+    );
+  },
+};
+export const ReferencesUnavailable: Story = {
+  args: {
+    api: {
+      ...meta.args.api,
+      references: async () => {
+        throw new Error('Довідники тимчасово недоступні.');
+      },
+    },
+  },
+  play: async () => {
+    const form = within(within(document.body).getByRole('dialog'));
+    await expect(await form.findByRole('alert')).toHaveTextContent(
+      'Довідники тимчасово недоступні',
+    );
+    await expect(form.getByRole('button', { name: 'Зберегти товар' })).toBeDisabled();
   },
 };

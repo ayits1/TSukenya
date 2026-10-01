@@ -225,6 +225,25 @@
   gap: 16px;
   margin-top: 16px;
 }
+.tk-reference-field {
+  min-width: 0;
+}
+.tk-reference-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.tk-reference-create {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--tk-input-line);
+  border-radius: var(--tk-radius);
+  background: var(--tk-bg);
+}
+.tk-reference-create .tk-help {
+  margin: 8px 0;
+}
 .tk-editor-checkbox {
   display: flex;
   align-items: center;

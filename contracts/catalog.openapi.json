@@ -230,7 +230,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Create a product. Nonempty dictionary fields must exist in references; category must belong to type. Legacy imports retain their text compatibility."
       }
     },
     "/api/v1/catalog/products/{id}": {
@@ -370,7 +371,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Changed dictionary fields must exist in references; changing type also validates category. Unchanged historical values are preserved."
       },
       "delete": {
         "requestBody": {
@@ -591,6 +593,118 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/LabelPrepareRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/references": {
+      "get": {
+        "description": "Persistent reference entries merged with distinct legacy product values, including default unit шт. Category parentType uses canonical group spelling. No product data is rewritten.",
+        "responses": {
+          "200": {
+            "description": "Reference dictionaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceData"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Create a persistent choice. Retries return the same canonical item and ID (200); new value 201. Requires catalogue edit role. Category requires a known nonempty group.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferenceCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing canonical choice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceItem"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created choice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }
@@ -1351,6 +1465,86 @@
           "selection",
           "date",
           "snapshot"
+        ],
+        "additionalProperties": false
+      },
+      "ReferenceField": {
+        "type": "string",
+        "enum": [
+          "type",
+          "category",
+          "pack",
+          "size",
+          "unit"
+        ]
+      },
+      "ReferenceItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "field": {
+            "$ref": "#/components/schemas/ReferenceField"
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "parentType": {
+            "type": "string",
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "id",
+          "field",
+          "value",
+          "parentType"
+        ],
+        "additionalProperties": false
+      },
+      "ReferenceData": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceItem"
+            }
+          },
+          "canEdit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "canEdit"
+        ],
+        "additionalProperties": false
+      },
+      "ReferenceCreate": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/ReferenceField"
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "description": "Whitespace normalized; unit limited to 30 characters. Duplicates match case-insensitively."
+          },
+          "parentType": {
+            "type": "string",
+            "maxLength": 160,
+            "description": "Required existing group for category; otherwise absent or empty."
+          }
+        },
+        "required": [
+          "field",
+          "value"
         ],
         "additionalProperties": false
       }

@@ -152,6 +152,8 @@ def save_product(request, user, identifier=None):
         if key in value:
             require(isinstance(value[key], str) and len(value[key].strip()) <= maximum, f'{key}: некоректний текст.')
             data[key] = value[key].strip()
+    from .catalog_references import validate_reference_fields
+    validate_reference_fields(data, old, creating=not bool(old.get('name')))
     if 'minStock' in value: data['minStock'] = float(dec(value['minStock'], 'Мінімальний залишок', Decimal('.001')))
     for key in ('cost', 'markup', 'price', 'promotionPrice'):
         if key in value:
@@ -193,6 +195,10 @@ def handle_catalog(request, user):
     from .views import response
     path = request.path.rstrip('/')
     collection = '/api/v1/catalog/products'
+    if path == '/api/v1/catalog/references':
+        from .catalog_references import get_references, create_reference
+        if request.method == 'GET': return get_references(user)
+        if request.method == 'POST': return create_reference(request, user)
     if path == '/api/v1/session' and request.method == 'GET':
         return response({'role': user.profile.role, 'csrf': request.portal_session.csrf})
     if path == collection:

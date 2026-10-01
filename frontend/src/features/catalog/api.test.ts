@@ -1,6 +1,18 @@
 import { expect, test } from 'vitest';
-import { decodePage, decodeProduct } from './api';
+import { decodePage, decodeProduct, decodeReferences, referenceKey } from './api';
 import { catalogPage, catalogProducts } from './fixtures';
+test('reference boundary rejects unknown fields, missing parent metadata and repeated ids', () => {
+  expect(referenceKey('  НАПОЇ  без   цукру ')).toBe(referenceKey('Напої без цукру'));
+  const reference = { id: 'group-1', field: 'type', value: 'Напої', parentType: '' };
+  expect(decodeReferences({ items: [reference], canEdit: true }).items[0]?.value).toBe('Напої');
+  for (const invalid of [
+    { ...reference, field: 'anything' },
+    { ...reference, value: '' },
+    { ...reference, parentType: undefined },
+  ])
+    expect(() => decodeReferences({ items: [invalid], canEdit: true })).toThrow();
+  expect(() => decodeReferences({ items: [reference, reference], canEdit: true })).toThrow();
+});
 test('decimal strings and role-redacted costs survive decoding', () => {
   const product = catalogProducts[0]!;
   expect(decodeProduct(product).salePrice).toBe('29.99');

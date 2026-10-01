@@ -1,4 +1,4 @@
-import type { Product, ProductPage } from './api';
+import { referenceFields, type Product, type ProductPage, type ReferenceData } from './api';
 export const catalogProducts: Product[] = [
   {
     id: 'sample-1',
@@ -77,4 +77,27 @@ export const catalogPage: ProductPage = {
   },
   canEdit: true,
   defaultMarkup: '30',
+};
+export const catalogReferences: ReferenceData = {
+  canEdit: true,
+  items: catalogProducts
+    .flatMap((product, index) =>
+      referenceFields
+        .filter((field) => product[field])
+        .map((field) => ({
+          id: `fixture-${index}-${field}`,
+          field,
+          value: product[field],
+          parentType: field === 'category' ? product.type : '',
+        })),
+    )
+    .filter(
+      (item, index, items) =>
+        items.findIndex(
+          (other) =>
+            other.field === item.field &&
+            other.value === item.value &&
+            other.parentType === item.parentType,
+        ) === index,
+    ),
 };
