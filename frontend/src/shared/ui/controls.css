@@ -81,6 +81,60 @@ input {
   padding: 10px 12px;
   min-width: 0;
 }
+.tk-money-group {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--tk-input-line);
+  border-radius: var(--tk-radius);
+  background: var(--tk-paper);
+}
+.tk-money-group:focus-within {
+  outline: 3px solid var(--tk-focus);
+  outline-offset: 3px;
+}
+.tk-money-part {
+  min-width: 0;
+  padding: 0 12px;
+}
+.tk-money-hryvnias {
+  flex: 1;
+}
+.tk-money-kopecks {
+  flex: 0 0 112px;
+  border-left: 1px solid var(--tk-line);
+}
+.tk-money-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tk-control-height);
+}
+.tk-money-unit {
+  flex-shrink: 0;
+  color: var(--tk-muted);
+}
+.tk-money-part[data-focus-within] {
+  background: var(--tk-brand-soft);
+}
+.tk-money-input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--tk-control-height);
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.tk-money-kopecks .tk-money-input {
+  text-align: center;
+}
+.tk-money-group .tk-money-input:focus-visible,
+.tk-money-group .tk-money-input[data-focus-visible] {
+  outline: none;
+}
+.tk-money[data-disabled] .tk-money-group {
+  background: var(--tk-bg);
+}
 .tk-select-trigger {
   display: flex;
   align-items: center;
@@ -197,6 +251,9 @@ input {
 .tk-button[data-disabled],
 .tk-field[data-disabled] {
   opacity: 0.6;
+}
+.tk-money[data-disabled] {
+  opacity: 1;
 }
 .tk-button[data-disabled],
 .tk-field[data-disabled] button {

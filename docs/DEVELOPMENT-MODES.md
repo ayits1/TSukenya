@@ -19,7 +19,7 @@
 ```sh
 npm exec --workspace frontend -- tsc --noEmit
 npm exec --workspace frontend -- eslint src/shared/ui/ComboBox.tsx
-npm run test:components --workspace frontend -- -t 'KeyboardSelection'
+npm run test:components --workspace frontend -- -t 'Keyboard Selection'
 npm run test --workspace frontend -- src/shared/api/client.test.ts
 npm run test:visual --workspace frontend -- --project=chromium-mobile --grep 'combobox'
 PYTHON_BIN=.venv/bin/python  # або шлях до вашого готового середовища

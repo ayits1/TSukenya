@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { ModalOverlay, Modal, Dialog, Heading, Form, Checkbox } from 'react-aria-components';
 import { TextField } from '../../shared/ui/TextField';
+import { MoneyField } from '../../shared/ui/MoneyField';
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
 import type { CatalogApi, Product, ProductCreate, ProductPatch } from './api';
@@ -179,8 +180,8 @@ export function ProductEditor({
                 Задати ціну продажу вручну
               </Checkbox>
               {draft.manualPrice ? (
-                <TextField
-                  label="Продаж, грн"
+                <MoneyField
+                  label="Продаж"
                   value={draft.price || ''}
                   onChange={(price) => setDraft((old) => ({ ...old, price }))}
                   isRequired

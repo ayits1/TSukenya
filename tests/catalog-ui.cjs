@@ -25,6 +25,10 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  await until(async()=>await page.locator('.tk-product-table tbody tr').count()===20,'React catalogue page');
  assert(await page.evaluate(()=>!!window.ReactCatalog));console.log('React catalogue loaded');
  if(!process.env.QA_LAYOUT_ONLY && !process.env.QA_FILTERS_ONLY){
+  await require('./catalog-price.cjs')(page, until);
+  if(process.env.QA_PRICE_ONLY){assert.deepEqual(errors,[]);return;}
+ }
+ if(!process.env.QA_LAYOUT_ONLY && !process.env.QA_FILTERS_ONLY){
  await page.getByRole('button',{name:'Далі',exact:true}).click();
  await until(async()=>/21–40/.test(await page.locator('.tk-catalog-pagination').innerText()),'server pagination');
  await page.getByRole('searchbox',{name:'Пошук товару'}).fill('Американо');
@@ -43,7 +47,7 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  await dialog.getByRole('textbox',{name:'Категорія',exact:true}).fill('Тест');
  await dialog.getByRole('textbox',{name:'Мінімальний залишок'}).fill('3');
  await dialog.getByText('Задати ціну продажу вручну',{exact:true}).click();
- await dialog.getByRole('textbox',{name:'Продаж, грн',exact:true}).fill('45');
+ await dialog.getByRole('textbox',{name:'Продаж: гривні',exact:true}).fill('45');
  await dialog.getByText('Акція — показувати позначку на ціннику',{exact:true}).click();
  await dialog.getByRole('button',{name:'Зберегти товар'}).click();
  await until(async()=>await page.getByRole('dialog').count()===0,'create product');

@@ -4,7 +4,7 @@
 
 `frontend/` — npm workspace із React 19, TypeScript, Vite та Storybook. Каталог і студію цінників інтегровано в чинну оболонку; деталі — [CATALOG-MIGRATION.md](CATALOG-MIGRATION.md) та [LABEL-STUDIO.md](LABEL-STUDIO.md). Лабораторія компонентів і Storybook використовують синтетичні дані; робочий каталог записує дані через Django. Облікові екрани залишаються в `app/`.
 
-- Спільні `Button`, `TextField`, `Select`, `ComboBox`, CSS-токени. React Aria керує взаємодією складних контролів; оформлення належить проєкту.
+- Спільні `Button`, `TextField`, `MoneyField`, `Select`, `ComboBox`, CSS-токени. React Aria керує взаємодією складних контролів; оформлення належить проєкту.
 - Застосунок і Storybook імпортують однакові компоненти та CSS. Приклади не мають окремої реалізації контролів.
 - Строгий TypeScript, ESLint з правилами React, Prettier, Vitest для API-межі та Storybook/Vitest для браузерної поведінки.
 - Playwright: Chromium/WebKit, 1440 і 390 px, додаткова перевірка 320 px, збільшений текст, високий контраст, геометрія стрілок, пошук/скасування та фокус. Axe перевіряє доступність видимих компонентів.
