@@ -1164,15 +1164,15 @@
 
   /* ---------- expenses ---------- */
   function expRow(e){
-    return `<div class="exp"><span class="n">${esc(e.name)}</span><input type="number" min="0" step="100" value="${num(e.amount)}" data-exp="${e.id}" aria-label="${esc(e.name)}, грн на місяць"><span class="muted">грн</span><button class="x" data-del-exp="${e.id}" aria-label="Видалити статтю">×</button></div>`;
+    return `<div class="exp"><span class="n">${esc(e.name)}</span><div class="expense-amount"><input type="number" min="0" step="100" value="${num(e.amount)}" data-exp="${e.id}" aria-label="${esc(e.name)}, грн на місяць"><span class="muted">грн</span></div><button class="x" data-del-exp="${e.id}" aria-label="Видалити статтю">×</button></div>`;
   }
   function expenses(){
     const t = totals(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
-    const block = (title, hint, list, g, sum) => `<div><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
+    const block = (title, hint, list, g, sum) => `<div class="expense-group"><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
       ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
-      <div class="row" style="margin-top:10px"><input type="text" placeholder="Нова стаття" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off" style="flex:1"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
+      <div class="expense-add"><input type="text" placeholder="Нова стаття" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
       <div class="total"><span>Разом на місяць</span><span class="num">${money0(sum)} грн</span></div></div>`;
-    return `<section class="panel"><div class="row between gap-lg"><h2>Витрати мережі на місяць</h2>
+    return `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Витрати мережі на місяць</h2>
       <label class="inl">Магазинів у мережі <input id="stores" type="number" min="1" step="1" value="${S.settings.stores||1}" style="width:70px"></label></div>
       <p class="muted gap-lg">Впишіть суми за місяць на всю мережу. Зміни зберігаються, щойно ви перейдете до іншого поля.</p>
       <div class="cols">

@@ -137,3 +137,9 @@ Backup: `backups/tsukenya-crm-20261001T164543Z.dump`, checksum/архів пер
 Оновлено frontend/src/features/catalog/ProductEditor.tsx: MoneyField для закупівлі. Backup: `backups/tsukenya-crm-20261001T170619Z.dump` (checksum та список архіву перевірено на VPS). До зміни: `releases/pre-purchase-money-20261001.tar.gz`; реліз: `releases/purchase-money-code-20261001.tar.gz`. Перебудовано тільки web, запуск із --no-deps; web і PostgreSQL здорові, обидва портали HTTPS 200. Жива перевірка без збереження підтвердила поле на 1440/390/320 px. Відкат: відновити ProductEditor.tsx із попереднього архіву й перебудувати web; БД відновлювати не потрібно. Цільові перевірки — docs/CATALOG-MIGRATION.md.
 
 Додатково до релізу копійок: виправлена адаптивна сітка catalog.css після виявленого стискання гривень на 390 px. Попередній CSS: `releases/pre-purchase-money-layout-20261001.tar.gz`; новий: `releases/purchase-money-layout-code-20261001.tar.gz`. Використано ту саму перевірену резервну копію 170619Z; лише перебудова web. Для повного відкату цього UI-релізу відновити ProductEditor.tsx з pre-purchase-money і catalog.css з pre-purchase-money-layout; БД не відновлювати.
+
+## Реліз верстки бюджету · 01.10.2026
+
+Оновлено app/portal.js та app/workspace.css: назви статей не стискаються широкими полями суми, адаптивні рядки та додавання. Backup: `backups/tsukenya-crm-20261001T171940Z.dump`; checksum/список архіву перевірено на VPS. До зміни: `releases/pre-budget-layout-20261001.tar.gz`; реліз: `releases/budget-layout-code-20261001.tar.gz`. Перебудовано тільки web із --no-deps. Відкат: відновити два файли із pre-budget-layout і перебудувати web; БД не відновлювати.
+
+Цільова ізольована перевірка описана в docs/UI-QUALITY.md. Жива перевірка підтвердила читабельні назви та суми на 1440/768/390/320 px без бюджетних mutation-запитів; статті до/після однакові. Web/PG здорові, HTTPS health та сусідній портал відповідають 200.

@@ -40,3 +40,19 @@
 @media print{.portal-shell,.portal-sidebar,.nav-toggle{display:none!important}#printArea .tag{zoom:1!important}}
 
 @media(pointer:coarse){.x{min-width:44px;min-height:44px}.promotion-toggle,.product-name,.dd-clear{min-height:44px}.promotion-toggle{min-width:44px}}
+
+/* Budget rows reserve space for names instead of letting full-width inputs shrink them. */
+.expense-group { min-width:0;container-type:inline-size; }
+.expense-budget .exp { display:grid;grid-template-columns:minmax(0,1fr) 160px 44px;gap:12px;padding:12px 0; }
+.expense-budget .exp .n { overflow-wrap:anywhere; }
+.expense-amount { display:flex;align-items:center;gap:8px;min-width:0; }
+.expense-amount input { min-height:44px;text-align:right;font-variant-numeric:tabular-nums; }
+.expense-amount > span { flex:none; }
+.expense-budget .exp .x { width:44px;min-height:44px;padding:0; }
+.expense-add { display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:12px;align-items:start; }
+.expense-add :is(input,button) { min-height:44px; }
+.expense-budget .total { gap:16px;flex-wrap:wrap; }
+@container (max-width:420px) {
+  .expense-budget .exp { grid-template-columns:minmax(0,1fr) 44px;gap:8px 12px; }
+  .expense-budget .exp .n { grid-column:1/-1; }
+}
