@@ -166,7 +166,7 @@ export function ProductEditor({
       return;
     if (!dirty || window.confirm('Відкинути незбережені зміни товару?')) onClose();
   };
-  const text = (key: 'name' | 'barcode' | 'cost' | 'markup' | 'minStock', label: string) => (
+  const text = (key: 'name' | 'barcode' | 'markup' | 'minStock', label: string) => (
     <TextField
       key={key}
       label={label}
@@ -298,7 +298,11 @@ export function ProductEditor({
             <fieldset disabled={mutation.isPending || reload.isPending || deletion.isPending}>
               <legend>Ціни та акція</legend>
               <div className="tk-editor-grid">
-                {text('cost', 'Закупівля, грн')}
+                <MoneyField
+                  label="Закупівля"
+                  value={draft.cost}
+                  onChange={(cost) => setDraft((old) => ({ ...old, cost }))}
+                />
                 {text('markup', 'Націнка, %')}
               </div>
               <Checkbox

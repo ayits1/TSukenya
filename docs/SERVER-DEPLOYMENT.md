@@ -131,3 +131,7 @@ Backup: `backups/tsukenya-crm-20261001T164543Z.dump`, checksum/архів пер
 Оновлено тільки StudioView.tsx та studio.css: навігація під заголовком, sticky, повні назви трьох етапів, повернення до початку робочої області при перемиканні. Backup: `backups/tsukenya-crm-20261001T170042Z.dump`; код до зміни: `releases/pre-label-tabs-20261001.tar.gz`; реліз: `releases/label-tabs-code-20261001.tar.gz`. Перебудовано та перезапущено тільки web із `--no-deps`. Web та PostgreSQL здорові.
 
 Відкат: відновити два source-файли з pre-label-tabs-20261001.tar.gz і перебудувати web; БД не відновлювати. Жива перевірка підтвердила вкладки й стан на 1440/390/320 px, відсутність business writes і HTTPS health 200. Цільові перевірки описані у docs/LABEL-STUDIO.md.
+
+## Реліз копійок закупівлі · 01.10.2026
+
+Оновлено frontend/src/features/catalog/ProductEditor.tsx: MoneyField для закупівлі. Backup: `backups/tsukenya-crm-20261001T170619Z.dump` (checksum та список архіву перевірено на VPS). До зміни: `releases/pre-purchase-money-20261001.tar.gz`; реліз: `releases/purchase-money-code-20261001.tar.gz`. Перебудовано тільки web, запуск із --no-deps; web і PostgreSQL здорові, обидва портали HTTPS 200. Жива перевірка без збереження підтвердила поле на 1440/390/320 px. Відкат: відновити ProductEditor.tsx із попереднього архіву й перебудувати web; БД відновлювати не потрібно. Цільові перевірки — docs/CATALOG-MIGRATION.md.

@@ -7,6 +7,15 @@ module.exports = async (page, until) => {
   await page.getByRole('button', { name: 'Додати товар' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox', { name: 'Назва товару' }).fill('Контрольна ціна гривні копійки');
+  const costHryvnias = dialog.getByRole('textbox', { name: 'Закупівля: гривні', exact: true });
+  const costKopecks = dialog.getByRole('textbox', { name: 'Закупівля: копійки', exact: true });
+  assert.equal(await costHryvnias.inputValue(), '0', 'new purchase defaults to zero');
+  await costHryvnias.fill('6');
+  await costHryvnias.press(',');
+  assert(await costKopecks.evaluate(input => input === document.activeElement), 'purchase comma moves to kopecks');
+  await costKopecks.fill('7');
+  await costKopecks.press('Tab');
+  assert.equal(await costKopecks.inputValue(), '07', 'purchase single digit means seven kopecks');
   await dialog.getByText('Задати ціну продажу вручну', { exact: true }).click();
   const hryvnias = dialog.getByRole('textbox', { name: 'Звичайна ціна: гривні', exact: true });
   const kopecks = dialog.getByRole('textbox', { name: 'Звичайна ціна: копійки', exact: true });
@@ -21,7 +30,7 @@ module.exports = async (page, until) => {
     await hryvnias.scrollIntoViewIfNeeded();
     await hryvnias.focus();
     await hryvnias.press('ArrowRight');
-    const geometry = await dialog.locator('.tk-money').evaluate(field => {
+    const geometry = await dialog.locator('.tk-money').filter({ has: page.getByRole('textbox', { name: 'Звичайна ціна: гривні', exact: true }) }).evaluate(field => {
       const group = field.querySelector('.tk-money-group');
       return {
         overflow: group.scrollWidth > group.clientWidth + 1,
@@ -35,7 +44,7 @@ module.exports = async (page, until) => {
     assert(geometry.heights.every(height => height >= 44), 'money inputs retain touch height');
     assert.equal(geometry.innerOutline, 'none');
     assert.equal(geometry.groupOutline, 'solid');
-    await dialog.locator('.tk-money').screenshot({ path: path.join(os.tmpdir(), `tsukenya-money-${width}.png`) });
+    await dialog.locator('.tk-money').filter({ has: page.getByRole('textbox', { name: 'Звичайна ціна: гривні', exact: true }) }).screenshot({ path: path.join(os.tmpdir(), `tsukenya-money-${width}.png`) });
   }
   await dialog.getByText('Акція — окрема ціна та позначка на ціннику', { exact: true }).click();
   await dialog.getByRole('textbox', { name: 'Акційна ціна: гривні', exact: true }).fill('19');
@@ -45,7 +54,7 @@ module.exports = async (page, until) => {
     const prices = dialog.locator('fieldset').nth(1);
     await prices.scrollIntoViewIfNeeded();
     const bounds = await prices.locator('.tk-money-group').evaluateAll(groups => groups.map(group => ({ right: group.getBoundingClientRect().right, overflow: group.scrollWidth > group.clientWidth + 1 })));
-    assert(bounds.every(group => !group.overflow && group.right <= width + 1), 'both prices fit at ' + width);
+    assert(bounds.every(group => !group.overflow && group.right <= width + 1), 'purchase and sale prices fit at ' + width);
     await prices.screenshot({ path: path.join(os.tmpdir(), `tsukenya-promotion-editor-${width}.png`) });
   }
 
@@ -55,6 +64,7 @@ module.exports = async (page, until) => {
     const response = await fetch('/api/v1/catalog/products?q=' + encodeURIComponent('Контрольна ціна гривні копійки'));
     return (await response.json()).items[0];
   });
+  assert.equal(product.cost, '6.07', 'exact purchase decimal persisted by Django');
   assert.equal(product.price, '21.09', 'exact decimal persisted by Django');
   assert.equal(product.regularPrice, '21.09', 'server regular price preserved');
   assert.equal(product.promotionPrice, '19.99', 'separate promotional decimal persisted');
@@ -63,6 +73,8 @@ module.exports = async (page, until) => {
   await until(async () => await page.locator('.tk-product-link').count() === 1, 'split-price product search');
   assert.match(await page.locator('.tk-product-table del').innerText(), /21,09/, 'regular price stays visible');
   await page.locator('.tk-product-link').click();
+  assert.equal(await costHryvnias.inputValue(), '6');
+  assert.equal(await costKopecks.inputValue(), '07');
   assert.equal(await hryvnias.inputValue(), '21');
   assert.equal(await kopecks.inputValue(), '09');
   assert.equal(await dialog.getByRole('textbox', { name: 'Акційна ціна: гривні', exact: true }).inputValue(), '19');
@@ -80,5 +92,5 @@ module.exports = async (page, until) => {
   await dialog.getByRole('button', { name: 'Зберегти товар', exact: true }).click();
   await until(async () => await page.getByRole('dialog').count() === 0, 'reviewed promotion re-enabled');
   await page.getByRole('button', { name: 'Скинути фільтри' }).click();
-  console.log('PASS: split hryvnias/kopecks, keyboard, one focus ring, 1440/390/320 layout, exact regular 21.09/promotion 19.99 save, reopening, two visible prices and disable/re-enable.');
+  console.log('PASS: split hryvnias/kopecks, keyboard, one focus ring, 1440/390/320 layout, exact purchase 6.07/regular 21.09/promotion 19.99 save, reopening, two visible prices and disable/re-enable.');
 };
