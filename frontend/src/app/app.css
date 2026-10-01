@@ -1,0 +1,66 @@
+.tk-lab {
+  max-width: 1080px;
+  margin: auto;
+  padding: 32px;
+}
+.tk-lab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--tk-line);
+}
+.tk-lab-header a {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--tk-brand);
+  text-decoration: none;
+}
+.tk-lab-header span,
+.tk-lab-title p,
+.tk-lab-note {
+  color: var(--tk-muted);
+}
+.tk-lab-title {
+  padding-block: 32px;
+}
+.tk-lab-title h1 {
+  margin: 8px 0;
+  font-size: clamp(24px, 4vw, 36px);
+  line-height: 1.2;
+  font-weight: 600;
+}
+.tk-lab-title p {
+  margin: 0;
+}
+.tk-lab-panel {
+  max-width: 680px;
+  padding: 32px;
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+  background: var(--tk-paper);
+}
+.tk-lab-panel h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+.tk-lab-note {
+  margin: 8px 0 24px;
+}
+@media (max-width: 600px) {
+  .tk-lab {
+    padding: 20px 16px;
+  }
+  .tk-lab-header {
+    align-items: start;
+  }
+  .tk-lab-header span {
+    max-width: 140px;
+    text-align: right;
+  }
+  .tk-lab-panel {
+    padding: 20px 16px;
+  }
+}

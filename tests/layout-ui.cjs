@@ -15,7 +15,7 @@ async function checkSelects(page){
  for(let i=0;i<100;i++){try{if((await fetch(base+'/health')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
  browser=process.env.QA_BROWSER==='webkit'?await webkit.launch({headless:true}):await chromium.launch({executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
  const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(base);await page.locator('[name=username]').fill('tester');await page.locator('[name=password]').fill(password);await page.locator('[type=submit]').click();await page.waitForSelector('#main .stats');
+ await require('./browser-login.cjs')(page,base,password);
  for(const theme of (process.env.QA_ZOOM_ONLY?[]:['light','dark']))for(const width of [1440,768,390,320]){
   await page.setViewportSize({width,height:1000});await page.emulateMedia({colorScheme:theme});
   await page.goto(base+'/#operations/tags');await page.waitForSelector('.pick-group');await checkSelects(page);

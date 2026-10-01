@@ -13,3 +13,8 @@ __pycache__/
 *.sqlite3-wal
 
 .env.database
+frontend/dist/
+frontend/storybook-static/
+frontend/test-results/
+frontend/playwright-report/
+frontend/coverage/

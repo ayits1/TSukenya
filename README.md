@@ -93,3 +93,7 @@ PYTHON_BIN=.venv/bin/python npm run test:crm:ui
 Перевірки конкуренції виконуються лише на PostgreSQL. Браузерні перевірки використовують окремі тимчасові бази.
 
 Стек для подальшого зростання та поетапний перехід фронтенду — [STACK-EVOLUTION.md](docs/STACK-EVOLUTION.md). Це рекомендація; поточний інтерфейс залишається HTML/CSS/JavaScript.
+
+## Основа React і Storybook
+
+Нова основа `frontend/` містить React/TypeScript/Vite, спільні контроли на React Aria, Storybook і автоматичні перевірки. Запуск: `npm ci`, потім `npm run dev:frontend` або `npm run storybook`. Це середовище компонентів; чинний інтерфейс CRM ще не перенесено. Команди перевірок, Docker, CI та порядок переходу — [FRONTEND-FOUNDATION.md](docs/FRONTEND-FOUNDATION.md). Проєктна навичка — `.agents/skills/tsukenya-development/SKILL.md`.

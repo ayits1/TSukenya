@@ -1,0 +1,234 @@
+:root {
+  color-scheme: light;
+  --tk-bg: #f5f6f7;
+  --tk-paper: #fff;
+  --tk-ink: #20272c;
+  --tk-muted: #58636b;
+  --tk-line: #dde2e5;
+  --tk-input-line: #87939c;
+  --tk-brand: #245c46;
+  --tk-brand-soft: #edf4ef;
+  --tk-error: #a12a24;
+  --tk-focus: #2465ad;
+  --tk-radius: 6px;
+  --tk-control-height: 44px;
+  font:
+    400 14px/1.5 -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: var(--tk-ink);
+  background: var(--tk-bg);
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input {
+  font: inherit;
+  color: inherit;
+  touch-action: manipulation;
+}
+:focus-visible,
+[data-focus-visible] {
+  outline: 3px solid var(--tk-focus);
+  outline-offset: 3px;
+}
+.tk-root {
+  color: var(--tk-ink);
+}
+.tk-story {
+  max-width: 640px;
+  padding: 12px;
+}
+.tk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+.tk-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.tk-help,
+.tk-error {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.tk-help {
+  color: var(--tk-muted);
+}
+.tk-error {
+  color: var(--tk-error);
+}
+.tk-input,
+.tk-select-trigger,
+.tk-combo-group {
+  width: 100%;
+  min-height: var(--tk-control-height);
+  border: 1px solid var(--tk-input-line);
+  border-radius: var(--tk-radius);
+  background: var(--tk-paper);
+}
+.tk-input {
+  padding: 10px 12px;
+  min-width: 0;
+}
+.tk-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.tk-select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tk-chevron {
+  flex: 0 0 16px;
+  pointer-events: none;
+}
+.tk-combo-group {
+  display: flex;
+  align-items: stretch;
+}
+.tk-combo-group[data-focus-within] {
+  outline: 3px solid var(--tk-focus);
+  outline-offset: 3px;
+}
+.tk-combo-input {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  border: 0;
+  border-radius: var(--tk-radius);
+  padding: 10px 12px;
+  background: transparent;
+  outline: none;
+}
+.tk-combo-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  border: 0;
+  border-radius: var(--tk-radius);
+  background: transparent;
+  cursor: pointer;
+}
+.tk-popover {
+  width: var(--trigger-width);
+  max-width: calc(100vw - 16px);
+  border: 1px solid var(--tk-input-line);
+  border-radius: var(--tk-radius);
+  background: var(--tk-paper);
+  box-shadow: 0 8px 24px #20272c14;
+  padding: 4px;
+}
+.tk-listbox {
+  outline: none;
+  max-height: min(300px, 50vh);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.tk-option {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  outline: none;
+}
+.tk-option[data-focused] {
+  background: var(--tk-brand-soft);
+  outline: 2px solid var(--tk-focus);
+  outline-offset: -2px;
+}
+.tk-option[data-selected] {
+  font-weight: 600;
+  color: var(--tk-brand);
+}
+.tk-empty {
+  padding: 12px;
+  color: var(--tk-muted);
+}
+.tk-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--tk-input-line);
+  border-radius: var(--tk-radius);
+  background: var(--tk-paper);
+  font-weight: 600;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.tk-button--primary {
+  background: var(--tk-brand);
+  color: #fff;
+  border-color: var(--tk-brand);
+}
+.tk-button--primary[data-hovered] {
+  background: #194733;
+}
+.tk-button[data-disabled],
+.tk-field[data-disabled] {
+  opacity: 0.6;
+}
+.tk-button[data-disabled],
+.tk-field[data-disabled] button {
+  cursor: default;
+}
+.tk-field[data-invalid] :is(.tk-input, .tk-combo-group, .tk-select-trigger) {
+  border-color: var(--tk-error);
+}
+.tk-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.tk-stack {
+  display: grid;
+  gap: 24px;
+}
+@media (max-width: 600px) {
+  .tk-controls-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (pointer: coarse) {
+  input {
+    font-size: 16px;
+  }
+}
+@media (forced-colors: active) {
+  .tk-option[data-focused] {
+    outline-color: Highlight;
+  }
+  .tk-option[data-selected] {
+    color: Highlight;
+  }
+  .tk-button[data-disabled],
+  .tk-field[data-disabled] {
+    opacity: 1;
+    color: GrayText;
+  }
+}

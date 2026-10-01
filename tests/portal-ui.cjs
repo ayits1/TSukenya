@@ -14,7 +14,7 @@ async function check(condition,message){for(let i=0;i<80;i++){if(await condition
  const executable=process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined);
  browser=await chromium.launch({executablePath:executable,headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});const page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.goto(base);await page.locator('[name=username]').fill('tester');await page.locator('[name=password]').fill(password);await page.locator('button[type=submit]').click();await page.waitForSelector('#main .stats');
+ await require('./browser-login.cjs')(page,base,password);
  const state=()=>page.evaluate(async()=> (await (await fetch('/api/state')).json()).data);
  const go=async(route)=>{await page.goto(base+'/#'+route);await page.waitForSelector('#main .panel');};
  await go('operations/products');await check(async()=>await page.locator('.catalog-table tbody tr').count()===20,'catalog initial page');

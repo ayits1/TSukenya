@@ -1,0 +1,6 @@
+interface:
+  display_name: "TSukenya: розвиток і якість"
+  short_description: "Компоненти, API й торговельний облік TSukenya"
+  default_prompt: "Use $tsukenya-development to implement and verify the requested TSukenya change."
+policy:
+  allow_implicit_invocation: true

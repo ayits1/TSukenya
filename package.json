@@ -2,6 +2,34 @@
   "name": "tsukenya-portal",
   "version": "1.0.0",
   "private": true,
-  "scripts": {"test": "node tests/sync-sim.js", "test:ui": "node tests/portal-ui.cjs", "test:crm:ui": "node tests/crm-ui.cjs", "test:layout:ui": "node tests/layout-ui.cjs", "test:workspace:ui": "node tests/workspace-ui.cjs"},
-  "devDependencies": {"playwright": "1.63.0"}
+  "workspaces": [
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=24.18.0 <25",
+    "npm": ">=11 <12"
+  },
+  "scripts": {
+    "test": "node tests/sync-sim.js",
+    "test:ui": "node tests/portal-ui.cjs",
+    "test:crm:ui": "node tests/crm-ui.cjs",
+    "test:layout:ui": "node tests/layout-ui.cjs",
+    "test:workspace:ui": "node tests/workspace-ui.cjs",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build:frontend": "npm run build --workspace frontend",
+    "storybook": "npm run storybook --workspace frontend",
+    "build:storybook": "npm run build-storybook --workspace frontend",
+    "check:frontend": "npm run check --workspace frontend",
+    "test:frontend": "npm run test --workspace frontend",
+    "test:components": "npm run test:components --workspace frontend",
+    "test:visual": "npm run test:visual --workspace frontend",
+    "test:visual:update": "npm run test:visual:update --workspace frontend"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": true
+  }
 }

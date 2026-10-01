@@ -1,0 +1,85 @@
+name: Quality
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Types, lint, API, stories, builds, accessibility and visual comparison
+        run: bash scripts/frontend-qa.sh check
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: frontend-failure-report
+          path: |
+            frontend/test-results
+            frontend/playwright-report
+          retention-days: 7
+  accounting:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: tsukenya_test
+          POSTGRES_USER: tsukenya_test
+          POSTGRES_PASSWORD: isolated-ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tsukenya_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_NAME: tsukenya_test
+      DB_USER: tsukenya_test
+      DB_PASSWORD: isolated-ci-password
+      DJANGO_SECRET_KEY: isolated-ci-only-secret-key-with-more-than-fifty-characters
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install -r server/requirements.txt
+      - run: python manage.py test tests.test_erp tests.test_security tests.test_migration tests.test_concurrency
+  compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install -r server/requirements.txt
+      - run: npm ci
+      - run: npm exec -- playwright install --with-deps chromium webkit
+      - name: Resolve the installed Chromium path
+        run: node -e "require('fs').appendFileSync(process.env.GITHUB_ENV, 'CHROME_PATH=' + require('playwright').chromium.executablePath() + '\\n')"
+      - run: npm run test:ui
+      - run: npm run test:crm:ui
+      - run: npm run test:layout:ui
+      - run: npm run test:layout:ui
+        env:
+          QA_BROWSER: webkit

@@ -1,0 +1,6 @@
+dist
+storybook-static
+test-results
+playwright-report
+coverage
+tests/baselines

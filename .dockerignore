@@ -3,5 +3,11 @@
 .private
 storage
 node_modules
+**/node_modules
+frontend/dist
+frontend/storybook-static
+frontend/test-results
+frontend/playwright-report
+frontend/coverage
 **/__pycache__
 **/*.pyc
