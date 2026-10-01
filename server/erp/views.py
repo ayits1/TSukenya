@@ -102,6 +102,10 @@ def legacy_mutation(request,user,path):
     role=user.profile.role
     require(role=='owner' or col=='products' and role in {'manager','warehouse'} or col=='tasks' and role=='manager','Недостатньо прав для редагування.')
     d=Document.objects.filter(pk=path).first()
+    if path=='settings/main' and request.headers.get('If-Match'):
+        from .labels import revision as label_revision
+        if request.headers['If-Match'] != label_revision(d.data if d else {}):
+            return response({'error':'Макет уже змінено. Оновіть дані перед повторним збереженням.','code':'revision_conflict'},409)
     if col=='products' and d is not None and request.headers.get('If-Match'):
         from .catalog import revision
         if request.headers['If-Match']!=revision(d):return response({'error':'Товар уже змінено. Оновіть дані перед повторним збереженням.','code':'revision_conflict'},409)
@@ -269,17 +273,24 @@ def handle(request):
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
-            entry=manifest.get('src/catalog-entry.tsx',{})
-            styles=''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in entry.get('css',[]))
-            # Shared chunks may also own the control stylesheet.
-            for chunk in entry.get('imports',[]):
-                styles+=''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in manifest.get(chunk,{}).get('css',[]))
-            if entry.get('file'):html=html.replace('</head>',styles+'</head>').replace('</body>','<script type="module" src="/frontend/'+entry['file']+'"></script></body>')
+            styles=set()
+            scripts=[]
+            def collect_styles(key):
+                entry=manifest.get(key,{})
+                styles.update(entry.get('css',[]))
+                for chunk in entry.get('imports',[]): collect_styles(chunk)
+            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx']:
+                collect_styles(key)
+                if manifest.get(key,{}).get('file'): scripts.append('<script type="module" src="/frontend/'+manifest[key]['file']+'"></script>')
+            html=html.replace('</head>',''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in sorted(styles))+'</head>').replace('</body>',''.join(scripts)+'</body>')
         return HttpResponse(html)
     if path=='/account' and not request.portal_user:
         result=HttpResponse(status=302);result['Location']='/';return result
     user=auth(request)
     if path.startswith('/api/v1/'):
+        if path.startswith('/api/v1/labels/'):
+            from .labels import handle_labels
+            return handle_labels(request,user)
         from .catalog import handle_catalog
         return handle_catalog(request,user)
     if path.startswith('/frontend/assets/') and request.method in {'GET','HEAD'}:
@@ -292,7 +303,9 @@ def handle(request):
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
-        return response({'data':legacy_state(user),'csrf':request.portal_session.csrf,'role':user.profile.role})
+        from .labels import revision as label_revision
+        document=Document.objects.filter(pk='settings/main').first()
+        return response({'data':legacy_state(user),'csrf':request.portal_session.csrf,'role':user.profile.role,'labelRevision':label_revision(document.data if document else {})})
     if path=='/api/logout' and request.method=='POST':
         request.portal_session.delete();result=response({'ok':True});result.delete_cookie('ts_session');return result
     if path=='/api/account/password' and request.method=='POST':

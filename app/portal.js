@@ -181,11 +181,18 @@
     if (!force && a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
     pending = false;
     if(tab==='products' && window.ReactCatalog){
+      window.ReactLabels?.leave();
       window.Trade?.leave();renderPath();
       if(!$('#react-catalog'))$('#main').innerHTML='<div id="react-catalog"></div>'+productTools();
       window.ReactCatalog.mount($('#react-catalog'));refreshFilters();return;
     }
     window.ReactCatalog?.leave();
+    if(tab==='tags' && window.ReactLabels){
+      window.Trade?.leave();renderPath();
+      if(!$('#react-labels'))$('#main').innerHTML='<div id="react-labels"></div>';
+      window.ReactLabels.mount($('#react-labels'));refreshFilters();return;
+    }
+    window.ReactLabels?.leave();
     if(window.Trade?.handles(tab)){ window.Trade.mount(tab); return; }
     window.Trade?.leave();
     renderPath();
@@ -219,6 +226,7 @@
   function route(){
     const parts=location.hash.slice(1).split('/'), requested=parts[1];
     if(tab==='products' && requested!=='products' && window.ReactCatalog?.dirty() && !confirm('Відкинути незбережені зміни товару?')){history.replaceState(null,'','#operations/products');return;}
+    if(tab==='tags' && requested!=='tags' && window.ReactLabels?.dirty() && !confirm('Відкинути незбережені зміни макета?')){history.replaceState(null,'','#operations/tags');return;}
 
     tab=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     workspace=SECTIONS[tab][0];
@@ -231,6 +239,7 @@
   }
   function navigate(next){ location.hash=SECTIONS[next][0]+'/'+next; }
   window.addEventListener('tsukenya:catalog-ready',()=>{if(tab==='products')render(true);});
+  window.addEventListener('tsukenya:labels-ready',()=>{if(tab==='tags')render(true);});
   window.addEventListener('hashchange',route);
 
   /* ---------- totals ---------- */

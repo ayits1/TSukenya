@@ -1,6 +1,6 @@
 # Стек для розвитку TSukenya · 01.10.2026
 
-Статус: каталог перенесено на React/TypeScript/Vite та інтегровано в чинний портал. Storybook документує контролі й каталог. Сервер — Django 5.2.17 / PostgreSQL 18; API каталогу має версію `/api/v1/` та OpenAPI-контракт. Django REST Framework ще не доданий. Конструктор та облікові екрани залишаються на HTML/CSS/JavaScript; наступна межа — конструктор. Деталі — [CATALOG-MIGRATION.md](CATALOG-MIGRATION.md).
+Статус: каталог і конструктор перенесено на React/TypeScript/Vite та інтегровано в чинний портал. Storybook документує контролі, каталог і студію цінників. Сервер — Django 5.2.17 / PostgreSQL 18; API каталогу та цінників має версію `/api/v1/` та OpenAPI-контракт. Django REST Framework ще не доданий. Облікові екрани залишаються на HTML/CSS/JavaScript; наступна межа — торговельні модулі. Деталі — [CATALOG-MIGRATION.md](CATALOG-MIGRATION.md) та [LABEL-STUDIO.md](LABEL-STUDIO.md).
 
 ## Рішення
 

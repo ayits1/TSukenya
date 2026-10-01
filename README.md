@@ -101,3 +101,5 @@ PYTHON_BIN=.venv/bin/python npm run test:crm:ui
 ## Основа React і Storybook
 
 Нова основа `frontend/` містить React/TypeScript/Vite, спільні контроли на React Aria, Storybook і автоматичні перевірки. Запуск: `npm ci`, потім `npm run dev:frontend` або `npm run storybook`. Це середовище компонентів; чинний інтерфейс CRM ще не перенесено. Команди перевірок, Docker, CI та порядок переходу — [FRONTEND-FOUNDATION.md](docs/FRONTEND-FOUNDATION.md). Проєктна навичка — `.agents/skills/tsukenya-development/SKILL.md`.
+
+Студія цінників на React: [сценарії, API та друк](docs/LABEL-STUDIO.md).

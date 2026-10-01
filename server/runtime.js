@@ -2,6 +2,7 @@
 (() => {
   let data = null;
   let csrf = "";
+  let labelRevision = "";
   const listeners = new Map();
   let loading = null;
 
@@ -31,6 +32,7 @@
       data = result.data;
       window.TSUKENYA_ROLE = result.role || "owner";
       csrf = result.csrf;
+      labelRevision = result.labelRevision || "";
       if (changed) { notify(); window.dispatchEvent(new Event('tsukenya:data-changed')); }
     })().finally(() => { loading = null; });
     return loading;
@@ -38,7 +40,7 @@
 
   async function mutate(method, path, value) {
     const productId=path.startsWith('/api/docs/products/')?path.slice('/api/docs/products/'.length):null;
-    const version=productId?data?.products?.find(item=>item.id===productId)?.revision:null;
+    const version=productId?data?.products?.find(item=>item.id===productId)?.revision:path==='/api/docs/settings/main'?labelRevision:null;
     const response = await fetch(path, {
       method,
       credentials: "same-origin",

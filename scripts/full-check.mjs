@@ -10,7 +10,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const stages = [
   'React: types, lint, format, API tests, synchronization, builds, Storybook, Linux visual comparison',
   'Django: all server tests on disposable PostgreSQL, including concurrency',
-  'Current portal: React catalogue conflicts, labels and printing',
+  'Current portal: React catalogue conflicts, Label Studio and printing',
   'Current CRM: trading workflows and payroll',
   'Current layout: Chromium, including browser zoom',
   'Current layout: WebKit',
@@ -146,6 +146,7 @@ try {
   await removePostgres();
   await stage(2, async () => {
     await run('node', ['tests/catalog-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/labels-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/portal-ui.cjs'], { env: browserEnv });
   });
   await stage(3, () => run('node', ['tests/crm-ui.cjs'], { env: browserEnv }));

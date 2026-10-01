@@ -1,11 +1,11 @@
 # TSukenya
 
-This repository contains the Django portal with a React catalogue in `frontend/` and remaining HTML/JavaScript modules in `app/`.
+This repository contains the Django portal with a React catalogue and Label Studio in `frontend/` and remaining HTML/JavaScript modules in `app/`.
 For frontend, API, or trading workflow changes, read the project skill at
 `.agents/skills/tsukenya-development/SKILL.md` and only the references relevant to the task.
 
 - User-facing interface and explanations are Ukrainian.
-- `frontend/src/features/catalog/` is integrated at `#operations/products`. `app/` remains the shell, price-label builder and trading UI. The component lab and stories use synthetic data; the integrated catalogue writes real documents. See `docs/CATALOG-MIGRATION.md`.
+- `frontend/src/features/catalog/` is integrated at `#operations/products`. `frontend/src/features/labels/` is integrated at `#operations/tags`; `app/` remains the shell and trading UI. The component lab and stories use synthetic data; the integrated catalogue writes real documents. See `docs/CATALOG-MIGRATION.md` and `docs/LABEL-STUDIO.md`.
 - Use the root npm workspace and lockfile. Node version is in `.nvmrc`.
 - Keep business postings, roles, audit, money and inventory authoritative on Django/PostgreSQL.
 - Existing tests use isolated data. Never point mutation tests at the production database or shared Google Sheet.

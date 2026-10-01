@@ -118,6 +118,11 @@ input {
   background: transparent;
   outline: none;
 }
+/* The compound control owns one focus ring, including inside the legacy shell. */
+.tk-root .tk-combo-group :is(.tk-combo-input, .tk-combo-toggle):focus-visible,
+.tk-root .tk-combo-group :is(.tk-combo-input, .tk-combo-toggle)[data-focus-visible] {
+  outline: none;
+}
 .tk-combo-toggle {
   display: flex;
   align-items: center;

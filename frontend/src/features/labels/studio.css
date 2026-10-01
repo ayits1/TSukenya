@@ -1,0 +1,565 @@
+.tk-studio {
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+  background: var(--tk-paper);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.tk-studio :is(h2, h3, p) {
+  margin: 0;
+}
+.tk-studio h2 {
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+.tk-studio h3 {
+  font-size: 16px;
+  line-height: 1.4;
+}
+.tk-studio-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
+}
+.tk-studio-heading p,
+.tk-studio-note {
+  color: var(--tk-muted);
+  font-size: 12px;
+}
+.tk-studio-heading p {
+  margin-top: 6px;
+  font-size: 14px;
+}
+.tk-studio-save {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.tk-studio-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--tk-line);
+}
+.tk-studio-tab {
+  min-height: 48px;
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  color: var(--tk-muted);
+}
+.tk-studio-tab[data-selected] {
+  color: var(--tk-brand);
+  border-color: var(--tk-brand);
+}
+.tk-studio-toolbar {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(220px, 2fr);
+  align-items: end;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--tk-line);
+}
+.tk-studio-preview-picker {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+.tk-studio-preview-picker > .tk-button {
+  flex: 0 0 44px;
+  padding: 10px;
+}
+.tk-studio-workspace {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr) 260px;
+}
+.tk-studio-layers {
+  padding: 20px 12px;
+  border-right: 1px solid var(--tk-line);
+}
+.tk-studio-layers h3 {
+  padding: 0 10px;
+  margin-bottom: 12px;
+}
+.tk-studio-layer-list {
+  display: grid;
+  gap: 2px;
+}
+.tk-studio-layer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+.tk-studio-layer[aria-pressed='true'] {
+  color: var(--tk-brand);
+  border-color: #cbded0;
+  background: var(--tk-brand-soft);
+  font-weight: 600;
+}
+.tk-studio-layer[data-hidden='true'] {
+  color: var(--tk-muted);
+}
+.tk-studio-hidden-mark {
+  width: 6px;
+  height: 6px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  flex: 0 0 6px;
+}
+.tk-studio-stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 20px;
+  background: #f3f5f6;
+}
+.tk-studio-stage-head,
+.tk-studio-stage-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--tk-muted);
+  font-size: 12px;
+}
+.tk-studio-canvas {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-height: 380px;
+  padding: 24px 0;
+  min-width: 0;
+}
+.tk-studio-canvas > * {
+  max-width: 100%;
+}
+.tk-studio-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--tk-muted);
+  display: grid;
+  gap: 8px;
+}
+.tk-studio-properties {
+  padding: 20px;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  border-left: 1px solid var(--tk-line);
+}
+.tk-studio-properties-title {
+  display: grid;
+  gap: 4px;
+}
+.tk-studio-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.tk-studio-color {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  min-width: 0;
+}
+.tk-studio-color input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 5px;
+  border: 1px solid var(--tk-input-line);
+  background: var(--tk-paper);
+  border-radius: var(--tk-radius);
+}
+.tk-studio-check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+.tk-studio-check[data-disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+.tk-studio-check-box {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border: 1px solid var(--tk-input-line);
+  border-radius: 3px;
+}
+.tk-studio-check[data-selected] .tk-studio-check-box {
+  background: var(--tk-brand);
+  border-color: var(--tk-brand);
+  color: #fff;
+}
+.tk-studio-check[data-focus-visible] {
+  outline: 3px solid var(--tk-focus);
+  outline-offset: 2px;
+}
+.tk-studio-number {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.tk-studio-number .tk-input {
+  height: 44px;
+}
+.tk-studio-number[data-disabled] {
+  opacity: 0.6;
+}
+.tk-studio-advanced {
+  border-top: 1px solid var(--tk-line);
+  padding-top: 16px;
+}
+.tk-studio-advanced summary {
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+.tk-studio-advanced-content {
+  display: grid;
+  gap: 16px;
+  padding-top: 12px;
+}
+.tk-studio-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 24px;
+  border-top: 1px solid var(--tk-line);
+}
+.tk-studio-identity {
+  padding: 0 24px 16px;
+}
+.tk-studio-identity-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.tk-studio-content {
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+.tk-studio-product-filters {
+  display: grid;
+  grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(100px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+.tk-studio-selection-actions,
+.tk-studio-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tk-studio-selection-actions > div,
+.tk-studio-pagination > div {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tk-studio-product-list {
+  border: 1px solid var(--tk-line);
+  border-radius: 6px;
+}
+.tk-studio-product-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 88px;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 16px;
+}
+.tk-studio-product-row + .tk-studio-product-row {
+  border-top: 1px solid var(--tk-line);
+}
+.tk-studio-product-row[data-selected='true'] {
+  background: #f8fbf9;
+}
+.tk-studio-product-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--tk-muted);
+  font-size: 12px;
+  margin-left: 30px;
+}
+.tk-studio-price {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+.tk-studio-promo {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  color: #843613;
+  background: #fff0d6;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.tk-studio-review-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.tk-studio-review-top p {
+  margin-top: 6px;
+  color: var(--tk-muted);
+}
+.tk-studio-review-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tk-studio-alert {
+  padding: 14px 16px;
+  border: 1px solid #edc1ba;
+  background: #fff4f2;
+  border-radius: 5px;
+  color: #8f2c21;
+}
+.tk-studio-alert ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.tk-studio-warning {
+  border-color: #ead69f;
+  background: #fff9e7;
+  color: #6e511b;
+}
+.tk-studio-proof {
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .tk-studio-workspace {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+  .tk-studio-properties {
+    grid-column: 1/-1;
+    border-left: 0;
+    border-top: 1px solid var(--tk-line);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .tk-studio-properties-title {
+    grid-column: 1/-1;
+  }
+  .tk-studio-product-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .tk-studio-heading {
+    padding: 18px 16px;
+    align-items: start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .tk-studio-save {
+    justify-content: start;
+  }
+  .tk-studio-tabs {
+    padding: 0 8px;
+    gap: 0;
+  }
+  .tk-studio-tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 6px;
+  }
+  .tk-studio-toolbar {
+    padding: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .tk-studio-preview-picker {
+    grid-column: 1/-1;
+  }
+  .tk-studio-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tk-studio-layers {
+    border-right: 0;
+    border-bottom: 1px solid var(--tk-line);
+    padding: 14px 16px;
+  }
+  .tk-studio-layer-list {
+    display: none;
+  }
+  .tk-studio-layers h3 {
+    display: none;
+  }
+  .tk-studio-stage {
+    padding: 16px;
+  }
+  .tk-studio-canvas {
+    min-height: 270px;
+    padding: 24px 0;
+  }
+  .tk-studio-properties {
+    padding: 16px;
+    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tk-studio-properties
+    > :is(
+      .tk-studio-check,
+      .tk-studio-pair,
+      .tk-studio-advanced,
+      .tk-studio-properties-title,
+      .tk-help,
+      .tk-button
+    ) {
+    grid-column: 1/-1;
+  }
+  .tk-studio-content {
+    padding: 16px;
+    gap: 16px;
+  }
+  .tk-studio-product-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tk-studio-product-row {
+    grid-template-columns: minmax(0, 1fr) 82px;
+    gap: 12px;
+    padding: 12px;
+  }
+  .tk-studio-product-row > div:first-child {
+    grid-column: 1/-1;
+  }
+  .tk-studio-price {
+    text-align: left;
+  }
+  .tk-studio-bottom {
+    padding: 16px;
+  }
+  .tk-studio-identity {
+    padding: 0 16px 16px;
+  }
+  .tk-studio-identity-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (min-width: 651px) {
+  .tk-studio-mobile-field {
+    display: none;
+  }
+}
+@media (forced-colors: active) {
+  .tk-studio-check[data-selected] .tk-studio-check-box {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
+.tk-studio-product-row .tk-studio-number > .tk-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.tk-studio-store-row {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+.tk-studio-store-row > .tk-button {
+  flex: 0 0 44px;
+  padding: 10px;
+}
+.tk-studio-selected-list {
+  display: grid;
+  gap: 8px;
+}
+.tk-studio-selected-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.tk-studio-history {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tk-story:has(> .tk-studio) {
+  max-width: none;
+}
+@media (max-width: 650px) {
+  .tk-studio-tab {
+    white-space: nowrap;
+    font-size: 13px;
+    padding-inline: 4px;
+  }
+}
+@media (max-width: 380px) {
+  .tk-studio-toolbar,
+  .tk-studio-properties {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tk-studio-properties > * {
+    grid-column: 1/-1;
+  }
+}
+.tk-studio-product-row .tk-studio-number::before {
+  content: 'Копій';
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tk-studio-proof-viewport {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px 0;
+}
+.tk-studio-proof-pages {
+  width: 210mm;
+  transform-origin: top left;
+}
+.tk-studio-tab[data-disabled],
+.tk-studio-layer:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

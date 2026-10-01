@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  base: '/frontend/',
   plugins: [react()],
   server: {
     proxy: {
@@ -16,6 +17,7 @@ export default defineConfig({
       input: {
         lab: resolve(import.meta.dirname, 'index.html'),
         catalog: resolve(import.meta.dirname, 'src/catalog-entry.tsx'),
+        labels: resolve(import.meta.dirname, 'src/labels-entry.tsx'),
       },
     },
     target: ['chrome111', 'safari16.4', 'firefox114'],

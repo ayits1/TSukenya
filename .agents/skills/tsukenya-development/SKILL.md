@@ -5,12 +5,12 @@ description: Develop and review TSukenya frontend components, API integration an
 
 # TSukenya development
 
-Read the repository state before choosing a migration boundary. The production UI is mixed: the catalogue lives in `frontend/src/features/catalog/`, mounted into the `app/` shell; labels and trading screens remain in `app/`. Read `docs/CATALOG-MIGRATION.md` for this boundary. Stories and the component lab use synthetic data; the integrated catalogue writes server documents. A successful lab build does not mean a production screen has been migrated or deployed.
+Read the repository state before choosing a migration boundary. The production UI is mixed: the catalogue and Label Studio live in `frontend/src/features/catalog/` and `frontend/src/features/labels/`, mounted into the `app/` shell; trading screens remain in `app/`. Read `docs/CATALOG-MIGRATION.md` and `docs/LABEL-STUDIO.md` for this boundary. Stories and the component lab use synthetic data; the integrated catalogue writes server documents. A successful lab build does not mean a production screen has been migrated or deployed.
 
 ## Route the task
 
 - For React components and UI behavior, read [frontend foundation](../../../docs/FRONTEND-FOUNDATION.md) and the relevant component/stories. For constructor geometry and print changes, also read [UI quality](../../../docs/UI-QUALITY.md).
-- For API and module boundaries, read [stack evolution](../../../docs/STACK-EVOLUTION.md) and the actual Django endpoint/service being changed. OpenAPI exists for the catalogue in `contracts/catalog.openapi.json`; generate types with `npm run generate:api`. DRF and other module contracts remain planned.
+- For API and module boundaries, read [stack evolution](../../../docs/STACK-EVOLUTION.md) and the actual Django endpoint/service being changed. OpenAPI exists for the catalogue and labels in `contracts/catalog.openapi.json`; generate types with `npm run generate:api`. DRF and trading module contracts remain planned.
 - For stock, cash or payroll, read [CRM implementation](../../../docs/CRM-IMPLEMENTATION.md) and related server tests.
 - For an authorized release, read [server deployment](../../../docs/SERVER-DEPLOYMENT.md). Scope operations to this project. Existing authorization applies; this skill does not introduce another permission step.
 

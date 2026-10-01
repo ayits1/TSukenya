@@ -1,0 +1,151 @@
+/* Scoped physical output: view scaling belongs to the surrounding studio canvas. */
+.tk-label.tag {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: none;
+  border: 1px dashed #999;
+  padding: calc(2mm * var(--tk-label-k)) calc(3mm * var(--tk-label-k));
+  overflow: hidden;
+  font-family: Rubik, Arial, sans-serif;
+  background: #fff;
+  color: #1c1c1c;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.tk-label.tag.b-solid {
+  border-style: solid;
+  border-color: #555;
+}
+.tk-label.tag.b-none {
+  border-color: transparent;
+}
+.tk-label.tag .t-hd,
+.tk-label.tag .ft {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+  line-height: 1.2;
+}
+.tk-label.tag .t-hd > *,
+.tk-label.tag .ft > * {
+  flex: 1;
+  min-width: 0;
+}
+.tk-label.tag .t-cu {
+  line-height: 1.2;
+  margin-top: 0.5mm;
+}
+.tk-label.tag .nm {
+  line-height: 1.15;
+  margin-top: 0.8mm;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tk-label.tag .t-pk,
+.tk-label.tag .t-size {
+  line-height: 1.2;
+  margin-top: 0.5mm;
+}
+.tk-label.tag .t-top,
+.tk-label.tag .t-bottom {
+  min-height: 0;
+}
+.tk-label.tag .pr {
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.tk-label.tag .pr small {
+  font-size: 0.45em;
+  font-weight: 600;
+  margin-left: 1mm;
+}
+.tk-label.tag .un,
+.tk-label.tag .per100 {
+  line-height: 1.3;
+}
+.tk-label.tag .tk-label-field {
+  overflow-wrap: anywhere;
+}
+.tk-label.tag .tk-label-field[role='button'] {
+  cursor: pointer;
+}
+.tk-label.tag .tk-label-field[role='button']:hover {
+  outline: 1px dashed #26624c;
+  outline-offset: 2px;
+}
+.tk-label.tag .tk-label-field--selected {
+  outline: 1px solid #26624c;
+  outline-offset: 2px;
+}
+.tk-label.tag .tk-label-field[role='button']:focus-visible {
+  outline: 2px solid #26624c;
+  outline-offset: 2px;
+}
+.tk-label.tag .t-promo {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff1c2;
+  padding: 0.4mm 1mm;
+  margin-bottom: 0.5mm;
+  line-height: 1.35;
+  border-radius: 0;
+}
+.tk-label-print-page.print-page {
+  width: 210mm;
+  height: 297mm;
+  padding: 8mm;
+  background: #fff;
+  color: #1c1c1c;
+  display: grid;
+  align-content: start;
+  justify-content: start;
+  gap: 0;
+  box-sizing: border-box;
+  margin: 0 auto 16px;
+  box-shadow: 0 4px 20px #0002;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  body:has(#printArea.tk-label-output) > :not(#printArea) {
+    display: none !important;
+  }
+  #printArea.tk-label-output {
+    display: block !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    visibility: visible !important;
+    transform: none !important;
+    zoom: 1 !important;
+  }
+  #printArea.tk-label-output .tk-label.tag.b-none {
+    border-color: transparent !important;
+  }
+  .tk-label-print-page.print-page {
+    box-shadow: none;
+    margin: 0;
+    break-after: page;
+    page-break-after: always;
+  }
+  .tk-label-print-page.print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+  .tk-label.tag {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    zoom: 1 !important;
+  }
+  .tk-label.tag .tk-label-field {
+    outline: none !important;
+  }
+}

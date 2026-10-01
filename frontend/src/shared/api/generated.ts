@@ -392,6 +392,38 @@ export interface paths {
     };
     trace?: never;
   };
+  '/api/v1/labels/workspace': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['labelWorkspace'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['saveLabelWorkspace'];
+    trace?: never;
+  };
+  '/api/v1/labels/prepare': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['prepareLabels'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -478,6 +510,96 @@ export interface components {
       /** @constant */
       ok: true;
     };
+    LabelStyle: {
+      /** @enum {string} */
+      font?: 'rubik' | 'arial' | 'georgia' | 'courier';
+      size?: number;
+      color?: string;
+      /** @enum {string} */
+      weight?: '400' | '600' | '700';
+      /** @enum {string} */
+      align?: 'left' | 'center' | 'right';
+    };
+    LabelConfig: {
+      chain: boolean;
+      store: boolean;
+      name: boolean;
+      nameBig: boolean;
+      pack: boolean;
+      psize: boolean;
+      price: boolean;
+      kop: boolean;
+      unit: boolean;
+      per100: boolean;
+      category: boolean;
+      date: boolean;
+      customEnabled: boolean;
+      promo: boolean;
+      /** @constant */
+      styleVersion: 2;
+      /** @enum {string} */
+      size: 's' | 'm' | 'l';
+      /** @enum {string} */
+      border: 'dash' | 'solid' | 'none';
+      storeIdx: number;
+      custom: string;
+      styles: {
+        promo?: components['schemas']['LabelStyle'];
+        chain?: components['schemas']['LabelStyle'];
+        store?: components['schemas']['LabelStyle'];
+        custom?: components['schemas']['LabelStyle'];
+        name?: components['schemas']['LabelStyle'];
+        pack?: components['schemas']['LabelStyle'];
+        psize?: components['schemas']['LabelStyle'];
+        price?: components['schemas']['LabelStyle'];
+        unit?: components['schemas']['LabelStyle'];
+        per100?: components['schemas']['LabelStyle'];
+        category?: components['schemas']['LabelStyle'];
+        date?: components['schemas']['LabelStyle'];
+      };
+    };
+    LabelSettings: {
+      chainName: string;
+      storeNames: string[];
+      staleDays: number;
+    };
+    LabelWorkspace: {
+      /** @description Saved legacy/v2 layout; frontend migrates supported legacy sizes without rewriting unknown future layouts. */
+      config: {
+        [key: string]: unknown;
+      };
+      settings: components['schemas']['LabelSettings'];
+      revision: string;
+      canEdit: boolean;
+      csrf: string;
+    };
+    LabelWorkspacePatch: {
+      revision: string;
+      config: components['schemas']['LabelConfig'];
+      settings: components['schemas']['LabelSettings'];
+    };
+    LabelSelection: {
+      id: string;
+      quantity: number;
+    }[];
+    LabelPrepareRequest: {
+      selection: components['schemas']['LabelSelection'];
+    };
+    LabelProof: {
+      /** @description Saved legacy/v2 layout; frontend migrates supported legacy sizes without rewriting unknown future layouts. */
+      config: {
+        [key: string]: unknown;
+      };
+      settings: components['schemas']['LabelSettings'];
+      revision: string;
+      canEdit: boolean;
+      csrf: string;
+      products: components['schemas']['Product'][];
+      selection: components['schemas']['LabelSelection'];
+      /** Format: date */
+      date: string;
+      snapshot: string;
+    };
   };
   responses: never;
   parameters: never;
@@ -486,4 +608,181 @@ export interface components {
   pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+  labelWorkspace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LabelWorkspace'];
+        };
+      };
+      /** @description Success */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Success */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Success */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Success */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  saveLabelWorkspace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LabelWorkspacePatch'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LabelWorkspace'];
+        };
+      };
+      /** @description Success */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Success */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Success */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Success */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  prepareLabels: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LabelPrepareRequest'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LabelProof'];
+        };
+      };
+      /** @description Success */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Success */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Success */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Success */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+}

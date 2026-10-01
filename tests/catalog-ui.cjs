@@ -65,13 +65,13 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  await until(async()=>await page.locator('.tk-product-link').count()===1,'updated search');
  await page.getByRole('button',{name:/Акція для Оновлено/}).click();
  await until(async()=>await page.getByRole('button',{name:/Акція для Оновлено/}).getAttribute('aria-pressed')==='false','promotion toggle persisted');
- await page.goto(base+'/#operations/tags');await page.waitForSelector('#previewProduct');await page.locator('#previewProduct').fill('Оновлено іншим редактором');await page.locator('#previewProduct').press('Enter');
- assert.equal(await page.locator('#individualPreview [data-field=name]').innerText(),'Оновлено іншим редактором');assert.equal(await page.locator('#individualPreview .t-promo').count(),0);
+ await page.goto(base+'/#operations/tags');await page.waitForSelector('.tk-studio');const preview=page.getByRole('combobox',{name:'Товар для перегляду',exact:true});await preview.fill('Оновлено іншим редактором');await page.getByRole('option',{name:'Оновлено іншим редактором',exact:true}).click();
+ assert.equal(await page.locator('.tk-studio-canvas [data-field=name]').innerText(),'Оновлено іншим редактором');assert.equal(await page.locator('.tk-studio-canvas .t-promo').count(),0);
  }
  if(process.env.QA_FILTERS_ONLY){
   await page.getByRole('searchbox',{name:'Пошук товару'}).fill('Американо');
   await until(async()=>await page.locator('.tk-product-table tbody tr').count()===1,'single filtered product');
-  await page.locator('.tab[data-tab=tags]').click();await page.waitForSelector('#previewProduct');
+  await page.locator('.tab[data-tab=tags]').click();await page.waitForSelector('.tk-studio');
   await page.locator('.tab[data-tab=products]').click();await page.waitForSelector('.tk-product-table');
   assert.equal(await page.getByRole('searchbox',{name:'Пошук товару'}).inputValue(),'Американо','filter retained after navigation');
   const before=await page.evaluate(async()=> (await (await fetch('/api/state')).json()).data.products);
