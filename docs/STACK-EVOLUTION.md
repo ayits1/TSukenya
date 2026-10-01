@@ -1,6 +1,6 @@
 # Стек для розвитку TSukenya · 01.10.2026
 
-Статус: React/TypeScript/Vite та Storybook додано в окреме середовище `frontend/`; бізнес-екрани ще не перенесені. Поточний реліз на VPS використовує Django 5.2.17, PostgreSQL 18 і HTML/CSS/JavaScript. Django REST Framework та OpenAPI ще не додані. Команди, межі та наступні кроки — у [FRONTEND-FOUNDATION.md](FRONTEND-FOUNDATION.md).
+Статус: каталог перенесено на React/TypeScript/Vite та інтегровано в чинний портал. Storybook документує контролі й каталог. Сервер — Django 5.2.17 / PostgreSQL 18; API каталогу має версію `/api/v1/` та OpenAPI-контракт. Django REST Framework ще не доданий. Конструктор та облікові екрани залишаються на HTML/CSS/JavaScript; наступна межа — конструктор. Деталі — [CATALOG-MIGRATION.md](CATALOG-MIGRATION.md).
 
 ## Рішення
 

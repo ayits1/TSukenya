@@ -6,6 +6,16 @@ task_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$task_root"
 mkdir -p frontend/tests/baselines/linux frontend/test-results frontend/playwright-report
 docker build --platform linux/amd64 -f frontend/Dockerfile.qa -t tsukenya-frontend-qa:local .
+# Export the already-built React bundle for host-side Django/browser integration.
+# This avoids a second frontend build in the full regression command.
+task_artifact_container="tsukenya-qa-artifacts-$$"
+trap 'docker rm -v "$task_artifact_container" >/dev/null 2>&1 || true' EXIT
+docker create --name "$task_artifact_container" tsukenya-frontend-qa:local true >/dev/null
+rm -rf "$task_root/frontend/dist"
+mkdir -p "$task_root/frontend/dist"
+docker cp "$task_artifact_container:/workspace/frontend/dist/." "$task_root/frontend/dist"
+docker rm -v "$task_artifact_container" >/dev/null
+trap - EXIT
 task_command='npm run test:components && npm run test:visual'
 if [[ "$task_mode" == update ]]; then
   task_command='npm run test:components && npm run test:visual:update'

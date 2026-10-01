@@ -31,16 +31,18 @@
       data = result.data;
       window.TSUKENYA_ROLE = result.role || "owner";
       csrf = result.csrf;
-      if (changed) notify();
+      if (changed) { notify(); window.dispatchEvent(new Event('tsukenya:data-changed')); }
     })().finally(() => { loading = null; });
     return loading;
   }
 
   async function mutate(method, path, value) {
+    const productId=path.startsWith('/api/docs/products/')?path.slice('/api/docs/products/'.length):null;
+    const version=productId?data?.products?.find(item=>item.id===productId)?.revision:null;
     const response = await fetch(path, {
       method,
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf, ...(version?{"If-Match":version}:{}) },
       body: value === undefined ? undefined : JSON.stringify(value),
     });
     if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
@@ -92,6 +94,7 @@
     },
   };
 
+  window.TSUKENYA_REFRESH = refresh;
   window.TSUKENYA_SERVER = true;
   window.claude = {
     use(name) {

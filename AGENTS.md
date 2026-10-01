@@ -1,11 +1,11 @@
 # TSukenya
 
-This repository contains the live Django/HTML portal and the new React foundation in `frontend/`.
+This repository contains the Django portal with a React catalogue in `frontend/` and remaining HTML/JavaScript modules in `app/`.
 For frontend, API, or trading workflow changes, read the project skill at
 `.agents/skills/tsukenya-development/SKILL.md` and only the references relevant to the task.
 
 - User-facing interface and explanations are Ukrainian.
-- `app/` is the current production interface. `frontend/` is a component lab until a feature is explicitly integrated. Do not claim a lab change is deployed to the CRM.
+- `frontend/src/features/catalog/` is integrated at `#operations/products`. `app/` remains the shell, price-label builder and trading UI. The component lab and stories use synthetic data; the integrated catalogue writes real documents. See `docs/CATALOG-MIGRATION.md`.
 - Use the root npm workspace and lockfile. Node version is in `.nvmrc`.
 - Keep business postings, roles, audit, money and inventory authoritative on Django/PostgreSQL.
 - Existing tests use isolated data. Never point mutation tests at the production database or shared Google Sheet.

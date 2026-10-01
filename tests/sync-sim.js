@@ -17,6 +17,7 @@ assert.equal(steady.rowWrites.length+steady.appends.length+steady.clears.length+
 // A: зміна в таблиці
 let r=sheet.findIndex(x=>x[0]==='Coca-Cola 0,5 л'); sheet[r][6]='25'; sheet[r][8]='';
 run('3 таблиця: закупівля Coca 0,5=25');
+assert.equal(prods.find(x=>x.name==='Coca-Cola 0,5 л').cost,25);
 let p=prods.find(x=>x.name==='Coca-Cola 0,5 л'); console.log('   app:', p.cost, p.manualPrice, p.price, 'на цінник', env.priceOf(p), 'sheet L=', sheet[r][11]);
 run('4 повтор');
 // B: зміна в застосунку
@@ -25,17 +26,21 @@ let q=run('5 app: закупівля w01=10'); r=sheet.findIndex(x=>x[12]==='w01
 run('6 повтор');
 // C: конфлікт — обидва змінили ціну Джміль
 r=sheet.findIndex(x=>x[0]==='Джміль'); sheet[r][8]='95'; p=prods.find(x=>x.name==='Джміль'); p.price=99;
-run('7 конфлікт ціни Джміль'); console.log('   app price:', p.price, 'sheet:', sheet[r][8]);
+run('7 конфлікт ціни Джміль'); assert.equal(prods.find(x=>x.name==='Джміль').price,95); console.log('   app price:', p.price, 'sheet:', sheet[r][8]);
 // D: новий рядок у таблиці
 sheet.push(['Халва соняшникова 250 г','Цукерки','Халва','Упаковка','250 г','шт','40','35']);
 run('8 новий рядок у таблиці'); p=prods.find(x=>x.name.startsWith('Халва')); console.log('   new:', p.id, env.priceOf(p), 'sheet id:', sheet[sheet.length-1][12], 'L', sheet[sheet.length-1][11]);
 run('9 повтор');
 // E: видалення рядка в таблиці
-r=sheet.findIndex(x=>x[0]==='Fanta 1 л'); sheet.splice(r,1);
-run('10 рядок Fanta 1 л видалено'); console.log('   hidden:', prods.find(x=>x.name==='Fanta 1 л').hidden);
+r=sheet.findIndex(x=>x[0]==='Fanta 1 л'); const removedRow=sheet.splice(r,1)[0];
+assert.match(planSync(sheet,prods,env).error,/автоматичне приховування зупинено/);
+assert(!prods.find(x=>x.name==='Fanta 1 л').hidden);
+sheet.splice(r,0,removedRow); console.log('10 неповний аркуш: обмін зупинено без приховування');
 // F: видалення в застосунку
-prods=prods.filter(x=>x.name!=='Sprite 1 л');
-run('11 Sprite 1 л видалено в app'); console.log('   rows with Sprite 1 л:', sheet.filter(x=>x[0]==='Sprite 1 л').length);
+const beforeDeletion=structuredClone(prods);prods=prods.filter(x=>x.name!=='Sprite 1 л');
+assert.match(planSync(sheet,prods,env).error,/Невідомий ID/);
+assert.equal(sheet.filter(x=>x[0]==='Sprite 1 л').length,1);
+prods=beforeDeletion;console.log('11 невідомий ID: рядок не очищено');
 // G: перейменування в таблиці
 r=sheet.findIndex(x=>x[0]==='Допіо'); sheet[r][0]='Допіо (подвійне еспресо)';
 run('12 перейменування в таблиці'); console.log('   app names Допіо*:', prods.filter(x=>x.name.startsWith('Допіо')).map(x=>x.name));

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
@@ -9,5 +10,15 @@ export default defineConfig({
       '/health': 'http://127.0.0.1:8080',
     },
   },
-  build: { target: ['chrome111', 'safari16.4', 'firefox114'], sourcemap: false },
+  build: {
+    manifest: true,
+    rollupOptions: {
+      input: {
+        lab: resolve(import.meta.dirname, 'index.html'),
+        catalog: resolve(import.meta.dirname, 'src/catalog-entry.tsx'),
+      },
+    },
+    target: ['chrome111', 'safari16.4', 'firefox114'],
+    sourcemap: false,
+  },
 });

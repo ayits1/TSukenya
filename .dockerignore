@@ -12,3 +12,5 @@ frontend/coverage
 test-results
 **/__pycache__
 **/*.pyc
+
+**/._*

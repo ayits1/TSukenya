@@ -3,6 +3,7 @@
   function upgrade(root) {
     const nodes = root.querySelectorAll?.('button.btn,a.btn,input,select,textarea') || [];
     for (const node of nodes) {
+      if(node.closest('.tk-root,.tk-editor-overlay,.tk-popover'))continue; // React Aria owns these controls.
       if (node.matches('.btn')) {
         if (!node.classList.contains('ui-button')) node.classList.add('ui-button');
         if (!node.classList.contains('soft') && !node.classList.contains('danger')) node.classList.add('ui-button--primary');

@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "frontend"
+    "frontend",
+    "tools/api-contracts"
   ],
   "engines": {
     "node": ">=24.18.0 <25",
@@ -24,7 +25,9 @@
     "test:components": "npm run test:components --workspace frontend",
     "test:visual": "npm run test:visual --workspace frontend",
     "test:visual:update": "npm run test:visual:update --workspace frontend",
-    "test:full": "node scripts/full-check.mjs"
+    "test:full": "node scripts/full-check.mjs",
+    "generate:api": "npm run generate --workspace @tsukenya/api-contracts && npm exec --workspace frontend -- prettier --write src/shared/api/generated.ts",
+    "test:catalog:ui": "node tests/catalog-ui.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

@@ -57,6 +57,8 @@ def owner(user):
     require(user.profile.role=='owner','Недостатньо прав. Операція доступна лише власнику.')
 
 def legacy_state(user):
+    from .catalog import revision, defaults
+    catalog_config=defaults()
     data={x:[] for x in COLLECTIONS}|{x:{} for x in SINGLE_DOCS}
     for d in Document.objects.all():
         col,_,id=d.path.partition('/')
@@ -74,7 +76,7 @@ def legacy_state(user):
                     product['price']=float((raw/rounding).to_integral_value(rounding=ROUND_CEILING)*rounding)
                     product['manualPrice']=True
                 product.pop('cost',None);product.pop('markup',None)
-            data[col].append({'id':id,'data':product})
+            data[col].append({'id':id,'data':product, **({'revision':revision(d,catalog_config)} if col=='products' else {})})
         elif d.path in SINGLE_DOCS:data[d.path]=d.data
     return data
 
@@ -100,6 +102,9 @@ def legacy_mutation(request,user,path):
     role=user.profile.role
     require(role=='owner' or col=='products' and role in {'manager','warehouse'} or col=='tasks' and role=='manager','Недостатньо прав для редагування.')
     d=Document.objects.filter(pk=path).first()
+    if col=='products' and d is not None and request.headers.get('If-Match'):
+        from .catalog import revision
+        if request.headers['If-Match']!=revision(d):return response({'error':'Товар уже змінено. Оновіть дані перед повторним збереженням.','code':'revision_conflict'},409)
     if request.method=='DELETE':
         require(d is not None,'Запис не знайдено.')
         require(col!='products' or not VoucherLine.objects.filter(product=d).exists() and not StockLot.objects.filter(product=d).exists(),'Товар уже використовується в обліку. Його не можна видалити.')
@@ -261,10 +266,27 @@ def handle(request):
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
         html=(ROOT/'app/index.html').read_text().replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
+        manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
+        if manifest_file.exists():
+            manifest=json.loads(manifest_file.read_text())
+            entry=manifest.get('src/catalog-entry.tsx',{})
+            styles=''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in entry.get('css',[]))
+            # Shared chunks may also own the control stylesheet.
+            for chunk in entry.get('imports',[]):
+                styles+=''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in manifest.get(chunk,{}).get('css',[]))
+            if entry.get('file'):html=html.replace('</head>',styles+'</head>').replace('</body>','<script type="module" src="/frontend/'+entry['file']+'"></script></body>')
         return HttpResponse(html)
     if path=='/account' and not request.portal_user:
         result=HttpResponse(status=302);result['Location']='/';return result
     user=auth(request)
+    if path.startswith('/api/v1/'):
+        from .catalog import handle_catalog
+        return handle_catalog(request,user)
+    if path.startswith('/frontend/assets/') and request.method in {'GET','HEAD'}:
+        file=(ROOT/'frontend/dist'/path[len('/frontend/'):]).resolve()
+        base=(ROOT/'frontend/dist/assets').resolve()
+        if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
+        return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
     if path in {'/runtime.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)

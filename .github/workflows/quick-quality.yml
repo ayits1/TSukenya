@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'frontend/**'
+      - 'tools/api-contracts/**'
+      - 'contracts/**'
       - 'package.json'
       - 'package-lock.json'
       - '.npmrc'
@@ -12,6 +14,8 @@ on:
     branches: [main, master]
     paths:
       - 'frontend/**'
+      - 'tools/api-contracts/**'
+      - 'contracts/**'
       - 'package.json'
       - 'package-lock.json'
       - '.npmrc'
@@ -35,5 +39,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Check generated API contract
+        run: npm run generate:api && git diff --exit-code -- frontend/src/shared/api/generated.ts
       - run: npm run check:frontend
       - run: npm run test:frontend

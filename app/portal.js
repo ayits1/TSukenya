@@ -11,7 +11,7 @@
   const typeOf = p => p.type || NOTYPE;
   const allTypes = () => [...TYPES, ...new Set(S.products.map(typeOf).filter(t=>t!==NOTYPE && !TYPES.includes(t)))];
   const typeRank = t => { const i = allTypes().indexOf(t); return i<0 ? 999 : i; };
-  const sortByType = list => list.slice().sort((a,b)=> typeRank(typeOf(a))-typeRank(typeOf(b)) || String(a.category||"").localeCompare(String(b.category||""),"uk") || String(a.name).localeCompare(String(b.name),"uk"));
+  const sortByType = list => { const ranks=new Map(allTypes().map((t,i)=>[t,i])); return list.slice().sort((a,b)=> (ranks.get(typeOf(a))??999)-(ranks.get(typeOf(b))??999) || String(a.category||"").localeCompare(String(b.category||""),"uk") || String(a.name).localeCompare(String(b.name),"uk")); };
   const typeOpts = cur => { const l = allTypes(); if (cur && cur!==NOTYPE && !l.includes(cur)) l.push(cur); return (cur===NOTYPE?`<option value="" selected>${NOTYPE}</option>`:"") + l.map(t=>`<option ${t===cur?"selected":""}>${esc(t)}</option>`).join(""); };
   let db = null, downloads = null, mcp = null, tab = "overview", workspace = "operations", pending = false;
   const $ = s => document.querySelector(s);
@@ -180,6 +180,12 @@
     const a = document.activeElement;
     if (!force && a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
     pending = false;
+    if(tab==='products' && window.ReactCatalog){
+      window.Trade?.leave();renderPath();
+      if(!$('#react-catalog'))$('#main').innerHTML='<div id="react-catalog"></div>'+productTools();
+      window.ReactCatalog.mount($('#react-catalog'));refreshFilters();return;
+    }
+    window.ReactCatalog?.leave();
     if(window.Trade?.handles(tab)){ window.Trade.mount(tab); return; }
     window.Trade?.leave();
     renderPath();
@@ -212,6 +218,8 @@
   const operationTasks = () => S.tasks.filter(t=>t.scope==='operations');
   function route(){
     const parts=location.hash.slice(1).split('/'), requested=parts[1];
+    if(tab==='products' && requested!=='products' && window.ReactCatalog?.dirty() && !confirm('Відкинути незбережені зміни товару?')){history.replaceState(null,'','#operations/products');return;}
+
     tab=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     workspace=SECTIONS[tab][0];
     document.querySelectorAll('[data-workspace]').forEach(x=>x.setAttribute('aria-current',x.dataset.workspace===workspace?'page':'false'));
@@ -222,16 +230,17 @@
     document.title=SECTIONS[tab][1]+' · Цукерня'; render(true);
   }
   function navigate(next){ location.hash=SECTIONS[next][0]+'/'+next; }
+  window.addEventListener('tsukenya:catalog-ready',()=>{if(tab==='products')render(true);});
   window.addEventListener('hashchange',route);
 
   /* ---------- totals ---------- */
   function totals(){
     const fixed = S.expenses.filter(e=>e.group==="fixed").reduce((s,e)=>s+num(e.amount),0);
     const variable = S.expenses.filter(e=>e.group!=="fixed").reduce((s,e)=>s+num(e.amount),0);
-    const ps = S.products.filter(p=>num(p.cost)>0);
+    const ps = S.products.filter(p=>num(p.cost)>0 && priceOf(p)>0);
     const avgM = ps.length ? ps.reduce((s,p)=>s+marginOf(p),0)/ps.length : 0;
     const be = avgM>0 ? (fixed+variable)/avgM : 0;
-    return {fixed, variable, avgM, be};
+    return {fixed, variable, avgM, be, coverage:ps.length, total:S.products.length};
   }
 
   function overview(){
@@ -307,12 +316,18 @@
       <td class="catalog-actions"><button class="btn soft" data-edit-product="${esc(p.id)}" aria-label="Редагувати ${esc(p.name)}">Редагувати</button></td></tr>`;
     }).join('')}</tbody></table><nav class="catalog-pagination" aria-label="Сторінки каталогу"><span class="muted">${start+1}–${Math.min(start+S.catalogPageSize,list.length)} із ${list.length}</span><label class="inl">На сторінці <select id="catalogPageSize">${[10,20,50].map(n=>`<option value="${n}" ${n===S.catalogPageSize?'selected':''}>${n}</option>`).join('')}</select></label><div class="row"><button class="btn soft" data-page="${S.catalogPage-1}" ${S.catalogPage===1?'disabled':''}>Попередня</button><span class="muted" aria-live="polite">${S.catalogPage} / ${pages}</span><button class="btn soft" data-page="${S.catalogPage+1}" ${S.catalogPage===pages?'disabled':''}>Наступна</button></div></nav>`;
   }
-  function products(){
-    const f=S.F.prod;
-    return `<section class="panel"><div class="row between gap-lg"><h3>Каталог товарів</h3><button class="btn rasp" data-act="newProduct">Додати товар</button></div>${filterBar(f)}<div id="prodList">${productList(filtered(f))}</div></section>
-    <details class="panel disclosure" data-disclosure="import"><summary>Імпорт товарів із CSV або Excel</summary><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></details>
+  function reactFilteredProducts(){
+    const f=window.ReactCatalog.filters();
+    return S.products.filter(p=>f.q.trim().toLocaleLowerCase('uk-UA').split(/\s+/).every(word=>String(p.name||'').toLocaleLowerCase('uk-UA').includes(word)||String(p.barcode||'').toLocaleLowerCase('uk-UA').includes(word)) && (!f.type||p.type===f.type) && (!f.category||p.category===f.category) && (!f.pack||p.pack===f.pack) && (!f.promotion||(f.promotion==='yes')===!!p.promotion));
+  }
+  function productTools(){
+    return `<details class="panel disclosure" data-disclosure="import"><summary>Імпорт товарів із CSV або Excel</summary><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></details>
     <details class="panel disclosure" data-disclosure="sheets"><summary>Спільна Google-таблиця</summary><div id="linkBox">${linkInner()}</div></details>
     <details class="panel disclosure" data-disclosure="bulk"><summary>Масове оновлення націнки та округлення</summary><div class="row"><label class="form-field">Націнка, %<input id="bulkM" type="number" value="${defMarkup()}"></label><label class="form-field">Застосувати до<select id="bulkC"><option value="">Усі товари</option><option value="__f">Показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><button class="btn" data-act="bulk">Оновити ціни</button><label class="form-field">Округлення<select id="rounding">${[[0.01,'До копійки'],[0.1,'До 10 коп.'],[0.5,'До 50 коп.'],[1,'До гривні']].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?'selected':''}>${l}</option>`).join('')}</select></label></div></details>`;
+  }
+  function products(){
+    const f=S.F.prod;
+    return `<section class="panel"><div class="row between gap-lg"><h3>Каталог товарів</h3><button class="btn rasp" data-act="newProduct">Додати товар</button></div>${filterBar(f)}<div id="prodList">${productList(filtered(f))}</div></section>${productTools()}`;
   }
   function openProduct(id){
     const p=S.products.find(x=>x.id===id)||{name:'',cost:0,markup:defMarkup(),unit:'шт'}, d=$('#productEditor');
@@ -994,8 +1009,10 @@
       const r=rows[i]; if(!r || !cell(r,'name')) continue;
       const id=cell(r,'id').replace(/^'/,''); if(!id) continue;
       if(seenIds.has(id)) return {error:`ID «${id}» повторюється в таблиці (рядок ${i+1}). Виправте дубль перед синхронізацією.`};
+      if(!byId.has(id)) return {error:`Невідомий ID «${id}» у рядку ${i+1}. Синхронізацію зупинено: відсутність товару не підтверджує видалення рядка.`};
       seenIds.add(id);
     }
+    for(const p of all) if(p.gsBase && !p.hidden && !seenIds.has(p.id)) return {error:`У таблиці немає товару «${p.name}» (ID ${p.id}). Перевірте аркуш та повноту даних; автоматичне приховування зупинено.`};
     const claimed = new Set(), pending = [];
     const handle = (r, i, p) => {
       const s = fromSheet(r), a = fromApp(p), b = p.gsBase || null, m = {};
@@ -1021,7 +1038,7 @@
       plan.n++;
       const id = cell(r,"id").replace(/^'/,"");
       if (id && byId.has(id) && !claimed.has(id)){ claimed.add(id); handle(r, i, byId.get(id)); return; }
-      if (id && !byId.has(id)){ plan.clears.push(i+1); plan.n--; return; } // товар видалили в застосунку
+      if (id && !byId.has(id)) return; // unknown IDs are rejected before any writes
       pending.push([r, i]);
     });
     const byName = new Map(); all.forEach(p=>{ if (!claimed.has(p.id) && !p.hidden){ const k = env.norm(p.name); if (!byName.has(k)) byName.set(k, p); } });
@@ -1036,7 +1053,7 @@
     }
     for (const p of all){
       if (claimed.has(p.id) || p.hidden) continue;
-      if (p.gsBase){ plan.dbUpdates.push({id:p.id, patch:{hidden:true}}); continue; } // рядок видалили в таблиці
+      if (p.gsBase) continue; // missing rows are rejected before any writes
       const a = fromApp(p);
       plan.appends.push(rowOut(a, p.id, env.priceOf(p), p.priceAt || ""));
       plan.dbUpdates.push({id:p.id, patch:{gsBase:a}});
@@ -1123,7 +1140,7 @@
       </div>
       <div class="be">${t.be ? `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div>
         <div class="big num">${money0(t.be)} грн на місяць</div>
-        <div class="muted">≈ ${money0(t.be/30)} грн на день${(S.settings.stores||1)>1?` · ≈ ${money0(t.be/30/(S.settings.stores||1))} грн на день з кожного магазину`:""}. Розрахунок за середньою маржею ${Math.round(t.avgM*100)}%.</div>`
+        <div class="muted">≈ ${money0(t.be/30)} грн на день${(S.settings.stores||1)>1?` · ≈ ${money0(t.be/30/(S.settings.stores||1))} грн на день з кожного магазину`:""}. Орієнтовний розрахунок за рівною часткою товарів: ${Math.round(t.avgM*100)}% маржі. Враховано ${t.coverage} із ${t.total} товарів. Це модель каталогу; фактична точка беззбитковості потребує структури продажів і змінних витрат.</div>`
         : `<div>Точка беззбитковості з’явиться, коли будуть суми витрат і товари з цінами.</div>`}</div>
     </section>`;
   }
@@ -1158,7 +1175,7 @@
       add("tasks",{title:v,scope:"development",stage:st,status:"todo",order:Date.now()},"Задачу додано"); }
     if (a==="addIdea"){ const v=$("#newIdea").value.trim(); if(!v) return; add("ideas",{title:v,text:"Ідея власника",reaction:null,order:Date.now(),byOwner:true},"Ідею записано"); }
     if (a==="clearEx"){ if(confirm("Прибрати всі товари-приклади?")) S.products.filter(p=>p.example).reduce((pr,p)=>pr.then(()=>del("products",p.id)),Promise.resolve()).then(()=>toast("Приклади прибрано")); }
-    if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? filtered(S.F.prod) : S.products.filter(p=>!c||p.category===c);
+    if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? (window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)) : S.products.filter(p=>!c||p.category===c);
       if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
       (async()=>{ for(const p of list) await upd("products",p.id,{markup:m,manualPrice:false,price:null,priceAt:today()}); if(!c) await setDoc("settings/main",{defaultMarkup:m}); toast("Ціни перераховано"); })(); }
     if (a==="addProd"){ const n=$("#npName").value.trim(); if(!n) return;

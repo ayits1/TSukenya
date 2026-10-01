@@ -10,7 +10,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const stages = [
   'React: types, lint, format, API tests, synchronization, builds, Storybook, Linux visual comparison',
   'Django: all server tests on disposable PostgreSQL, including concurrency',
-  'Current portal: catalogue, labels and printing',
+  'Current portal: React catalogue conflicts, labels and printing',
   'Current CRM: trading workflows and payroll',
   'Current layout: Chromium, including browser zoom',
   'Current layout: WebKit',
@@ -31,7 +31,7 @@ if (args.includes('--plan')) {
 const isolatedEnv = { ...process.env };
 for (const key of ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD',
   'DATABASE_URL', 'DATA_DIR', 'ERP_DB_PATH', 'OWNER_USERNAME', 'OWNER_PASSWORD_HASH',
-  'DJANGO_SETTINGS_MODULE', 'DJANGO_SECRET_KEY', 'QA_BROWSER', 'QA_ZOOM_ONLY']) {
+  'DJANGO_SETTINGS_MODULE', 'DJANGO_SECRET_KEY', 'QA_BROWSER', 'QA_ZOOM_ONLY', 'QA_LAYOUT_ONLY', 'QA_FILTERS_ONLY']) {
   delete isolatedEnv[key];
 }
 isolatedEnv.DJANGO_SECRET_KEY = 'isolated-full-check-only-secret-with-more-than-fifty-characters';
@@ -144,7 +144,10 @@ try {
     });
   });
   await removePostgres();
-  await stage(2, () => run('node', ['tests/portal-ui.cjs'], { env: browserEnv }));
+  await stage(2, async () => {
+    await run('node', ['tests/catalog-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/portal-ui.cjs'], { env: browserEnv });
+  });
   await stage(3, () => run('node', ['tests/crm-ui.cjs'], { env: browserEnv }));
   await stage(4, () => run('node', ['tests/layout-ui.cjs'], { env: browserEnv }));
   await stage(5, () => run('node', ['tests/layout-ui.cjs'], { env: { ...browserEnv, QA_BROWSER: 'webkit' } }));
