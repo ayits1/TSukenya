@@ -1,0 +1,39 @@
+name: Frontend quick checks
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.npmrc'
+      - '.nvmrc'
+      - '.github/workflows/quick-quality.yml'
+  push:
+    branches: [main, master]
+    paths:
+      - 'frontend/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.npmrc'
+      - '.nvmrc'
+      - '.github/workflows/quick-quality.yml'
+permissions:
+  contents: read
+concurrency:
+  group: quick-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check:frontend
+      - run: npm run test:frontend

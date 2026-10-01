@@ -23,7 +23,8 @@
     "test:frontend": "npm run test --workspace frontend",
     "test:components": "npm run test:components --workspace frontend",
     "test:visual": "npm run test:visual --workspace frontend",
-    "test:visual:update": "npm run test:visual:update --workspace frontend"
+    "test:visual:update": "npm run test:visual:update --workspace frontend",
+    "test:full": "node scripts/full-check.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

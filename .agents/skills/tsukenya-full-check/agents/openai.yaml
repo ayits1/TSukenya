@@ -1,0 +1,6 @@
+interface:
+  display_name: "TSukenya: повна перевірка"
+  short_description: "Один явний прогін повної регресії TSukenya"
+  default_prompt: "Use $tsukenya-full-check to run one full TSukenya regression and report its result."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,169 @@
+// Explicit full regression entrypoint. Ordinary development uses targeted checks.
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const stages = [
+  'React: types, lint, format, API tests, synchronization, builds, Storybook, Linux visual comparison',
+  'Django: all server tests on disposable PostgreSQL, including concurrency',
+  'Current portal: catalogue, labels and printing',
+  'Current CRM: trading workflows and payroll',
+  'Current layout: Chromium, including browser zoom',
+  'Current layout: WebKit',
+  'Standalone workspace prototype',
+];
+const args = process.argv.slice(2);
+if (args.some(arg => arg !== '--plan') || args.length > 1) {
+  console.error('Usage: npm run test:full [-- --plan]');
+  process.exit(2);
+}
+stages.forEach((stage, index) => console.log(`${index + 1}. ${stage}`));
+if (args.includes('--plan')) {
+  console.log('Plan only: no tests, containers, downloads or database connections.');
+  process.exit(0);
+}
+
+// Never inherit a database connection, data directory or owner account from a deployment shell.
+const isolatedEnv = { ...process.env };
+for (const key of ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD',
+  'DATABASE_URL', 'DATA_DIR', 'ERP_DB_PATH', 'OWNER_USERNAME', 'OWNER_PASSWORD_HASH',
+  'DJANGO_SETTINGS_MODULE', 'DJANGO_SECRET_KEY', 'QA_BROWSER', 'QA_ZOOM_ONLY']) {
+  delete isolatedEnv[key];
+}
+isolatedEnv.DJANGO_SECRET_KEY = 'isolated-full-check-only-secret-with-more-than-fifty-characters';
+const python = process.env.PYTHON_BIN || (existsSync(join(root, '.venv/bin/python')) ? join(root, '.venv/bin/python') : 'python3');
+let current;
+let interrupted = false;
+const report = { startedAt: new Date().toISOString(), status: 'running', stages: [] };
+
+function stopChild(child, signal = 'SIGTERM') {
+  if (!child?.pid) return;
+  try {
+    if (process.platform === 'win32') child.kill(signal);
+    else process.kill(-child.pid, signal);
+  } catch (error) { if (error.code !== 'ESRCH') throw error; }
+}
+
+function run(command, commandArgs, { env = isolatedEnv, capture = false, timeout = 30 * 60_000 } = {}) {
+  return new Promise((accept, reject) => {
+    if (interrupted) return reject(new Error('Interrupted; no further stages will run.'));
+    const child = spawn(command, commandArgs, { cwd: root, env, detached: process.platform !== 'win32', stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit' });
+    current = child;
+    let output = '', errors = '';
+    if (capture) {
+      child.stdout.on('data', data => { output += data; });
+      child.stderr.on('data', data => { errors += data; });
+    }
+    let killTimer;
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      stopChild(child);
+      killTimer = setTimeout(() => stopChild(child, 'SIGKILL'), 5000);
+    }, timeout);
+    child.once('error', error => { clearTimeout(timer); clearTimeout(killTimer); current = undefined; reject(error); });
+    child.once('close', (code, signal) => {
+      clearTimeout(timer); clearTimeout(killTimer); current = undefined;
+      if (code === 0 && !timedOut && !interrupted) accept(output.trim());
+      else reject(new Error(`${command} failed (${timedOut ? 'timeout' : signal || code}). ${errors.trim()}`));
+    });
+  });
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
+  interrupted = true;
+  const child = current;
+  stopChild(child);
+  if (child) {
+    const timer = setTimeout(() => stopChild(child, 'SIGKILL'), 5000);
+    child.once('close', () => clearTimeout(timer));
+  }
+});
+
+async function stage(index, action) {
+  console.log(`\n=== ${stages[index]} ===`);
+  const entry = { name: stages[index], status: 'running' };
+  report.stages.push(entry);
+  try { await action(); entry.status = 'passed'; }
+  catch (error) { entry.status = 'failed'; throw error; }
+}
+
+let data;
+const postgresName = `tsukenya-full-check-${randomUUID()}`;
+let postgresStarted = false;
+async function removePostgres() {
+  if (!postgresStarted) return;
+  try { await run('docker', ['rm', '-f', '-v', postgresName], { capture: true, timeout: 15_000 }); }
+  catch (error) {
+    // A failed/interrupted docker run may not have created its named container.
+    if (!error.message.includes('No such container')) throw error;
+  }
+  postgresStarted = false;
+}
+try {
+  // Fail before the expensive run when a prerequisite is missing.
+  await run('docker', ['info', '--format', '{{.ServerVersion}}'], { capture: true, timeout: 15_000 });
+  await run(python, ['-c', 'import django, psycopg'], { capture: true, timeout: 15_000 });
+  const { chromium, webkit } = await import('playwright');
+  const systemChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const chromePath = process.env.CHROME_PATH || (existsSync(systemChrome) ? systemChrome : chromium.executablePath());
+  if (!existsSync(chromePath) || !existsSync(webkit.executablePath())) {
+    throw new Error('Install local browsers first: npm exec -- playwright install chromium webkit');
+  }
+  data = mkdtempSync(join(tmpdir(), 'tsukenya-full-check-'));
+  const browserEnv = { ...isolatedEnv, PYTHON_BIN: python, CHROME_PATH: chromePath };
+  await stage(0, () => run('bash', ['scripts/frontend-qa.sh', 'check']));
+  await stage(1, async () => {
+    postgresStarted = true;
+    await run('docker', ['run', '-d', '--rm', '--name', postgresName,
+      '-p', '127.0.0.1::5432', '-e', 'POSTGRES_DB=tsukenya_test',
+      '-e', 'POSTGRES_USER=tsukenya_test', '-e', 'POSTGRES_PASSWORD=isolated-full-check',
+      'postgres:18-alpine'], { capture: true });
+    const binding = await run('docker', ['port', postgresName, '5432/tcp'], { capture: true });
+    const match = /^127\.0\.0\.1:(\d+)$/.exec(binding);
+    if (!match) throw new Error('Unexpected PostgreSQL binding; refused to connect.');
+    let ready = false;
+    for (let attempt = 0; attempt < 60 && !interrupted; attempt++) {
+      try {
+        await run('docker', ['exec', postgresName, 'pg_isready', '-U', 'tsukenya_test'], { capture: true, timeout: 5_000 });
+        ready = true; break;
+      } catch {
+        if (interrupted) break;
+        await new Promise(accept => setTimeout(accept, 1000));
+      }
+    }
+    if (!ready) throw new Error('Disposable PostgreSQL did not become ready.');
+    await run(python, ['manage.py', 'test', 'tests', '--noinput'], {
+      env: { ...isolatedEnv, DATA_DIR: data, ERP_DB_PATH: join(data, 'unused.sqlite3'),
+        DB_HOST: '127.0.0.1', DB_PORT: match[1], DB_NAME: 'tsukenya_test',
+        DB_USER: 'tsukenya_test', DB_PASSWORD: 'isolated-full-check' },
+    });
+  });
+  await removePostgres();
+  await stage(2, () => run('node', ['tests/portal-ui.cjs'], { env: browserEnv }));
+  await stage(3, () => run('node', ['tests/crm-ui.cjs'], { env: browserEnv }));
+  await stage(4, () => run('node', ['tests/layout-ui.cjs'], { env: browserEnv }));
+  await stage(5, () => run('node', ['tests/layout-ui.cjs'], { env: { ...browserEnv, QA_BROWSER: 'webkit' } }));
+  await stage(6, () => run('node', ['tests/workspace-ui.cjs'], { env: browserEnv }));
+  report.status = 'passed';
+  console.log('\nFull check passed. Each stage ran once.');
+} catch (error) {
+  report.status = interrupted ? 'interrupted' : 'failed';
+  console.error(error.message);
+  process.exitCode = 1;
+} finally {
+  // Permit cleanup even after an interrupt. Remove only this invocation's container.
+  interrupted = false;
+  if (postgresStarted) {
+    try { await removePostgres(); }
+    catch { console.error(`Cleanup failed; remove the test container: ${postgresName}`); process.exitCode = 1; report.status = 'failed'; }
+  }
+  if (data) rmSync(data, { recursive: true, force: true });
+  report.finishedAt = new Date().toISOString();
+  mkdirSync(join(root, 'test-results'), { recursive: true });
+  writeFileSync(join(root, 'test-results/full-check.json'), JSON.stringify(report, null, 2) + '\n');
+}

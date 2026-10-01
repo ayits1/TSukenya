@@ -9,5 +9,6 @@ frontend/storybook-static
 frontend/test-results
 frontend/playwright-report
 frontend/coverage
+test-results
 **/__pycache__
 **/*.pyc

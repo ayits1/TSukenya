@@ -33,6 +33,8 @@ Use explicit variants and composition when behaviors diverge. Keep business requ
 
 ## Verification and maintenance
 
+Fast development is the default. Read [development modes](../../../docs/DEVELOPMENT-MODES.md) and choose checks for the changed behavior. Reuse successful results while their inputs remain unchanged; do not run Docker or the full browser matrix for ordinary edits. Full regression is an explicit user-requested mode with one entrypoint, `npm run test:full`; route it to the sibling `tsukenya-full-check` skill. After a failure, retry the affected stage rather than automatically repeating the entire suite.
+
 Run checks proportional to the changed behavior using the commands in the frontend reference. Shared controls require their stories, interaction checks and layout/accessibility verification. Accounting changes require the relevant server scenarios, including concurrent/repeated posting where affected. Test business mutations only against isolated data.
 
 Use the fixed Linux QA image for canonical visual baselines. Inspect changes before updating PNGs; retain failure artifacts. Record what was checked and what remains unverified, such as physical printing, screen readers or load capacity.

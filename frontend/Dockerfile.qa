@@ -8,5 +8,6 @@ COPY frontend/ frontend/
 COPY tests/sync-sim.js tests/sync-harness.js tests/
 COPY tests/fixtures/ tests/fixtures/
 COPY app/portal.js app/portal.js
-RUN npm run check:frontend && npm run test:frontend && npm test && npm run build:frontend && npm run build:storybook
+# check:frontend already checked TypeScript; build Vite without repeating tsc.
+RUN npm run check:frontend && npm run test:frontend && npm test && npm exec --workspace frontend -- vite build && npm run build:storybook
 CMD ["sh", "-c", "npm run test:components && npm run test:visual"]
