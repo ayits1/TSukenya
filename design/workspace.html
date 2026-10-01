@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f6f7">
+  <title>Цукерня · Робочий простір</title>
+  <link rel="stylesheet" href="../app/ui.css">
+  <link rel="stylesheet" href="workspace.css">
+  <script src="workspace.js" defer></script>
+</head>
+<body class="ui-root">
+  <a class="ui-button ui-skip" href="#main">Перейти до каталогу</a>
+  <div class="w-shell">
+    <aside class="w-sidebar" aria-label="Навігація порталу">
+      <a class="w-brand" href="workspace.html">Цукерня<span>Робочий простір</span></a>
+      <nav aria-label="Розділи">
+        <p class="w-nav-heading">Торгівля</p>
+        <a class="w-nav-link" href="#catalog" aria-current="page">Товари</a>
+        <span class="w-nav-future">Закупівлі</span><span class="w-nav-future">Склад</span>
+        <span class="w-nav-future">Продажі та каса</span><span class="w-nav-future">Цінники</span>
+        <p class="w-nav-heading">Управління</p>
+        <span class="w-nav-future">Фінанси</span><span class="w-nav-future">Команда</span><span class="w-nav-future">Поточні задачі</span>
+        <p class="w-nav-heading">Розвиток бізнесу</p>
+        <span class="w-nav-future">Ідеї та план</span>
+      </nav>
+      <p class="w-sidebar-note">Огляд дизайну<br>Доступний каталог товарів</p>
+    </aside>
+    <div class="w-content">
+      <header class="w-topbar"><span>Основний магазин</span><span class="w-demo">Демонстраційні товари</span></header>
+      <main id="main" class="w-main">
+        <div class="w-heading"><div><p class="w-eyebrow">Торгівля / Каталог</p><h1>Товари</h1><p class="ui-muted">Асортимент, ціни та акції магазину</p></div><button class="ui-button ui-button--primary" id="newProduct" type="button">Додати товар</button></div>
+        <section class="w-catalog" aria-label="Каталог товарів" id="catalog">
+          <form class="w-toolbar" id="filters" role="search">
+            <label class="ui-field w-search">Пошук<input class="ui-input" id="search" name="search" type="search" placeholder="Назва товару…" autocomplete="off"></label>
+            <label class="ui-field">Категорія<select class="ui-select" id="category" name="category"><option value="">Усі категорії</option></select></label>
+            <label class="ui-field">Акція<select class="ui-select" id="promotion" name="promotion"><option value="all">Усі товари</option><option value="promo">Акційні</option><option value="regular">Без акції</option></select></label>
+          </form>
+          <p class="w-result ui-muted" id="result" role="status" aria-live="polite"></p>
+          <table class="w-table"><caption class="ui-sr-only">Товари, закупівельні ціни, ціни продажу та акції</caption><colgroup><col class="w-col-name"><col class="w-col-money"><col class="w-col-money"><col class="w-col-promo"><col class="w-col-action"></colgroup><thead><tr><th scope="col">Товар</th><th scope="col" class="w-money">Закупівля, ₴</th><th scope="col" class="w-money">Продаж, ₴</th><th scope="col">Акція</th><th scope="col"><span class="ui-sr-only">Дії з товаром</span></th></tr></thead><tbody id="productRows"></tbody></table>
+          <div id="empty" class="w-empty" hidden><h2>Товарів не знайдено</h2><p class="ui-muted">Спробуйте іншу назву або очистьте фільтри.</p><button class="ui-button" type="button" id="resetFilters">Очистити фільтри</button></div>
+          <footer class="w-catalog-footer"><span>Демонстраційні ціни · грн</span><span>Зміни діють у поточному перегляді</span></footer>
+        </section>
+      </main>
+    </div>
+  </div>
+  <dialog class="ui-dialog" id="editor" aria-labelledby="editorTitle">
+    <form id="productForm">
+      <div class="w-editor-heading"><h2 id="editorTitle">Редагувати товар</h2><button class="ui-button" type="button" id="closeEditor" aria-label="Закрити редактор товару">Закрити</button></div>
+      <p class="ui-muted w-editor-note">Характеристики й ціни в одному місці</p>
+      <label class="ui-field">Назва товару<input class="ui-input" name="name" required maxlength="250" autocomplete="off"></label>
+      <label class="ui-field">Категорія<select class="ui-select" name="category" required></select></label>
+      <label class="ui-field">Пакування / вага<input class="ui-input" name="pack" required maxlength="120" autocomplete="off"></label>
+      <div class="w-price-fields"><label class="ui-field">Закупівля, грн<input class="ui-input ui-number" name="cost" type="number" inputmode="decimal" min="0" max="9999999.99" step="0.01" required></label><label class="ui-field">Продаж, грн<input class="ui-input ui-number" name="price" type="number" inputmode="decimal" min="0" max="9999999.99" step="0.01" required></label></div>
+      <label class="ui-check w-promotion-field"><input name="promo" type="checkbox">Позначити як акційний товар</label>
+      <p id="editorError" class="ui-error" role="alert"></p>
+      <p class="ui-field-hint">Це огляд дизайну. Товари робочого магазину не змінюються.</p>
+      <div class="ui-dialog-actions"><button class="ui-button" type="button" id="cancelEditor">Скасувати</button><button class="ui-button ui-button--primary" type="submit">Застосувати в перегляді</button></div>
+    </form>
+  </dialog>
+</body>
+</html>

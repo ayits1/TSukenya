@@ -1,5 +1,5 @@
 const fs=require('fs');
-const html=fs.readFileSync(process.argv[2]||__dirname+'/../app/index.html','utf8');
+const html=fs.readFileSync(process.argv[2]||__dirname+'/../app/portal.js','utf8');
 const src=html.match(/\/\* SYNC-ENGINE-START \*\/[\s\S]*?\/\* SYNC-ENGINE-END \*\//)[0];
 const S={settings:{rounding:0.5,defaultMarkup:30}};
 const norm = v => String(v ?? "").toLowerCase().replace(/[.,:;()№]/g, " ").replace(/\s+/g, " ").trim();

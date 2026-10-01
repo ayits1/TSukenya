@@ -226,6 +226,8 @@ def handle(request):
         LedgerLock.objects.get(pk=1)
         return response({'status':'ok','storage':'relational','version':'crm-2'})
     if path=='/favicon.svg':return HttpResponse(FAVICON,content_type='image/svg+xml')
+    if path=='/ui.css' and request.method in {'GET','HEAD'}:
+        return HttpResponse((ROOT/'app/ui.css').read_bytes(),content_type='text/css')
     if path=='/api/login' and request.method=='POST':
         value=body(request)
         require(request.headers.get('Origin') in {f'http://{request.get_host()}',f'https://{request.get_host()}'},'Непідтверджений запит входу.')
@@ -258,13 +260,13 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script>','<link rel="stylesheet" href="/erp.css"><script src="/runtime.js"></script><script src="/erp.js"></script>\n<script>',1)
+        html=(ROOT/'app/index.html').read_text().replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
         return HttpResponse(html)
     if path=='/account' and not request.portal_user:
         result=HttpResponse(status=302);result['Location']='/';return result
     user=auth(request)
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/erp.js','/erp.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/erp.js','/erp.css','/portal.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
