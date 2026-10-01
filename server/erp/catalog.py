@@ -14,7 +14,7 @@ from .services import require, dec, day, ledger_lock, audit
 
 EDIT_ROLES = {'owner', 'manager', 'warehouse'}
 TEXT_FIELDS = {'name': 250, 'type': 160, 'category': 160, 'pack': 160, 'size': 160, 'unit': 30, 'barcode': 80}
-PRICE_FIELDS = {'cost', 'markup', 'price', 'manualPrice'}
+PRICE_FIELDS = {'cost', 'markup', 'price', 'manualPrice', 'promotionPrice'}
 
 
 def revision(document, config=None):
@@ -38,15 +38,39 @@ def decimal(value):
         return Decimal(0)
 
 
+def regular_price(data, config=None):
+    """Current regular price, before an optional explicit promotion discount."""
+    config = defaults() if config is None else config
+    if data.get('manualPrice'):
+        price = decimal(data.get('price'))
+    else:
+        price = decimal(data.get('cost')) * (1 + decimal(data.get('markup', config['markup'])) / 100)
+        rounding = config['rounding'] if config['rounding'] > 0 else Decimal('.5')
+        price = (price / rounding).to_integral_value(rounding=ROUND_CEILING) * rounding
+    return price.quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+
+
+def promotion_amount(data):
+    value = data.get('promotionPrice')
+    if value is None: return None
+    # Reads tolerate existing malformed legacy records; writes validate strictly.
+    try:
+        amount = Decimal(str(value).replace(',', '.'))
+        if not amount.is_finite() or not Decimal(0) < amount <= Decimal('99999999.99'): return None
+        rounded = amount.quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+        return rounded if amount == rounded else None
+    except (InvalidOperation, ValueError):
+        return None
+
+
 def serialize(document, user, config):
     data = document.data
     cost = decimal(data.get('cost'))
     markup = decimal(data.get('markup', config['markup']))
     manual = bool(data.get('manualPrice'))
-    price = decimal(data.get('price')) if manual else cost * (1 + markup / 100)
-    if not manual:
-        rounding = config['rounding'] if config['rounding'] > 0 else Decimal('.5')
-        price = (price / rounding).to_integral_value(rounding=ROUND_CEILING) * rounding
+    regular = regular_price(data, config)
+    promotion = promotion_amount(data)
+    price = promotion if data.get('promotion') and promotion is not None and 0 < promotion < regular else regular
     private = user.profile.role != 'cashier'
     return {
         'id': document.path.split('/', 1)[1], 'revision': revision(document, config),
@@ -54,7 +78,9 @@ def serialize(document, user, config):
         'cost': format(cost, 'f') if private else None,
         'markup': format(markup, 'f') if private else None,
         'price': format(decimal(data.get('price')), 'f') if manual else None,
-        'salePrice': format(price.quantize(Decimal('.01'), rounding=ROUND_HALF_UP), 'f'),
+        'regularPrice': format(regular, 'f'),
+        'promotionPrice': format(promotion, 'f') if promotion is not None else None,
+        'salePrice': format(price, 'f'),
         'manualPrice': manual, 'promotion': bool(data.get('promotion')),
         'priceAt': str(data.get('priceAt') or ''), 'minStock': format(decimal(data.get('minStock')), 'f'),
     }
@@ -127,9 +153,9 @@ def save_product(request, user, identifier=None):
             require(isinstance(value[key], str) and len(value[key].strip()) <= maximum, f'{key}: некоректний текст.')
             data[key] = value[key].strip()
     if 'minStock' in value: data['minStock'] = float(dec(value['minStock'], 'Мінімальний залишок', Decimal('.001')))
-    for key in ('cost', 'markup', 'price'):
+    for key in ('cost', 'markup', 'price', 'promotionPrice'):
         if key in value:
-            if key == 'price' and value[key] is None: data[key] = None
+            if key in {'price', 'promotionPrice'} and value[key] is None: data[key] = None
             else:
                 number = dec(value[key], key, Decimal('.0001') if key == 'markup' else Decimal('.01'))
                 require(number <= Decimal('99999999.99'), 'Число завелике.')
@@ -149,7 +175,11 @@ def save_product(request, user, identifier=None):
     config = defaults()
     def price_terms(item):
         manual = bool(item.get('manualPrice'))
-        return (decimal(item.get('cost')), decimal(item.get('markup', config['markup'])), manual, decimal(item.get('price')) if manual else Decimal(0))
+        return (decimal(item.get('cost')), decimal(item.get('markup', config['markup'])), manual, decimal(item.get('price')) if manual else Decimal(0), bool(item.get('promotion')), promotion_amount(item))
+    # A legacy badge-only record can receive metadata edits without inventing an old
+    # price. New promotions and pricing changes require an explicit discount.
+    if data.get('promotion') and data.get('promotionPrice') is None:
+        require(bool(old.get('promotion')) and old.get('promotionPrice') is None and price_terms(old) == price_terms(data), 'Вкажіть акційну ціну, меншу за звичайну.')
     if value.get('priceReviewed') or price_terms(old) != price_terms(data):
         data['priceAt'] = timezone.localdate().isoformat()
     validate_product(data, document.path)

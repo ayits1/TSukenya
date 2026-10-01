@@ -21,6 +21,7 @@ const product = adaptLabelProduct({
   category: 'Цукерки',
   size: '250',
   salePrice: '150.50',
+  regularPrice: '180.00',
   priceAt: '2026-10-01',
   promotion: true,
 });
@@ -82,6 +83,13 @@ describe('physical label domain', () => {
     expect(parts.store).toBe('Магазин №1');
     expect(parts.promo).toBe('Акція');
     expect(parts.price).toBe('150,50');
+    expect(parts.oldPrice).toBe('180,00 грн');
+    expect(
+      tagParts({ ...product, promotion: false }, defaultConfig(), settings, date).oldPrice,
+    ).toBe('');
+    expect(
+      tagParts(product, { ...defaultConfig(), oldPrice: false }, settings, date).oldPrice,
+    ).toBe('');
     expect(parts.per100).toBe('100 г — 15,05 грн');
     expect(parts.psize).toBe('вага 250 г');
     expect(parts.unit).toBe('грн за 1 кг');
@@ -167,6 +175,7 @@ describe('physical label domain', () => {
       noPrice: ['Без ціни'],
       stale: ['Без дати', 'Стара ціна'],
       overLimit: false,
+      incompletePromotion: ['Без ціни'],
     });
     expect(
       printIssues(
@@ -175,6 +184,17 @@ describe('physical label domain', () => {
         date,
       ).overLimit,
     ).toBe(true);
+  });
+  it('does not invent old prices for badge-only promotions and blocks ambiguous print output', () => {
+    const legacy = adaptLabelProduct({
+      name: 'Стара позначка',
+      promotion: true,
+      salePrice: '45.00',
+    });
+    expect(tagParts(legacy, defaultConfig(), settings, date).oldPrice).toBe('');
+    expect(printIssues([legacy], settings, date).incompletePromotion).toEqual(['Стара позначка']);
+    expect(decodeLabelConfig({ styleVersion: 2 }).oldPrice).toBe(true);
+    expect(labelConfigWarnings({ oldPrice: true, styles: { oldPrice: { size: 9 } } })).toEqual([]);
   });
   it('rejects invalid print quantities before expanding and flags newer layout properties', () => {
     expect(labelCopies([product], { synthetic: 22 })).toHaveLength(22);

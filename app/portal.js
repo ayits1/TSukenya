@@ -122,11 +122,17 @@
   /* ---------- pricing ---------- */
   const defMarkup = () => S.settings.defaultMarkup ?? 30;
   function roundPrice(x){ const r = S.settings.rounding ?? 0.5; const price=Math.ceil(x/r - 1e-9)*r;return price===0?0:price; }
-  function priceOf(p){
+  function regularPriceOf(p){
+    if (p.cost === undefined && p.regularPrice != null) return num(p.regularPrice);
     if (p.manualPrice && p.price != null) return num(p.price);
     const m = p.markup ?? defMarkup();
     return roundPrice(num(p.cost)*(1+num(m)/100));
   }
+  function priceOf(p){
+    const regular=regularPriceOf(p), discounted=num(p.promotionPrice);
+    return p.promotion && discounted>0 && discounted<regular ? discounted : regular;
+  }
+  const hasDiscount = p => p.promotion && priceOf(p)<regularPriceOf(p);
   const marginOf = p => { const pr = priceOf(p); return pr>0 ? (pr-num(p.cost))/pr : 0; };
 
   /* ---------- db writes ---------- */
@@ -320,7 +326,7 @@
       return `<tr><td class="catalog-name" data-label="Товар"><button class="product-name" data-edit-product="${esc(p.id)}">${esc(p.name)}</button><small>${esc(meta)}</small><span class="price-status ${st}">${st==='none'?'Немає ціни':st==='stale'?'Перевірте дату ціни':`Оновлено ${esc(new Date(p.priceAt).toLocaleDateString('uk-UA'))}`}</span></td>
       <td data-label="Закупівля, грн">${money(num(p.cost))}</td>
       <td data-label="Націнка, %">${num(p.markup??defMarkup()).toLocaleString("uk-UA")} %</td>
-      <td data-label="Продаж, грн"><strong class="num">${priceOf(p)>0?money(priceOf(p)):"—"}</strong><small>${p.manualPrice?'Ручна ціна':'За націнкою'}</small></td>
+      <td data-label="Продаж, грн"><strong class="num">${priceOf(p)>0?money(priceOf(p)):"—"}</strong>${hasDiscount(p)?`<small><s>${money(regularPriceOf(p))} грн</s> · Звичайна ціна</small>`:`<small>${p.manualPrice?'Ручна ціна':'За націнкою'}</small>`}</td>
       <td data-label="Акція"><label class="promotion-toggle"><input type="checkbox" data-promotion="${esc(p.id)}" ${p.promotion?'checked':''}><span>${p.promotion?'Акція':'Ні'}</span><span class="sr-only"> для ${esc(p.name)}</span></label></td>
       <td class="catalog-actions"><button class="btn soft" data-edit-product="${esc(p.id)}" aria-label="Редагувати ${esc(p.name)}">Редагувати</button></td></tr>`;
     }).join('')}</tbody></table><nav class="catalog-pagination" aria-label="Сторінки каталогу"><span class="muted">${start+1}–${Math.min(start+S.catalogPageSize,list.length)} із ${list.length}</span><label class="inl">На сторінці <select id="catalogPageSize">${[10,20,50].map(n=>`<option value="${n}" ${n===S.catalogPageSize?'selected':''}>${n}</option>`).join('')}</select></label><div class="row"><button class="btn soft" data-page="${S.catalogPage-1}" ${S.catalogPage===1?'disabled':''}>Попередня</button><span class="muted" aria-live="polite">${S.catalogPage} / ${pages}</span><button class="btn soft" data-page="${S.catalogPage+1}" ${S.catalogPage===pages?'disabled':''}>Наступна</button></div></nav>`;
@@ -349,7 +355,8 @@
       <label class="form-field">Одиниця продажу<select name="unit">${unitOpts(p.unit||'шт')}</select></label><label class="form-field">Дата перевірки ціни<input name="priceAt" type="date" value="${esc(p.priceAt||today())}"></label>
       <label class="form-field">Закупівля, грн<input name="cost" type="number" min="0" step="0.01" value="${num(p.cost)}"></label><label class="form-field">Націнка, %<input name="markup" type="number" min="0" step="0.1" value="${p.markup??defMarkup()}"></label>
       <label class="form-field">Розрахунок ціни<select name="priceMode"><option value="calculated" ${!p.manualPrice?'selected':''}>Закупівля + націнка</option><option value="manual" ${p.manualPrice?'selected':''}>Задати вручну</option></select></label><label class="form-field">Ручна ціна, грн<input name="price" type="number" min="0" step="0.01" value="${p.manualPrice?num(p.price):''}" ${p.manualPrice?'':'disabled'}></label>
-      <label class="promotion-toggle span-all"><input name="promotion" type="checkbox" ${p.promotion?'checked':''}><span>Акційний товар — показувати «Акція» на ціннику</span></label></div>
+      <label class="promotion-toggle span-all"><input name="promotion" type="checkbox" ${p.promotion?'checked':''}><span>Акційний товар — показувати «Акція» на ціннику</span></label>
+      <label class="form-field">Акційна ціна, грн<input name="promotionPrice" type="number" min="0.01" step="0.01" value="${p.promotionPrice==null?'':esc(p.promotionPrice)}"><small>Звичайна ціна зберігається окремо. Акційна ціна застосовується лише під час акції.</small></label></div>
       <p id="productError" class="form-error" role="alert"></p><div class="row between editor-footer"><div>${id?`<button type="button" class="btn danger" data-act="deleteEditedProduct">Видалити товар</button>`:''}</div><div class="row"><button type="button" class="btn soft" data-act="closeProduct">Скасувати</button><button type="submit" class="btn rasp">Зберегти товар</button></div></div></form>`;
     d.showModal(); d.querySelector('[name=name]').focus();
   }
@@ -362,14 +369,15 @@
   document.addEventListener('submit',async e=>{
     if(e.target.id!=='productForm')return;e.preventDefault();const f=e.target, v=Object.fromEntries(new FormData(f)),manual=v.priceMode==='manual';
     if(manual&&!v.price){$('#productError').textContent='Вкажіть ручну ціну або оберіть розрахунок за націнкою.';f.elements.price.focus();return;}
-    const payload={barcode:v.barcode.trim(),minStock:num(v.minStock),name:v.name.trim(),type:v.type,category:v.category.trim(),pack:v.pack||null,size:v.size.trim()||null,unit:v.unit,cost:num(v.cost),markup:num(v.markup),manualPrice:manual,price:manual?num(v.price):null,priceAt:v.priceAt||null,promotion:f.elements.promotion.checked};
+    const payload={barcode:v.barcode.trim(),minStock:num(v.minStock),name:v.name.trim(),type:v.type,category:v.category.trim(),pack:v.pack||null,size:v.size.trim()||null,unit:v.unit,cost:num(v.cost),markup:num(v.markup),manualPrice:manual,price:manual?num(v.price):null,priceAt:v.priceAt||null,promotion:f.elements.promotion.checked,promotionPrice:v.promotionPrice?num(v.promotionPrice):null};
+    if(payload.promotion && payload.promotionPrice!=null && !(payload.promotionPrice>0 && payload.promotionPrice<regularPriceOf(payload))){$('#productError').textContent='Акційна ціна має бути більшою за нуль і нижчою за звичайну.';f.elements.promotionPrice.focus();return;}
     if(!payload.name)return;const b=f.querySelector('[type=submit]');b.disabled=true;b.textContent='Збереження…';
     try{if(S.productEditId)await db.collection('products').doc(S.productEditId).update(payload);else await db.collection('products').add(payload);S.editDirty=false;$('#productEditor').close();toast('Товар збережено');}catch(err){$('#productError').textContent=err.message||'Не вдалося зберегти товар.';}finally{b.disabled=false;b.textContent='Зберегти товар';}
   });
 
   /* ---------- price tags ---------- */
-  const TAG_DEF = {size:"s", border:"dash", chain:true, store:true, storeIdx:0, name:true, nameBig:false, pack:true, psize:true, price:true, kop:false, unit:true, per100:true, category:true, date:true, custom:"",customEnabled:true,promo:true};
-  const TAG_EL = [["chain","Назва мережі"],["store","Назва магазину"],["name","Назва товару"],["pack","Тип пакування"],["psize","Об’єм / вага"],["price","Ціна"],["unit","Одиниця (грн за 1 шт/кг)"],["per100","Ціна за 100 г (вагові)"],["category","Категорія"],["date","Дата"]];
+  const TAG_DEF = {size:"s", border:"dash", chain:true, store:true, storeIdx:0, name:true, nameBig:false, pack:true, psize:true, price:true, oldPrice:true, kop:false, unit:true, per100:true, category:true, date:true, custom:"",customEnabled:true,promo:true};
+  const TAG_EL = [["chain","Назва мережі"],["store","Назва магазину"],["name","Назва товару"],["pack","Тип пакування"],["psize","Об’єм / вага"],["price","Ціна"],["oldPrice","Звичайна ціна"],["unit","Одиниця (грн за 1 шт/кг)"],["per100","Ціна за 100 г (вагові)"],["category","Категорія"],["date","Дата"]];
   const TAG_SIZES = {s:[58,40,"малий 58×40 мм"], m:[75,50,"середній 75×50 мм"], l:[100,70,"великий 100×70 мм"]};
   function tagCfg(){
     const c=Object.assign({},TAG_DEF,S.settings.tag||{}),k=c.size==='l'?1.65:c.size==='m'?1.25:1;
@@ -380,7 +388,7 @@
   const TAG_STYLE_DEFAULT = {
     promo:[8,'#9A3412','700','left'], chain:[7,'#777777','400','left'], store:[7,'#777777','400','right'], custom:[8,'#c2185b','700','left'],
     name:[10,'#1c1c1c','600','left'], pack:[7.5,'#555555','400','left'], psize:[7.5,'#555555','400','left'],
-    price:[22,'#1c1c1c','700','left'], unit:[8,'#444444','400','left'], per100:[8,'#444444','400','left'],
+    price:[22,'#1c1c1c','700','left'], oldPrice:[10,'#555555','400','left'], unit:[8,'#444444','400','left'], per100:[8,'#444444','400','left'],
     category:[7,'#777777','400','left'], date:[7,'#777777','400','right']
   };
   const clamp = (n,min,max) => Math.max(min, Math.min(max, Number(n)||min));
@@ -392,7 +400,7 @@
   }
   function fieldAttr(c,key){
     const s=fieldStyle(c,key);
-    return `data-field="${key}" style="font-family:${TAG_FONT[s.font]};font-size:${s.size}pt;font-weight:${s.weight};color:${s.color};text-align:${s.align}"`;
+    return `data-field="${key}" style="font-family:${TAG_FONT[s.font]};font-size:${s.size}pt;font-weight:${s.weight};color:${s.color};text-align:${s.align}${key==='oldPrice'?';text-decoration:line-through':''}"`;
   }
   const storeNames = () => Array.isArray(S.settings.storeNames) ? S.settings.storeNames : [];
   const PACK_LBL = {"ПЕТ":"Пляшка ПЕТ", "Скло":"Скляна пляшка", "Ваговий":"На вагу", "Штучно":"Поштучно"};
@@ -418,6 +426,7 @@
       name: c.name ? (p.name||"") : "",
       pack: c.pack ? packLabel(p.pack) : "", size:c.psize ? sizeLabel(p) : "",
       price: c.price ? priceTxt : "",
+      oldPrice: c.oldPrice && hasDiscount(p) ? money(regularPriceOf(p))+" грн" : "",
       unit: c.unit ? unitPhrase(p.unit) : "", per100:c.per100 && kg && pr>0 ? `100 г — ${money(pr/10)} грн` : "",
       category: c.category ? (p.category||"") : "",
       date: c.date ? new Date().toLocaleDateString("uk-UA") : ""
@@ -429,7 +438,7 @@
     return `<div class="tag ${TAG_SIZES[c.size]?c.size:'s'} b-${['dash','solid','none'].includes(c.border)?c.border:'dash'}" data-product="${esc(p.id||'sample')}"><div class="t-top">
       ${t.hl||t.hr ? `<div class="t-hd">${el('chain','',t.hl)}${el('store','',t.hr)}</div>` : ""}
       ${el('promo','t-promo',t.promo)}${el('custom','t-cu',t.custom)}${el('name','nm',t.name)}${el('pack','t-pk',t.pack)}${el('psize','t-size',t.size)}</div>
-      <div class="t-bottom">${t.price ? `<div class="pr" ${fieldAttr(c,'price')}>${esc(t.price)}${c.unit?'':`<small>грн</small>`}</div>` : ""}
+      <div class="t-bottom">${el('oldPrice','t-old-price',t.oldPrice)}${t.price ? `<div class="pr" ${fieldAttr(c,'price')}>${esc(t.price)}${c.unit?'':`<small>грн</small>`}</div>` : ""}
       ${el('unit','un',t.unit)}${el('per100','per100',t.per100)}
       ${t.category||t.date ? `<div class="ft">${el('category','',t.category)}${el('date','',t.date)}</div>` : ""}</div></div>`;
   }
@@ -483,7 +492,7 @@
     return pages.join('');
   }
   function printIssues(list){
-    return {noPrice:[...new Set(list.filter(p=>priceState(p)==='none').map(p=>p.name))], stale:[...new Set(list.filter(p=>priceState(p)==='stale').map(p=>p.name))]};
+    return {noPrice:[...new Set(list.filter(p=>priceState(p)==='none').map(p=>p.name))], stale:[...new Set(list.filter(p=>priceState(p)==='stale').map(p=>p.name))], incompletePromotion:[...new Set(list.filter(p=>p.promotion&&!hasDiscount(p)).map(p=>p.name))]};
   }
   function clippedTag(tag){
     const top=tag.querySelector('.t-top'), bottom=tag.querySelector('.t-bottom');
@@ -538,9 +547,10 @@
       const box=$("#printIssues");
       if(box) box.innerHTML=`<p style="margin:10px 0">${list.length} ${countWord(list.length,'товар','товари','товарів')} · ${total} ${countWord(total,'цінник','цінники','цінників')} · ${sheets} ${countWord(sheets,'аркуш','аркуші','аркушів')} А4</p>`+
         (issues.noPrice.length?`<div class="warn">Немає ціни: ${esc(issues.noPrice.slice(0,5).join(', '))}${issues.noPrice.length>5?' та інші':''}. Друк заблоковано.</div>`:'')+
+        (issues.incompletePromotion.length?`<div class="warn">Акція без окремої акційної ціни: ${esc(issues.incompletePromotion.slice(0,5).join(', '))}. Задайте акційну ціну або вимкніть акцію. Друк заблоковано.</div>`:'')+
         (issues.stale.length?`<div class="warn">Перевірте застарілі ціни: ${esc(issues.stale.slice(0,5).join(', '))}${issues.stale.length>5?' та інші':''}.</div>`:'')+
         (clipped.length?`<div class="warn">Текст не вміщується: ${esc(clipped.slice(0,3).map(id=>S.products.find(p=>p.id===id)?.name||id).join(', '))}${clipped.length>3?' та інші':''}. Зменште шрифт або вимкніть зайві поля, потім перевірте макет знову. Друк заблоковано.</div>`:'');
-      const btn=document.querySelector('[data-act="confirmOutput"]'); if(btn) btn.disabled=!!issues.noPrice.length||overLimit||!!clipped.length||(!!issues.stale.length&&!S.staleAck);
+      const btn=document.querySelector('[data-act="confirmOutput"]'); if(btn) btn.disabled=!!issues.noPrice.length||!!issues.incompletePromotion.length||overLimit||!!clipped.length||(!!issues.stale.length&&!S.staleAck);
     }
   }
   function printTags(){
@@ -571,7 +581,7 @@
           const range=document.createRange();range.setStart(node,offset);offset+=char.length;range.setEnd(node,offset);const r=range.getBoundingClientRect();
           if(!r.width||!r.height)continue;
           const x=(r.left-rect.left)*scale,y=(r.top-rect.top)*scale;
-          if(!current||Math.abs(current.y-y)>1){current={x,y,font,color:style.color,ascent,value:char};layout.text.push(current);}else current.value+=char;
+          if(!current||Math.abs(current.y-y)>1){current={x,y,font,color:style.color,ascent,strike:style.textDecorationLine.includes('line-through'),value:char};layout.text.push(current);}else current.value+=char;
         }
       }
       return layout;
@@ -581,7 +591,7 @@
     ctx.save();ctx.translate(x,y);ctx.beginPath();ctx.rect(0,0,layout.w,layout.h);ctx.clip();
     for(const bg of layout.background){ctx.fillStyle=bg.color;ctx.fillRect(bg.x,bg.y,bg.w,bg.h);}
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    for(const line of layout.text){ctx.font=line.font;ctx.fillStyle=line.color;ctx.fillText(line.value,line.x,line.y+line.ascent);}
+    for(const line of layout.text){ctx.font=line.font;ctx.fillStyle=line.color;ctx.fillText(line.value,line.x,line.y+line.ascent);if(line.strike){ctx.strokeStyle=line.color;ctx.lineWidth=Math.max(1,line.ascent/18);ctx.beginPath();ctx.moveTo(line.x,line.y+line.ascent*.65);ctx.lineTo(line.x+ctx.measureText(line.value).width,line.y+line.ascent*.65);ctx.stroke();}}
     if(c.border!=='none'){const px=300/96;ctx.lineWidth=px;ctx.strokeStyle=c.border==='solid'?'#555':'#999';if(c.border==='dash')ctx.setLineDash([px*3,px*3]);ctx.strokeRect(px/2,px/2,layout.w-px,layout.h-px);}
     ctx.restore();
   }
@@ -630,7 +640,7 @@
   }
   function csv(list){
     const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
-    const rows = [["Назва","Категорія","Одиниця","Ціна, грн","Ціна за 100 г, грн","Акція"]].concat(list.map(p=>{const pr=priceOf(p);return [p.name,p.category||"",p.unit||"шт",money(pr),p.unit==="кг"?money(pr/10):"",p.promotion?"Так":"Ні"];}));
+    const rows = [["Назва","Категорія","Одиниця","Звичайна ціна, грн","Акційна ціна, грн","Діюча ціна, грн","Ціна за 100 г, грн","Акція"]].concat(list.map(p=>{const pr=priceOf(p);return [p.name,p.category||"",p.unit||"шт",money(regularPriceOf(p)),hasDiscount(p)?money(pr):"",money(pr),p.unit==="кг"?money(pr/10):"",p.promotion?"Так":"Ні"];}));
     return "\uFEFF" + rows.map(r=>r.map(q).join(";")).join("\r\n");
   }
   async function save(filename, data){
@@ -691,7 +701,8 @@
     const hdr = aoa[hi].map(norm), used = new Set(), col = {};
     const take = (key, pred) => { const i = hdr.findIndex((h,i)=>h && !used.has(i) && pred(h)); if (i>=0){ used.add(i); col[key]=i; } };
     take("name", isName);
-    take("price", h=>h.includes("ціна продаж") || h.includes("ціна прод") || h.includes("роздр") || h==="продаж" || h==="price");
+    take("promotionPrice", h=>h.includes("акційна ціна") || h==="promotionprice" || h==="promotion price");
+    take("price", h=>h.includes("звичайна ціна") || h.includes("ціна продаж") || h.includes("ціна прод") || h.includes("роздр") || h==="продаж" || h==="price");
     take("cost", h=>h.includes("закупів") || h.includes("закуп") || h.includes("собівартість") || h.includes("вхідн") || h.includes("ціна прихо") || h==="cost");
     take("markup", h=>h.includes("націнк") || h==="%" || h==="markup");
     take("type", h=>h==="тип" || h.startsWith("тип ") || h.startsWith("група") || h==="вид");
@@ -700,15 +711,19 @@
     take("pack", h=>h.includes("пакуван") || h==="тара");
     take("size", h=>h.includes("розмір") || h.includes("фасув") || /об.?[єе]м/.test(h));
     take("unit", h=>h==="од" || h.startsWith("од ") || h.includes("одиниц") || h.includes("вим") || h==="unit" || h==="шт/кг");
-    if (col.cost === undefined && col.price === undefined) take("generic", h=>h.startsWith("ціна"));
+    if (col.cost === undefined && col.price === undefined) take("generic", h=>h==="ціна" || h==="ціна грн");
     const c = (r,k) => col[k]===undefined ? "" : r[col[k]];
+    if(col.promotionPrice!==undefined){
+      const bad=aoa.slice(hi+1).findIndex(r=>String(c(r,"name")).trim() && String(c(r,"promotionPrice")??"").trim() && !(parseNum(c(r,"promotionPrice"))>0));
+      if(bad>=0)return {fileName,error:`Некоректна акційна ціна в рядку ${hi+bad+2}. Вкажіть додатну суму або залиште клітинку порожньою.`};
+    }
     const rows = aoa.slice(hi+1).map(r=>{
       let mk = c(r,"markup"); const mkRaw = String(mk); mk = parseNum(mk); if (mk>0 && mk<1 && !mkRaw.includes("%")) mk *= 100;
       const nm = String(c(r,"name")).trim();
-      return {name:nm,...(col.promotion!==undefined?{promotion:/^(так|true|1|акція|yes)$/i.test(String(c(r,"promotion")).trim())}:{}),cost:parseNum(c(r,"cost")), price:parseNum(c(r,"price")), generic:parseNum(c(r,"generic")),
+      return {name:nm,...(col.promotion!==undefined?{promotion:/^(так|true|1|акція|yes)$/i.test(String(c(r,"promotion")).trim())}:{}),cost:parseNum(c(r,"cost")), price:parseNum(c(r,"price")), ...(col.promotionPrice!==undefined?{promotionPrice:parseNum(c(r,"promotionPrice"))||null}:{}), generic:parseNum(c(r,"generic")),
         markup:mk, category:String(c(r,"category")).trim(), type:typeNorm(c(r,"type")), unit:unitNorm(c(r,"unit")), pack:packNorm(c(r,"pack")) || packFromName(nm), size:String(c(r,"size")).trim() || sizeFromName(nm)};
     }).filter(r=>r.name && !/^(разом|всього|итого|підсумок)/i.test(r.name));
-    const labels = {name:"Назва", price:"Ціна продажу", cost:"Закупівля", generic:"Ціна", markup:"Націнка", type:"Тип", category:"Категорія",promotion:"Акція", pack:"Пакування", size:"Розмір", unit:"Од."};
+    const labels = {name:"Назва", price:"Звичайна ціна", promotionPrice:"Акційна ціна", cost:"Закупівля", generic:"Ціна", markup:"Націнка", type:"Тип", category:"Категорія",promotion:"Акція", pack:"Пакування", size:"Розмір", unit:"Од."};
     const mapping = Object.keys(col).map(k=>`${labels[k]} ← «${String(aoa[hi][col[k]]).trim()}»`);
     return {fileName, rows, mapping, hasGeneric: col.generic!==undefined, genericAs:"cost", markup:defMarkup(), defType:""};
   }
@@ -727,6 +742,7 @@
       if (price>0){ data.price = price; data.manualPrice = true; }
       else { if (r.markup>0) data.markup = r.markup; else if (!sync || !ex) data.markup = imp.markup; data.manualPrice = false; data.price = null; }
       if(typeof r.promotion==="boolean")data.promotion=r.promotion;
+      if(Object.hasOwn(r,"promotionPrice"))data.promotionPrice=r.promotionPrice;
       if (r.category) data.category = r.category; else if (!ex) data.category = "";
       if (r.pack) data.pack = r.pack; if (r.size) data.size = r.size; data.priceAt = today();
       const t = r.type || ex?.type || imp.defType; if (t) data.type = t;
@@ -736,7 +752,7 @@
   }
   function importInner(){
     const imp = S.imp, head = `<h3>Завантажити товари з Excel</h3>`;
-    if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Тип, Категорія, Акція (Так / Ні), Пакування, Розмір, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
+    if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Тип, Категорія, Акція (Так / Ні), Акційна ціна, Пакування, Розмір, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
       <div class="row"><button class="btn rasp" data-act="pickFile">Обрати файл</button><button class="btn soft" data-act="gsOpen" ${mcp?"":"disabled"} title="${mcp?"":"Google Drive тут ще не підключений"}">З Google Таблиці</button><button class="btn soft" data-act="tplXlsx" ${downloads?"":"disabled"}>Завантажити шаблон</button></div>${gsPanel("import")}
       <p class="muted" style="margin-top:10px">Для Google-таблиці завантажте аркуш «Товари» у форматі CSV або Excel.</p>`;
     if (imp.error) return `${head}<div class="warn" style="margin:10px 0 14px">${esc(imp.error)}</div>
@@ -799,12 +815,12 @@
     try{
       const X = await loadXlsx();
       const ws = X.utils.aoa_to_sheet([
-        ["Назва","Тип","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн","Акція"],
-        ["Цукерки шоколадні вагові","Цукерки","Цукерки","Ваговий","","кг",210,30,"","Так"],
+        ["Назва","Тип","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Звичайна ціна, грн","Акція","Акційна ціна, грн"],
+        ["Цукерки шоколадні вагові","Цукерки","Цукерки","Ваговий","","кг",210,30,"","Так",250],
         ["Печиво вівсяне 300 г","Печиво і вафлі","Печиво","Упаковка","300 г","шт",32,35,""],
         ["Coca-Cola 0,5 л","Напої","Готові напої","ПЕТ","0,5 л","шт",24,30,""],
         ["Лате XL","Напої","Кав'ярня","Стакан","XL","шт","","",49]]);
-      ws["!cols"] = [{wch:32},{wch:18},{wch:16},{wch:12},{wch:10},{wch:8},{wch:16},{wch:12},{wch:18}];
+      ws["!cols"] = [{wch:32},{wch:18},{wch:16},{wch:12},{wch:10},{wch:8},{wch:16},{wch:12},{wch:18},{wch:10},{wch:18}];
       const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Товари");
       await save("shablon-tovary.xlsx", X.write(wb, {bookType:"xlsx", type:"array"}));
     }catch(e){ toast("Не вдалося створити шаблон"); }
@@ -846,9 +862,9 @@
   const dec = x => String(Math.round(x*100)/100).replace(".", ",");
   function tagsCsv(list){
     const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
-    const rows = [["Назва","Ціна, грн","Од.","Ціна за 100 г, грн","Група","Категорія","Пакування","Розмір","Ціна оновлена"]].concat(list.map(p=>{
+    const rows = [["Назва","Діюча ціна, грн","Од.","Ціна за 100 г, грн","Група","Категорія","Пакування","Розмір","Ціна оновлена","Звичайна ціна, грн","Акція","Акційна ціна, грн"]].concat(list.map(p=>{
       const pr = priceOf(p);
-      return [p.name, pr>0 ? dec(pr) : "", p.unit||"шт", (pr>0 && p.unit==="кг") ? dec(pr/10) : "", typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.priceAt||""];
+      return [p.name, pr>0 ? dec(pr) : "", p.unit||"шт", (pr>0 && p.unit==="кг") ? dec(pr/10) : "", typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.priceAt||"", regularPriceOf(p)>0?dec(regularPriceOf(p)):"", p.promotion?"Так":"Ні", num(p.promotionPrice)>0?dec(num(p.promotionPrice)):""];
     }));
     return rows.map(r=>r.map(q).join(",")).join("\r\n");
   }
@@ -892,9 +908,9 @@
   /* ---------- Google Таблиця як джерело: автосинхронізація ---------- */
   function baseCsv(list){
     const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
-    const rows = [["Назва","Група","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн","Ціна на цінник, грн"]].concat(list.map(p=>{
+    const rows = [["Назва","Група","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн","Ціна на цінник, грн","Акція","Акційна ціна, грн"]].concat(list.map(p=>{
       const pr = priceOf(p), c = num(p.cost), man = p.manualPrice && p.price!=null;
-      return [p.name, typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.unit||"шт", c>0 ? dec(c) : "", man ? "" : dec(num(p.markup ?? defMarkup())), man ? dec(num(p.price)) : "", pr>0 ? dec(pr) : ""];
+      return [p.name, typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.unit||"шт", c>0 ? dec(c) : "", man ? "" : dec(num(p.markup ?? defMarkup())), man ? dec(num(p.price)) : "", pr>0 ? dec(pr) : "", p.promotion ? "Так" : "Ні", num(p.promotionPrice)>0 ? dec(num(p.promotionPrice)) : ""];
     }));
     return rows.map(r=>r.map(q).join(",")).join("\r\n");
   }
@@ -956,13 +972,15 @@
     {k:"unit",     h:"Од.",                    m:h=>h==="од" || h.startsWith("од ") || h.includes("одиниц")},
     {k:"cost",     h:"Закупівля, грн",         m:h=>h.includes("закуп")},
     {k:"markup",   h:"Націнка, %",             m:h=>h.includes("націнк")},
-    {k:"price",    h:"Ціна продажу, грн",      m:h=>h.includes("ціна продаж") || h.includes("ціна вручну")},
+    {k:"price",    h:"Ціна продажу, грн",      m:h=>h.includes("звичайна ціна") || h.includes("ціна продаж") || h.includes("ціна вручну")},
     {k:"per100",   h:"Ціна за 100 г, грн",     m:h=>h.includes("100 г") || h.includes("100г"), calc:true},
     {k:"priceAt",  h:"Ціна оновлена",          m:h=>h.includes("оновлен"), calc:true},
     {k:"tagPrice", h:"Ціна на цінник, грн",    m:h=>h.includes("цінник"), calc:true},
+    {k:"promotion", h:"Акція", m:h=>h==="акція" || h==="promotion"},
+    {k:"promotionPrice", h:"Акційна ціна, грн", m:h=>h.includes("акційна ціна") || h==="promotionprice" || h==="promotion price"},
     {k:"id",       h:"ID",                     m:h=>h==="id" || h==="код товару в застосунку", calc:true}
   ];
-  const SYNC_F = ["name","type","category","pack","size","unit","cost","markup","price"];
+  const SYNC_F = ["name","type","category","pack","size","unit","cost","markup","price","promotion","promotionPrice"];
   const n2 = x => { const v = Math.round((+x || 0)*100)/100; return String(v); };
   function colLetter(i){ let s = ""; i++; while (i > 0){ const m = (i-1) % 26; s = String.fromCharCode(65+m) + s; i = Math.floor((i-1)/26); } return s; }
   function planSync(values, all, env){
@@ -973,25 +991,33 @@
     const hdr = hdrRaw.map(env.norm), col = {}, used = new Set();
     for (const c of GS_COLS){ const i = hdr.findIndex((h,i)=>h && !used.has(i) && c.m(h)); if (i>=0){ used.add(i); col[c.k] = i; } }
     if (col.name === undefined) return {error:"Не знайшов у таблиці стовпець «Назва»."};
+    const existingCols = new Set(Object.keys(col));
+    if(existingCols.has("promotionPrice")){
+      const bad=rows.findIndex((r,i)=>i>0 && String(r?.[col.name]??"").trim() && String(r?.[col.promotionPrice]??"").trim() && !(env.parseNum(r[col.promotionPrice])>0));
+      if(bad>=0)return {error:`Некоректна акційна ціна в рядку ${bad+1}. Вкажіть додатну суму або залиште клітинку порожньою.`};
+    }
     const newHdr = hdrRaw.slice(); let hdrChanged = false;
-    for (const k of ["tagPrice","id"]) if (col[k] === undefined){ col[k] = newHdr.length; newHdr.push(GS_COLS.find(c=>c.k===k).h); hdrChanged = true; }
+    for (const k of ["tagPrice","id","promotion","promotionPrice"]) if (col[k] === undefined){ col[k] = newHdr.length; newHdr.push(GS_COLS.find(c=>c.k===k).h); hdrChanged = true; }
     const width = newHdr.length, last = colLetter(width-1);
     const def = env.defMarkup;
     const fromApp = p => ({name:String(p.name||"").trim(), type:String(p.type||"").trim(), category:String(p.category||"").trim(),
       pack:String(p.pack||"").trim(), size:String(p.size||"").trim(), unit:p.unit||"шт", cost:n2(p.cost),
-      markup:n2(p.markup ?? def), price:p.manualPrice && +p.price>0 ? n2(p.price) : "0"});
+      markup:n2(p.markup ?? def), price:p.manualPrice && +p.price>0 ? n2(p.price) : "0", promotion:p.promotion?"1":"0", promotionPrice:n2(p.promotionPrice)});
     const cell = (r,k) => col[k]===undefined ? "" : String(r[col[k]] ?? "").trim();
     const fromSheet = r => {
       const mkRaw = cell(r,"markup"); let mk = env.parseNum(mkRaw); if (mk>0 && mk<1 && !mkRaw.includes("%")) mk *= 100;
       return {name:cell(r,"name"), type:cell(r,"type"), category:cell(r,"category"), pack:env.packNorm(cell(r,"pack")) || cell(r,"pack"),
         size:cell(r,"size"), unit:env.unitNorm(cell(r,"unit")) || "шт", cost:n2(env.parseNum(cell(r,"cost"))),
-        markup:mkRaw==="" ? "" : n2(mk), price:n2(env.parseNum(cell(r,"price")))};
+        markup:mkRaw==="" ? "" : n2(mk), price:n2(env.parseNum(cell(r,"price"))),
+        promotion:existingCols.has("promotion") ? (/^(так|true|1|акція|yes)$/i.test(cell(r,"promotion"))?"1":"0") : "",
+        promotionPrice:existingCols.has("promotionPrice") ? n2(env.parseNum(cell(r,"promotionPrice"))) : ""};
     };
     const same = (a,b) => SYNC_F.every(k=>a[k]===b[k]);
     const toPatch = (m, p) => {
       const d = {name:m.name, type:m.type || null, category:m.category, pack:m.pack || null, size:m.size || null, unit:m.unit, cost:+m.cost, markup:+m.markup};
       if (+m.price > 0){ d.price = +m.price; d.manualPrice = true; } else { d.price = null; d.manualPrice = false; }
-      if (!p || n2(p.cost)!==m.cost || n2(p.markup ?? def)!==m.markup || (p.manualPrice && +p.price>0 ? n2(p.price) : "0")!==m.price) d.priceAt = env.today;
+      d.promotion=m.promotion==="1";d.promotionPrice=+m.promotionPrice>0?+m.promotionPrice:null;
+      if (!p || n2(p.cost)!==m.cost || n2(p.markup ?? def)!==m.markup || (p.manualPrice && +p.price>0 ? n2(p.price) : "0")!==m.price || String(p.promotion?1:0)!==m.promotion || n2(p.promotionPrice)!==m.promotionPrice) d.priceAt = env.today;
       return d;
     };
     const rowOut = (m, id, pr, priceAt) => {
@@ -1000,6 +1026,7 @@
       const numOrBlank = v => +v > 0 ? +v : "";
       put("name", m.name); put("type", m.type); put("category", m.category); put("pack", m.pack); put("size", m.size ? "'"+m.size : "");
       put("unit", m.unit); put("cost", numOrBlank(m.cost)); put("markup", +m.markup); put("price", numOrBlank(m.price));
+      put("promotion", m.promotion==="1"?"Так":"Ні");put("promotionPrice", numOrBlank(m.promotionPrice));
       put("tagPrice", pr > 0 ? Math.round(pr*100)/100 : ""); put("per100", m.unit==="кг" && pr > 0 ? Math.round(pr*10)/100 : "");
       put("priceAt", priceAt ? "'"+priceAt : ""); put("id", "'"+id);
       return out;
@@ -1026,7 +1053,8 @@
     const handle = (r, i, p) => {
       const s = fromSheet(r), a = fromApp(p), b = p.gsBase || null, m = {};
       for (const k of SYNC_F){
-        if (!b) m[k] = (s[k]==="" || s[k]==="0") && a[k]!=="" && a[k]!=="0" ? a[k] : s[k];
+        if (["promotion","promotionPrice"].includes(k) && (!b || b[k]===undefined)) m[k] = s[k]==="" ? a[k] : s[k];
+        else if (!b) m[k] = (s[k]==="" || s[k]==="0") && a[k]!=="" && a[k]!=="0" ? a[k] : s[k];
         else if (s[k]!==b[k] && a[k]===b[k]) m[k] = s[k];
         else if (a[k]!==b[k] && s[k]===b[k]) m[k] = a[k];
         else if (s[k]!==b[k] && a[k]!==b[k]) m[k] = s[k];
@@ -1055,6 +1083,7 @@
       const k = env.norm(cell(r,"name")), p = byName.get(k);
       if (p){ byName.delete(k); claimed.add(p.id); handle(r, i, p); continue; }
       const s = fromSheet(r); if (s.markup==="") s.markup = n2(def);
+      if(s.promotion==="")s.promotion="0";if(s.promotionPrice==="")s.promotionPrice="0";
       const id = env.newId(), data = toPatch(s, null);
       data.gsBase = s; if (!(+s.cost>0 || +s.price>0)) delete data.priceAt;
       plan.dbAdds.push({id, data}); plan.added++;
@@ -1066,6 +1095,9 @@
       const a = fromApp(p);
       plan.appends.push(rowOut(a, p.id, env.priceOf(p), p.priceAt || ""));
       plan.dbUpdates.push({id:p.id, patch:{gsBase:a}});
+    }
+    for(const item of [...plan.dbAdds.map(x=>x.data),...plan.dbUpdates.map(x=>({...byId.get(x.id),...x.patch}))]){
+      if(item.promotion && +item.promotionPrice>0 && !(+item.promotionPrice<env.priceOf({...item,promotion:false}))) return {error:`Акційна ціна товару «${item.name}» має бути нижчою за звичайну. Синхронізацію зупинено.`};
     }
     return plan;
   }
@@ -1201,7 +1233,7 @@
     if (a==="closePrintReview"){ S.printReview=false; render(); return; }
     if (a==="confirmOutput"){
       const list=tagCopies(), issues=printIssues(list);
-      if(!list.length || list.length>1000 || issues.noPrice.length || S.tagClipped?.length || (issues.stale.length&&!S.staleAck)) return;
+      if(!list.length || list.length>1000 || issues.noPrice.length || issues.incompletePromotion.length || S.tagClipped?.length || (issues.stale.length&&!S.staleAck)) return;
       if(S.printIntent==='pdf') makePdf(t); else printTags(); return;
     }
     if (a==="addStore"){ const n = storeNames().slice(); n.push(""); saveStores(n); setTimeout(()=>{ const i = document.querySelector(`[data-store="${n.length-1}"]`); if (i) i.focus(); }, 60); }

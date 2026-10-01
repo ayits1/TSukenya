@@ -620,7 +620,9 @@
           "salePrice",
           "manualPrice",
           "promotion",
-          "minStock"
+          "minStock",
+          "regularPrice",
+          "promotionPrice"
         ],
         "properties": {
           "id": {
@@ -699,6 +701,23 @@
           "minStock": {
             "type": "string",
             "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "promotionPrice": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null."
+          },
+          "regularPrice": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+            "description": "Current regular price computed from manual pricing or cost/markup, before promotion; not a historical lowest-price record."
           }
         }
       },
@@ -839,6 +858,18 @@
           "minStock": {
             "type": "string",
             "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "promotionPrice": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null."
           }
         },
         "additionalProperties": false
@@ -907,6 +938,18 @@
           "minStock": {
             "type": "string",
             "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "promotionPrice": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null."
           }
         },
         "additionalProperties": false
@@ -1112,10 +1155,16 @@
               },
               "date": {
                 "$ref": "#/components/schemas/LabelStyle"
+              },
+              "oldPrice": {
+                "$ref": "#/components/schemas/LabelStyle"
               }
             },
             "required": [],
             "additionalProperties": false
+          },
+          "oldPrice": {
+            "type": "boolean"
           }
         },
         "required": [

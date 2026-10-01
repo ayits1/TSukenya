@@ -1,7 +1,13 @@
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Label, PrintPages } from './Label';
-import { clippedLabel, formatLabelMoney, MAX_LABEL_COPIES, pageGeometry } from './domain';
+import {
+  clippedLabel,
+  formatLabelMoney,
+  hasPromotionPrice,
+  MAX_LABEL_COPIES,
+  pageGeometry,
+} from './domain';
 import type { LabelConfig, LabelProduct, LabelSettings } from './domain';
 
 export type LabelOutputSnapshot = {
@@ -17,7 +23,17 @@ type CapturedLabel = {
   w: number;
   h: number;
   background: (Box & { color: string })[];
-  text: { x: number; y: number; font: string; color: string; ascent: number; value: string }[];
+  text: {
+    x: number;
+    y: number;
+    font: string;
+    color: string;
+    ascent: number;
+    value: string;
+    strike: boolean;
+    strikeOffset: number;
+    strikeWidth: number;
+  }[];
 };
 type PdfPage = { bytes: Uint8Array<ArrayBuffer>; w: number; h: number };
 
@@ -31,6 +47,8 @@ function assertSnapshot(snapshot: LabelOutputSnapshot) {
     )
   )
     throw new Error('Є товари без ціни. Оновіть їх перед друком.');
+  if (snapshot.products.some((product) => product.promotion && !hasPromotionPrice(product)))
+    throw new Error('Задайте окрему акційну ціну або вимкніть акцію перед друком.');
 }
 function hiddenHost() {
   const host = document.createElement('div');
@@ -150,7 +168,17 @@ function capture(label: HTMLElement, context: CanvasRenderingContext2D): Capture
       const x = (bounds.left - rect.left) * scale,
         y = (bounds.top - rect.top) * scale;
       if (!current || Math.abs(current.y - y) > 1) {
-        current = { x, y, font, color: style.color, ascent, value: char };
+        current = {
+          x,
+          y,
+          font,
+          color: style.color,
+          ascent,
+          value: char,
+          strike: style.textDecorationLine.includes('line-through'),
+          strikeOffset: size * 0.3,
+          strikeWidth: Number.parseFloat(style.textDecorationThickness) * scale || scale,
+        };
         result.text.push(current);
       } else current.value += char;
     }
@@ -179,6 +207,15 @@ function draw(
     context.font = line.font;
     context.fillStyle = line.color;
     context.fillText(line.value, line.x, line.y + line.ascent);
+    if (line.strike) {
+      context.beginPath();
+      context.strokeStyle = line.color;
+      context.lineWidth = line.strikeWidth;
+      const y = line.y + line.ascent - line.strikeOffset;
+      context.moveTo(line.x, y);
+      context.lineTo(line.x + context.measureText(line.value).width, y);
+      context.stroke();
+    }
   }
   if (config.border !== 'none') {
     const px = DPI / 96;
@@ -311,11 +348,22 @@ export async function exportPdf(snapshot: LabelOutputSnapshot): Promise<void> {
 export function downloadCsv(products: LabelProduct[]): void {
   const quoted = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
   const rows = [
-    ['Назва', 'Категорія', 'Одиниця', 'Ціна, грн', 'Ціна за 100 г, грн', 'Акція'],
+    [
+      'Назва',
+      'Категорія',
+      'Одиниця',
+      'Звичайна ціна, грн',
+      'Акційна ціна, грн',
+      'Діюча ціна, грн',
+      'Ціна за 100 г, грн',
+      'Акція',
+    ],
     ...products.map((product) => [
       product.name,
       product.category,
       product.unit,
+      formatLabelMoney(product.regularPrice ?? product.salePrice),
+      hasPromotionPrice(product) ? formatLabelMoney(product.salePrice) : '',
       formatLabelMoney(product.salePrice),
       product.unit === 'кг' ? formatLabelMoney(product.salePrice / 10) : '',
       product.promotion ? 'Так' : 'Ні',

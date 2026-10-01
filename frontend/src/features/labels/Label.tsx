@@ -91,6 +91,7 @@ export function Label({
         {field('psize', 't-size')}
       </div>
       <div className="t-bottom">
+        {field('oldPrice', 't-old-price')}
         {field('price', 'pr', !config.unit && <small>грн</small>)}
         {field('unit', 'un')}
         {field('per100', 'per100')}

@@ -59,6 +59,11 @@
   white-space: nowrap;
   overflow: hidden;
 }
+.tk-label.tag .t-old-price {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 1px;
+  line-height: 1.2;
+}
 .tk-label.tag .pr small {
   font-size: 0.45em;
   font-weight: 600;

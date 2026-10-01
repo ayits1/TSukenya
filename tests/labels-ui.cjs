@@ -45,10 +45,11 @@ async function request(method, endpoint, value) {
 async function seed() {
   const currentDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Kyiv' });
   const products = [
-    ['studio_current', { name: 'Контрольна кава', promotion: true, price: 45, priceAt: currentDate }],
+    ['studio_current', { name: 'Контрольна кава', promotion: true, price: 60, promotionPrice: 45, priceAt: currentDate }],
     ['studio_other', { name: 'Контрольний чай', promotion: false, price: 25, priceAt: currentDate }],
     ['studio_missing', { name: 'Контрольний без ціни', promotion: false, price: 0, priceAt: currentDate }],
     ['studio_stale', { name: 'Контрольний застарілий', promotion: false, price: 30, priceAt: '2001-01-01' }],
+    ['studio_badge', { name: 'Контрольна акція без суми', promotion: true, price: 30, priceAt: currentDate }],
   ];
   for (const [id, product] of products) await request('PUT', `/api/docs/products/${id}`, { ...product, type: 'Напої', category: 'Контроль', pack: 'Штучно', unit: 'шт', cost: 0, markup: 30, manualPrice: true });
   await request('PATCH', '/api/docs/settings/main', {
@@ -105,6 +106,8 @@ async function checkStudio() {
   assert.equal(focusRing.outer, 'solid', 'compound combobox retains its accessible focus ring');
   assert(focusRing.width >= 3, 'visible outer combobox focus ring');
   assert.equal(await page.locator('.tk-studio-canvas [data-field=promo]').innerText(), 'Акція');
+  assert.equal(await page.locator('.tk-studio-canvas [data-field=oldPrice]').innerText(), '60,00 грн');
+  assert.equal(await page.locator('.tk-studio-canvas [data-field=oldPrice]').evaluate(field => getComputedStyle(field).textDecorationLine), 'line-through');
   await preview.fill('Невідомий тестовий товар');
   await preview.press('Escape');
   assert.equal(await shownName(), 'Контрольна кава', 'Escape retained committed product');
@@ -189,7 +192,7 @@ async function checkStudio() {
   }
 
   // A price changed after review must invalidate that review before any download.
-  await request('PATCH', '/api/docs/products/studio_current', { price: 46 });
+  await request('PATCH', '/api/docs/products/studio_current', { promotionPrice: 46 });
   let unexpectedDownloads = 0;
   const onDownload = () => unexpectedDownloads++;
   page.on('download', onDownload);
@@ -233,6 +236,12 @@ async function checkStudio() {
   await page.getByRole('alert').waitFor();
   assert(await page.getByRole('button', { name: 'Завантажити PDF', exact: true }).isDisabled());
   assert.match(await page.getByRole('alert').innerText(), /ціни|ціну/);
+  await page.getByRole('tab', { name: /^Товари/ }).click();
+  await page.getByRole('button', { name: 'Очистити вибір' }).click();
+  await selectProduct('Контрольна акція без суми');
+  await review();
+  await page.getByRole('alert').filter({ hasText: 'Акція без окремої акційної ціни' }).waitFor();
+  assert(await page.getByRole('button', { name: 'Завантажити PDF', exact: true }).isDisabled(), 'legacy badge without discount blocks ambiguous print');
   await page.getByRole('tab', { name: /^Товари/ }).click();
   await page.getByRole('button', { name: 'Очистити вибір' }).click();
   await selectProduct('Контрольний застарілий');

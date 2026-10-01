@@ -695,6 +695,11 @@ export function StudioView(props: StudioViewProps) {
                         </div>
                       </div>
                       <div className={product.salePrice > 0 ? 'tk-studio-price' : 'tk-error'}>
+                        {product.promotion && (product.regularPrice ?? 0) > product.salePrice ? (
+                          <del aria-label="Звичайна ціна">
+                            {formatLabelMoney(product.regularPrice!)} грн
+                          </del>
+                        ) : null}
                         {product.salePrice > 0
                           ? `${formatLabelMoney(product.salePrice)} грн`
                           : 'Немає ціни'}

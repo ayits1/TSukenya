@@ -2,7 +2,7 @@ import { Button } from '../../shared/ui/Button';
 import { TextField } from '../../shared/ui/TextField';
 import { ComboBox } from '../../shared/ui/ComboBox';
 import { Select } from '../../shared/ui/Select';
-import type { Filters, Product, ProductPage } from './api';
+import { hasEffectivePromotion, type Filters, type Product, type ProductPage } from './api';
 
 const currency = (value: string | null) =>
   value === null
@@ -154,10 +154,32 @@ export function CatalogView({
                   </td>
                 ) : null}
                 <td data-label="Продаж">
-                  <strong className="tk-catalog-number">
-                    {Number(product.salePrice) > 0 ? `${currency(product.salePrice)} грн` : '—'}
-                  </strong>
-                  <small>{product.manualPrice ? 'Ручна ціна' : 'За націнкою'}</small>
+                  {hasEffectivePromotion(product) ? (
+                    <>
+                      <small className="tk-regular-price">
+                        <span className="tk-visually-hidden">Звичайна ціна: </span>
+                        <del className="tk-catalog-number">
+                          {currency(product.regularPrice)} грн
+                        </del>
+                      </small>
+                      <strong className="tk-catalog-number tk-discount-price">
+                        <span className="tk-visually-hidden">Акційна ціна: </span>
+                        {currency(product.salePrice)} грн
+                      </strong>
+                    </>
+                  ) : (
+                    <strong className="tk-catalog-number">
+                      {Number(product.salePrice) > 0 ? `${currency(product.salePrice)} грн` : '—'}
+                    </strong>
+                  )}
+                  <small>
+                    {product.manualPrice ? 'Ручна звичайна ціна' : 'Звичайна ціна за націнкою'}
+                  </small>
+                  {product.promotion && !hasEffectivePromotion(product) ? (
+                    <small className="tk-promotion-warning">
+                      Акційна ціна не задана або вже не менша за звичайну
+                    </small>
+                  ) : null}
                 </td>
                 <td data-label="Акція">
                   {data.canEdit ? (

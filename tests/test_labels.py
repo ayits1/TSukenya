@@ -86,6 +86,23 @@ class LabelTests(TestCase):
         self.assertEqual([row['id'] for row in result['products']],['two','one'])
         self.assertEqual(result['selection'],[{'id':'two','quantity':3},{'id':'one','quantity':2}])
 
+    def test_promotion_snapshot_contains_both_prices_and_tracks_discount(self):
+        first=self.prepare().json()
+        doc=Document.objects.get(pk='products/one');doc.data['promotionPrice']=9.99;doc.save()
+        result=self.prepare().json()
+        self.assertNotEqual(first['snapshot'],result['snapshot'])
+        self.assertEqual((result['products'][0]['regularPrice'],result['products'][0]['promotionPrice'],result['products'][0]['salePrice']),('13.00','9.99','9.99'))
+        doc.data['promotion']=False;doc.save()
+        third=self.prepare().json();self.assertNotEqual(result['snapshot'],third['snapshot'])
+        self.assertEqual(third['products'][0]['salePrice'],'13.00')
+
+    def test_old_price_field_is_optional_for_legacy_v2_and_strict_when_present(self):
+        value=self.payload();value['config']['oldPrice']=True;value['config']['styles']['oldPrice']={'size':9,'color':'#707070'}
+        self.assertEqual(self.patch(value).status_code,200)
+        self.assertTrue(self.workspace()['config']['oldPrice'])
+        value=self.payload();value['config']['oldPrice']='yes'
+        self.assertEqual(self.patch(value).status_code,400)
+
 
 class LabelConcurrencyTests(TransactionTestCase):
     def setUp(self): LabelTests.setUp(self)

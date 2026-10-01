@@ -13,12 +13,14 @@ function Demo({
   readOnly = false,
   conflict = false,
   twoStores = false,
+  promotion = false,
 }: {
   initialTab?: StudioTab;
   empty?: boolean;
   readOnly?: boolean;
   conflict?: boolean;
   twoStores?: boolean;
+  promotion?: boolean;
 }) {
   const [config, setConfig] = useState<LabelConfig>({
     ...studioConfig,
@@ -30,7 +32,9 @@ function Demo({
   });
   const [field, setField] = useState<LabelField>('price');
   const [tab, setTab] = useState(initialTab);
-  const [previewId, setPreviewId] = useState<string | null>(empty ? null : studioProducts[0]!.id);
+  const [previewId, setPreviewId] = useState<string | null>(
+    empty ? null : studioProducts[promotion ? 1 : 0]!.id,
+  );
   const [selection, setSelection] = useState<Record<string, number>>({});
   const [filters, setFilters] = useState<StudioFilters>({
     q: '',
@@ -142,6 +146,22 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Template: Story = {};
+export const PromotionPrices: Story = {
+  args: { promotion: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const oldPrice = canvasElement.querySelector('[data-field=oldPrice]')!;
+    await expect(oldPrice).toHaveTextContent('99,00 грн');
+    await expect(getComputedStyle(oldPrice).textDecorationLine).toBe('line-through');
+    await expect(canvasElement.querySelector('[data-field=price]')).toHaveTextContent('79,50');
+    await userEvent.click(canvas.getByRole('button', { name: 'Стара ціна' }));
+    await userEvent.clear(canvas.getByLabelText('Розмір, pt'));
+    await userEvent.type(canvas.getByLabelText('Розмір, pt'), '11');
+    await userEvent.tab();
+    await expect((oldPrice as HTMLElement).style.fontSize).toBe('11pt');
+    await expect(canvasElement.querySelector('[data-field=price]')).toHaveTextContent('79,50');
+  },
+};
 export const Empty: Story = { args: { empty: true } };
 export const ReadOnly: Story = { args: { readOnly: true } };
 export const Conflict: Story = { args: { conflict: true } };

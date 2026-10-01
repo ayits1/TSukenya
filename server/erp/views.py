@@ -57,7 +57,7 @@ def owner(user):
     require(user.profile.role=='owner','Недостатньо прав. Операція доступна лише власнику.')
 
 def legacy_state(user):
-    from .catalog import revision, defaults
+    from .catalog import revision, defaults, regular_price
     catalog_config=defaults()
     data={x:[] for x in COLLECTIONS}|{x:{} for x in SINGLE_DOCS}
     for d in Document.objects.all():
@@ -66,16 +66,13 @@ def legacy_state(user):
             if user.profile.role!='owner' and (col=='expenses' or col in {'tasks','ideas'} and d.data.get('scope')!='operations'):
                 continue
             product=dict(d.data)
-            if col=='products' and user.profile.role=='cashier':
-                config=Document.objects.filter(pk='settings/main').first()
-                config=config.data if config else {}
-                rounding=Decimal(str(config.get('rounding',.5)))
-                require(rounding>0,'Некоректне округлення ціни.')
-                if not product.get('manualPrice') or product.get('price') is None:
-                    raw=Decimal(str(product.get('cost',0)))*(1+Decimal(str(product.get('markup',config.get('defaultMarkup',30))))/100)
-                    product['price']=float((raw/rounding).to_integral_value(rounding=ROUND_CEILING)*rounding)
+            if col=='products':
+                product['regularPrice']=float(regular_price(product,catalog_config))
+                product.setdefault('promotionPrice',None)
+                if user.profile.role=='cashier':
+                    product['price']=product['regularPrice']
                     product['manualPrice']=True
-                product.pop('cost',None);product.pop('markup',None)
+                    product.pop('cost',None);product.pop('markup',None)
             data[col].append({'id':id,'data':product, **({'revision':revision(d,catalog_config)} if col=='products' else {})})
         elif d.path in SINGLE_DOCS:data[d.path]=d.data
     return data
@@ -83,6 +80,12 @@ def legacy_state(user):
 def validate_product(data, path=None):
     require(isinstance(data.get('name'),str) and 0<len(data['name'].strip())<=250,'Вкажіть назву товару (до 250 символів).')
     if 'minStock' in data:dec(data['minStock'],'Мінімальний залишок',QTY)
+    if data.get('promotionPrice') is not None:
+        from .catalog import regular_price
+        discount=dec(data['promotionPrice'],'Акційна ціна',minimum=Decimal('.01'))
+        require(discount<=Decimal('99999999.99'),'Акційна ціна завелика.')
+        if data.get('promotion'):
+            require(discount<regular_price(data),'Акційна ціна має бути меншою за звичайну.')
     barcode=str(data.get('barcode','')).strip()
     require(len(barcode)<=80,'Штрихкод задовгий.')
     recipe=data.get('recipe',[])
@@ -121,6 +124,9 @@ def legacy_mutation(request,user,path):
             require(d is not None,'Запис не знайдено.')
             value={**d.data,**value}
         if col=='products':
+            old=d.data if d is not None else {}
+            if (bool(old.get('promotion')),old.get('promotionPrice')) != (bool(value.get('promotion')),value.get('promotionPrice')):
+                value['priceAt']=timezone.localdate().isoformat()
             validate_product(value,path)
             barcode=str(value.get('barcode','')).strip()
             require(not barcode or not Document.objects.filter(path__startswith='products/').exclude(pk=path).filter(data__barcode=barcode).exists(),'Цей штрихкод уже використовується.')

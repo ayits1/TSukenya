@@ -23,7 +23,9 @@ export function Catalog({
   const client = useQueryClient();
   const [filters, setFilters] = useState(initialFilters);
   const [query, setQuery] = useState(initialFilters.q);
-  const [editing, setEditing] = useState<{ product?: Product } | null>(null);
+  const [editing, setEditing] = useState<{ product?: Product; activatePromotion?: boolean } | null>(
+    null,
+  );
   const [message, setMessage] = useState('');
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(filters.q), 250);
@@ -62,7 +64,7 @@ export function Catalog({
   );
   const promotion = useMutation({
     mutationFn: (product: Product) =>
-      api.save({ revision: product.revision, promotion: !product.promotion }, product.id),
+      api.save({ revision: product.revision, promotion: false }, product.id),
     retry: false,
     onSuccess: saved,
   });
@@ -116,7 +118,10 @@ export function Catalog({
           onFiltersChanged(value);
         }}
         onEdit={(product) => setEditing(product ? { product } : {})}
-        onPromotion={(product) => promotion.mutate(product)}
+        onPromotion={(product) => {
+          if (product.promotion) promotion.mutate(product);
+          else setEditing({ product, activatePromotion: true });
+        }}
         busy={result.isFetching || promotion.isPending}
         message={message}
       />

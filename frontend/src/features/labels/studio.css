@@ -322,6 +322,12 @@
   text-align: right;
   white-space: nowrap;
 }
+.tk-studio-price del {
+  display: block;
+  color: var(--tk-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
 .tk-studio-promo {
   display: inline-flex;
   align-items: center;

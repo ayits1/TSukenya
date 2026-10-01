@@ -2,6 +2,14 @@ import { createApiClient } from '../../shared/api/client';
 import type { components } from '../../shared/api/generated';
 
 export type Product = components['schemas']['Product'];
+export function hasEffectivePromotion(product: Product): boolean {
+  return (
+    product.promotion &&
+    product.promotionPrice !== null &&
+    Number(product.salePrice) > 0 &&
+    Number(product.salePrice) < Number(product.regularPrice)
+  );
+}
 export type ProductPage = components['schemas']['ProductPage'];
 export type ProductCreate = components['schemas']['ProductCreate'];
 export type ProductPatch = components['schemas']['ProductPatch'];
@@ -48,12 +56,13 @@ export function decodeProduct(value: unknown): Product {
   ]) {
     if (typeof item[key] !== 'string') throw new Error(`Invalid ${key}`);
   }
-  for (const key of ['cost', 'markup', 'price']) {
+  for (const key of ['cost', 'markup', 'price', 'promotionPrice']) {
     if (item[key] !== null && !decimal(item[key])) throw new Error(`Invalid ${key}`);
   }
   if (
     !decimal(item.minStock) ||
     !decimal(item.salePrice) ||
+    !decimal(item.regularPrice) ||
     typeof item.manualPrice !== 'boolean' ||
     typeof item.promotion !== 'boolean'
   )

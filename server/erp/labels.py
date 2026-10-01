@@ -10,8 +10,8 @@ from .models import Document
 from .services import require, ledger_lock, audit
 from .catalog import base_query, defaults, serialize
 
-FIELDS = {'promo', 'chain', 'store', 'custom', 'name', 'pack', 'psize', 'price', 'unit', 'per100', 'category', 'date'}
-FLAGS = {'chain', 'store', 'name', 'nameBig', 'pack', 'psize', 'price', 'kop', 'unit', 'per100', 'category', 'date', 'customEnabled', 'promo'}
+FIELDS = {'promo', 'chain', 'store', 'custom', 'name', 'pack', 'psize', 'price', 'oldPrice', 'unit', 'per100', 'category', 'date'}
+FLAGS = {'chain', 'store', 'name', 'nameBig', 'pack', 'psize', 'price', 'oldPrice', 'kop', 'unit', 'per100', 'category', 'date', 'customEnabled', 'promo'}
 
 
 def sign(value):
@@ -40,6 +40,7 @@ def validate_config(value):
     require(value.get('size') in {'s', 'm', 'l'}, 'Невідомий формат цінника.')
     require(value.get('border') in {'dash', 'solid', 'none'}, 'Невідомий тип рамки.')
     for key in FLAGS:
+        if key == 'oldPrice' and key not in value: continue  # Existing v2 clients remain compatible.
         require(isinstance(value.get(key), bool), f'{key}: очікується логічне значення.')
     index = value.get('storeIdx')
     require(type(index) is int and 0 <= index <= 100, 'Некоректний магазин.')

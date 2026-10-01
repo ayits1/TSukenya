@@ -7,6 +7,7 @@ export const LABEL_FIELDS = [
   ['pack', 'Тип пакування'],
   ['psize', 'Об’єм / вага'],
   ['price', 'Ціна'],
+  ['oldPrice', 'Стара ціна'],
   ['unit', 'Одиниця продажу'],
   ['per100', 'Ціна за 100 г'],
   ['category', 'Категорія'],
@@ -37,6 +38,7 @@ export type LabelConfig = {
   pack: boolean;
   psize: boolean;
   price: boolean;
+  oldPrice: boolean;
   kop: boolean;
   unit: boolean;
   per100: boolean;
@@ -56,6 +58,7 @@ export type LabelProduct = {
   size: string;
   unit: string;
   salePrice: number;
+  regularPrice?: number;
   priceAt: string;
   promotion: boolean;
 };
@@ -90,6 +93,7 @@ export const DEFAULT_LABEL_CONFIG: LabelConfig = {
   pack: true,
   psize: true,
   price: true,
+  oldPrice: true,
   kop: false,
   unit: true,
   per100: true,
@@ -155,6 +159,7 @@ const STYLE_DEFAULTS: Record<
   pack: [7.5, '#555555', '400', 'left'],
   psize: [7.5, '#555555', '400', 'left'],
   price: [22, '#1c1c1c', '700', 'left'],
+  oldPrice: [8, '#707070', '400', 'right'],
   unit: [8, '#444444', '400', 'left'],
   per100: [8, '#444444', '400', 'left'],
   category: [7, '#777777', '400', 'left'],
@@ -253,6 +258,7 @@ export function adaptLabelProduct(value: unknown, salePrice?: number): LabelProd
     size: typeof raw.size === 'number' ? String(raw.size) : text(raw.size),
     unit: text(raw.unit) || 'шт',
     salePrice: numeric(salePrice ?? raw.salePrice),
+    regularPrice: numeric(raw.regularPrice, numeric(salePrice ?? raw.salePrice)),
     priceAt: text(raw.priceAt),
     promotion: raw.promotion === true,
   };
@@ -285,6 +291,8 @@ export const formatLabelMoney = (value: number, decimals = true) =>
     minimumFractionDigits: decimals ? 2 : 0,
     maximumFractionDigits: decimals ? 2 : 0,
   });
+export const hasPromotionPrice = (product: LabelProduct) =>
+  product.promotion && product.salePrice > 0 && (product.regularPrice ?? 0) > product.salePrice;
 const PACK_LABELS: Record<string, string> = {
   ПЕТ: 'Пляшка ПЕТ',
   Скло: 'Скляна пляшка',
@@ -323,6 +331,7 @@ export function tagParts(
       price <= 0
         ? '—'
         : formatLabelMoney(price, config.kop || Math.abs(price - Math.round(price)) >= 0.005),
+    oldPrice: hasPromotionPrice(product) ? `${formatLabelMoney(product.regularPrice!)} грн` : '',
     unit: product.unit === '100 г' ? 'грн за 100 г' : `грн за 1 ${product.unit}`,
     per100: product.unit === 'кг' && price > 0 ? `100 г — ${formatLabelMoney(price / 10)} грн` : '',
     category: product.category,
@@ -394,7 +403,14 @@ export function printIssues(
         .map((product) => product.name),
     ),
   ];
-  return { noPrice, stale, overLimit: products.length > MAX_LABEL_COPIES };
+  const incompletePromotion = [
+    ...new Set(
+      products
+        .filter((product) => product.promotion && !hasPromotionPrice(product))
+        .map((product) => product.name),
+    ),
+  ];
+  return { noPrice, stale, incompletePromotion, overLimit: products.length > MAX_LABEL_COPIES };
 }
 /** Geometry must be measured in the DOM: font metrics and wrapping cannot be guessed in pure code. */
 export function clippedLabel(label: HTMLElement): boolean {

@@ -446,6 +446,10 @@ export interface components {
       manualPrice: boolean;
       promotion: boolean;
       minStock: string;
+      /** @description Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null. */
+      promotionPrice: string | null;
+      /** @description Current regular price computed from manual pricing or cost/markup, before promotion; not a historical lowest-price record. */
+      regularPrice: string;
     };
     ProductPage: {
       items: components['schemas']['Product'][];
@@ -478,6 +482,8 @@ export interface components {
       priceAt?: string;
       priceReviewed?: boolean;
       minStock?: string;
+      /** @description Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null. */
+      promotionPrice?: string | null;
     };
     ProductPatch: {
       revision: string;
@@ -496,6 +502,8 @@ export interface components {
       priceAt?: string;
       priceReviewed?: boolean;
       minStock?: string;
+      /** @description Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null. */
+      promotionPrice?: string | null;
     };
     Session: {
       /** @enum {string} */
@@ -556,7 +564,9 @@ export interface components {
         per100?: components['schemas']['LabelStyle'];
         category?: components['schemas']['LabelStyle'];
         date?: components['schemas']['LabelStyle'];
+        oldPrice?: components['schemas']['LabelStyle'];
       };
+      oldPrice?: boolean;
     };
     LabelSettings: {
       chainName: string;

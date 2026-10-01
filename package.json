@@ -28,7 +28,8 @@
     "test:full": "node scripts/full-check.mjs",
     "generate:api": "npm run generate --workspace @tsukenya/api-contracts && npm exec --workspace frontend -- prettier --write src/shared/api/generated.ts",
     "test:catalog:ui": "node tests/catalog-ui.cjs",
-    "test:labels:ui": "node tests/labels-ui.cjs"
+    "test:labels:ui": "node tests/labels-ui.cjs",
+    "test:promotion:legacy": "node tests/promotion-legacy.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

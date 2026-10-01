@@ -5,7 +5,13 @@ import { TextField } from '../../shared/ui/TextField';
 import { MoneyField } from '../../shared/ui/MoneyField';
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
-import type { CatalogApi, Product, ProductCreate, ProductPatch } from './api';
+import {
+  hasEffectivePromotion,
+  type CatalogApi,
+  type Product,
+  type ProductCreate,
+  type ProductPatch,
+} from './api';
 
 function initial(product: Product | undefined, markup: string): Required<ProductCreate> {
   return {
@@ -21,6 +27,7 @@ function initial(product: Product | undefined, markup: string): Required<Product
     price: product?.price || null,
     manualPrice: product?.manualPrice || false,
     promotion: product?.promotion || false,
+    promotionPrice: product?.promotionPrice || null,
     priceAt: product?.priceAt || '',
     priceReviewed: false,
     minStock: product?.minStock || '0',
@@ -34,8 +41,10 @@ export function ProductEditor({
   onSaved,
   onDirty,
   onDeleted,
+  activatePromotion = false,
 }: {
   product?: Product;
+  activatePromotion?: boolean;
   defaultMarkup: string;
   api: CatalogApi;
   onClose: () => void;
@@ -45,7 +54,10 @@ export function ProductEditor({
 }) {
   const [current, setCurrent] = useState(product);
   const [original, setOriginal] = useState(() => initial(product, defaultMarkup));
-  const [draft, setDraft] = useState(original);
+  const [draft, setDraft] = useState(() => ({
+    ...original,
+    promotion: original.promotion || activatePromotion,
+  }));
   const [notice, setNotice] = useState('');
   const dirty = JSON.stringify(original) !== JSON.stringify(draft);
   useEffect(() => {
@@ -172,7 +184,7 @@ export function ProductEditor({
                   setDraft((old) => ({
                     ...old,
                     manualPrice: value,
-                    price: value ? old.price || current?.salePrice || '' : null,
+                    price: value ? old.price || current?.regularPrice || '' : null,
                   }))
                 }
               >
@@ -181,15 +193,30 @@ export function ProductEditor({
               </Checkbox>
               {draft.manualPrice ? (
                 <MoneyField
-                  label="Продаж"
+                  label="Звичайна ціна"
                   value={draft.price || ''}
                   onChange={(price) => setDraft((old) => ({ ...old, price }))}
                   isRequired
                 />
               ) : (
-                <p className="tk-help">
-                  Ціну розрахує сервер із закупівлі, націнки й налаштування округлення.
-                </p>
+                <div className="tk-editor-regular-price">
+                  {current ? (
+                    <p>
+                      Збережена звичайна ціна:{' '}
+                      <strong>
+                        {Number(current.regularPrice).toLocaleString('uk-UA', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{' '}
+                        грн
+                      </strong>
+                    </p>
+                  ) : null}
+                  <p className="tk-help">
+                    Після збереження сервер розрахує звичайну ціну із закупівлі, націнки й
+                    округлення. Акційна ціна її не замінює.
+                  </p>
+                </div>
               )}
               <Checkbox
                 className="tk-editor-checkbox"
@@ -197,8 +224,32 @@ export function ProductEditor({
                 onChange={(promotion) => setDraft((old) => ({ ...old, promotion }))}
               >
                 <span aria-hidden="true" className="tk-checkbox-mark" />
-                Акція — показувати позначку на ціннику
+                Акція — окрема ціна та позначка на ціннику
               </Checkbox>
+              {draft.promotion ? (
+                <div className="tk-editor-promotion-price">
+                  <MoneyField
+                    label="Акційна ціна"
+                    value={draft.promotionPrice || ''}
+                    onChange={(promotionPrice) => setDraft((old) => ({ ...old, promotionPrice }))}
+                    isRequired
+                  />
+                  <p className="tk-help">
+                    Має бути меншою за звичайну ціну. Під час акції продаж і цінник використовують
+                    цю суму; звичайна ціна зберігається.
+                  </p>
+                  {current?.promotion && current.promotionPrice === null ? (
+                    <p className="tk-error">
+                      Для цієї акції ще не задано окрему ціну. Вкажіть її перед збереженням.
+                    </p>
+                  ) : current?.promotion && !hasEffectivePromotion(current) ? (
+                    <p className="tk-error">
+                      Збережена акційна ціна більше не є дійсною знижкою. Змініть її або вимкніть
+                      акцію.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               {text('priceAt', 'Дата перевірки ціни (РРРР-ММ-ДД)')}
               <Checkbox
                 className="tk-editor-checkbox"

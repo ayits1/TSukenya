@@ -387,7 +387,7 @@ function StudioWorkspace({
   );
   const issues = proof
     ? printIssues(copies, proof.settings, proofDate(proof))
-    : { noPrice: [], stale: [], overLimit: false };
+    : { noPrice: [], stale: [], incompletePromotion: [], overLimit: false };
   const validationErrors = [
     ...(!selection.length ? ['Оберіть товари для друку.'] : []),
     ...(selection.reduce((sum, row) => sum + row.quantity, 0) > 1000
@@ -399,6 +399,11 @@ function StudioWorkspace({
       : []),
     ...(issues.noPrice.length
       ? [`Немає ціни: ${issues.noPrice.slice(0, 5).join(', ')}. Друк заблоковано.`]
+      : []),
+    ...(issues.incompletePromotion.length
+      ? [
+          `Акція без окремої акційної ціни: ${issues.incompletePromotion.slice(0, 5).join(', ')}. Задайте звичайну й акційну ціну або вимкніть акцію.`,
+        ]
       : []),
     ...(measurement.clipped.length
       ? [
@@ -475,6 +480,13 @@ function StudioWorkspace({
         label && clippedLabel(label)
           ? ['Текст не вміщується. Зменште шрифт або приховайте додаткові елементи.']
           : [];
+      if (
+        previewProduct?.promotion &&
+        printIssues([previewProduct], draft.settings).incompletePromotion.length
+      )
+        warnings.push(
+          'Акційна ціна не задана. Відкрийте товар і задайте звичайну й акційну ціну або вимкніть акцію.',
+        );
       if (active)
         setPreviewWarnings((previous) => (equal(previous, warnings) ? previous : warnings));
     };

@@ -145,6 +145,7 @@ try {
   });
   await removePostgres();
   await stage(2, async () => {
+    await run('node', ['tests/promotion-legacy.cjs']);
     await run('node', ['tests/catalog-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/labels-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/portal-ui.cjs'], { env: browserEnv });

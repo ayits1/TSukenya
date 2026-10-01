@@ -100,6 +100,21 @@
 .tk-catalog-number {
   font-variant-numeric: tabular-nums;
 }
+.tk-product-table .tk-regular-price {
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+.tk-discount-price {
+  color: #754f0e;
+}
+.tk-product-table .tk-promotion-warning {
+  color: #754f0e;
+}
+.tk-editor-promotion-price {
+  border-left: 3px solid #e1c183;
+  padding-left: 16px;
+  margin-bottom: 16px;
+}
 .tk-promotion {
   display: inline-flex;
   justify-content: center;

@@ -23,6 +23,7 @@ export const studioProducts: LabelProduct[] = [
     size: '90 г',
     unit: 'шт',
     salePrice: 79.5,
+    regularPrice: 99,
     priceAt: '2026-10-01',
     promotion: true,
   },
