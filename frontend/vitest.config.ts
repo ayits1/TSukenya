@@ -12,6 +12,7 @@ export default defineConfig({
     projects: [
       { test: { name: 'unit', environment: 'node', include: ['src/**/*.test.ts'] } },
       {
+        optimizeDeps: { include: ['@internationalized/date'] },
         plugins: [
           storybookTest({ configDir: fileURLToPath(new URL('./.storybook', import.meta.url)) }),
         ],

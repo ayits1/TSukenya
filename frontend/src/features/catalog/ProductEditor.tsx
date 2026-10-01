@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { ModalOverlay, Modal, Dialog, Heading, Form, Checkbox } from 'react-aria-components';
 import { TextField } from '../../shared/ui/TextField';
 import { MoneyField } from '../../shared/ui/MoneyField';
+import { DatePicker, ukraineToday } from '../../shared/ui/DatePicker';
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
 import {
@@ -115,7 +116,6 @@ export function ProductEditor({
       | 'barcode'
       | 'cost'
       | 'markup'
-      | 'priceAt'
       | 'minStock',
     label: string,
   ) => (
@@ -250,7 +250,15 @@ export function ProductEditor({
                   ) : null}
                 </div>
               ) : null}
-              {text('priceAt', 'Дата перевірки ціни (РРРР-ММ-ДД)')}
+              <DatePicker
+                label="Дата перевірки ціни"
+                value={draft.priceAt}
+                maxValue={ukraineToday()}
+                isDisabled={mutation.isPending || reload.isPending || deletion.isPending}
+                onChange={(priceAt) =>
+                  setDraft((old) => ({ ...old, priceAt, priceReviewed: false }))
+                }
+              />
               <Checkbox
                 className="tk-editor-checkbox"
                 isSelected={draft.priceReviewed}

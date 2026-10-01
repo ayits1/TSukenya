@@ -20,13 +20,21 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  const browserType=process.env.QA_BROWSER==='webkit'?webkit:chromium;
  browser=await browserType.launch(process.env.QA_BROWSER==='webkit'?{headless:true}:{headless:true,...(process.platform==='darwin'?{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
  const page=await browser.newPage({viewport:{width:1440,height:1000}}), errors=[];page.on('pageerror',error=>errors.push(error.message));
+ // Functional checks use the system-font fallback instead of waiting for an external font CDN.
+ await page.route('https://fonts.googleapis.com/**', route=>route.abort());
+ await page.route('https://fonts.gstatic.com/**', route=>route.abort());
  page.setDefaultTimeout(10_000);await require('./browser-login.cjs')(page,base,password);
  await page.goto(base+'/#operations/products');
  await until(async()=>await page.locator('.tk-product-table tbody tr').count()===20,'React catalogue page');
  assert(await page.evaluate(()=>!!window.ReactCatalog));console.log('React catalogue loaded');
+ if(process.env.QA_DATE_ONLY){
+  await require('./catalog-date.cjs')(page, until);
+  assert.deepEqual(errors,[]);return;
+ }
  if(!process.env.QA_LAYOUT_ONLY && !process.env.QA_FILTERS_ONLY){
   await require('./catalog-price.cjs')(page, until);
   if(process.env.QA_PRICE_ONLY){assert.deepEqual(errors,[]);return;}
+  await require('./catalog-date.cjs')(page, until);
  }
  if(!process.env.QA_LAYOUT_ONLY && !process.env.QA_FILTERS_ONLY){
  await page.getByRole('button',{name:'Далі',exact:true}).click();

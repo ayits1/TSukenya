@@ -81,6 +81,140 @@ input {
   padding: 10px 12px;
   min-width: 0;
 }
+.tk-date-group {
+  display: flex;
+  align-items: stretch;
+  min-height: var(--tk-control-height);
+  border: 1px solid var(--tk-input-line);
+  border-radius: var(--tk-radius);
+  background: var(--tk-paper);
+}
+.tk-date-group[data-focus-within] {
+  outline: 3px solid var(--tk-focus);
+  outline-offset: 3px;
+}
+.tk-date-input {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  padding: 8px 10px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.tk-date-segment {
+  padding: 2px;
+  border-radius: 2px;
+}
+.tk-date-segment[data-placeholder] {
+  color: var(--tk-muted);
+}
+.tk-date-segment[data-focused],
+.tk-date-trigger[data-focused] {
+  background: var(--tk-brand-soft);
+}
+.tk-date-group :is(.tk-date-segment, .tk-date-trigger):focus-visible,
+.tk-date-group :is(.tk-date-segment, .tk-date-trigger)[data-focus-visible] {
+  outline: none;
+}
+.tk-date-trigger,
+.tk-calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--tk-radius);
+  background: transparent;
+  cursor: pointer;
+}
+.tk-date-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tk-calendar-popover {
+  max-width: calc(100vw - 4px);
+  padding: 3px;
+  border: 1px solid var(--tk-input-line);
+  border-radius: var(--tk-radius);
+  background: var(--tk-paper);
+  color: var(--tk-ink);
+  box-shadow: 0 8px 24px #20272c14;
+}
+.tk-calendar-dialog {
+  outline: none;
+}
+.tk-calendar header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.tk-calendar header h2 {
+  margin: 0;
+  font-size: 14px;
+}
+.tk-calendar header h2::first-letter {
+  text-transform: uppercase;
+}
+.tk-calendar-nav {
+  font-size: 24px;
+}
+.tk-calendar-grid {
+  border-collapse: collapse;
+  min-width: 0;
+  width: auto;
+}
+.tk-calendar-grid :is(td, th) {
+  padding: 0;
+  text-align: center;
+  border: 0;
+}
+.tk-calendar-grid th {
+  height: 32px;
+  color: var(--tk-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.tk-calendar-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.tk-calendar-cell[data-hovered] {
+  background: var(--tk-brand-soft);
+}
+.tk-calendar-cell[data-selected] {
+  background: var(--tk-brand);
+  color: white;
+  font-weight: 600;
+}
+.tk-calendar-cell[data-disabled] {
+  color: var(--tk-muted);
+  cursor: default;
+  opacity: 0.45;
+}
+.tk-calendar-nav[data-disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+.tk-calendar-cell[data-outside-month] {
+  visibility: hidden;
+}
+.tk-calendar-cell[data-focus-visible] {
+  outline-offset: -3px;
+}
+.tk-calendar-close {
+  width: 100%;
+  margin-top: 4px;
+}
 .tk-money-group {
   display: flex;
   align-items: stretch;
@@ -252,7 +386,8 @@ input {
 .tk-field[data-disabled] {
   opacity: 0.6;
 }
-.tk-money[data-disabled] {
+.tk-money[data-disabled],
+.tk-date[data-disabled] {
   opacity: 1;
 }
 .tk-button[data-disabled],
