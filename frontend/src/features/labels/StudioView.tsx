@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Checkbox,
@@ -191,6 +191,16 @@ function Canvas({
 }
 export function StudioView(props: StudioViewProps) {
   const { config, settings, selectedField, canEdit, saveStatus, selectedTab } = props;
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const previousTab = useRef(selectedTab);
+  useLayoutEffect(() => {
+    if (previousTab.current === selectedTab) return;
+    previousTab.current = selectedTab;
+    const tabs = tabsRef.current;
+    if (tabs && tabs.getBoundingClientRect().top < 0) {
+      tabs.scrollIntoView({ block: 'start', behavior: 'instant' });
+    }
+  }, [selectedTab]);
   const locked = !canEdit || saveStatus === 'saving' || props.outputBusy;
   const style = fieldStyle(config, selectedField);
   const quantities = Object.values(props.selection).filter((quantity) => quantity > 0);
@@ -214,50 +224,8 @@ export function StudioView(props: StudioViewProps) {
       aria-label="Студія цінників"
       aria-busy={props.outputBusy}
     >
-      <header className="tk-studio-heading">
-        <div>
-          <h2>Студія цінників</h2>
-          <p>Налаштуйте шаблон, оберіть товари та перевірте аркуші перед друком.</p>
-        </div>
-        <div className="tk-studio-save">
-          <span
-            role="status"
-            className={
-              saveStatus === 'error' || saveStatus === 'conflict' ? 'tk-error' : 'tk-studio-note'
-            }
-          >
-            {SAVE_LABELS[saveStatus]}
-          </span>
-          {canEdit ? (
-            <Button
-              variant="primary"
-              onPress={props.onSave}
-              isDisabled={
-                saveStatus === 'saved' ||
-                saveStatus === 'saving' ||
-                saveStatus === 'conflict' ||
-                props.outputBusy
-              }
-            >
-              Зберегти макет
-            </Button>
-          ) : (
-            <span className="tk-studio-note">Перегляд без редагування</span>
-          )}
-        </div>
-      </header>
-      {props.error || saveStatus === 'conflict' ? (
-        <div className="tk-studio-alert" role="alert">
-          {props.error ||
-            'Збережений макет змінився. Завантажте актуальний макет перед збереженням.'}
-          {saveStatus === 'conflict' ? (
-            <Button onPress={props.onReload} isDisabled={props.outputBusy || props.preparing}>
-              Завантажити збережений макет
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
       <Tabs
+        ref={tabsRef}
         selectedKey={selectedTab}
         onSelectionChange={(key) =>
           key === 'review' ? props.onReview() : props.onTabChange(String(key) as StudioTab)
@@ -268,12 +236,51 @@ export function StudioView(props: StudioViewProps) {
             Макет
           </Tab>
           <Tab className="tk-studio-tab" id="products" isDisabled={props.outputBusy}>
-            Товари{quantities.length ? ` · ${quantities.length}` : ''}
+            Товари для друку{quantities.length ? ` · ${quantities.length}` : ''}
           </Tab>
           <Tab className="tk-studio-tab" id="review" isDisabled={props.outputBusy}>
-            Перевірка
+            Перевірка перед друком
           </Tab>
         </TabList>
+        <header className="tk-studio-heading">
+          <div className="tk-studio-save">
+            <span
+              role="status"
+              className={
+                saveStatus === 'error' || saveStatus === 'conflict' ? 'tk-error' : 'tk-studio-note'
+              }
+            >
+              {SAVE_LABELS[saveStatus]}
+            </span>
+            {canEdit ? (
+              <Button
+                variant="primary"
+                onPress={props.onSave}
+                isDisabled={
+                  saveStatus === 'saved' ||
+                  saveStatus === 'saving' ||
+                  saveStatus === 'conflict' ||
+                  props.outputBusy
+                }
+              >
+                Зберегти макет
+              </Button>
+            ) : (
+              <span className="tk-studio-note">Перегляд без редагування</span>
+            )}
+          </div>
+        </header>
+        {props.error || saveStatus === 'conflict' ? (
+          <div className="tk-studio-alert" role="alert">
+            {props.error ||
+              'Збережений макет змінився. Завантажте актуальний макет перед збереженням.'}
+            {saveStatus === 'conflict' ? (
+              <Button onPress={props.onReload} isDisabled={props.outputBusy || props.preparing}>
+                Завантажити збережений макет
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         <TabPanel id="design">
           <div className="tk-studio-toolbar">
             <Select

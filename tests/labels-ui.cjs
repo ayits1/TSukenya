@@ -58,6 +58,63 @@ async function seed() {
   });
 }
 
+async function checkNavigation() {
+  const tabs = page.getByRole('tablist', { name: 'Етапи підготовки цінників' });
+  const design = page.getByRole('tab', { name: 'Макет', exact: true });
+  const products = page.getByRole('tab', { name: /^Товари для друку/ });
+  const review = page.getByRole('tab', { name: 'Перевірка перед друком', exact: true });
+  const before = await request('GET', '/api/v1/labels/workspace');
+  await page.locator('.tk-studio-layer[data-label-field=price]').click();
+  await page.getByLabel('Розмір, pt', { exact: true }).fill('24');
+  await page.getByLabel('Розмір, pt', { exact: true }).press('Tab');
+  await products.click();
+  await page.getByRole('searchbox', { name: 'Пошук товарів' }).fill('Контрольна кава');
+  const row = page.locator('.tk-studio-product-row').filter({ hasText: 'Контрольна кава' });
+  await row.locator('.tk-studio-check').click();
+  await page.getByLabel('Копій: Контрольна кава', { exact: true }).fill('3');
+  await page.getByLabel('Копій: Контрольна кава', { exact: true }).press('Tab');
+  await design.click();
+  assert.equal(Number(await page.getByLabel('Розмір, pt', { exact: true }).inputValue()), 24);
+  // Keyboard navigation shares the same controlled tabs and keeps the draft.
+  await design.focus();
+  await design.press('ArrowRight');
+  await until(async () => await products.getAttribute('aria-selected') === 'true', 'keyboard product tab');
+  assert.equal(await page.getByLabel('Копій: Контрольна кава', { exact: true }).inputValue(), '3');
+  await products.press('ArrowRight');
+  await page.getByRole('alert').filter({ hasText: /^Збережіть макет перед перевіркою друку\.$/ }).waitFor();
+  assert.equal(await review.getAttribute('aria-selected'), 'true');
+  await design.click();
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const geometry = await tabs.evaluate(bar => ({
+      top: bar.getBoundingClientRect().top,
+      studioTop: bar.closest('.tk-studio').getBoundingClientRect().top,
+      items: [...bar.querySelectorAll('[role=tab]')].map(item => {
+        const r = item.getBoundingClientRect();
+        return { left: r.left, right: r.right, height: r.height };
+      }),
+      fits: document.documentElement.scrollWidth <= innerWidth,
+    }));
+    assert(Math.abs(geometry.top - geometry.studioTop) < 2, 'tabs begin directly below page heading');
+    assert(geometry.fits, `no horizontal overflow at ${width}`);
+    for (const item of geometry.items) assert(item.height >= 44 && item.left >= 0 && item.right <= width, `all tabs fit at ${width}`);
+    await page.evaluate(() => window.scrollTo(0, 700));
+    const pinned = await tabs.boundingBox();
+    assert(pinned.y >= -1 && pinned.y < 3, `sticky navigation at ${width}`);
+    await products.click();
+    assert.equal(await page.getByRole('searchbox', { name: 'Пошук товарів' }).inputValue(), 'Контрольна кава');
+    assert.equal(await page.getByLabel('Копій: Контрольна кава', { exact: true }).inputValue(), '3');
+    const newTop = await tabs.boundingBox();
+    assert(newTop.y >= -1, 'switch opens the beginning of the new work area');
+    await design.click();
+    assert.equal(Number(await page.getByLabel('Розмір, pt', { exact: true }).inputValue()), 24);
+    await page.screenshot({ path: path.join(output, `tsukenya-label-tabs-${width}.png`) });
+  }
+  assert.deepEqual((await request('GET', '/api/v1/labels/workspace')).config, before.config, 'tab switches never save a draft');
+  console.log('PASS: tabs placement, sticky scrolling, keyboard, draft/selection/filter preservation, 1440/390/320 layout.');
+}
+
 async function checkStudio() {
   const preview = page.getByRole('combobox', { name: 'Товар для перегляду', exact: true });
   const shownName = () => page.locator('.tk-studio-canvas .tk-label[data-product] [data-field=name]').innerText();
@@ -277,7 +334,8 @@ async function checkStudio() {
   await page.goto(base + '/#operations/tags');
   await page.locator('.tk-studio').waitFor();
   assert(await page.evaluate(() => !!window.ReactLabels), 'React label module loaded');
-  await checkStudio();
+  if (process.env.QA_NAV_ONLY === '1') await checkNavigation();
+  else await checkStudio();
   assert.deepEqual(errors, [], 'browser runtime errors');
   console.log('PASS: isolated Label Studio feature checks.');
 })().catch(async error => {
