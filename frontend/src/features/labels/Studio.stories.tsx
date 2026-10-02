@@ -14,6 +14,7 @@ function Demo({
   conflict = false,
   twoStores = false,
   promotion = false,
+  loading = false,
 }: {
   initialTab?: StudioTab;
   empty?: boolean;
@@ -21,6 +22,7 @@ function Demo({
   conflict?: boolean;
   twoStores?: boolean;
   promotion?: boolean;
+  loading?: boolean;
 }) {
   const [config, setConfig] = useState<LabelConfig>({
     ...studioConfig,
@@ -110,7 +112,7 @@ function Demo({
       pages={1}
       total={products.length}
       onPageChange={() => {}}
-      loading={false}
+      loading={loading}
       error={
         conflict
           ? 'Шаблон змінено в іншому вікні. Завантажте поточний макет перед збереженням.'
@@ -166,6 +168,15 @@ export const Empty: Story = { args: { empty: true } };
 export const ReadOnly: Story = { args: { readOnly: true } };
 export const Conflict: Story = { args: { conflict: true } };
 export const Products: Story = { args: { initialTab: 'products' } };
+export const LoadingProducts: Story = {
+  args: { initialTab: 'products', loading: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('checkbox', { name: 'Американо' })).toBeDisabled();
+    await expect(canvas.getByLabelText('Копій: Американо')).toBeDisabled();
+    await expect(canvas.getByRole('button', { name: 'Обрати цю сторінку' })).toBeDisabled();
+  },
+};
 export const EditAndSave: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

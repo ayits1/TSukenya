@@ -80,4 +80,14 @@ describe('API boundary', () => {
       { name: 'AbortError' },
     );
   });
+  it('provides a Ukrainian recovery message for a network failure', async () => {
+    const transport = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(createApiClient({ transport }).get('/health', decodeHealth)).rejects.toMatchObject(
+      {
+        name: 'ApiError',
+        status: 0,
+        message: 'Не вдалося з’єднатися із сервером. Перевірте підключення та спробуйте ще раз.',
+      },
+    );
+  });
 });

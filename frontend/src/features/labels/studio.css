@@ -70,6 +70,10 @@
   outline: 3px solid var(--tk-focus);
   outline-offset: -4px;
 }
+/* Keep browser-driven keyboard scrolling clear of the sticky step navigation. */
+html:has(#react-labels .tk-studio) {
+  scroll-padding-block-start: 6rem;
+}
 .tk-studio [role='tabpanel'] {
   scroll-margin-top: 80px;
 }

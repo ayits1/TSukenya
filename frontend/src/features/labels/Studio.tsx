@@ -613,6 +613,17 @@ function StudioWorkspace({
       }
       loading={page.isFetching}
       error={combinedError}
+      {...(page.error || suggestions.error || committedPreview.error
+        ? {
+            onRetryProducts: () => {
+              if (page.error) void page.refetch();
+              if (suggestions.error) void suggestions.refetch();
+              if (committedPreview.error) void committedPreview.refetch();
+            },
+            retryingProducts:
+              page.isFetching || suggestions.isFetching || committedPreview.isFetching,
+          }
+        : {})}
       onReview={() => void review()}
       preparing={preparing}
       outputBusy={outputBusy}

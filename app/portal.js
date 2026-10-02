@@ -150,6 +150,28 @@
   const del = (col,id,ok) => write(()=>db.collection(col).doc(id).delete(), ok).then(r=>{ gsSoon(col); return r; });
   async function setDoc(path,data,ok){ return write(async()=>{ const ref=db.doc(path); const s=await ref.get(); s.exists ? await ref.update(data) : await ref.set(data); }, ok); }
 
+  const inlineSaves = new Set();
+  const inlineFields = '#newWork,#newWorkDue,#newTask,#newTaskStage,#newIdea,[data-newexp]';
+  const fieldKey = el => el.id || `expense:${el.dataset.newexp}`;
+  function inlineDrafts(){return [...document.querySelectorAll(inlineFields)].map(el=>[fieldKey(el),el.value]);}
+  function hasInlineDraft(){return [...document.querySelectorAll('#newWork,#newTask,#newIdea,[data-newexp]')].some(el=>el.value.trim());}
+  async function addInline(action, collection, payload, fields, ok){
+    if(inlineSaves.has(action))return;
+    const input=fields[0];
+    if(!input.value.trim()){input.setCustomValidity('Введіть назву.');input.reportValidity();return;}
+    input.setCustomValidity('');
+    const buttons=[...document.querySelectorAll(`[data-act="${action}"]`)].filter(button=>action!=='addExp'||button.dataset.g===payload.group);
+    inlineSaves.add(action);const controls=[...fields,...buttons],disabled=controls.map(el=>el.disabled);
+    controls.forEach(el=>el.disabled=true);
+    try{
+      if(await add(collection,payload,ok))fields.forEach(el=>{if(el.tagName==='INPUT')el.value='';});
+    }finally{
+      controls.forEach((el,i)=>el.disabled=disabled[i]);inlineSaves.delete(action);
+      if(pending)render();
+      const target=input.id?document.getElementById(input.id):document.querySelector(`[data-newexp="${input.dataset.newexp}"]`);
+      target?.focus({preventScroll:true});
+    }
+  }
   let tagSaveQueue=Promise.resolve();
   function tagSaveStatus(){const el=$('#tagSaveStatus');if(el)el.textContent=S.tagSaving?'Збереження…':S.tagSaveFailed?'Не збережено. Натисніть, щоб повторити.':'Макет збережено';}
   function saveTag(patch){
@@ -184,6 +206,7 @@
   /* ---------- tabs ---------- */
   function render(force=false){
     const a = document.activeElement;
+    if(inlineSaves.size){pending=true;return;}
     if (!force && a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
     pending = false;
     if(tab==='products' && window.ReactCatalog){
@@ -203,7 +226,9 @@
     window.Trade?.leave();
     renderPath();
     const m = $("#main"),openPanels=[...m.querySelectorAll("[data-disclosure][open]")].map(el=>el.dataset.disclosure),scrolls=[...m.querySelectorAll(".pick,.field-list")].map(el=>[el.className,el.scrollTop,el.scrollLeft]);
+    const drafts=inlineDrafts();
     m.innerHTML = ({overview, devOverview, work, tasks, ideas, products, tags, expenses})[tab]();
+    for(const [key,value] of drafts){const el=[...m.querySelectorAll(inlineFields)].find(el=>fieldKey(el)===key);if(el)el.value=value;}
     for(const key of openPanels)m.querySelector(`[data-disclosure="${key}"]`)?.setAttribute("open","");
     for(const [cls,top,left]of scrolls){const el=m.getElementsByClassName(cls)[0];if(el){el.scrollTop=top;el.scrollLeft=left;}}
     if (tab==="tags") renderPreview();
@@ -234,6 +259,9 @@
     if(tab==='products' && requested!=='products' && window.ReactCatalog?.dirty() && !confirm('Відкинути незбережені зміни товару?')){history.replaceState(null,'','#operations/products');return;}
     if(tab==='tags' && requested!=='tags' && window.ReactLabels?.dirty() && !confirm('Відкинути незбережені зміни макета?')){history.replaceState(null,'','#operations/tags');return;}
 
+    const next=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
+    if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size || (hasInlineDraft() && !confirm('Відкинути незбережену назву задачі, ідеї або статті витрат?')))){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+    const changed=next!==tab;
     tab=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     workspace=SECTIONS[tab][0];
     document.querySelectorAll('[data-workspace]').forEach(x=>x.setAttribute('aria-current',x.dataset.workspace===workspace?'page':'false'));
@@ -242,11 +270,13 @@
     $('#pageTitle').textContent=SECTIONS[tab][1]; $('#pageDescription').textContent=SECTIONS[tab][2];
     $('#developmentPath').hidden=workspace!=='development'||tab==='ideas';
     document.title=SECTIONS[tab][1]+' · Цукерня'; render(true);
+    if(changed){window.scrollTo({top:0,behavior:'instant'});$('#pageTitle').focus({preventScroll:true});}
   }
   function navigate(next){ location.hash=SECTIONS[next][0]+'/'+next; }
   window.addEventListener('tsukenya:catalog-ready',()=>{if(tab==='products')render(true);});
   window.addEventListener('tsukenya:labels-ready',()=>{if(tab==='tags')render(true);});
   window.addEventListener('hashchange',route);
+  window.addEventListener('beforeunload',event=>{if(hasInlineDraft()||inlineSaves.size){event.preventDefault();event.returnValue='';}});
 
   /* ---------- totals ---------- */
   function totals(){
@@ -264,7 +294,7 @@
       <div class="stat"><div class="l">Товарів у каталозі</div><div class="v num">${S.products.length}</div></div>
       <div class="stat"><div class="l">Потребують ціни</div><div class="v num">${noPrice}</div></div>
       <div class="stat"><div class="l">Поточні задачі</div><div class="v num">${current.length}</div></div>
-      <div class="stat"><div class="l">План витрат на місяць</div><div class="v num">${money0(t.fixed+t.variable)} грн</div></div>
+      <div class="stat"><div class="l">План витрат на місяць</div><div class="v num">${money(t.fixed+t.variable)} грн</div></div>
     </div></section>
     <section class="panel"><div class="row between gap-lg"><h3>Швидкі дії</h3></div><div class="quick-actions"><a href="#trade/purchases">Облік торгівлі<span>Закупівлі, склад і продажі</span></a><a href="#operations/products">Оновити каталог<span>Ціни, закупівля та націнка</span></a><a href="#operations/tags">Підготувати цінники<span>Макет, PDF і друк</span></a><a href="#operations/work">Запланувати роботу<span>Задачі та терміни</span></a></div></section>
     <section class="panel"><div class="row between gap-lg"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${noPrice?`${noPrice} товарів без ціни. Заповніть ціну перед друком.`:'У всіх товарів є ціна.'} ${stale?`${stale} товарів мають застарілу дату ціни.`:''}</p></section>
@@ -286,8 +316,8 @@
   const ST_NEXT = {todo:"doing", doing:"done", done:"todo"};
   function taskRow(t){
     const s = t.status || "todo";
-    return `<div class="task ${s}"><button class="chip ${s}" data-cycle="${t.id}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>
-      <span class="t">${esc(t.title)}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span><button class="x" data-del-task="${t.id}" aria-label="Видалити задачу">×</button></div>`;
+    return `<div class="task ${s}"><button class="chip ${s}" data-cycle="${t.id}" aria-label="${esc(t.title)}: ${ST_LABEL[s]}. Змінити на ${ST_LABEL[ST_NEXT[s]]}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>
+      <span class="t">${esc(t.title)}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span><button class="x" data-del-task="${t.id}" aria-label="Видалити задачу: ${esc(t.title)}">×</button></div>`;
   }
   function tasks(){
     const opts = STAGES.map(s=>`<option value="${s.n}">${s.n}. ${esc(s.name)}</option>`).join("");
@@ -1164,14 +1194,14 @@
 
   /* ---------- expenses ---------- */
   function expRow(e){
-    return `<div class="exp"><span class="n">${esc(e.name)}</span><div class="expense-amount"><input type="number" min="0" step="100" value="${num(e.amount)}" data-exp="${e.id}" aria-label="${esc(e.name)}, грн на місяць"><span class="muted">грн</span></div><button class="x" data-del-exp="${e.id}" aria-label="Видалити статтю">×</button></div>`;
+    return `<div class="exp"><span class="n">${esc(e.name)}</span><div class="expense-amount"><input type="number" inputmode="decimal" min="0" step="0.01" value="${num(e.amount)}" data-exp="${e.id}" aria-label="${esc(e.name)}, грн на місяць"><span class="muted">грн</span></div><button class="x" data-del-exp="${e.id}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div>`;
   }
   function expenses(){
     const t = totals(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
     const block = (title, hint, list, g, sum) => `<div class="expense-group"><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
       ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
       <div class="expense-add"><input type="text" placeholder="Нова стаття" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
-      <div class="total"><span>Разом на місяць</span><span class="num">${money0(sum)} грн</span></div></div>`;
+      <div class="total"><span>Разом на місяць</span><span class="num">${money(sum)} грн</span></div></div>`;
     return `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Витрати мережі на місяць</h2>
       <label class="inl">Магазинів у мережі <input id="stores" type="number" min="1" step="1" value="${S.settings.stores||1}" style="width:70px"></label></div>
       <p class="muted gap-lg">Впишіть суми за місяць на всю мережу. Зміни зберігаються, щойно ви перейдете до іншого поля.</p>
@@ -1211,10 +1241,9 @@
     if(a==='closeProduct'){closeProduct();return;}
     if(a==='deleteEditedProduct'){deleteEditedProduct(t);return;}
     if(a==='resetField'){const styles={...(tagCfg().styles||{})};delete styles[S.tagField||'name'];saveTag({styles,nameBig:false});selectField(S.tagField||'name');return;}
-    if(a==='addWork'){const v=$('#newWork').value.trim();if(!v)return;add('tasks',{title:v,scope:'operations',dueDate:$('#newWorkDue').value||null,status:'todo',order:Date.now()},'Поточну задачу додано');return;}
-    if (a==="addTask"){ const v=$("#newTask").value.trim(); if(!v) return; const st=+$("#newTaskStage").value;
-      add("tasks",{title:v,scope:"development",stage:st,status:"todo",order:Date.now()},"Задачу додано"); }
-    if (a==="addIdea"){ const v=$("#newIdea").value.trim(); if(!v) return; add("ideas",{title:v,text:"Ідея власника",reaction:null,order:Date.now(),byOwner:true},"Ідею записано"); }
+    if(a==='addWork'){const input=$('#newWork'),due=$('#newWorkDue');void addInline(a,'tasks',{title:input.value.trim(),scope:'operations',dueDate:due.value||null,status:'todo',order:Date.now()},[input,due],'Поточну задачу додано');return;}
+    if(a==='addTask'){const input=$('#newTask');void addInline(a,'tasks',{title:input.value.trim(),scope:'development',stage:+$('#newTaskStage').value,status:'todo',order:Date.now()},[input,$('#newTaskStage')],'Задачу додано');return;}
+    if(a==='addIdea'){const input=$('#newIdea');void addInline(a,'ideas',{title:input.value.trim(),text:'Ідея власника',reaction:null,order:Date.now(),byOwner:true},[input],'Ідею записано');return;}
     if (a==="clearEx"){ if(confirm("Прибрати всі товари-приклади?")) S.products.filter(p=>p.example).reduce((pr,p)=>pr.then(()=>del("products",p.id)),Promise.resolve()).then(()=>toast("Приклади прибрано")); }
     if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? (window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)) : S.products.filter(p=>!c||p.category===c);
       if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
@@ -1252,8 +1281,7 @@
     if (a==="gsSearch"){ gsSearch(); }
     if (a==="gsClose"){ S.gs = null; renderGs(); }
     if (a==="dlCsv"){ save(`tsinnyky-${new Date().toISOString().slice(0,10)}.csv`, csv(selectedProducts())); }
-    if (a==="addExp"){ const g=t.dataset.g, inp=document.querySelector(`[data-newexp="${g}"]`), v=inp.value.trim(); if(!v) return;
-      add("expenses",{name:v,group:g,amount:0,order:Date.now()},"Статтю додано"); }
+    if(a==='addExp'){const g=t.dataset.g,input=document.querySelector(`[data-newexp="${g}"]`);void addInline(a,'expenses',{name:input.value.trim(),group:g,amount:0,order:Date.now()},[input],'Статтю додано');return;}
   });
   document.addEventListener("change", e=>{
     const el = e.target;
@@ -1302,6 +1330,7 @@
   $('#productEditor').addEventListener('cancel',e=>{if(S.editDirty){e.preventDefault();closeProduct();}});
   window.addEventListener('beforeunload',e=>{if(S.editDirty||S.tagSaving||S.tagSaveFailed){e.preventDefault();e.returnValue='';}});
   document.addEventListener("input", e=>{
+    if(e.target.matches(inlineFields))e.target.setCustomValidity?.('');
     if(e.target.closest('#productForm')){S.editDirty=true;return;}
     if(e.target.dataset.style){const el=e.target;if(el.dataset.prop==='size'&&!el.value)return;const styles={...(tagCfg().styles||{}),[el.dataset.style]:{...((tagCfg().styles||{})[el.dataset.style]||{}),[el.dataset.prop]:el.dataset.prop==='size'?clamp(el.value,5,72):el.value}};S.settings.tag={...tagCfg(),styles};renderPreview();return;}
     if (e.target.id==="tcCustom"){ S.settings.tag = Object.assign(tagCfg(), {custom:e.target.value}); renderPreview(); return; }
@@ -1313,7 +1342,7 @@
     if (e.key!=="Enter") return;
     if (e.target.dataset && e.target.dataset.qty){ e.target.blur(); return; }
     const map = {qtyAll:"qtyAll", newTask:"addTask", newWork:"addWork", newIdea:"addIdea", npName:"addProd", gsQ:"gsSearch"};
-    if (map[e.target.id]) document.querySelector(`[data-act="${map[e.target.id]}"]`).click();
+    if (map[e.target.id]){e.preventDefault();document.querySelector(`[data-act="${map[e.target.id]}"]`).click();}
   });
 
   /* ---------- data ---------- */

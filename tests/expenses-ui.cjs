@@ -63,11 +63,13 @@ async function until(check, message) {
   }
   const amount = page.getByRole('spinbutton', { name: 'Оренда, грн на місяць', exact: true });
   await amount.fill('12345.67');
+  assert.equal(await amount.evaluate(el => el.checkValidity()), true, 'kopecks are a valid budget amount');
   await amount.press('Tab');
   await until(async () => await page.evaluate(async () => (await (await fetch('/api/state')).json()).data.expenses.find(e => e.id === 'qa_rent')?.data.amount === 12345.67), 'budget amount autosaved exactly');
   await page.reload();
   await amount.waitFor();
   assert.equal(await amount.inputValue(), '12345.67', 'budget amount survives reload');
+  assert.match(await page.locator('.expense-group .total .num').first().innerText(), /,67 грн$/, 'budget total preserves kopecks');
   assert.deepEqual(errors, []);
   console.log('PASS: budget names/amounts separated, short/long names, 44px controls, 1440/1024/768/390/320 in both system themes, autosave 12345.67 and reload.');
 })().catch(async error => {

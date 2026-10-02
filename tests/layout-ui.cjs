@@ -6,6 +6,10 @@ const port=process.env.QA_BROWSER==='webkit'?18204:18203,python=process.env.PYTH
 const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("layout-test-password"))'],{cwd:root,encoding:'utf8'}).trim();
 const env={...process.env,DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),PORT:String(port),HOST:'127.0.0.1',OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};
 for(const key of ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD'])delete env[key];
+const layoutWidths=process.env.QA_LAYOUT_WIDTH?[Number(process.env.QA_LAYOUT_WIDTH)]:[1440,768,390,320];
+const layoutThemes=process.env.QA_LAYOUT_THEME?[process.env.QA_LAYOUT_THEME]:['light','dark'];
+assert(layoutWidths.every(width=>Number.isInteger(width)&&width>=320),'QA_LAYOUT_WIDTH must be an integer >=320');
+assert(layoutThemes.every(theme=>['light','dark'].includes(theme)),'QA_LAYOUT_THEME must be light or dark');
 const server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});
 let browser,zoomContext,zoomProfile;
 async function checkSelects(page){
@@ -20,7 +24,8 @@ async function checkSelects(page){
  browser=process.env.QA_BROWSER==='webkit'?await webkit.launch({headless:true}):await chromium.launch({executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
  const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await require('./browser-login.cjs')(page,base,password);
- for(const theme of (process.env.QA_ZOOM_ONLY?[]:['light','dark']))for(const width of [1440,768,390,320]){
+ for(const theme of (process.env.QA_ZOOM_ONLY?[]:layoutThemes))for(const width of layoutWidths){
+  console.log(`Layout case: ${process.env.QA_BROWSER||'chromium'} ${theme} ${width}px`);
   await page.setViewportSize({width,height:1000});await page.emulateMedia({colorScheme:theme});
   await page.goto(base+'/#operations/tags');await page.locator('.tk-studio').waitFor();
   const combo=page.getByRole('combobox',{name:'Товар для перегляду',exact:true});await combo.waitFor();await checkSelects(page);
@@ -40,8 +45,33 @@ async function checkSelects(page){
   await page.locator('.tk-studio-product-list').scrollIntoViewIfNeeded();
   const rows=await page.locator('.tk-studio-product-row').evaluateAll(nodes=>nodes.map(node=>{const b=node.getBoundingClientRect();return{top:b.top,bottom:b.bottom};}));
   assert(rows.every((row,index)=>index===0||row.top>=rows[index-1].bottom-1),'product rows overlap');
-  const firstRow=page.locator('.tk-studio-product-row').first();await firstRow.scrollIntoViewIfNeeded();
-  assert(await firstRow.evaluate(row=>{const b=row.getBoundingClientRect();return document.elementFromPoint(b.left+Math.min(60,b.width/2),b.top+b.height/2)?.closest('.tk-studio-product-row')===row;}),'product row painted beneath another layer');
+  const firstRow=page.locator('.tk-studio-product-row').first();
+  // Sticky navigation legitimately covers content at the viewport edge. Center the row
+  // before checking row-on-row paint; scrollIntoViewIfNeeded does not account for overlays.
+  await firstRow.evaluate(row=>row.scrollIntoView({block:'center',behavior:'instant'}));
+  const hit=await firstRow.evaluate(row=>{
+   const bounds=el=>{if(!el)return null;const b=el.getBoundingClientRect(),s=getComputedStyle(el);return{tag:el.tagName,id:el.id,class:el.className,top:b.top,bottom:b.bottom,left:b.left,right:b.right,height:b.height,position:s.position,zIndex:s.zIndex};};
+   const b=row.getBoundingClientRect(),x=b.left+Math.min(60,b.width/2),y=b.top+b.height/2,painted=document.elementFromPoint(x,y);
+   return{passed:painted?.closest('.tk-studio-product-row')===row,x,y,scrollY,viewport:{width:innerWidth,height:innerHeight},row:bounds(row),painted:bounds(painted),tabs:bounds(document.querySelector('.tk-studio-tabs'))};
+  });
+  if(!hit.passed){
+   const artifact=path.join(os.tmpdir(),`tsukenya-layout-hit-${process.env.QA_BROWSER||'chromium'}-${theme}-${width}`);
+   fs.writeFileSync(artifact+'.json',JSON.stringify(hit,null,2));await page.screenshot({path:artifact+'.png'});console.error('Hit test diagnostic:',JSON.stringify(hit));
+  }
+  console.log('Row paint geometry:',JSON.stringify(hit));
+  assert(hit.passed,`product row painted beneath another layer (${theme} ${width}px): ${JSON.stringify(hit)}`);
+  {
+   // Native focus scrolling must reveal the checkbox below the sticky tabs.
+   await firstRow.evaluate(row=>window.scrollTo({top:scrollY+row.getBoundingClientRect().top,behavior:'instant'}));
+   await firstRow.getByRole('checkbox').focus();
+   const focusHit=await firstRow.getByRole('checkbox').evaluate(input=>{const label=input.closest('.tk-studio-check'),mark=label.querySelector('.tk-studio-check-box'),b=mark.getBoundingClientRect(),painted=document.elementFromPoint(b.x+b.width/2,b.y+b.height/2);return{focused:document.activeElement===input,visible:painted?.closest('.tk-studio-check')===label,top:b.top,bottom:b.bottom,painted:painted?.className,tabsBottom:document.querySelector('.tk-studio-tabs').getBoundingClientRect().bottom};});
+   console.log('Keyboard focus diagnostic:',JSON.stringify(focusHit));
+   if(!focusHit.focused||!focusHit.visible){
+    const artifact=path.join(os.tmpdir(),`tsukenya-layout-focus-${process.env.QA_BROWSER||'chromium'}-${theme}-${width}`);
+    fs.writeFileSync(artifact+'.json',JSON.stringify(focusHit,null,2));await page.screenshot({path:artifact+'.png'});
+   }
+   assert(focusHit.focused&&focusHit.visible,`checkbox focus hidden by sticky navigation (${theme} ${width}px): ${JSON.stringify(focusHit)}`);
+  }
   if(width===1440||width===390)await page.screenshot({path:path.join(os.tmpdir(),`tsukenya-react-studio-products-${theme}-${width}.png`)});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow');
   await page.goto(base+'/#operations/products');await page.waitForSelector('.tk-catalog-pagination');await checkSelects(page);
@@ -49,6 +79,7 @@ async function checkSelects(page){
   await page.goto(base+'/#trade/sales');await page.locator('[data-trade=new-voucher][data-kind=sale]').waitFor();await page.locator('[data-trade=new-voucher][data-kind=sale]').click();await page.locator('#tradeVoucherForm').waitFor();await checkSelects(page);
   if(width===1440)await page.locator('.trade-dialog').screenshot({path:path.join(os.tmpdir(),`tsukenya-selects-${theme}.png`)});
  }
+ if(process.env.QA_LAYOUT_ONLY){assert.deepEqual(errors,[]);console.log('PASS: targeted layout cases '+JSON.stringify({widths:layoutWidths,themes:layoutThemes}));return;}
  // A delayed CRM response must never overwrite the next workspace.
  await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/#trade/setup');await page.locator('[data-trade=users]').waitFor();
  await page.route('**/api/erp/state',async route=>{await new Promise(r=>setTimeout(r,250));await route.continue();});

@@ -30,6 +30,23 @@ export const ReadOnly: Story = {
   },
 };
 export const Loading: Story = { args: { busy: true } };
+export const LoadingEmpty: Story = {
+  args: { busy: true, data: { ...catalogPage, items: [], total: 0 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('heading', { name: 'Завантажуємо товари…' })).toBeVisible();
+    await expect(canvas.queryByText('Товарів не знайдено')).not.toBeInTheDocument();
+  },
+};
+export const ReadOnlyEmpty: Story = {
+  args: { data: { ...catalogPage, canEdit: false, items: [], total: 0 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Змініть пошук або скиньте фільтри.')).toBeVisible();
+    await expect(canvas.queryByRole('button', { name: 'Додати товар' })).not.toBeInTheDocument();
+    await expect(canvas.queryByText(/додати|імпортувати/i)).not.toBeInTheDocument();
+  },
+};
 
 export const PromotionPrices: Story = {
   play: async ({ canvasElement }) => {

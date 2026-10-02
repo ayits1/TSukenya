@@ -23,12 +23,21 @@ export function createApiClient({
     if (!/^\/(?:api\/|health$)/.test(path) || path.includes('\\')) {
       throw new Error('API path must be a local /api/ route or /health');
     }
-    const response = await transport(path, {
-      ...init,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      redirect: 'error',
-    });
+    let response: Response;
+    try {
+      response = await transport(path, {
+        ...init,
+        credentials: 'same-origin',
+        cache: 'no-store',
+        redirect: 'error',
+      });
+    } catch (cause) {
+      if (cause instanceof Error && cause.name === 'AbortError') throw cause;
+      throw new ApiError(
+        0,
+        'Не вдалося з’єднатися із сервером. Перевірте підключення та спробуйте ще раз.',
+      );
+    }
     const value: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const message =

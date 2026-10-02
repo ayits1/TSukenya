@@ -13,7 +13,7 @@
   --ui-warning-bg: #fcf1df;
   --ui-error: #a12a24;
   --ui-focus: #2465ad;
-  --ui-control-height: 40px;
+  --ui-control-height: 44px;
   --ui-radius: 6px;
   --ui-space-1: 4px;
   --ui-space-2: 8px;
@@ -102,3 +102,7 @@
 .ui-combo-note { margin:0;padding:12px;color:var(--ui-muted);font-size:13px; }
 @media(pointer:coarse){.ui-combo-toggle{height:var(--ui-control-height)}.ui-combo-popup [role=option]{min-height:44px}}
 @media(forced-colors:active){.ui-combo-popup [aria-selected=true]{outline:1px solid Highlight;color:Highlight}.ui-combo-toggle svg{color:ButtonText}.ui-combo-popup{border-color:CanvasText}}
+
+/* Action targets stay usable with mouse, keyboard and touch. */
+.ui-root :is(button.x,button.chip) { min-width:44px;min-height:44px; }
+.ui-root .dd-opt { min-height:44px; }

@@ -69,6 +69,8 @@ export type StudioViewProps = {
   onPageChange: (page: number) => void;
   loading: boolean;
   error: string;
+  onRetryProducts?: () => void;
+  retryingProducts?: boolean;
   onReview: () => void;
   preparing: boolean;
   outputBusy: boolean;
@@ -277,6 +279,14 @@ export function StudioView(props: StudioViewProps) {
             {saveStatus === 'conflict' ? (
               <Button onPress={props.onReload} isDisabled={props.outputBusy || props.preparing}>
                 Завантажити збережений макет
+              </Button>
+            ) : null}
+            {props.onRetryProducts ? (
+              <Button
+                onPress={props.onRetryProducts}
+                isDisabled={props.retryingProducts || props.outputBusy}
+              >
+                {props.retryingProducts ? 'Завантажуємо товари…' : 'Завантажити товари повторно'}
               </Button>
             ) : null}
           </div>
@@ -685,7 +695,7 @@ export function StudioView(props: StudioViewProps) {
                       <div>
                         <Check
                           isSelected={quantity > 0}
-                          isDisabled={props.outputBusy}
+                          isDisabled={props.loading || props.outputBusy}
                           onChange={(checked) =>
                             props.onQuantityChange(product.id, checked ? 1 : 0)
                           }
@@ -719,7 +729,7 @@ export function StudioView(props: StudioViewProps) {
                         onChange={(number) =>
                           props.onQuantityChange(product.id, Math.round(number))
                         }
-                        disabled={quantity === 0 || props.outputBusy}
+                        disabled={quantity === 0 || props.loading || props.outputBusy}
                       />
                     </div>
                   );
