@@ -115,12 +115,22 @@ def cash(v, account, amount, cross_store=False):
 def net_total(qs):
     return money(qs.aggregate(n=Sum('total'))['n'] or ZERO)
 
-def obligation(reference):
-    returns = Voucher.objects.filter(reference=reference, status='posted', kind__in=['customer_return','supplier_return'])
-    paid = Voucher.objects.filter(reference=reference, status='posted', kind='payment')
+def obligation(reference, *, settlements=None):
+    # A read-only browser can preload settlements for many sources. Posting uses
+    # the original database path under its ledger lock; the calculation is shared.
+    if settlements is None:
+        returns = Voucher.objects.filter(reference=reference, status='posted', kind__in=['customer_return','supplier_return'])
+        paid = Voucher.objects.filter(reference=reference, status='posted', kind='payment')
+        returned_total = net_total(returns)
+        paid_total = net_total(paid)
+    else:
+        returns = [v for v in settlements if v.status == 'posted' and v.kind in {'customer_return', 'supplier_return'}]
+        paid = [v for v in settlements if v.status == 'posted' and v.kind == 'payment']
+        returned_total = money(sum((v.total for v in returns), ZERO))
+        paid_total = money(sum((v.total for v in paid), ZERO))
     embedded = sum((dec(x['amount']) for x in reference.payload.get('payments', [])), ZERO) if reference.kind == 'sale' else ZERO
     refunded = sum((sum((dec(p['amount']) for p in r.payload.get('payments', [])), ZERO) for r in returns), ZERO)
-    return reference.total - net_total(returns) - net_total(paid) - embedded + refunded
+    return reference.total - returned_total - paid_total - embedded + refunded
 
 def payroll_debt(employee):
     qs = Voucher.objects.filter(employee=employee, status='posted')

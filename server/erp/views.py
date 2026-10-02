@@ -275,7 +275,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -305,7 +305,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/erp-browse.js','/erp-shifts.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -375,27 +375,29 @@ def handle(request):
         require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав.')
         qs=scoped(CashEntry.objects.select_related('voucher','account'),user,'account__store_id').order_by('-pk')[:500]
         return response({'entries':[{'id':e.pk,'voucher':e.voucher_id,'date':e.voucher.date,'account':e.account.name,'kind':e.voucher.kind,'amount':str(e.amount),'note':e.voucher.note,'reversal':e.is_reversal} for e in qs]})
+    if path=='/api/erp/references' and request.method=='GET':
+        from .browsing import references
+        return response(references(user,request.GET))
     if path=='/api/erp/vouchers':
-        if request.method=='POST':return response(voucher_json(save_voucher(user,body(request)),True),201)
+        if request.method=='POST':return response(voucher_json(save_voucher(user,body(request)),True,user=user),201)
         require(request.method=='GET','Метод не підтримується.')
+        from .browsing import page_number, page_bounds, filter_search, positive_integer, PAGE_SIZE
         qs=scoped(Voucher.objects.select_related('created_by'),user)
         qs=qs.filter(kind__in=ROLE_KINDS[user.profile.role])
         if request.GET.get('kind'):qs=qs.filter(kind__in=request.GET['kind'].split(','))
         if request.GET.get('status'):qs=qs.filter(status=request.GET['status'])
-        if request.GET.get('party'):qs=qs.filter(party_id=request.GET['party'])
-        if request.GET.get('store'):qs=qs.filter(store_id=request.GET['store'])
-        if request.GET.get('from'):qs=qs.filter(date__gte=day(request.GET['from']))
-        if request.GET.get('to'):qs=qs.filter(date__lte=day(request.GET['to']))
-        require(request.GET.get('page','1').isdigit(),'Некоректний номер сторінки.')
-        page=max(1,min(100000,int(request.GET.get('page','1'))))
-        return response({'items':[voucher_json(v) for v in qs.order_by('-pk')[(page-1)*30:page*30]],'total':qs.count(),'page':page})
+        if request.GET.get('party'):qs=qs.filter(party_id=positive_integer(request.GET['party'],'ID контрагента'))
+        if request.GET.get('store'):qs=qs.filter(store_id=positive_integer(request.GET['store'],'ID магазину'))
+        qs=filter_search(qs,request.GET)
+        total=qs.count();page,pages,offset=page_bounds(total,page_number(request.GET))
+        return response({'items':[voucher_json(v,user=user) for v in qs.order_by('-pk')[offset:offset+PAGE_SIZE]],'total':total,'page':page,'pages':pages})
     match=re.fullmatch(r'/api/erp/vouchers/(\d+)(?:/(post|reverse))?',path)
     if match:
         pk,action=match.groups();v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind)
-        if action=='post' and request.method=='POST':return response(voucher_json(post_voucher(user,pk),True))
-        if action=='reverse' and request.method=='POST':return response(voucher_json(reverse_voucher(user,pk,body(request).get('reason','')),True))
-        if not action and request.method=='GET':return response(voucher_json(v,True))
-        if not action and request.method=='PUT':return response(voucher_json(save_voucher(user,body(request),pk),True))
+        if action=='post' and request.method=='POST':return response(voucher_json(post_voucher(user,pk),True,user=user))
+        if action=='reverse' and request.method=='POST':return response(voucher_json(reverse_voucher(user,pk,body(request).get('reason','')),True,user=user))
+        if not action and request.method=='GET':return response(voucher_json(v,True,user=user))
+        if not action and request.method=='PUT':return response(voucher_json(save_voucher(user,body(request),pk),True,user=user))
         if not action and request.method=='DELETE':
             with transaction.atomic():
                 ledger_lock();v.refresh_from_db();require(v.status=='draft','Видалити можна тільки чернетку.');audit(user,'draft_deleted',f'voucher/{pk}');v.delete()
@@ -404,6 +406,12 @@ def handle(request):
     if match and request.method=='POST':return entity_save(user,match[1],body(request))
     if path=='/api/erp/shifts' and request.method=='POST':return shift_action(user,body(request))
     if path=='/api/erp/work-shifts' and request.method=='POST':return work_shift_save(user,body(request))
+    if path=='/api/erp/shifts' and request.method=='GET':
+        from .shift_browsing import cash_shifts
+        return response(cash_shifts(user,request.GET))
+    if path=='/api/erp/work-shifts' and request.method=='GET':
+        from .shift_browsing import work_shifts
+        return response(work_shifts(user,request.GET))
     if path=='/api/erp/period' and request.method=='POST':
         owner(user);value=body(request)
         with transaction.atomic():

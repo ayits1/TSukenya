@@ -1,7 +1,7 @@
 /* Isolated trading workflow, UI forms, access controls and responsive layouts. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
-const root=path.resolve(__dirname,'..'),data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-ui-audit-')),python=process.env.PYTHON_BIN||'python3',port=18215,base=`http://localhost:${port}`,password='isolated-crm-test-password';
+const root=path.resolve(__dirname,'..'),data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-ui-audit-')),python=process.env.PYTHON_BIN||'python3',port=Number(process.env.QA_PORT||18215),base=`http://localhost:${port}`,password='isolated-crm-test-password';
 const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-crm-test-password"))'],{cwd:root,encoding:'utf8'}).trim();
 const auditEnv={...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};for(const k of ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD'])delete auditEnv[k];
 const server=spawn(python,['-m','server.main'],{cwd:root,env:auditEnv,stdio:'ignore'});
@@ -25,6 +25,8 @@ const voucher=async body=>{const v=await ok('vouchers','POST',{store,warehouse:w
 await voucher({kind:'cash_opening',amount:1000,account:cash});
 
 if(process.env.QA_NATIVE_ONLY){await require('./native-work-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
+if(process.env.QA_BROWSE_ONLY){await require('./erp-browse-ui.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
+if(process.env.QA_SHIFT_BROWSE_ONLY){await require('./shift-browse-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_AUTH_ONLY){await require('./auth-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_TRADE_ONLY){await require('./trade-dialog-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_UX_ONLY){await require('./trade-dialog-ux.cjs')(page,base,wait);await require('./auth-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}

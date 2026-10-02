@@ -3,7 +3,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-crm-ui-')),python=process.env.PYTHON_BIN||'python3',port=18201,base=`http://localhost:${port}`,password='isolated-crm-test-password';
 const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-crm-test-password"))'],{cwd:root,encoding:'utf8'}).trim();
-const server=spawn(python,['-m','server.main'],{cwd:root,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash},stdio:'ignore'});
+const isolatedEnv={...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};for(const key of ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD'])delete isolatedEnv[key];
+const server=spawn(python,['-m','server.main'],{cwd:root,env:isolatedEnv,stdio:'ignore'});
 let browser;
 const wait=async f=>{for(let i=0;i<120;i++){if(await f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
 (async()=>{

@@ -8,7 +8,7 @@ from .services import money, require, ZERO, net_total, obligation, payroll_debt,
 def number(value):
     return str(value or ZERO)
 
-def voucher_json(v, detail=False):
+def voucher_json(v, detail=False, *, user):
     result = {'id':v.pk,'number':f'{v.pk:06d}','kind':v.kind,'status':v.status,'date':v.date.isoformat(),'store':v.store_id,'warehouse':v.warehouse_id,'target':v.target_id,'party':v.party_id,'employee':v.employee_id,'account':v.account_id,'shift':v.shift_id,'reference':v.reference_id,'total':str(v.total),'cost':str(v.cost),'note':v.note,'created_by':v.created_by.username,'created_at':v.created_at.isoformat(),'posted_at':v.posted_at.isoformat() if v.posted_at else None}
     if v.kind in {'receipt','sale','debt_opening'} and v.status=='posted':
         result['outstanding'] = str(obligation(v))
@@ -25,6 +25,12 @@ def voucher_json(v, detail=False):
                 row['remaining_amount']=str(money(l.amount-returned_amount))
         result['movements']=[{'warehouse':e.lot.warehouse_id,'product':e.lot.product_id.split('/',1)[1],'lot':e.lot.code,'quantity':str(e.quantity),'value':str(e.value),'reversal':e.is_reversal} for e in v.stock_entries.select_related('lot')]
         result['cash_movements']=[{'account':e.account_id,'amount':str(e.amount),'reversal':e.is_reversal} for e in v.cash_entries.all()]
+    if user.profile.role == 'cashier':
+        result.pop('cost', None)
+        for line in result.get('lines', []):
+            line.pop('cost', None)
+        for movement in result.get('movements', []):
+            movement.pop('value', None)
     return result
 
 def scoped(qs, user, field='store_id'):
@@ -33,6 +39,7 @@ def scoped(qs, user, field='store_id'):
     return qs
 
 def state(user):
+    from .shift_browsing import cash_shift_json, WORK_FIELDS
     salary = user.profile.role in {'owner','accountant'}
     entities = {}
     for name,model,fields in [('stores',Store,['id','name','active']),('warehouses',Warehouse,['id','store_id','name']),('parties',Counterparty,['id','name','kind','phone','email','notes','active']),('accounts',CashAccount,['id','store_id','name','kind']),('employees',Employee,['id','name','store_id','active']+(['shift_rate','bonus_percent','bonus_basis'] if salary else []))]:
@@ -45,9 +52,14 @@ def state(user):
     if user.profile.role in {'owner','manager','accountant'}:
         for a in entities['accounts']:
             a['balance']=str(cash_balance(CashAccount(pk=a['id'])))
-    entities['shifts']=[{'id':s.pk,'store_id':s.store_id,'account_id':s.account_id,'employee_id':s.employee_id,'opened_at':s.opened_at.isoformat(),'closed_at':s.closed_at.isoformat() if s.closed_at else None,'opening_cash':str(s.opening_cash),'expected_cash':str(s.expected_cash) if s.expected_cash is not None else None,'counted_cash':str(s.counted_cash) if s.counted_cash is not None else None,'opened_by':s.opened_by.username} for s in scoped(CashShift.objects.select_related('opened_by'),user).order_by('-pk')[:100]]
+    shifts=scoped(CashShift.objects.select_related('opened_by'),user).order_by('-pk')
+    entities['shifts']=[cash_shift_json(s) for s in shifts[:100]]
+    entities['shifts_total']=shifts.count()
+    entities['active_shifts']=[cash_shift_json(s) for s in shifts.filter(closed_at__isnull=True)]
     if salary:
-        entities['work_shifts']=list(scoped(WorkShift.objects.all(),user).order_by('-date','-pk')[:500].values('id','employee_id','store_id','date','cash_shift_id','units','shift_rate','bonus_percent','bonus_basis','accrued','basis_amount','payroll_id','note'))
+        work_shifts=scoped(WorkShift.objects.all(),user).order_by('-date','-pk')
+        entities['work_shifts']=list(work_shifts[:500].values(*WORK_FIELDS))
+        entities['work_shifts_total']=work_shifts.count()
         entities['payroll_debts']=[{'employee':e.pk,'amount':str(payroll_debt(e))} for e in scoped(Employee.objects.all(),user)]
     lock=LedgerLock.objects.get(pk=1)
     entities['closed_through']=lock.closed_through
@@ -110,7 +122,7 @@ def report(user, params):
     flow=scoped(flow,user,'account__store_id')
     if params.get('store'):flow=flow.filter(account__store_id=params['store'])
     by_store=[]
-    for s in scoped(Store.objects.all(),user):
+    for s in scoped(Store.objects.all(),user,'pk'):
         ss=sales.filter(store=s);rr=returns.filter(store=s)
         rev=net_total(ss)-net_total(rr);cost=(ss.aggregate(n=Sum('cost'))['n'] or ZERO)-(rr.aggregate(n=Sum('cost'))['n'] or ZERO)
         by_store.append({'store':s.pk,'name':s.name,'revenue':str(rev),'gross_profit':str(rev-cost)})

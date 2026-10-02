@@ -124,12 +124,14 @@ module.exports = async function tradeDialogUX(page, base, wait) {
   await go('staff');
   await page.locator('[data-trade=work-shift]:not([data-id])').click();
   await active().locator('[name=employee]').selectOption(String(zeroEmployee));
-  assert.equal(await active().locator('[name=cash_shift]').getAttribute('required'), null, 'Zero bonus permits no cash shift');
+  await active().locator('[data-cash-choice]').waitFor();
+  await wait(async()=>!(await active().locator('[data-cash-choice]').isDisabled()));
+  assert.equal(await active().locator('[data-cash-choice]').getAttribute('required'), null, 'Zero bonus permits no cash shift');
   assert.equal(await active().locator('[name=units]').getAttribute('min'), '0.01');
   assert.equal(await active().locator('[name=units]').getAttribute('max'), '10');
   assert.equal(await active().locator('[name=date]').getAttribute('max'), today);
   await active().locator('[name=bonus_percent]').fill('5');
-  assert.equal(await active().locator('[name=cash_shift]').getAttribute('required'), '', 'Nonzero bonus requires linked cash shift');
+  assert.equal(await active().locator('[data-cash-choice]').getAttribute('required'), '', 'Nonzero bonus requires linked cash shift');
   await close();
   await ok('entities/employees','POST',{id:zeroEmployee,name:'Нульовий відсоток',store,shift_rate:400,bonus_percent:0,bonus_basis:'store',active:false});
   await go('staff');
