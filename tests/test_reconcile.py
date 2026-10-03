@@ -83,6 +83,33 @@ class ReconcileTests(AccountingFixture):
         line = self.sale_doc.lines.get(); VoucherLine.objects.filter(pk=line.pk).update(amount=line.amount + 1)
         (x,) = self.issues(); self.assertEqual(x['subject'], f'voucher/{self.sale_doc.pk}')
 
+    def test_duplicate_posting_on_another_lot_is_found_by_quantities(self):
+        for kind in ('writeoff', 'transfer'):
+            doc = Voucher.objects.get(kind=kind); entry = StockEntry.objects.filter(voucher=doc, quantity__lt=0).first()
+            other = StockLot.objects.create(warehouse=entry.lot.warehouse, product=entry.lot.product, code=f'DUP-{kind}', quantity=0, value=0)
+            StockEntry.objects.create(voucher=doc, lot=other, quantity=entry.quantity, value=entry.value)
+            # per-lot checks stay green for the voucher itself (one main entry per lot); only the quantity comparison catches it
+            (x,) = self.issues('double_posting'); self.assertEqual(x['subject'], f'voucher/{doc.pk}'); self.assertGreater(Decimal(x['actual']), Decimal(x['expected']))
+            StockEntry.objects.filter(voucher=doc, lot=other).delete(); StockLot.objects.filter(pk=other.pk).delete()
+            self.assertEqual(self.issues(), [])
+
+    def test_changed_production_ingredient_movement_is_found(self):
+        prod = Voucher.objects.get(kind='production'); e = StockEntry.objects.filter(voucher=prod, quantity__lt=0).first()
+        StockEntry.objects.filter(pk=e.pk).update(quantity=e.quantity + 1); self.assertTrue(any(x['subject'] == f'voucher/{prod.pk}' for x in self.issues('double_posting')))
+        StockEntry.objects.filter(pk=e.pk).update(quantity=e.quantity); self.assertEqual(self.issues(), [])
+
+    def test_postgres_run_uses_repeatable_read_read_only_snapshot(self):
+        from unittest import mock
+        calls = []
+        class Cursor:
+            def __enter__(s): return s
+            def __exit__(s, *a): return False
+            def execute(s, sql): calls.append(sql)
+        fake = mock.Mock(vendor='postgresql', cursor=lambda: Cursor())
+        with mock.patch('server.erp.management.commands.reconcile.connection', fake): self.run_command()
+        self.assertEqual(calls, ['SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY'])
+        calls.clear(); self.run_command(); self.assertEqual(calls, [])
+
     def test_double_posting_of_stock_and_cash_is_found(self):
         entry = StockEntry.objects.filter(voucher=self.receipt).first()
         StockEntry.objects.create(voucher=self.receipt, lot=entry.lot, quantity=entry.quantity, value=entry.value)

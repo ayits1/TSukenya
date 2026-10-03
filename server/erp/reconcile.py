@@ -50,8 +50,47 @@ def expected_cash(v):
         return total
     return v.total * 2 if v.kind == 'cash_transfer' else v.total
 
-def check_double_posting():
+def expected_stock(v, lines):
+    """Expected non-reversal stock movement of a posted voucher as {(product path, 'in'|'out'): quantity}."""
+    want = defaultdict(lambda: ZERO)
+    if v.kind in {'receipt', 'opening', 'customer_return'}:
+        for p, q in lines: want[(p, 'in')] += q
+    elif v.kind in {'sale', 'writeoff', 'supplier_return'}:
+        for p, q in lines: want[(p, 'out')] += q
+    elif v.kind == 'transfer':
+        for p, q in lines: want[(p, 'out')] += q; want[(p, 'in')] += q
+    elif v.kind == 'production':
+        for p, q in lines: want[(p, 'in')] += q
+        for c in v.payload.get('consumed') or []:
+            q = number(c.get('quantity')) if isinstance(c, dict) else None
+            if q is None or not c.get('product'): return None
+            want[('products/' + str(c['product']), 'out')] += q
+    elif v.kind == 'inventory':
+        for d in v.payload.get('differences') or []:
+            q = number(d.get('difference')) if isinstance(d, dict) else None
+            product = d.get('product') if isinstance(d, dict) else None
+            if q is None or not product: return None
+            if q: want[(product, 'in' if q > 0 else 'out')] += abs(q)
+    return {k: x for k, x in want.items() if x}
+
+def check_stock_quantities():
     out = []
+    ids = list(Voucher.objects.filter(status__in=['posted', 'reversed'], kind__in=STOCK_KINDS).values_list('pk', flat=True))
+    lines, actual = defaultdict(list), defaultdict(lambda: ZERO)
+    for l in VoucherLine.objects.filter(voucher__in=ids).values('voucher', 'product', 'quantity'): lines[l['voucher']].append((l['product'], l['quantity']))
+    for e in StockEntry.objects.filter(voucher__in=ids, is_reversal=False).values('voucher', 'lot__product', 'quantity'): actual[(e['voucher'], e['lot__product'], 'in' if e['quantity'] > 0 else 'out')] += abs(e['quantity'])
+    by_voucher = defaultdict(dict)
+    for (voucher, product, way), q in actual.items(): by_voucher[voucher][(product, way)] = q
+    for v in Voucher.objects.filter(pk__in=ids).order_by('pk'):
+        want = expected_stock(v, lines.get(v.pk, []))
+        if want is None: out.append(issue('double_posting', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): некоректні дані для звірки складських рухів.')); continue
+        got = by_voucher.get(v.pk, {})
+        for k in sorted(set(want) | set(got), key=str):
+            if want.get(k, ZERO) != got.get(k, ZERO): out.append(issue('double_posting', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): по товару {k[0]} складський рух ({"прихід" if k[1] == "in" else "витрата"}) {got.get(k, ZERO)} замість очікуваних {want.get(k, ZERO)}.', want.get(k, ZERO), got.get(k, ZERO)))
+    return out
+
+def check_double_posting():
+    out = check_stock_quantities()
     for r in StockEntry.objects.values('voucher', 'lot', 'is_reversal').annotate(n=Count('pk')).filter(n__gt=1).order_by('voucher', 'lot'):
         out.append(issue('double_posting', f'voucher/{r["voucher"]}', f'Документ № {r["voucher"]:06d}: {r["n"]} {"сторнувальних" if r["is_reversal"] else "основних"} складських рухів по партії № {r["lot"]} замість одного.', 1, r['n']))
     stock = {(r['voucher'], r['is_reversal']): r['n'] for r in StockEntry.objects.values('voucher', 'is_reversal').annotate(n=Count('pk'))}
