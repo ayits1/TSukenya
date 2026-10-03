@@ -19,6 +19,14 @@ class CampaignTests(ApiFixture):
         return {'idempotencyKey':str(uuid.uuid4()),'name':'Тиждень кави','startsOn':self.today,'endsOn':self.today,'active':True,'scope':'network','stores':[],'prices':[{'product':'p','price':'25.00'}],'reason':'Сезонна пропозиція',**extra}
     def create(self,**extra):
         r=self.call('post','/api/v1/promotions/campaigns',self.payload(**extra));self.assertEqual(r.status_code,200,r.content);return r.json()
+    def test_resolver_fetches_only_requested_products_in_one_query(self):
+        other = Document.objects.create(path='products/another',data={**self.p.data,'name':'Інший товар'})
+        self.create(prices=[{'product':'p','price':'20.00'},{'product':'another','price':'21.00'}])
+        with self.assertNumQueries(1):
+            resolver = PriceResolver(config={'markup':0,'rounding':0},product_paths=[self.p.path])
+        self.assertEqual(set(resolver.candidates),{self.p.path})
+        self.assertEqual(resolver.resolve(self.p)['salePrice'],'20.00')
+        self.assertEqual(resolver.resolve(other)['salePrice'],'30.00')
     def test_overlap_scope_tie_and_legacy_fallback(self):
         a=self.create(scope='stores',stores=[self.store.pk],prices=[{'product':'p','price':'20.00'}])
         b=self.create(prices=[{'product':'p','price':'22.00'}])

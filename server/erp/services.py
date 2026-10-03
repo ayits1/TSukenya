@@ -259,9 +259,10 @@ def apply_discounts(user, v, *, actual_cost=False):
     from .catalog import defaults, regular_price, decimal
     config, limit, role, snapshots = defaults(), discount_limit(), user.profile.role, []
     from .promotion_prices import PriceResolver
-    resolver = PriceResolver(config, v.store)
+    lines = list(v.lines.select_related('product', 'reference_line__voucher'))
+    resolver = PriceResolver(config, v.store, product_paths=[line.product_id for line in lines])
     versions = []
-    for l in v.lines.select_related('product', 'reference_line__voucher'):
+    for l in lines:
         data = l.product.data
         resolved = resolver.resolve(l.product)
         effective = Decimal(resolved['salePrice'])

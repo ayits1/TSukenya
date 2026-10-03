@@ -117,7 +117,7 @@ def prepare(request, user):
     pricing = defaults()
     from .promotion_prices import PriceResolver, context_store
     store = context_store(user, value.get('store'))
-    resolver = PriceResolver(pricing, store)
+    resolver = PriceResolver(pricing, store, product_paths=[d.path for d in documents.values()])
     products = [serialize(documents[identifier], user, pricing, resolver=resolver) for identifier in ids]
     current = workspace(user, request.portal_session.csrf)
     # Layout names are not ERP identities: proof uses only the validated price context.
