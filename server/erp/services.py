@@ -333,7 +333,7 @@ def bonus_duplicates(shift, ids=()):
 
 def payroll_locked(v):
     """Whether this sale/return changes a posted payroll basis; mirrors payroll_amount."""
-    accrued = WorkShift.objects.filter(store=v.store, payroll__status='posted')
+    accrued = WorkShift.objects.filter(store=v.store, payroll__status='posted', bonus_percent__gt=0)
     # Without a cash shift a legacy percent reads every store sale/return of that day; later days also
     # block backdating. A rate-only day does not depend on sales and never freezes trading.
     if accrued.filter(cash_shift__isnull=True, bonus_percent__gt=0, date__gte=v.date).exists():
