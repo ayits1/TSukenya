@@ -44,6 +44,11 @@ class ReferenceManagementTests(TestCase):
         child = self.managed('category', 'Кава', 'Гарячі напої')
         self.assertEqual(child['id'], category['id']); self.assertEqual(child['parentId'], group['id'])
         self.assertEqual(Document.objects.get(pk='orders/history').data, {'type': 'Напої', 'category': 'Кава'})
+        changes = AuditEvent.objects.get(action='catalog_reference_changed').detail['references']
+        group_change = next(change for change in changes if change['before']['id']==group['id'])
+        self.assertEqual((group_change['before']['value'],group_change['after']['value']),('Напої','Гарячі напої'))
+        child_change = next(change for change in changes if change['before']['id']==category['id'])
+        self.assertEqual((child_change['before']['parentType'],child_change['after']['parentType']),('Напої','Гарячі напої'))
         self.assertEqual(self.create('type', 'Напої').json()['id'], group['id'])
         old_version = product['revision']
         legacy = self.client.patch('/api/docs/products/coffee', {'type': 'Напої', 'category': 'Кава'}, content_type='application/json', HTTP_IF_MATCH=old_version, **self.headers)
@@ -148,6 +153,8 @@ class ReferenceManagementTests(TestCase):
         detail = self.client.get('/api/v1/catalog/products/coffee').json()
         self.assertEqual(detail['referenceIds']['pack'], 'unknown_stable')
         self.assertIn('Пакет', [item['value'] for item in self.references()])
+        self.assertEqual(self.patch('coffee', name='Метадані без втрати невідомого ID').status_code,200)
+        self.assertEqual(Document.objects.get(pk='products/coffee').data['referenceIds']['pack'],'unknown_stable')
 
     def test_archived_child_does_not_resurrect_when_parent_is_renamed_or_merged(self):
         child = self.managed('category', 'Кава', 'Напої')
@@ -164,6 +171,14 @@ class ReferenceManagementTests(TestCase):
         self.assertEqual(self.patch('coffee', name='Збережена архівована категорія').status_code, 200)
         self.assertEqual(Document.objects.get(pk='products/coffee').data['referenceIds']['category'], child['id'])
         self.assertNotIn(child['id'], [item['id'] for item in self.references()])
+        before = list(Document.objects.order_by('path').values('path','data')); audit_count = AuditEvent.objects.count()
+        restored = self.preview(self.proposal(category, 'restore'))
+        self.assertEqual(restored.status_code,400)
+        self.assertIn('Активний запис',restored.json()['error'])
+        body = {**self.proposal(category,'restore'),'snapshot':'a'*64,'idempotencyKey':str(uuid.uuid4())}
+        response = self.client.post('/api/v1/catalog/references/commit',body,content_type='application/json',**self.headers)
+        self.assertEqual(response.status_code,400)
+        self.assertEqual(list(Document.objects.order_by('path').values('path','data')),before);self.assertEqual(AuditEvent.objects.count(),audit_count)
 
     def test_accounting_lot_blocks_unit_rename_and_historical_rows_remain_untouched(self):
         from server.erp.models import Store, Warehouse, StockLot, Voucher, VoucherLine

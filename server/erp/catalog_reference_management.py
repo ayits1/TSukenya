@@ -7,7 +7,7 @@ import re
 import uuid
 from django.conf import settings
 from django.db import transaction
-from .catalog_references import FIELDS, LABELS, clean, find_reference, identity, public, reference_records
+from .catalog_references import FIELDS, LABELS, clean, find_reference, identity, keys, public, reference_records
 from .models import Document
 from .services import Conflict, audit, ledger_lock, require
 
@@ -84,6 +84,9 @@ def plan(payload):
         redirects[source['id']] = target['id']
         changed.add(target['id'])  # Pin a legacy target before source products cease to expose it.
     else:
+        if operation == 'restore':
+            collision = next((item for item in records.values() if item['id'] != source['id'] and item['state'] == 'active' and keys(source) & keys(item)), None)
+            require(collision is None, 'Активний запис із такою назвою або попередньою назвою вже існує в цій групі. Відкрийте його або спочатку перейменуйте активний запис, щоб звільнити назву.')
         next_source['state'] = 'archived' if operation == 'archive' else 'active'
     if source['field'] == 'type' and operation in {'rename', 'merge'}:
         for child in records.values():
@@ -137,14 +140,14 @@ def plan(payload):
               'blocked': blocked[:10], 'blockedCount': len(blocked),
               'warnings': ['Історичні назви й одиниці в облікових рядках та партіях залишаться незмінними.']}
     if operation == 'archive': result['warnings'].append('Наявні товари зберігають значення. Новий вибір архівованого запису буде заборонено.')
-    return result, updated, changed, products
+    return result, updated, changed, products, records
 
 
 def preview(request, user):
     from .catalog import EDIT_ROLES
     from .views import body, response
     require(user.profile.role in EDIT_ROLES, 'Недостатньо прав для керування довідниками.')
-    result, _, _, _ = plan(request_value(body(request)))
+    result, _, _, _, _ = plan(request_value(body(request)))
     return response(result)
 
 
@@ -172,7 +175,7 @@ def commit(request, user):
         if previous.data.get('owner') != user.pk or previous.data.get('payloadHash') != digest:
             raise Conflict('Ключ зміни довідника вже використано з іншим запитом.', 'idempotency_conflict')
         return response(previous.data['result'])
-    result, records, changed, products = plan(payload)
+    result, records, changed, products, before_records = plan(payload)
     if result['snapshot'] != value['snapshot']:
         raise Conflict('Вплив зміни довідника змінився. Перегляньте його знову.', 'snapshot_conflict')
     require(not result['blockedCount'], 'Зміну одиниці обліку заблоковано: ' + ' '.join(result['blocked']))
@@ -182,7 +185,8 @@ def commit(request, user):
     for document, data in products:
         document.data = data; document.save(update_fields=['data'])
     audit(user, 'catalog_reference_changed', 'catalog_refs/' + payload['sourceId'],
-          {'operation': payload['operation'], 'productCount': result['productCount'], 'referenceCount': result['referenceCount'], 'coalescedCategories': result['coalescedCategories'], 'snapshot': result['snapshot']})
+          {'operation': payload['operation'], 'productCount': result['productCount'], 'referenceCount': result['referenceCount'], 'coalescedCategories': result['coalescedCategories'], 'snapshot': result['snapshot'],
+           'references': [{'before': serialize(before_records[identifier]), 'after': serialize(records[identifier])} for identifier in sorted(changed)]})
     response_value = {**result, 'ok': True}
     Document.objects.create(path=run_path, data={'owner': user.pk, 'payloadHash': digest, 'result': response_value})
     return response(response_value)

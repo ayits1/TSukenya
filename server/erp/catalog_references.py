@@ -1,6 +1,7 @@
 """Stable catalogue identities with a text adapter for existing documents/imports."""
 import hashlib
 import json
+import re
 from django.db import transaction
 from .models import Document
 from .services import audit, ledger_lock, require
@@ -183,7 +184,11 @@ def bind_reference_fields(data, old, *, references=None):
         item = find_reference(records, field, text, parent)
         unchanged = bool(old.get('name')) and text == (old.get(field) or ('шт' if field == 'unit' else '')) and (field != 'category' or parent == old.get('type', ''))
         stored = old.get('referenceIds', {})
-        pinned = records.get(stored.get(field)) if unchanged and isinstance(stored, dict) else None
+        stored_id = stored.get(field) if unchanged and isinstance(stored, dict) else None
+        if isinstance(stored_id, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,120}', stored_id) and stored_id not in records:
+            bindings[field] = stored_id
+            continue  # A missing ID is not evidence of a rename/archive; preserve the unchanged identity.
+        pinned = records.get(stored_id) if isinstance(stored_id, str) else None
         if pinned and pinned['field'] == field: item = follow(pinned, records) or pinned
         require(item is None or item['state'] == 'active' or unchanged, f'{LABELS[field]}: запис архівовано, виберіть активне значення.')
         if item:
