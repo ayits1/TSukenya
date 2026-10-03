@@ -24,6 +24,11 @@ from .reporting import state, stock, report, voucher_json, scoped
 COLLECTIONS={'tasks','ideas','products','expenses'}
 SINGLE_DOCS={'settings/main','project/state'}
 ROOT=settings.BASE_DIR
+def release_commit():
+    # Written by deploy/release.py into the image; a checkout without it reports 'unknown'.
+    try:return json.loads((ROOT/'server'/'RELEASE').read_text())['commit']
+    except (OSError,ValueError,KeyError,TypeError):return 'unknown'
+RELEASE=release_commit()
 OWNER=os.environ.get('OWNER_USERNAME','pavlo')
 DEVICE_COOKIE,DEVICE_SALT,DEVICE_AGE='ts_device','tsukenya.login-device',180*86400
 
@@ -294,7 +299,7 @@ def handle(request):
     path=request.path
     if path=='/health' and request.method in {'GET','HEAD'}:
         LedgerLock.objects.get(pk=1)
-        return response({'status':'ok','storage':'relational','version':'crm-2'})
+        return response({'status':'ok','storage':'relational','version':'crm-2','release':RELEASE})
     if path=='/favicon.svg':return HttpResponse(FAVICON,content_type='image/svg+xml')
     if path=='/ui.css' and request.method in {'GET','HEAD'}:
         return HttpResponse((ROOT/'app/ui.css').read_bytes(),content_type='text/css')
@@ -430,6 +435,9 @@ def handle(request):
             product.data=data;product.save(update_fields=['data']);audit(user,'recipe_saved',product.pk,{'recipe':data['recipe']})
             saved_revision=revision(product)
         return response({'ok':True,'revision':saved_revision})
+    if path=='/api/erp/replenishment' and request.method=='GET':
+        from .replenishment import replenishment
+        return response(replenishment(user))
     if path=='/api/erp/stock' and request.method=='GET':
         require(user.profile.role in {'owner','manager','warehouse','accountant','cashier'},'Недостатньо прав.')
         result=stock(user)

@@ -19,3 +19,4 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/coverage/
 test-results/
+server/RELEASE
