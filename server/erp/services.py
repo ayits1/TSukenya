@@ -199,6 +199,38 @@ def require_active_participants(v):
     if v.kind in ACTIVE_EMPLOYEE_KINDS and v.employee:
         require_active(v.employee, 'Працівник')
 
+DISCOUNT_KEY, DISCOUNT_DEFAULT = 'max_cashier_discount', Decimal(10)
+
+def percent_text(value):
+    return format(value.normalize(), 'f')
+
+def discount_limit():
+    row = Setting.objects.filter(key=DISCOUNT_KEY).first()
+    try:
+        value = Decimal(row.value) if row else DISCOUNT_DEFAULT
+        return value if value.is_finite() and ZERO <= value <= 100 else DISCOUNT_DEFAULT
+    except InvalidOperation:
+        return DISCOUNT_DEFAULT
+
+def apply_discounts(user, v):
+    """B07: price below the catalogue price at this moment needs a reason, a role that may give that discount and leaves a snapshot."""
+    from .catalog import defaults, regular_price, sale_price, decimal
+    config, limit, role, snapshots = defaults(), discount_limit(), user.profile.role, []
+    for l in v.lines.select_related('product', 'reference_line'):
+        data = l.product.data
+        effective = sale_price(data, config)
+        # A price fixed in the already approved customer order is not a new discount.
+        if effective <= 0 or l.price >= effective or l.reference_line and l.price >= l.reference_line.price: continue
+        cost, deep = decimal(data.get('cost')), (effective - l.price) * 100 > limit * effective
+        below_cost = cost > 0 and l.price < cost
+        require(role in {'owner', 'manager'} or not below_cost, f'{l.name}: ціна нижче собівартості. Такий продаж може провести лише менеджер або власник.')
+        require(role in {'owner', 'manager'} or not deep, f'{l.name}: знижка перевищує ліміт касира {percent_text(limit)}%. Більшу знижку може провести лише менеджер або власник.')
+        reason = str(v.payload.get('discount_reason', '')).strip()
+        require(reason, 'Вкажіть причину знижки.')
+        snapshots.append({'product': l.product_id.split('/', 1)[1], 'name': l.name, 'catalogue_price': str(regular_price(data, config)), 'effective_price': str(effective), 'price': str(l.price), 'discount_percent': str(((effective - l.price) * 100 / effective).quantize(CENT, rounding=ROUND_HALF_UP)), 'below_cost': below_cost, 'author': user.username, 'reason': reason})
+    if snapshots:
+        v.payload['discounts'] = snapshots; v.save(update_fields=['payload'])
+
 @transaction.atomic
 def save_voucher(user, body, pk=None):
     lock = ledger_lock()
@@ -277,7 +309,7 @@ def save_voucher(user, body, pk=None):
     payload = body.get('payload', {})
     require(isinstance(payload, dict), 'Некоректні реквізити документа.')
     # Store only supported fields; amounts and computed payroll never come from the client.
-    v.payload = {'payments': payload.get('payments', []), 'fiscal_ref': str(payload.get('fiscal_ref',''))[:160], 'category': str(payload.get('category','Інше'))[:100], 'shift_ids': payload.get('shift_ids', []), 'due_date': str(payload.get('due_date','')), 'additional_cost': str(dec(payload.get('additional_cost', 0))), 'recipe': payload.get('recipe', []), 'target_account': payload.get('target_account')}
+    v.payload = {'payments': payload.get('payments', []), 'fiscal_ref': str(payload.get('fiscal_ref',''))[:160], 'category': str(payload.get('category','Інше'))[:100], 'shift_ids': payload.get('shift_ids', []), 'due_date': str(payload.get('due_date','')), 'additional_cost': str(dec(payload.get('additional_cost', 0))), 'recipe': payload.get('recipe', []), 'target_account': payload.get('target_account'), 'discount_reason': str(payload.get('discount_reason','')).strip()[:300]}
     if v.payload['due_date']:
         day(v.payload['due_date'])
     require(isinstance(v.payload['payments'], list) and len(v.payload['payments']) <= 10, 'Некоректні способи оплати.')
@@ -317,6 +349,8 @@ def save_voucher(user, body, pk=None):
             require(amount <= Decimal('99999999999999.99'), 'Сума рядка перевищує допустиме значення.')
             line = VoucherLine.objects.create(voucher=v, product=product, name=str(product.data.get('name',''))[:250], unit=str(product.data.get('unit','шт'))[:30], quantity=quantity, price=price, amount=amount, lot=str(row.get('lot',''))[:80], expiry=expiry, reference_line=ref_line)
             v.total += line.amount
+        if kind == 'customer_order':
+            apply_discounts(user, v)
         if kind == 'receipt':
             v.total += dec(v.payload['additional_cost'])
         require(v.total <= Decimal('99999999999999.99'), 'Сума документа перевищує допустиме значення.')
@@ -394,6 +428,8 @@ def post_voucher(user, pk):
     require_active_participants(v)
     require(not v.reference or v.reference.status == 'posted', 'Вихідний документ скасований.')
     validate_reference_quantities(v)
+    if v.kind == 'sale':
+        apply_discounts(user, v)
     if v.kind in {'customer_return','supplier_return'}:
         v.total = ZERO
         for line in v.lines.select_related('reference_line'):

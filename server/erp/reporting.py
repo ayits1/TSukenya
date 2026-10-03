@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.db.models import Sum, Q
 from django.utils import timezone
 from .models import *
-from .services import money, require, ZERO, net_total, obligation, payroll_debt, cash_balance, day, dec, record_revision
+from .services import money, require, ZERO, net_total, obligation, payroll_debt, cash_balance, day, dec, record_revision, discount_limit, percent_text
 
 def number(value):
     return str(value or ZERO)
@@ -73,6 +73,7 @@ def state(user):
     entities['username']=user.username
     if user.profile.role in {'owner','manager'}:entities['alerts_status']=alert_status()
     entities['fiscal_required']=Setting.objects.filter(key='fiscal_required',value='true').exists()
+    entities['max_discount']=percent_text(discount_limit())
     return entities
 
 ALERT_OK_KEY,ALERT_ERROR_KEY='alerts_last_ok','alerts_last_error'

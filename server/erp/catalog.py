@@ -111,6 +111,13 @@ def promotion_amount(data):
         return None
 
 
+def sale_price(data, config=None):
+    """Effective selling price: a valid promotion below the regular price, otherwise the regular price."""
+    regular = regular_price(data, config)
+    promotion = promotion_amount(data)
+    return promotion if data.get('promotion') and promotion is not None and 0 < promotion < regular else regular
+
+
 def serialize(document, user, config):
     data = document.data
     cost = decimal(data.get('cost'))
@@ -118,7 +125,7 @@ def serialize(document, user, config):
     manual = bool(data.get('manualPrice'))
     regular = regular_price(data, config)
     promotion = promotion_amount(data)
-    price = promotion if data.get('promotion') and promotion is not None and 0 < promotion < regular else regular
+    price = sale_price(data, config)
     private = user.profile.role != 'cashier'
     return {
         'id': document.path.split('/', 1)[1], 'revision': revision(document, config),
