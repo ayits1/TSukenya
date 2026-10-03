@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: pip
@@ -58,3 +58,47 @@ jobs:
             node "tests/$scenario"
             echo "::endgroup::"
           done
+  postgres:
+    # The same PostgreSQL 18 image as production: row locks and concurrent postings run here,
+    # so no server test is skipped. A disposable service container; no production credentials.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+        env:
+          POSTGRES_DB: tsukenya_ci
+          POSTGRES_USER: tsukenya_ci
+          POSTGRES_PASSWORD: disposable-ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tsukenya_ci -d tsukenya_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_NAME: tsukenya_ci
+      DB_USER: tsukenya_ci
+      DB_PASSWORD: disposable-ci-password
+      DJANGO_SECRET_KEY: disposable-ci-secret-key-not-used-outside-this-job-0123456789
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+      - run: python -m pip install -r server/requirements.txt
+      - name: Isolated data path
+        run: echo "DATA_DIR=$RUNNER_TEMP/tsukenya-data" >> "$GITHUB_ENV"
+      - name: Server tests (PostgreSQL 18, nothing skipped)
+        run: |
+          set -o pipefail
+          python manage.py test tests --noinput -v 2 2>&1 | tee "$RUNNER_TEMP/tests.log"
+          # unittest marks a skipped test as "... skipped '<reason>'" and the summary as "(skipped=N)".
+          if grep -E "\.\.\. skipped |\(skipped=" "$RUNNER_TEMP/tests.log"; then
+            echo "::error::Server tests were skipped on PostgreSQL"; exit 1
+          fi

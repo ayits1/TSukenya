@@ -8,6 +8,9 @@ INSTALLED_APPS = ['django.contrib.auth', 'django.contrib.contenttypes', 'server.
 MIDDLEWARE = ['server.erp.middleware.PortalMiddleware']
 ROOT_URLCONF = 'server.urls'
 WSGI_APPLICATION = 'server.wsgi.application'
+# The production image sets this: accounting must never silently start on a local SQLite file.
+if os.environ.get('TSUKENYA_REQUIRE_POSTGRES') == '1' and not os.environ.get('DB_HOST'):
+    raise RuntimeError('Робочий сервер запускається лише з PostgreSQL: задайте DB_HOST і DB_PASSWORD (див. compose.production.yaml). SQLite дозволена тільки для тестів і локальної розробки.')
 if os.environ.get('DB_HOST'):
     if len(os.environ.get('DJANGO_SECRET_KEY','')) < 50:
         raise RuntimeError('A private DJANGO_SECRET_KEY is required for PostgreSQL deployments.')
