@@ -384,7 +384,7 @@
     for(const p of list)if(await write(()=>db.collection("products").doc(p.id).delete()))removed++;
     // Examples already used in purchases, sales or recipes stay; the server explains why.
     if(removed===list.length)toast("Приклади прибрано");
-    else toast(`Прибрано ${removed} із ${list.length}. Решту використано в обліку або рецептурі — приховайте їх у каталозі.`);
+    else toast(`Прибрано ${removed} із ${list.length}. Решту вже використано в обліку або рецептурі, тому їх не видалено.`);
   }
   const canClearExamples = () => !window.TSUKENYA_SERVER || window.TSUKENYA_ROLE==="owner";
   const examplesNotice = t => t.examples && canClearExamples() ? `<p class="muted">${t.examples} товарів-прикладів зі старої демо-версії не враховано в розрахунках. <button class="btn soft" type="button" data-act="clearEx">Прибрати приклади</button></p>` : "";
