@@ -659,7 +659,7 @@
     },
     "/api/v1/catalog/references": {
       "get": {
-        "description": "Persistent reference entries merged with distinct legacy product values, including default unit шт. Category parentType uses canonical group spelling. No product data is rewritten.",
+        "description": "Active persistent choices and compatible legacy product values; explicit archive/merge tombstones suppress old values and defaults. archivedItems supports readable unchanged historical selections.",
         "responses": {
           "200": {
             "description": "Reference dictionaries",
@@ -1113,6 +1113,197 @@
         },
         "description": "Read-only authoritative Decimal price calculation. No product, audit, inventory or settings writes. Uses same validation and legacy promotion preservation as Save."
       }
+    },
+    "/api/v1/catalog/references/manage": {
+      "get": {
+        "description": "Current stable dictionaries including explicit archived/merged entries; read only.",
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceManagement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/references/preview": {
+      "post": {
+        "description": "Read-only impact preview. Catalogue edit roles; reference revision required. Same-name group children coalesce only into the explicitly selected target group.",
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceImpact"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferenceMutation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/references/commit": {
+      "post": {
+        "description": "Ledger-locked atomic commit of a reviewed impact. Exact same key and request returns the original result; different request conflicts. Current edit policy is revalidated even on retries. Historical accounting/order/lot data is never rewritten.",
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceCommitResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferenceCommit"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1237,6 +1428,35 @@
             "type": "string",
             "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
             "description": "Current regular price computed from manual pricing or cost/markup, before promotion; not a historical lowest-price record."
+          },
+          "referenceIds": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              "category": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              "pack": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              "size": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              "unit": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              }
+            },
+            "required": [],
+            "readOnly": true,
+            "description": "Server-owned stable dictionary IDs; never accepted in product writes. Legacy text gets a deterministic identity, explicit archives suppress new choices."
           }
         }
       },
@@ -1901,7 +2121,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
           },
           "field": {
             "$ref": "#/components/schemas/ReferenceField"
@@ -1935,6 +2156,12 @@
           },
           "canEdit": {
             "type": "boolean"
+          },
+          "archivedItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceItem"
+            }
           }
         },
         "required": [
@@ -2832,6 +3059,423 @@
             "description": "True only for an enabled, valid explicit promotion below regularPrice. False for no promotion and grandfathered legacy badge-only/invalid promotions."
           }
         }
+      },
+      "ReferenceManagedItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "field": {
+            "$ref": "#/components/schemas/ReferenceField"
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "parentType": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived",
+              "merged"
+            ]
+          },
+          "parentId": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mergedInto": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "id",
+          "field",
+          "value",
+          "parentType",
+          "state",
+          "parentId",
+          "mergedInto",
+          "revision"
+        ]
+      },
+      "ReferenceManagement": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceManagedItem"
+            }
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "csrf": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "items",
+          "canEdit",
+          "csrf"
+        ]
+      },
+      "ReferenceMutation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "rename",
+              "merge",
+              "archive",
+              "restore"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "targetId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          }
+        },
+        "required": [
+          "sourceId",
+          "revision",
+          "operation"
+        ]
+      },
+      "ReferenceImpact": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "rename",
+              "merge",
+              "archive",
+              "restore"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReferenceManagedItem"
+          },
+          "target": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceManagedItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "productCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "usageCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "referenceCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "coalescedCategories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "sourceId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,120}$"
+                },
+                "targetId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,120}$"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sourceId",
+                "targetId",
+                "value"
+              ]
+            }
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,120}$"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ]
+            }
+          },
+          "blocked": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blockedCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "snapshot",
+          "operation",
+          "source",
+          "target",
+          "productCount",
+          "usageCount",
+          "referenceCount",
+          "coalescedCategories",
+          "examples",
+          "blocked",
+          "blockedCount",
+          "warnings"
+        ]
+      },
+      "ReferenceCommit": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "rename",
+              "merge",
+              "archive",
+              "restore"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "targetId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "snapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "sourceId",
+          "revision",
+          "operation",
+          "snapshot",
+          "idempotencyKey"
+        ]
+      },
+      "ReferenceCommitResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "rename",
+              "merge",
+              "archive",
+              "restore"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReferenceManagedItem"
+          },
+          "target": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceManagedItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "productCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "usageCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "referenceCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "coalescedCategories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "sourceId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,120}$"
+                },
+                "targetId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,120}$"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sourceId",
+                "targetId",
+                "value"
+              ]
+            }
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,120}$"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ]
+            }
+          },
+          "blocked": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blockedCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ok": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "snapshot",
+          "operation",
+          "source",
+          "target",
+          "productCount",
+          "usageCount",
+          "referenceCount",
+          "coalescedCategories",
+          "examples",
+          "blocked",
+          "blockedCount",
+          "warnings",
+          "ok"
+        ]
       }
     }
   }

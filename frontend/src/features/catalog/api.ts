@@ -78,6 +78,17 @@ export function decodeProduct(value: unknown): Product {
     typeof item.promotion !== 'boolean'
   )
     throw new Error('Invalid pricing');
+  if (item.referenceIds !== undefined) {
+    const ids = object(item.referenceIds);
+    for (const [field, id] of Object.entries(ids)) {
+      if (
+        !referenceFields.some((allowed) => allowed === field) ||
+        typeof id !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,120}$/.test(id)
+      )
+        throw new Error('Invalid referenceIds');
+    }
+  }
   return item as Product;
 }
 export function decodePage(value: unknown): ProductPage {
@@ -118,7 +129,7 @@ export function decodeReference(value: unknown): ReferenceItem {
   const item = object(value);
   if (
     typeof item.id !== 'string' ||
-    !item.id ||
+    !/^[A-Za-z0-9_-]{1,120}$/.test(item.id) ||
     !referenceFields.some((field) => field === item.field) ||
     typeof item.value !== 'string' ||
     !item.value.trim() ||
@@ -135,7 +146,13 @@ export function decodeReferences(value: unknown): ReferenceData {
   const items = data.items.map(decodeReference);
   if (new Set(items.map((item) => item.id)).size !== items.length)
     throw new Error('Duplicate reference ids');
-  return { items, canEdit: data.canEdit };
+  if (data.archivedItems !== undefined && !Array.isArray(data.archivedItems))
+    throw new Error('Invalid archived references');
+  const archivedItems = (data.archivedItems as unknown[] | undefined)?.map(decodeReference);
+  const all = [...items, ...(archivedItems || [])];
+  if (new Set(all.map((item) => item.id)).size !== all.length)
+    throw new Error('Duplicate reference ids');
+  return { items, canEdit: data.canEdit, ...(archivedItems ? { archivedItems } : {}) };
 }
 export function createCatalogApi() {
   let csrf: string | undefined;
