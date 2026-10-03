@@ -13,7 +13,7 @@
   "scripts": {
     "test": "node tests/sync-sim.js",
     "test:ui": "node tests/portal-ui.cjs",
-    "test:examples:ui": "node tests/example-products-ui.cjs",
+    "test:budget:ui": "node tests/budget-break-even-ui.cjs",
     "test:crm:ui": "node tests/crm-ui.cjs",
     "test:layout:ui": "node tests/layout-ui.cjs",
     "test:workspace:ui": "node tests/workspace-ui.cjs",

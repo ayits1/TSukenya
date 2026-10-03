@@ -1,8 +1,8 @@
-/* Legacy demo products are excluded from owner totals and can be removed; disposable local SQLite only. */
+/* Owner break-even: catalogue model without legacy demo products, plus actual 30-day sales; disposable local SQLite only. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),python=process.env.PYTHON_BIN||'python3',port=18231,base=`http://localhost:${port}`,password='isolated-examples-password';
-const data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-examples-db-'));
+const data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-break-even-db-'));
 const hash=execFileSync(python,['-c',`from server.auth import hash_password;print(hash_password('${password}'))`],{cwd:root,encoding:'utf8'}).trim();
 const env={...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};
 for(const key of Object.keys(env))if(/^DB_|^PG/.test(key)||['DATABASE_URL','POSTGRES_URL'].includes(key))delete env[key];
@@ -31,8 +31,20 @@ const products=()=>page.evaluate(async()=>(await(await fetch('/api/state')).json
  await wait(async()=>(await stat('Товарів у каталозі').innerText())==='2','overview counts only real products');
  const notice=page.locator('#main p',{hasText:'товарів-прикладів'});
  assert.match(await notice.innerText(),/^2 товарів-прикладів/,'overview names the excluded examples');
+ // The sales report fails once, then returns 30 000 грн revenue at 30% gross margin.
+ const reports=[];let reportFails=true;
+ await page.route('**/api/erp/report?**',route=>{reports.push(new URL(route.request().url()).searchParams);return reportFails?route.fulfill({status:500,contentType:'application/json',body:'{"error":"Ізольований збій"}'}):route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({from:reports.at(-1).get('from'),to:reports.at(-1).get('to'),revenue:'30000.00',cogs:'21000.00',gross_profit:'9000.00'})});});
  await page.evaluate(()=>location.hash='#operations/expenses');
  const be=page.locator('.expense-budget .be');await be.waitFor();
+ await wait(async()=>/Не вдалося завантажити фактичні продажі/.test(await be.innerText()),'report failure is explained');
+ reportFails=false;await be.getByRole('button',{name:'Повторити'}).click();
+ await wait(async()=>/За фактичними продажами/.test(await be.innerText()),'actual sales block');
+ const facts=(await be.locator('.be-fact').innerText()).replace(/\s+/g,' ');
+ const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,from=new Date();from.setDate(from.getDate()-29);
+ assert.equal(reports.at(-1).get('from'),iso(from),'report covers the last 30 days');assert.equal(reports.at(-1).get('to'),iso(new Date()));
+ assert.match(facts,/виторг 30 000 грн, валова маржа 30%, у середньому 1 000 грн на день/);
+ assert.match(facts,/потрібно ≈ 111 грн на день/,'1000 plan / 30% margin / 30 days');
+ assert.match(facts,/План покривається: запас ≈ 889 грн на день/);
  const text=(await be.innerText()).replace(/\s+/g,' ');
  assert.match(text,/50% маржі/,'margin uses real products only, not the 90% examples');
  assert.match(text,/Враховано 2 із 2 товарів/,'coverage counts real products only');
@@ -50,6 +62,7 @@ const products=()=>page.evaluate(async()=>(await(await fetch('/api/state')).json
  await wait(async()=>(await page.locator('#toast').innerText())==='Приклади прибрано','examples removed');
  assert.deepEqual(await products(),['real_a','real_b'],'real products are untouched');
  await wait(async()=>await page.locator('.be',{hasText:'товарів-прикладів'}).count()===0,'notice disappears');
+ assert.equal(reports.length,2,'facts are cached, not refetched on every render');
  assert.deepEqual(errors,[]);
- console.log('example-products-ui: ok');
+ console.log('budget-break-even-ui: ok');
 }finally{await browser?.close();server.kill('SIGTERM');if(server.exitCode===null)await new Promise(resolve=>server.once('exit',resolve));fs.rmSync(data,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

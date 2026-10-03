@@ -1285,12 +1285,37 @@
   document.addEventListener("visibilitychange", ()=>{ if (!document.hidden && S.syncKey) gsSync(); });
 
   /* ---------- expenses ---------- */
+  // Actual gross margin of recent posted sales; the catalogue model stays as the fallback.
+  const FACT_DAYS=30, isoDay=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  function loadSalesFacts(){
+    if(!window.TSUKENYA_SERVER||window.TSUKENYA_ROLE!=="owner"||S.salesFacts?.state==="loading"||S.salesFacts&&Date.now()-S.salesFacts.at<300000)return;
+    const from=new Date();from.setDate(from.getDate()-(FACT_DAYS-1));
+    S.salesFacts={state:"loading",at:Date.now()};
+    fetch("/api/erp/report?"+new URLSearchParams({from:isoDay(from),to:today()}),{credentials:"same-origin"})
+      .then(r=>r.ok?r.json():Promise.reject(Error("report "+r.status)))
+      .then(r=>{S.salesFacts={state:"ready",at:Date.now(),from:r.from,to:r.to,revenue:num(r.revenue),gross:num(r.gross_profit)};})
+      .catch(()=>{S.salesFacts={state:"error",at:Date.now()};})
+      .finally(()=>{if(tab==="expenses")render();});
+  }
+  function salesFactsHtml(t){
+    if(!window.TSUKENYA_SERVER)return "";
+    const f=S.salesFacts, day=v=>new Date(v+"T12:00:00").toLocaleDateString("uk-UA",{day:"numeric",month:"long"});
+    if(!f||f.state==="loading")return '<div class="be-fact muted" role="status">Завантажуємо фактичні продажі за 30 днів…</div>';
+    if(f.state==="error")return '<div class="be-fact"><p class="muted">Не вдалося завантажити фактичні продажі.</p><button class="btn soft" type="button" data-act="reloadFacts">Повторити</button></div>';
+    if(f.revenue<=0)return '<div class="be-fact muted">За останні 30 днів проведених продажів немає, тому показано модель каталогу.</div>';
+    const margin=f.gross/f.revenue, daily=f.revenue/FACT_DAYS, plan=t.fixed+t.variable, head=`<h3>За фактичними продажами</h3><p>${day(f.from)} – ${day(f.to)}: виторг ${money0(f.revenue)} грн, валова маржа ${Math.round(margin*100)}%, у середньому ${money0(daily)} грн на день.</p>`;
+    if(margin<=0)return `<div class="be-fact">${head}<p class="be-gap">Продажі за цей період не покрили навіть закупівельну вартість. Перевірте ціни та списання.</p></div>`;
+    if(!plan)return `<div class="be-fact">${head}</div>`;
+    const need=plan/margin/FACT_DAYS, gap=need-daily;
+    return `<div class="be-fact">${head}<p>Щоб покрити план витрат за такої маржі, потрібно ≈ <b class="num">${money0(need)} грн</b> на день.</p><p class="${gap>0?"be-gap":"be-ok"}">${gap>0?`Не вистачає ≈ ${money0(gap)} грн виторгу на день.`:`План покривається: запас ≈ ${money0(-gap)} грн на день.`}</p></div>`;
+  }
   function expRow(e){
     return `<div class="exp"><span class="n">${esc(e.name)}</span><div class="expense-amount"><input type="number" inputmode="decimal" required min="0" max="99999999.99" step="0.01" value="${num(e.amount)}" data-exp="${esc(e.id)}" aria-label="${esc(e.name)}, грн на місяць" aria-describedby="budgetSaveError"><span class="muted">грн</span></div><button class="x" data-del-exp="${esc(e.id)}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div>`;
   }
   function expenses(){
     if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner')return '<section class="panel"><p role="status">Бюджет витрат доступний власнику мережі.</p><a class="btn soft" href="#operations/overview">До операційного огляду</a></section>';
     const t = totals(), stores=budgetStores(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
+    loadSalesFacts();
     const block = (title, hint, list, g, sum) => `<div class="expense-group"><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
       ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
       <div class="expense-add"><input type="text" placeholder="Нова стаття" maxlength="250" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
@@ -1308,7 +1333,7 @@
         <div class="muted">≈ ${money0(t.be/30)} грн на день${stores>1?` · ≈ ${money0(t.be/30/stores)} грн на день з кожного магазину`:""}. Орієнтовний розрахунок за рівною часткою товарів: ${Math.round(t.avgM*100)}% маржі. Враховано ${t.coverage} із ${t.total} товарів. Це модель каталогу; фактична точка беззбитковості потребує структури продажів і змінних витрат.</div>`
         : t.fixed+t.variable===0 ? '<div>План витрат дорівнює нулю. Введіть суми, щоб оцінити потрібний виторг.</div>'
         : !t.coverage ? '<div>Недостатньо даних для розрахунку. Потрібен хоча б один товар із закупівельною ціною та ціною продажу.</div>'
-        : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}${examplesNotice(t)}</div>
+        : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}${salesFactsHtml(t)}${examplesNotice(t)}</div>
     </section>`;
   }
 
@@ -1357,6 +1382,7 @@
     if(a==='addWork'){const input=$('#newWork'),due=$('#newWorkDue');void addInline(a,'tasks',{title:input.value.trim(),scope:'operations',dueDate:due.value||null,status:'todo',order:Date.now()},[input,due],'Поточну задачу додано');return;}
     if(a==='addTask'){const input=$('#newTask');void addInline(a,'tasks',{title:input.value.trim(),scope:'development',stage:+$('#newTaskStage').value,status:'todo',order:Date.now()},[input,$('#newTaskStage')],'Задачу додано');return;}
     if(a==="clearEx"){clearExamples();return;}
+    if(a==="reloadFacts"){S.salesFacts=null;render(true);return;}
     if(a==='addIdea'){const input=$('#newIdea');void addInline(a,'ideas',{title:input.value.trim(),text:'Ідея власника',reaction:null,order:Date.now(),byOwner:true},[input],'Ідею записано');return;}
     if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? (window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)) : S.products.filter(p=>!c||p.category===c);
       if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
