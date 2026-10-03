@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Select } from '../../shared/ui/Select';
 import { Button } from '../../shared/ui/Button';
 import { createCatalogApi, type CatalogApi } from '../catalog/api';
@@ -20,18 +20,30 @@ export function PricingContext({
 }) {
   const [api] = useState(() => supplied || createPromotionApi());
   const [selected, setSelected] = useState<number | null | undefined>(undefined);
+  // Keep the last authoritative context independently of a pending/failed query.
+  // The mounted editor and its draft stay attached to that context until success.
+  const [confirmed, setConfirmed] = useState<{
+    context: PromotionContext;
+    requested: number | null | undefined;
+  } | null>(null);
   const query = useQuery({
     queryKey: ['promotion-context', selected],
-    queryFn: ({ signal }) => api.context(selected, signal),
+    queryFn: async ({ signal }) => {
+      const context = await api.context(selected, signal);
+      if (selected !== undefined && context.storeId !== selected)
+        throw new Error('Сервер повернув інший магазин ціни. Повторіть вибір.');
+      return context;
+    },
     retry: false,
-    placeholderData: keepPreviousData,
   });
-  const store = selected === undefined ? query.data?.storeId : selected;
+  if (query.isSuccess && (confirmed?.context !== query.data || confirmed.requested !== selected))
+    setConfirmed({ context: query.data, requested: selected });
+  const context = confirmed?.context;
   const catalog = useMemo(
-    () => createCatalogApi(store, query.data?.csrf),
-    [store, query.data?.csrf],
+    () => createCatalogApi(context?.storeId, context?.csrf),
+    [context?.storeId, context?.csrf],
   );
-  if (!query.data || store === undefined)
+  if (!confirmed)
     return (
       <section className="tk-root tk-pricing-context">
         {query.error ? (
@@ -44,17 +56,20 @@ export function PricingContext({
         )}
       </section>
     );
+  const current = confirmed.context;
+  const blocked = query.isPending || query.isError || selected !== confirmed.requested;
+  const selectedStore = selected === undefined ? current.storeId : selected;
   return (
     <>
       <section className="tk-root tk-pricing-context">
         <Select
           label="Ціни та друк для"
-          value={store === null ? 'network' : String(store)}
+          value={selectedStore === null ? 'network' : String(selectedStore)}
           options={[
-            ...(query.data.canSelectNetwork
+            ...(current.canSelectNetwork
               ? [{ id: 'network', label: 'Мережа — загальні ціни' }]
               : []),
-            ...query.data.stores.map((s) => ({ id: String(s.id), label: s.name })),
+            ...current.stores.map((s) => ({ id: String(s.id), label: s.name })),
           ]}
           onChange={(key) => {
             if (key !== null) setSelected(key === 'network' ? null : Number(key));
@@ -63,27 +78,28 @@ export function PricingContext({
         {query.error ? (
           <>
             <p role="alert">{query.error.message}</p>
-            <Button onPress={() => void query.refetch()}>Повторити контекст ціни</Button>
           </>
+        ) : blocked ? (
+          <p role="status">Перевіряємо вибраний магазин. Редагування та друк призупинені.</p>
+        ) : null}
+        {blocked ? (
+          <div className="tk-promotion-actions">
+            {query.error ? (
+              <Button onPress={() => void query.refetch()}>Повторити контекст ціни</Button>
+            ) : null}
+            <Button onPress={() => setSelected(confirmed.requested)}>
+              Скасувати зміну магазину
+            </Button>
+          </div>
         ) : null}
         <p className="tk-help">
-          Чинність акцій: {query.data.effectiveDay}. Друк використовує назву обраного магазину з
-          обліку.
+          Підтверджений контекст: {current.storeName || 'Мережа — загальні ціни'}. Чинність акцій:{' '}
+          {current.effectiveDay}. Друк використовує назву підтвердженого магазину з обліку.
         </p>
       </section>
-      {children(
-        catalog,
-        store,
-        {
-          ...query.data,
-          storeId: store,
-          storeName:
-            store === null
-              ? null
-              : query.data.stores.find((s) => s.id === store)?.name || query.data.storeName,
-        },
-        api,
-      )}
+      <div className="tk-pricing-workspace" inert={blocked} aria-busy={blocked}>
+        {children(catalog, current.storeId, current, api)}
+      </div>
     </>
   );
 }
