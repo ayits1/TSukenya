@@ -174,12 +174,19 @@ class PayrollAndCashControlTests(AccountingFixture):
         with self.assertRaisesMessage(BusinessError,'Спочатку скасуйте нарахування зарплати'):reverse_voucher(self.u,returned.pk,'test')
         with self.assertRaisesMessage(BusinessError,'Зарплату за цей день уже нараховано'):
             self.v('customer_return',1,10,reference=sale.pk,party=self.customer.pk,payload={'payments':[{'account':self.bank.pk,'amount':'10'}]})
-    def test_accrual_without_cash_shift_still_locks_the_store_day(self):
-        porter=Employee.objects.create(name='Porter',store=self.store,shift_rate=300)
+    def test_legacy_percent_without_cash_shift_still_locks_the_store_day(self):
+        seller=Employee.objects.create(name='Seller',store=self.store,shift_rate=300)
         shift=self.till();sale=self.cash_sale(shift)
-        self.accrue(porter,percent=0)
+        self.accrue(seller,percent=5)
         with self.assertRaisesMessage(BusinessError,'Зарплату за цей день уже нараховано'):self.cash_sale(shift)
         with self.assertRaisesMessage(BusinessError,'Спочатку скасуйте нарахування зарплати'):reverse_voucher(self.u,sale.pk,'test')
+
+    def test_rate_only_accrual_does_not_freeze_trading(self):
+        porter=Employee.objects.create(name='Porter',store=self.store,shift_rate=300)
+        shift=self.till();self.cash_sale(shift)
+        self.accrue(porter,percent=0)
+        later=self.cash_sale(shift)
+        self.assertEqual(reverse_voucher(self.u,later.pk,'test').status,'reversed')
 
     def test_cash_shift_percent_counts_once_per_employee(self):
         worker=Employee.objects.create(name='A',store=self.store,shift_rate=0,bonus_percent=10)
