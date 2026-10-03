@@ -27,6 +27,7 @@ await voucher({kind:'cash_opening',amount:1000,account:cash});
 if(process.env.QA_NATIVE_ONLY){await require('./native-work-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_BROWSE_ONLY){await require('./erp-browse-ui.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_SHIFT_BROWSE_ONLY){await require('./shift-browse-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}
+if(process.env.QA_FINANCE_ONLY){await require('./finance-browse-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_AUTH_ONLY){await require('./auth-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_TRADE_ONLY){await require('./trade-dialog-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_UX_ONLY){await require('./trade-dialog-ux.cjs')(page,base,wait);await require('./auth-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
@@ -63,7 +64,7 @@ for(const [route,kinds] of Object.entries({purchases:['purchase_order','receipt'
   await page.locator('.trade-dialog [data-trade=close]').click();
  }
 }
-async function inspectModal(label){await page.locator('.trade-dialog[open]').waitFor();for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await inspect(label,width);}if(await page.locator('.trade-dialog[open]').getAttribute('data-dirty')==='1')page.once('dialog',d=>d.accept());await page.locator('.trade-dialog[open] [data-trade=close]').click();await page.setViewportSize({width:1440,height:1000});}
+async function inspectModal(label){await page.locator('.trade-dialog[open]').waitFor();for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await inspect(label,width);}if(await page.locator('.trade-dialog[open]').getAttribute('data-dirty')==='1')page.once('dialog',d=>d.accept());await page.locator('.trade-dialog[open] :is([data-trade=close],[data-finance-close])').click();await page.setViewportSize({width:1440,height:1000});}
 await go('setup');
 for(const key of ['stores','warehouses','accounts','parties']){await page.locator(`[data-trade=entity][data-entity=${key}]`).first().click();await inspectModal('entity-'+key);}
 for(const action of ['period','fiscal','audit']){await page.locator(`[data-trade=${action}]`).click();await inspectModal('setup-'+action);}

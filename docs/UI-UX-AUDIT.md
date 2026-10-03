@@ -51,6 +51,8 @@ PYTHON_BIN=/path/to/prepared/python QA_NATIVE_ONLY=1 node tests/ui-audit.cjs
 PYTHON_BIN=/path/to/prepared/python QA_UX_ONLY=1 node tests/ui-audit.cjs
 PYTHON_BIN=/path/to/prepared/python QA_BROWSE_ONLY=1 node tests/ui-audit.cjs
 PYTHON_BIN=/path/to/prepared/python QA_SHIFT_BROWSE_ONLY=1 node tests/ui-audit.cjs
+PYTHON_BIN=/path/to/prepared/python QA_FINANCE_ONLY=1 node tests/ui-audit.cjs
+PYTHON_BIN=/path/to/prepared/python node tests/expenses-ui.cjs
 PYTHON_BIN=/path/to/prepared/python QA_OUTPUT_DIR=/tmp/tsukenya-ui-audit node tests/ui-audit.cjs
 ```
 
@@ -82,4 +84,31 @@ PYTHON_BIN=/path/to/prepared/python QA_OUTPUT_DIR=/tmp/tsukenya-ui-audit node te
 
 Додатковий scoped cashier-прохід підтвердив API/UI cost redaction, підпис повністю оплаченого джерела повернення 20,00 грн, очищення/фокус та відновлення недоступної reference-чернетки. Єдиний повтор стосувався тестового очікування канонічної кількості `1.000`; повторено лише новий recovery-хвіст. Після релізу перевірено живі допоміжні списки, пошук, Escape/фокус і порожній табель без mutation-запитів. Артефакти на поточній машині: `/tmp/tsukenya-live-document-search-{1440,390,320}.png`.
 
-Окремо підтверджено ще один дефект бюджету: `settings.stores` у Django може бути масивом назв магазинів, тоді як бюджет підставляє його у numeric input. Через це поле кількості порожнє; запис числа в той самий ключ перезаписує список. Потрібно узгодити каталог магазинів та плановий параметр бюджету без зміни реальних магазинів. Це лишається відкритим для наступної хвилі.
+У попередньому проході підтверджено дефект бюджету: `settings.stores` у Django може бути масивом назв магазинів, тоді як бюджет підставляє його у numeric input. Через це поле кількості порожнє; запис числа в той самий ключ перезаписує список. Потрібно узгодити каталог магазинів та плановий параметр бюджету без зміни реальних магазинів. Виправлення й перевірки наведено нижче.
+
+
+## Бюджет: кількість магазинів, валідація і відновлення · 03.10.2026
+
+`settings.budgetStores` — планова кількість, незалежна від моделей Store та назв магазину на ціннику. Fallback для старих даних: коректний budgetStores → цілий stores → довжина stores → довжина storeNames → 1; допустимо 1–1000. Читання не переписує БД. Зміна label identity або ERP магазину одноразово закріплює попередній бюджетний count перед зміною назв. Цінники не пишуть у stores; ERP оновлює старий масив лише за наявності масиву. Числовий legacy stores зберігається. Budget PATCH не змінює label revision.
+
+Рядки витрат зберігають окремий простір для назви, суми та видалення; на вузькому контейнері назва розташована над сумою. Поля сум приймають 0–99 999 999,99 грн із точними копійками, count — лише ціле 1–1000. Сервер перевіряє merged expense PATCH, finite/nonbool number, назву 1–250 символів і групу fixed/variable. Invalid input не відправляється.
+
+Невдалий autosave зберігає чернетку при фоновому refresh, показує явну помилку й повторення. Pending блокує повторний запис і видалення відповідної статті; перехід між розділами очікує запис. Незбережена сума захищена підтвердженням при навігації та beforeunload. Чернетка лишається в пам’яті поточної сторінки; це не офлайн-сховище. Нуль витрат, відсутні ціни/закупівля та нульова/від’ємна маржа мають різні пояснення. Формула орієнтира за каталогом не змінювалася.
+
+Докази: tests/test_budget.py — цільові fallback/roles/cent precision/labels/ERP/legacy freeze сценарії; tests/expenses-ui.cjs — PASS на 1440/1024/768/390/320 у light/dark, довгі назви, 44 px, 12345.67 і reload, порожні/від’ємні/надточні суми без PATCH, 503 → refresh зі збереженою чернеткою → retry 20000.09, pending route guard, count 7 зі збереженими stores/storeNames/ERP/label revision, три аналітичні стани. Перший запуск зупинився на неправильній формі тестової settings/main; після виправлення fixture цільовий сценарій пройшов. Mobile PNG переглянуто.
+
+
+Додатковий budget review виявив orphan draft після видалення статті іншим сеансом та pending DELETE без блокування. Тепер назва/введена сума залишаються окремою карткою з явним відкиданням; стаття не відновлюється автоматично. Повторне видалення й перехід заблоковані до відповіді. Прямий URL бюджету не-owner показує пояснення без недоступних полів. Розширений цільовий expenses-ui повторено після цих змін — PASS: external delete → orphan → discard, один pending DELETE, route protection та manager view. Окремий backend boundary test: 99999999.99 accepted / 100000000 rejected.
+
+## Фінансові списки без прихованого обрізання · 03.10.2026
+
+GET ledger/audit/debts мають сторінки по 30 з total/page/pages, точні боргові підсумки за всіма вибраними умовами, пошук і фільтри. Борги повторно використовують авторитетну obligation із batch settlements, без копіювання формули проведення. Кошти фільтруються за магазином/рахунком/датою документа/пошуком; журнал — за користувачем/дією/Kyiv датою/пошуком; борги — за магазином/контрагентом/датою/строком/простроченням. Дати поточних боргів не видаються за історичний стан звіту. Менеджеру не передаються персональні payroll/payment рядки коштів; аудит лишається owner-only.
+
+UI має loading, порожній стан, помилку й повторення, зберігає page/filter після запису документів і відсікає запізнілі відповіді. Журнал — read-only dialog з Escape/поверненням фокусу; діапазони дат перевіряються до запиту. Підписи «Прострочено» розташовані окремо від дати.
+
+Докази: 7 первинних tests/test_financial_browsing.py плюс уражені report/batch/validation сценарії — PASS; борги до 5 SQL. tests/finance-browse-ui.cjs: 65 боргів, 65 ledger + payroll row, 205 events, найстаріші записи, фільтри/підсумки, збереження чернетки з redraw, 503 + клавіатурний retry/фокус, stale/abort, report store, audit user/action/дат/скидання/Escape/reopen, scoped manager salary exclusion, audit 403, 320/390/1440. Після уточнення тестових draft-submit/detail-close/native-close очікувань повторювали лише незавершені flows та audit хвости; завершені сценарії повторно не запускали. Mobile finance/audit PNG переглянуто. Повну регресію не запускали.
+
+Legacy report.debts збережено для сумісності; він ще передає повний список. Борговий backend наразі пакетно обчислює всі кандидатні документи перед pagination; це не SQL-агрегат для необмеженого масштабу. Періодичний full legacy state, інші агрегати, task scope та імпорт/конфлікти залишаються наступним покриттям.
+
+
+Після релізу бюджету/фінансових списків живі GET API та інтерфейс на 1440/390/320 пройшли перевірку. Budget 320 PNG переглянуто; роботи з production документами не виконували, legacy digest незмінний. Артефакти: `/tmp/tsukenya-live-budget-recovery-{1440,390,320}.png`, `/tmp/tsukenya-live-finance-paged-{1440,390,320}.png`, `/tmp/tsukenya-live-audit-paged-{1440,390,320}.png`. Аудит продовжується: legacy task scope, імпорт/конфлікти, розширені форми/ролі/адаптивність і наступні бізнес-пропозиції ще не завершені.

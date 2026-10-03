@@ -93,12 +93,14 @@ def stock(user):
     return {'lots':result,'totals':totals}
 
 def report(user, params):
+    from .browsing import positive_integer
     today=timezone.localdate()
     start=day(params.get('from',today.replace(day=1).isoformat()))
     end=day(params.get('to',today.isoformat()))
     require(start <= end, 'Початкова дата пізніша за кінцеву.')
     qs=scoped(Voucher.objects.filter(status='posted',date__gte=start,date__lte=end),user)
-    if params.get('store'):qs=qs.filter(store_id=params['store'])
+    selected_store=positive_integer(params['store'],'ID магазину') if params.get('store') else None
+    if selected_store:qs=qs.filter(store_id=selected_store)
     sales=qs.filter(kind='sale'); returns=qs.filter(kind='customer_return')
     revenue=net_total(sales)-net_total(returns)
     cogs=(sales.aggregate(n=Sum('cost'))['n'] or ZERO)-(returns.aggregate(n=Sum('cost'))['n'] or ZERO)
@@ -110,14 +112,8 @@ def report(user, params):
     inventory=ZERO
     for v in qs.filter(kind='inventory'):
         inventory+=sum((Decimal(x['value']) for x in v.payload.get('differences',[])),ZERO)
-    debts=[]
-    debtqs=scoped(Voucher.objects.filter(status='posted',kind__in=['receipt','sale','debt_opening']).filter(Q(party__isnull=False)|Q(kind='receipt')),user)
-    if params.get('store'):debtqs=debtqs.filter(store_id=params['store'])
-    for v in debtqs.select_related('party'):
-        value=obligation(v)
-        if value:
-            due=v.payload.get('due_date','')
-            debts.append({'voucher':v.pk,'kind':'receipt' if v.kind=='debt_opening' and v.party.kind=='supplier' else 'sale' if v.kind=='debt_opening' else v.kind,'store':v.store_id,'party':v.party.name if v.party else 'Роздрібний покупець','amount':str(value),'due_date':due,'overdue':bool(due and due<today.isoformat())})
+    from .financial_browsing import current_debts
+    debts,debt_totals=current_debts(user,{'store':params['store']} if params.get('store') else {})
     flow=CashEntry.objects.filter(voucher__date__gte=start,voucher__date__lte=end).exclude(voucher__kind='cash_opening')
     flow=scoped(flow,user,'account__store_id')
     if params.get('store'):flow=flow.filter(account__store_id=params['store'])
@@ -126,4 +122,4 @@ def report(user, params):
         ss=sales.filter(store=s);rr=returns.filter(store=s)
         rev=net_total(ss)-net_total(rr);cost=(ss.aggregate(n=Sum('cost'))['n'] or ZERO)-(rr.aggregate(n=Sum('cost'))['n'] or ZERO)
         by_store.append({'store':s.pk,'name':s.name,'revenue':str(rev),'gross_profit':str(rev-cost)})
-    return {'from':start.isoformat(),'to':end.isoformat(),'revenue':str(money(revenue)),'cogs':str(money(cogs)),'gross_profit':str(money(revenue-cogs)),'expenses':str(money(expenses)),'payroll':str(money(wages)),'writeoffs':str(money(writeoff)),'inventory_adjustment':str(money(inventory)),'supplier_return_variance':str(money(supplier_variance)),'profit':str(money(revenue-cogs-expenses-wages-writeoff+inventory+supplier_variance)),'cash_net':str(money(flow.aggregate(n=Sum('amount'))['n'] or ZERO)),'debts':debts,'by_store':by_store}
+    return {'from':start.isoformat(),'to':end.isoformat(),'revenue':str(money(revenue)),'cogs':str(money(cogs)),'gross_profit':str(money(revenue-cogs)),'expenses':str(money(expenses)),'payroll':str(money(wages)),'writeoffs':str(money(writeoff)),'inventory_adjustment':str(money(inventory)),'supplier_return_variance':str(money(supplier_variance)),'profit':str(money(revenue-cogs-expenses-wages-writeoff+inventory+supplier_variance)),'cash_net':str(money(flow.aggregate(n=Sum('amount'))['n'] or ZERO)),'debts':debts,'debt_count':len(debts),'debt_totals':debt_totals,'by_store':by_store}

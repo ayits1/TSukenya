@@ -164,3 +164,14 @@ Backup: `backups/tsukenya-crm-20261002T232618Z.dump` (UTC 02.10, локальн�
 Відкат: відновити app та server/erp із попереднього архіву, вилучити нові `app/erp-browse.js`, `app/erp-shifts.js`, `server/erp/browsing.py`, `server/erp/shift_browsing.py` для точного попереднього дерева; перебудувати лише web. БД при відкаті цього коду не відновлювати.
 
 Жива read-only перевірка: продажі/команда/фінанси, контракти shifts/work-shifts/references, порожній пошук документів на 1440/390/320, Escape і фокус, форма табеля без штучної dirty-чернетки. Бізнес-запитів mutation не виконували; legacy-дайджест до/після однаковий. Хеші п’яти ключових файлів збігаються з локальними. Web/PG healthy; власний health і сусідній портал HTTPS 200. Цільові ізольовані перевірки описані в UI-UX-AUDIT.md; повну регресію не запускали.
+
+
+## Реліз бюджету та фінансових списків · 03.10.2026
+
+Бюджет має незалежний budgetStores, серверну валідацію точних сум/count, recovery autosave, збереження orphan draft після зовнішнього видалення, pending DELETE і owner-only UI. Ledger/audit/debts мають пошук/фільтри/сторінки/підсумки та стани recovery; manager ledger не показує персональні зарплатні рядки. Поточні борги звіту відділено від періоду показників. Проведення, схема й реальні дані не змінювалися релізом.
+
+Backup: `backups/tsukenya-crm-20261002T234550Z.dump` (UTC 02.10, локально 03.10); checksum і `pg_restore --list` перевірено. Попередній код: `releases/pre-finance-budget-20261003.tar.gz`; реліз: `releases/finance-budget-20261003.tar.gz`. Передано чотири app-файли та шість server/erp модулів. Перебудовано лише web; frontend build використав незмінний кеш. Web запущено з `--no-deps`, PostgreSQL/env/gateway та інший Compose проєкт не змінювали.
+
+Відкат: відновити app та server/erp з попереднього архіву, вилучити нові `app/erp-finance.js`, `server/erp/budget.py`, `server/erp/financial_browsing.py` для точного попереднього дерева; перебудувати тільки web. Збережений budgetStores може залишитися для наступного актуального коду; старий інтерфейс його не читає. БД для відкату коду не відновлювати.
+
+Жива read-only перевірка — PASS: бюджет count/status/назви/44 px; контракти ledger/audit/debts; finance/reports/audit на 1440/390/320, Escape/повернення фокусу. Жодних API mutations крім входу; legacy digest до/після однаковий. Переглянуто live budget 320 PNG. Хеші семи ключових source-файлів збігаються з локальними. Web/PG healthy, власний health та сусідній портал HTTPS 200. Цільові локальні сценарії й обмеження наведено в UI-UX-AUDIT.md; повну регресію не запускали. Загальний UI/UX аудит залишається активним.

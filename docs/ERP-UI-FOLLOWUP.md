@@ -46,3 +46,8 @@ Stock endpoint вилучає `value` для касира. Інтерфейс н
 - Додатково: scoped report бухгалтера/менеджера більше не падає через фільтр store_id для моделі Store.
 
 Перевірки: `tests/test_erp_browsing.py`, `tests/test_shift_browsing.py`, `tests/erp-browse-ui.cjs`, `tests/shift-browse-ui.cjs`; пов’язаний `tests/crm-ui.cjs` перевіряє реальне проведення зарплати 401,00 грн після продажу/повернення. Усі mutation-сценарії використовують окрему локальну базу. Повної регресії цієї хвилі не запускали.
+
+
+## Фінансові списки · 03.10.2026
+
+Додано paged ledger/audit/debts, total/page/pages та debt_totals за вибраними умовами. UI фінансів і поточних боргів звіту використовує окремі списки, журнал — read-only dialog. Є пошук, фільтри, retry, захист stale responses, відновлення page/filter після redraw, Escape/фокус. Менеджеру приховано персональні payroll/payroll_payment cash rows. Report store/date selection зберігається після redraw; поточні борги не залежать від періоду показників. Докладні цільові перевірки — UI-UX-AUDIT.md. Пагінація не скасовує наступної оптимізації full legacy state та боргового batch materialization.

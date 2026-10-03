@@ -151,6 +151,66 @@
   async function setDoc(path,data,ok){ return write(async()=>{ const ref=db.doc(path); const s=await ref.get(); s.exists ? await ref.update(data) : await ref.set(data); }, ok); }
 
   const inlineSaves = new Set();
+  const budgetDrafts = new Map(), budgetSaves = new Set();
+  const budgetFields = '[data-exp],#stores';
+  const budgetKey = el => el.dataset.exp ? `amount:${el.dataset.exp}` : 'stores';
+  const validStoreCount = value => Number.isInteger(value) && value>=1 && value<=1000;
+  function budgetStores(){
+    for(const key of ['budgetStores','stores'])if(validStoreCount(S.settings[key]))return S.settings[key];
+    for(const key of ['stores','storeNames'])if(Array.isArray(S.settings[key]) && validStoreCount(S.settings[key].length))return S.settings[key].length;
+    return 1;
+  }
+  function budgetSavedValue(el){return el.dataset.exp ? num(S.expenses.find(e=>e.id===el.dataset.exp)?.amount) : budgetStores();}
+  function budgetStatus(){
+    const status=$('#budgetSaveStatus'),error=$('#budgetSaveError'),retry=$('[data-act=retry-budget]'),orphans=$('#budgetOrphans');
+    if(!status)return;
+    const orphaned=[...budgetDrafts.entries()].filter(([key])=>key.startsWith('amount:')&&!S.expenses.some(e=>`amount:${e.id}`===key));
+    const failures=[...budgetDrafts.entries()].filter(([key,d])=>d.error&&!orphaned.some(([k])=>k===key)).map(([,d])=>d);
+    status.textContent=budgetSaves.size?'Збереження…':budgetDrafts.size?'Є незбережені зміни. Перейдіть до іншого поля для збереження.':'Усі зміни збережено';
+    error.textContent=failures.map(d=>`${d.label}: ${d.error}`).join(' ');
+    orphans.innerHTML=orphaned.map(([key,d])=>`<div class="budget-orphan"><p>Статтю «${esc(d.label)}» більше немає у списку. Незбережене значення: <strong>${esc(d.value||'порожнє поле')}</strong>. Перевірте зміни з іншого сеансу.</p><button class="btn soft" data-budget-discard="${esc(key)}" aria-label="Відкинути чернетку: ${esc(d.label)}">Відкинути цю чернетку</button></div>`).join('');
+    retry.hidden=!failures.length;retry.disabled=!!budgetSaves.size;
+    document.querySelectorAll(budgetFields).forEach(el=>{
+      const draft=budgetDrafts.get(budgetKey(el));
+      if(draft?.error)el.setAttribute('aria-invalid','true');else el.removeAttribute('aria-invalid');
+      el.disabled=budgetSaves.has(budgetKey(el))||orphaned.some(([key])=>key===budgetKey(el));
+    });
+    document.querySelectorAll('[data-del-exp]').forEach(el=>el.disabled=budgetSaves.has(`amount:${el.dataset.delExp}`)||!S.expenses.some(e=>e.id===el.dataset.delExp));
+  }
+  function trackBudget(el){
+    const key=budgetKey(el),previous=budgetDrafts.get(key);
+    const exists=!el.dataset.exp||S.expenses.some(e=>e.id===el.dataset.exp);
+    if(exists && el.value!=='' && Number(el.value)===budgetSavedValue(el) && el.checkValidity())budgetDrafts.delete(key);
+    else budgetDrafts.set(key,{value:el.value,label:el.getAttribute('aria-label')||'Планова кількість магазинів',error:previous?.value===el.value?previous.error:''});
+    budgetStatus();
+  }
+  async function saveBudget(el){
+    const key=budgetKey(el);if(budgetSaves.has(key))return;
+    trackBudget(el);const draft=budgetDrafts.get(key);if(!draft)return;
+    if(el.dataset.exp&&!S.expenses.some(e=>e.id===el.dataset.exp))return;
+    if(!el.checkValidity()){
+      draft.error=el.id==='stores'?'Введіть ціле число від 1 до 1000.':'Введіть суму від 0 до 99 999 999,99 грн, не більше двох знаків після коми.';
+      budgetStatus();return;
+    }
+    budgetSaves.add(key);draft.error='';budgetStatus();
+    try{
+      if(!db)throw Error('Зміни зараз не зберігаються.');
+      const value=Number(draft.value);
+      if(el.dataset.exp)await db.collection('expenses').doc(el.dataset.exp).update({amount:value});
+      else {const ref=db.doc('settings/main'),snapshot=await ref.get();await (snapshot.exists?ref.update({budgetStores:value}):ref.set({budgetStores:value}));}
+      if(budgetDrafts.get(key)===draft)budgetDrafts.delete(key);
+    }catch(error){
+      draft.error='Не вдалося підтвердити збереження. Чернетку залишено; повторіть збереження.';
+    }finally{
+      budgetSaves.delete(key);budgetStatus();if(pending)render();
+    }
+  }
+  async function deleteBudget(id){
+    const key=`amount:${id}`;if(budgetSaves.has(key))return;
+    budgetSaves.add(key);budgetStatus();
+    try{if(await del('expenses',id))budgetDrafts.delete(key);}
+    finally{budgetSaves.delete(key);budgetStatus();if(pending)render();}
+  }
   const inlineFields = '#newWork,#newWorkDue,#newTask,#newTaskStage,#newIdea,[data-newexp]';
   const fieldKey = el => el.id || `expense:${el.dataset.newexp}`;
   function inlineDrafts(){return [...document.querySelectorAll(inlineFields)].map(el=>[fieldKey(el),el.value]);}
@@ -179,9 +239,9 @@
     tagSaveQueue=tagSaveQueue.then(()=>setDoc('settings/main',{tag:c})).then(ok=>{S.tagSaving--;S.tagSaveFailed=!ok;tagSaveStatus();});
   }
   function saveStores(n, ok){
-    S.settings.storeNames = n; S.settings.stores = Math.max(1, n.length);
+    const count=budgetStores();S.settings.storeNames = n;S.settings.budgetStores=count;
     if (tab==="tags") render();
-    if (db) setDoc("settings/main", {storeNames:n, stores:Math.max(1, n.length)}, ok);
+    if (db) setDoc("settings/main", {storeNames:n,budgetStores:count}, ok);
   }
   /* ---------- header + path ---------- */
   function renderPath(){
@@ -206,7 +266,7 @@
   /* ---------- tabs ---------- */
   function render(force=false){
     const a = document.activeElement;
-    if(inlineSaves.size){pending=true;return;}
+    if(inlineSaves.size||budgetSaves.size){pending=true;return;}
     if (!force && a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
     pending = false;
     if(tab==='products' && window.ReactCatalog){
@@ -228,6 +288,10 @@
     const m = $("#main"),openPanels=[...m.querySelectorAll("[data-disclosure][open]")].map(el=>el.dataset.disclosure),scrolls=[...m.querySelectorAll(".pick,.field-list")].map(el=>[el.className,el.scrollTop,el.scrollLeft]);
     const drafts=inlineDrafts();
     m.innerHTML = ({overview, devOverview, work, tasks, ideas, products, tags, expenses})[tab]();
+    if(tab==='expenses'){
+      m.querySelectorAll(budgetFields).forEach(el=>{const draft=budgetDrafts.get(budgetKey(el));if(draft)el.value=draft.value;});
+      budgetStatus();
+    }
     for(const [key,value] of drafts){const el=[...m.querySelectorAll(inlineFields)].find(el=>fieldKey(el)===key);if(el)el.value=value;}
     for(const key of openPanels)m.querySelector(`[data-disclosure="${key}"]`)?.setAttribute("open","");
     for(const [cls,top,left]of scrolls){const el=m.getElementsByClassName(cls)[0];if(el){el.scrollTop=top;el.scrollLeft=left;}}
@@ -260,12 +324,18 @@
     if(tab==='tags' && requested!=='tags' && window.ReactLabels?.dirty() && !confirm('Відкинути незбережені зміни макета?')){history.replaceState(null,'','#operations/tags');return;}
 
     const next=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
+    if(next!==tab && budgetSaves.size){toast('Дочекайтеся збереження бюджету.');history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size || (hasInlineDraft() && !confirm('Відкинути незбережену назву задачі, ідеї або статті витрат?')))){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+    if(next!==tab && budgetDrafts.size){
+      if(!confirm('Відкинути незбережені зміни бюджету?')){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+      budgetDrafts.clear();
+    }
     const changed=next!==tab;
     tab=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     workspace=SECTIONS[tab][0];
     document.querySelectorAll('[data-workspace]').forEach(x=>x.setAttribute('aria-current',x.dataset.workspace===workspace?'page':'false'));
     document.querySelectorAll('.tab').forEach(x=>{x.hidden=false;x.setAttribute('aria-current',x.dataset.tab===tab?'page':'false');});
+    if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner')document.querySelector('.tab[data-tab=expenses]').hidden=true;
     $('#workspaceLabel').textContent=workspace==='operations'?'Операційна робота':workspace==='trade'?'Облік торгівлі':'Розвиток бізнесу';
     $('#pageTitle').textContent=SECTIONS[tab][1]; $('#pageDescription').textContent=SECTIONS[tab][2];
     $('#developmentPath').hidden=workspace!=='development'||tab==='ideas';
@@ -276,7 +346,7 @@
   window.addEventListener('tsukenya:catalog-ready',()=>{if(tab==='products')render(true);});
   window.addEventListener('tsukenya:labels-ready',()=>{if(tab==='tags')render(true);});
   window.addEventListener('hashchange',route);
-  window.addEventListener('beforeunload',event=>{if(hasInlineDraft()||inlineSaves.size){event.preventDefault();event.returnValue='';}});
+  window.addEventListener('beforeunload',event=>{if(hasInlineDraft()||inlineSaves.size||budgetDrafts.size||budgetSaves.size){event.preventDefault();event.returnValue='';}});
 
   /* ---------- totals ---------- */
   function totals(){
@@ -1194,25 +1264,29 @@
 
   /* ---------- expenses ---------- */
   function expRow(e){
-    return `<div class="exp"><span class="n">${esc(e.name)}</span><div class="expense-amount"><input type="number" inputmode="decimal" min="0" step="0.01" value="${num(e.amount)}" data-exp="${e.id}" aria-label="${esc(e.name)}, грн на місяць"><span class="muted">грн</span></div><button class="x" data-del-exp="${e.id}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div>`;
+    return `<div class="exp"><span class="n">${esc(e.name)}</span><div class="expense-amount"><input type="number" inputmode="decimal" required min="0" max="99999999.99" step="0.01" value="${num(e.amount)}" data-exp="${esc(e.id)}" aria-label="${esc(e.name)}, грн на місяць" aria-describedby="budgetSaveError"><span class="muted">грн</span></div><button class="x" data-del-exp="${esc(e.id)}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div>`;
   }
   function expenses(){
-    const t = totals(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
+    if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner')return '<section class="panel"><p role="status">Бюджет витрат доступний власнику мережі.</p><a class="btn soft" href="#operations/overview">До операційного огляду</a></section>';
+    const t = totals(), stores=budgetStores(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
     const block = (title, hint, list, g, sum) => `<div class="expense-group"><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
       ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
-      <div class="expense-add"><input type="text" placeholder="Нова стаття" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
+      <div class="expense-add"><input type="text" placeholder="Нова стаття" maxlength="250" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
       <div class="total"><span>Разом на місяць</span><span class="num">${money(sum)} грн</span></div></div>`;
     return `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Витрати мережі на місяць</h2>
-      <label class="inl">Магазинів у мережі <input id="stores" type="number" min="1" step="1" value="${S.settings.stores||1}" style="width:70px"></label></div>
+      <label class="inl budget-store-count">Планова кількість магазинів <input id="stores" type="number" inputmode="numeric" required min="1" max="1000" step="1" value="${stores}" aria-describedby="budgetSaveError"></label></div>
       <p class="muted gap-lg">Впишіть суми за місяць на всю мережу. Зміни зберігаються, щойно ви перейдете до іншого поля.</p>
+      <div class="budget-save-state"><p id="budgetSaveStatus" class="muted" role="status" aria-live="polite"></p><p id="budgetSaveError" class="form-error" role="alert"></p><div id="budgetOrphans"></div><button class="btn soft" data-act="retry-budget" hidden>Повторити збереження</button></div>
       <div class="cols">
         ${block("Постійні","Платите щомісяця, навіть якщо продажів мало",fx,"fixed",t.fixed)}
         ${block("Змінні","Залежать від обсягу закупівель і продажів",vr,"variable",t.variable)}
       </div>
       <div class="be">${t.be ? `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div>
         <div class="big num">${money0(t.be)} грн на місяць</div>
-        <div class="muted">≈ ${money0(t.be/30)} грн на день${(S.settings.stores||1)>1?` · ≈ ${money0(t.be/30/(S.settings.stores||1))} грн на день з кожного магазину`:""}. Орієнтовний розрахунок за рівною часткою товарів: ${Math.round(t.avgM*100)}% маржі. Враховано ${t.coverage} із ${t.total} товарів. Це модель каталогу; фактична точка беззбитковості потребує структури продажів і змінних витрат.</div>`
-        : `<div>Точка беззбитковості з’явиться, коли будуть суми витрат і товари з цінами.</div>`}</div>
+        <div class="muted">≈ ${money0(t.be/30)} грн на день${stores>1?` · ≈ ${money0(t.be/30/stores)} грн на день з кожного магазину`:""}. Орієнтовний розрахунок за рівною часткою товарів: ${Math.round(t.avgM*100)}% маржі. Враховано ${t.coverage} із ${t.total} товарів. Це модель каталогу; фактична точка беззбитковості потребує структури продажів і змінних витрат.</div>`
+        : t.fixed+t.variable===0 ? '<div>План витрат дорівнює нулю. Введіть суми, щоб оцінити потрібний виторг.</div>'
+        : !t.coverage ? '<div>Недостатньо даних для розрахунку. Потрібен хоча б один товар із закупівельною ціною та ціною продажу.</div>'
+        : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}</div>
     </section>`;
   }
 
@@ -1234,8 +1308,10 @@
     if (t.dataset.delTask){ if(confirm("Видалити задачу?")) del("tasks",t.dataset.delTask,"Задачу видалено"); return; }
     if (t.dataset.react!==undefined && t.dataset.react){ upd("ideas",t.dataset.react,{reaction:t.dataset.v||null}, t.dataset.v==="yes"?"Ідею обрано":t.dataset.v==="no"?"Записав: відкладаємо":null); return; }
     if (t.dataset.delProd){ if(confirm("Видалити товар?")) del("products",t.dataset.delProd,"Товар видалено"); return; }
-    if (t.dataset.delExp){ if(confirm("Видалити статтю витрат?")) del("expenses",t.dataset.delExp); return; }
+    if (t.dataset.delExp){ if(confirm("Видалити статтю витрат?"))void deleteBudget(t.dataset.delExp); return; }
+    if(t.dataset.budgetDiscard){budgetDrafts.delete(t.dataset.budgetDiscard);budgetStatus();return;}
     const a = t.dataset.act;
+    if(a==='retry-budget'){document.querySelectorAll(budgetFields).forEach(el=>{if(budgetDrafts.has(budgetKey(el)))void saveBudget(el);});return;}
     if(a==='retryTagSave'){if(S.tagSaveFailed)saveTag({});return;}
     if(a==='newProduct'){openProduct();return;}
     if(a==='closeProduct'){closeProduct();return;}
@@ -1311,7 +1387,7 @@
       if (el.dataset.pf==="price") upd("products",p.id,{price:v,manualPrice:true,priceAt:today()});
       else if (el.dataset.pf==="markup") upd("products",p.id,{markup:v,manualPrice:false,price:null,priceAt:today()});
       else upd("products",p.id,{cost:v,priceAt:today()}); return; }
-    if (el.dataset.exp){ upd("expenses",el.dataset.exp,{amount:num(el.value)}); return; }
+    if (el.dataset.exp){ void saveBudget(el); return; }
     if (el.dataset.qty){ const id = el.dataset.qty, v = Math.round(num(el.value));
       if (v <= 0){ S.tagSel.delete(id); S.tagQty[id] = 1; } else { S.tagQty[id] = Math.min(500, v); S.tagSel.add(id); }
       syncChecks(); renderPreview(); return; }
@@ -1324,12 +1400,13 @@
     if (el.id==="chainIn"){ const v = el.value.trim(); S.settings.chainName = v; renderPreview(); setDoc("settings/main",{chainName:v||"Мережа солодощів"},"Назву мережі збережено"); return; }
     if (el.dataset.store!==undefined){ const n = storeNames().slice(); n[+el.dataset.store] = el.value.trim(); saveStores(n, "Назву магазину збережено"); return; }
     if (el.id==="rounding"){ setDoc("settings/main",{rounding:num(el.value)},"Округлення змінено"); }
-    if (el.id==="stores"){ setDoc("settings/main",{stores:Math.max(1,Math.round(num(el.value)))}); }
+    if (el.id==="stores"){ void saveBudget(el); }
   });
   $('#productEditor').addEventListener('close',()=>{const live=S.productOpener?.isConnected?S.productOpener:document.querySelector('[data-edit-product="'+S.productEditId+'"]');(live||document.querySelector('[data-act=newProduct]'))?.focus({preventScroll:true});});
   $('#productEditor').addEventListener('cancel',e=>{if(S.editDirty){e.preventDefault();closeProduct();}});
   window.addEventListener('beforeunload',e=>{if(S.editDirty||S.tagSaving||S.tagSaveFailed){e.preventDefault();e.returnValue='';}});
   document.addEventListener("input", e=>{
+    if(e.target.matches(budgetFields)){trackBudget(e.target);return;}
     if(e.target.matches(inlineFields))e.target.setCustomValidity?.('');
     if(e.target.closest('#productForm')){S.editDirty=true;return;}
     if(e.target.dataset.style){const el=e.target;if(el.dataset.prop==='size'&&!el.value)return;const styles={...(tagCfg().styles||{}),[el.dataset.style]:{...((tagCfg().styles||{})[el.dataset.style]||{}),[el.dataset.prop]:el.dataset.prop==='size'?clamp(el.value,5,72):el.value}};S.settings.tag={...tagCfg(),styles};renderPreview();return;}

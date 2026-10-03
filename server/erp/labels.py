@@ -78,9 +78,10 @@ def save_workspace(request, user):
     require(isinstance(info['storeNames'], list) and len(info['storeNames']) <= 100 and all(isinstance(name, str) and len(name) <= 160 for name in info['storeNames']), 'Некоректний список магазинів.')
     require(type(info['staleDays']) is int and 1 <= info['staleDays'] <= 3650, 'Некоректний термін перевірки ціни.')
     require(config['storeIdx'] == 0 or config['storeIdx'] < len(info['storeNames']), 'Магазин відсутній у реквізитах макета.')
+    from .budget import freeze_budget
+    freeze_budget(data)
     data.update(info)
     data['tag'] = config
-    data['stores'] = max(1, len(info['storeNames']))
     Document.objects.update_or_create(pk='settings/main', defaults={'data': data})
     audit(user, 'label_layout_changed', 'settings/main', {'styleVersion': 2})
     return response(workspace(user, request.portal_session.csrf))

@@ -122,7 +122,17 @@ def legacy_mutation(request,user,path):
         value=body(request)
         if request.method=='PATCH':
             require(d is not None,'Запис не знайдено.')
-            value={**d.data,**value}
+            prior=dict(d.data)
+            if path=='settings/main' and 'storeNames' in value:
+                from .budget import freeze_budget
+                freeze_budget(prior)
+            value={**prior,**value}
+        if col=='expenses':
+            from .budget import validate_expense
+            value=validate_expense(value)
+        if path=='settings/main':
+            from .budget import validate_settings
+            value=validate_settings(value)
         if col=='products':
             old=d.data if d is not None else {}
             if (bool(old.get('promotion')),old.get('promotionPrice')) != (bool(value.get('promotion')),value.get('promotionPrice')):
@@ -167,7 +177,11 @@ def entity_save(user,name,value):
     if name=='stores':
         d=Document.objects.filter(pk='settings/main').first()
         if d:
-            d.data={**d.data,'stores':list(Store.objects.filter(active=True).order_by('pk').values_list('name',flat=True))}
+            from .budget import freeze_budget
+            prior_stores=d.data.get('stores')
+            d.data=freeze_budget(dict(d.data))
+            if isinstance(prior_stores,list):
+                d.data['stores']=list(Store.objects.filter(active=True).order_by('pk').values_list('name',flat=True))
             d.save(update_fields=['data'])
     audit(user,'entity_saved',f'{name}/{obj.pk}',{'name':obj.name})
     return response({'id':obj.pk})
@@ -275,7 +289,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -305,7 +319,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/erp-browse.js','/erp-shifts.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -372,9 +386,11 @@ def handle(request):
         require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав для фінансових звітів.')
         return response(report(user,request.GET))
     if path=='/api/erp/ledger' and request.method=='GET':
-        require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав.')
-        qs=scoped(CashEntry.objects.select_related('voucher','account'),user,'account__store_id').order_by('-pk')[:500]
-        return response({'entries':[{'id':e.pk,'voucher':e.voucher_id,'date':e.voucher.date,'account':e.account.name,'kind':e.voucher.kind,'amount':str(e.amount),'note':e.voucher.note,'reversal':e.is_reversal} for e in qs]})
+        from .financial_browsing import ledger
+        return response(ledger(user,request.GET))
+    if path=='/api/erp/debts' and request.method=='GET':
+        from .financial_browsing import debts
+        return response(debts(user,request.GET))
     if path=='/api/erp/references' and request.method=='GET':
         from .browsing import references
         return response(references(user,request.GET))
@@ -438,8 +454,8 @@ def handle(request):
                 PortalSession.objects.filter(user=u).delete();audit(user,'user_saved',f'user/{u.pk}',{'role':role,'active':u.is_active})
             return response({'id':u.pk})
     if path=='/api/erp/audit' and request.method=='GET':
-        owner(user)
-        return response({'events':list(AuditEvent.objects.select_related('user').order_by('-pk')[:200].values('id','at','user__username','action','subject','detail'))})
+        from .financial_browsing import audit_events
+        return response(audit_events(user,request.GET))
     if path=='/api/erp/fiscal' and request.method=='POST':
         owner(user);value=body(request);Setting.objects.update_or_create(pk='fiscal_required',defaults={'value':'true' if value.get('required') else 'false'});audit(user,'fiscal_mode_changed','settings',{'required':bool(value.get('required'))});return response({'ok':True})
     return response({'error':'Сторінку не знайдено.'},404)

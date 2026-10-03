@@ -52,6 +52,13 @@
 .expense-add { display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:12px;align-items:start; }
 .expense-add :is(input,button) { min-height:44px; }
 .expense-budget .total { gap:16px;flex-wrap:wrap; }
+.budget-store-count { flex-wrap:wrap;max-width:100%;gap:8px; }
+.budget-store-count input { width:100px;min-height:44px; }
+.budget-save-state { margin-block:0 16px; }
+.budget-save-state p { margin-block:4px;overflow-wrap:anywhere; }
+.budget-save-state .form-error:empty { display:none; }
+.budget-orphan { margin-block:12px;padding:12px;border:1px solid var(--ui-line);border-radius:6px; }
+.budget-orphan button { min-height:44px;margin-top:8px;white-space:normal; }
 @container (max-width:420px) {
   .expense-budget .exp { grid-template-columns:minmax(0,1fr) 44px;gap:8px 12px; }
   .expense-budget .exp .n { grid-column:1/-1; }

@@ -57,6 +57,14 @@ def filter_search(query, params):
     return query
 
 
+def with_settlements(query):
+    return query.prefetch_related(Prefetch(
+        'voucher_set',
+        queryset=Voucher.objects.filter(status='posted', kind__in=['customer_return', 'supplier_return', 'payment']),
+        to_attr='browse_settlements',
+    ))
+
+
 def references(user, params):
     purpose = params.get('purpose', '')
     require(purpose in SOURCE_KINDS, 'Невідоме призначення вихідного документа.')
@@ -68,11 +76,7 @@ def references(user, params):
         if value:
             query = query.filter(**{field: positive_integer(value, 'ID документа' if parameter == 'id' else 'ID довідника')})
     query = filter_search(query, params)
-    query = query.select_related('party').prefetch_related(Prefetch(
-        'voucher_set',
-        queryset=Voucher.objects.filter(status='posted', kind__in=['customer_return', 'supplier_return', 'payment']),
-        to_attr='browse_settlements',
-    )).order_by('-pk')
+    query = with_settlements(query.select_related('party')).order_by('-pk')
     if purpose == 'payment':
         # Reuse the authoritative obligation calculation, including returns and
         # embedded sale payments; these sources do not expose line/cost details.
