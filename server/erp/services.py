@@ -21,7 +21,7 @@ ROLE_KINDS = {
     'owner': set(KINDS), 'manager': set(KINDS)-{'payroll','payroll_payment','cash_opening','debt_opening'},
     'cashier': {'sale','customer_return','customer_order'},
     'warehouse': {'purchase_order','receipt','opening','supplier_return','transfer','writeoff','inventory','production'},
-    'accountant': {'payment','expense','cash_opening','payroll','payroll_payment','debt_opening','cash_transfer','cash_difference'},
+    'accountant': {'payment','advance_allocation','payment_refund','expense','cash_opening','payroll','payroll_payment','debt_opening','cash_transfer','cash_difference'},
 }
 # Posted only by the system when a till shift is closed; never entered through the document form.
 SYSTEM_KINDS = {'cash_difference'}
@@ -192,19 +192,15 @@ def post_cash_difference(user, shift, note=''):
 def net_total(qs):
     return money(qs.aggregate(n=Sum('total'))['n'] or ZERO)
 
-def obligation(reference, *, settlements=None):
-    # A read-only browser can preload settlements for many sources. Posting uses
-    # the original database path under its ledger lock; the calculation is shared.
+def obligation(reference, *, settlements=None, allocations=None):
+    from .settlements import allocated_amount, current_allocations
     if settlements is None:
-        returns = Voucher.objects.filter(reference=reference, status='posted', kind__in=['customer_return','supplier_return'])
-        paid = Voucher.objects.filter(reference=reference, status='posted', kind='payment')
-        returned_total = net_total(returns)
-        paid_total = net_total(paid)
-    else:
-        returns = [v for v in settlements if v.status == 'posted' and v.kind in {'customer_return', 'supplier_return'}]
-        paid = [v for v in settlements if v.status == 'posted' and v.kind == 'payment']
-        returned_total = money(sum((v.total for v in returns), ZERO))
-        paid_total = money(sum((v.total for v in paid), ZERO))
+        settlements = list(Voucher.objects.filter(reference=reference, status='posted', kind__in=['customer_return','supplier_return','payment']))
+    if allocations is None:
+        allocations = list(current_allocations(reference))
+    returns = [v for v in settlements if v.status=='posted' and v.kind in {'customer_return','supplier_return'}]
+    returned_total = money(sum((v.total for v in returns), ZERO))
+    paid_total = allocated_amount(reference, settlements=settlements, allocations=allocations)
     embedded = sum((dec(x['amount']) for x in reference.payload.get('payments', [])), ZERO) if reference.kind == 'sale' else ZERO
     refunded = sum((sum((dec(p['amount']) for p in r.payload.get('payments', [])), ZERO) for r in returns), ZERO)
     return reference.total - returned_total - paid_total - embedded + refunded
@@ -353,13 +349,21 @@ def save_voucher(user, body, pk=None):
     if kind in {'customer_return','supplier_return'}:
         require(v.reference is not None, 'Повернення повинно бути пов’язане з вихідним документом.')
     if kind == 'payment':
-        require(v.reference and v.reference.kind in {'receipt','sale','debt_opening'}, 'Виберіть надходження або продаж для оплати.')
+        if v.reference:
+            require(v.reference.kind in {'receipt','sale','debt_opening'}, 'Виберіть надходження або продаж для оплати.')
+            v.party = v.reference.party
+        require(v.party is not None, 'Виберіть контрагента платежу.')
+    if kind in {'advance_allocation','payment_refund'}:
+        require(v.reference and v.reference.kind=='payment', 'Виберіть вихідний платіж з авансом.')
+        require(not v.party or v.party.pk==v.reference.party_id, 'Контрагент має збігатись із вихідним платежем.')
         v.party = v.reference.party
+        require(v.party is not None, 'Вихідний платіж не має контрагента.')
+        require(v.reference.date<=v.date, 'Документ не може передувати вихідному платежу.')
     if kind == 'debt_opening':
         require(v.party is not None, 'Виберіть контрагента початкового боргу.')
     if kind in {'payroll','payroll_payment'}:
         require(v.employee and v.employee.store_id == store.pk , 'Виберіть працівника цього магазину.')
-    if kind in {'payment','expense','cash_opening','payroll_payment','cash_transfer'}:
+    if kind in {'payment','payment_refund','expense','cash_opening','payroll_payment','cash_transfer'}:
         require(v.account is not None, 'Виберіть рахунок.')
     v.note = str(body.get('note',''))[:4000]
     payload = body.get('payload', {})
@@ -466,7 +470,9 @@ def save_voucher(user, body, pk=None):
         require(v.total <= Decimal('99999999999999.99'), 'Сума документа перевищує допустиме значення.')
         v.save(update_fields=['total'])
     v.lines.exclude(line_key__in=retained_lines).delete()
-    audit(user, 'draft_saved', f'voucher/{v.pk}', {'kind':kind, **({'expense_scope': expense_scope, 'old_expense_scope': old_expense_scope} if kind == 'expense' else {})})
+    from .settlements import save_allocations
+    save_allocations(v, body)
+    audit(user, 'draft_saved', f'voucher/{v.pk}', {'kind':kind, **({'allocations': [{'source':r.source_id,'amount':str(r.amount)} for r in v.allocation_entries.all()]} if kind in {'payment','advance_allocation'} else {}), **({'expense_scope': expense_scope, 'old_expense_scope': old_expense_scope} if kind == 'expense' else {})})
     return v
 
 def validate_reference_quantities(v):
@@ -544,6 +550,8 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     require_active_participants(v)
     require(not v.reference or v.reference.status == 'posted', 'Вихідний документ скасований.')
     validate_reference_quantities(v)
+    from .settlements import validate_post
+    validate_post(v)
     if v.kind == 'customer_order':
         apply_discounts(user, v)
         v.payload['price_approvals'] = [{'line': l.pk, 'price': str(l.price), 'author': user.username, 'role': user.profile.role} for l in v.lines.all()]
@@ -660,10 +668,7 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     elif v.kind == 'customer_return':
         # Refund only the already-paid part. The remainder reduces the customer's debt.
         refund = sum((dec(p['amount']) for p in v.payload['payments']),ZERO)
-        previously_refunded = sum((sum((dec(p['amount']) for p in r.payload['payments']),ZERO) for r in Voucher.objects.filter(reference=v.reference,kind='customer_return',status='posted')),ZERO)
-        original_paid = sum((dec(p['amount']) for p in v.reference.payload['payments']),ZERO)+net_total(Voucher.objects.filter(reference=v.reference,kind='payment',status='posted'))
-        prior_return_total = net_total(Voucher.objects.filter(reference=v.reference,kind='customer_return',status='posted'))
-        unpaid = max(ZERO,v.reference.total-original_paid-prior_return_total+previously_refunded)
+        unpaid = max(ZERO, obligation(v.reference))
         required_refund = max(ZERO,v.total-unpaid)
         require(refund == required_refund, f'Сума повернення коштів має бути {required_refund} грн; решта зменшує борг.')
         for p in v.payload['payments']:
@@ -677,9 +682,11 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
         require(refund == required_refund, f'Повернення коштів від постачальника має бути {required_refund} грн; решта зменшує борг.')
         for p in v.payload['payments']:
             cash(v,get(CashAccount,p['account'],'Рахунок'),dec(p['amount']))
-    elif v.kind == 'payment':
-        require(v.total <= obligation(v.reference), 'Оплата перевищує залишок боргу.')
-        cash(v,v.account,v.total if (v.reference.kind=='sale' or v.reference.kind=='debt_opening' and v.reference.party.kind=='customer') else -v.total)
+    elif v.kind in {'payment','payment_refund'}:
+        from .settlements import direction
+        cash(v,v.account,v.total*direction(v)*(-1 if v.kind=='payment_refund' else 1))
+    elif v.kind == 'advance_allocation':
+        pass  # Reclassifies the existing advance; never repeats its cash movement.
     elif v.kind == 'cash_transfer':
         target=get(CashAccount,v.payload.get('target_account'),'Рахунок призначення')
         scope(user,target.store)
@@ -713,6 +720,7 @@ def reverse_voucher(user, pk, reason):
         return v
     require(v.status=='posted','Документ ще не проведено.')
     require(not lock.closed_through or v.date>lock.closed_through,'Обліковий період закритий.')
+    require(not PaymentAllocation.objects.filter(source=v,settlement__status='posted',payment__status='posted').exists(), 'Спочатку скасуйте розподіли платежів на цей документ.')
     require(not Voucher.objects.filter(reference=v,status='posted').exists(),'Спочатку скасуйте пов’язані оплати, надходження або повернення.')
     require(not v.shift or not v.shift.closed_at,'Касову зміну вже закрито. Документ цієї зміни скасовувати не можна.')
     if v.kind in {'sale','customer_return'}:

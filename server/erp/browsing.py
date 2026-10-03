@@ -58,11 +58,8 @@ def filter_search(query, params):
 
 
 def with_settlements(query):
-    return query.prefetch_related(Prefetch(
-        'voucher_set',
-        queryset=Voucher.objects.filter(status='posted', kind__in=['customer_return', 'supplier_return', 'payment']),
-        to_attr='browse_settlements',
-    ))
+    from .settlements import prefetched_sources
+    return prefetched_sources(query)
 
 
 def references(user, params):
@@ -84,7 +81,7 @@ def references(user, params):
         # embedded sale payments; these sources do not expose line/cost details.
         eligible = []
         for voucher in query:
-            outstanding = obligation(voucher, settlements=voucher.browse_settlements)
+            outstanding = obligation(voucher, settlements=voucher.browse_settlements, allocations=voucher.browse_allocations)
             if outstanding > 0:
                 eligible.append((voucher, outstanding))
         total = len(eligible)
@@ -102,7 +99,7 @@ def references(user, params):
         query = query.annotate(has_remaining=Exists(remaining)).filter(has_remaining=True)
         total = query.count()
         page, pages, offset = page_bounds(total, requested)
-        selected = [(voucher, obligation(voucher, settlements=voucher.browse_settlements) if voucher.kind in {'receipt', 'sale', 'debt_opening'} else None)
+        selected = [(voucher, obligation(voucher, settlements=voucher.browse_settlements, allocations=voucher.browse_allocations) if voucher.kind in {'receipt', 'sale', 'debt_opening'} else None)
                     for voucher in query[offset:offset + PAGE_SIZE]]
     return {
         'items': [{

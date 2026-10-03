@@ -3,7 +3,6 @@ Network expenses stay unallocated. These are implementation defaults, not owner 
 """
 from collections import defaultdict
 from contextlib import contextmanager
-from copy import copy
 from decimal import Decimal
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -182,14 +181,12 @@ def balances(user, params):
     cash = [{'account': account.pk, 'name': account.name, 'store': account.store_id, 'kind': account.kind,
              'amount': str(money(account_amounts[account.pk]))} for account in CashAccount.objects.filter(store_id__in=ids).order_by('store_id', 'pk')]
     sources = list(Voucher.objects.filter(store_id__in=ids, date__lte=cutoff, status__in=['posted', 'reversed'], kind__in=['sale', 'receipt', 'debt_opening']).select_related('party'))
-    related = defaultdict(list)
-    for settlement in Voucher.objects.filter(reference_id__in=[source.pk for source in sources], date__lte=cutoff, status__in=['posted', 'reversed']):
-        if active_at(settlement, cutoff):
-            snapshot = copy(settlement); snapshot.status = 'posted'; related[settlement.reference_id].append(snapshot)
+    from .settlements import context, advance_balances
+    related, allocated = context(sources, cutoff)
     debts = []; owed_to_us = owed_by_us = ZERO
     for source in sources:
         if not active_at(source, cutoff) or not source.party_id: continue
-        amount = obligation(source, settlements=related[source.pk])
+        amount = obligation(source, settlements=related[source.pk], allocations=allocated[source.pk])
         if not amount: continue
         supplier = source.kind == 'receipt' or source.kind == 'debt_opening' and source.party.kind == 'supplier'
         if supplier: owed_by_us += amount
@@ -205,7 +202,11 @@ def balances(user, params):
             if active_at(voucher, cutoff): accrued[voucher.employee_id] += voucher.total * (1 if voucher.kind == 'payroll' else -1)
         payroll = [{'employee': employee.pk, 'name': employee.name, 'store': employee.store_id, 'amount': str(money(accrued[employee.pk]))}
                    for employee in Employee.objects.filter(pk__in=accrued) if accrued[employee.pk]]
+    payments = list(Voucher.objects.filter(store_id__in=ids, kind='payment', status__in=['posted','reversed'],date__lte=cutoff).select_related('party','reference__party'))
+    remaining = advance_balances(payments,cutoff)
+    advances = [{'payment':v.pk,'number':f'{v.pk:06d}','store':v.store_id,'party_id':v.party_id,'party':v.party.name,'direction':v.party.kind,'date':v.date.isoformat(),'amount':str(remaining[v.pk])} for v in payments if v.party_id and remaining[v.pk]]
     return {'mode': 'balances', 'as_of': cutoff.isoformat(), 'basis': 'accounting_dates', 'reversal_policy': 'kyiv_reversed_at',
+        'advances':advances, 'advance_totals':{side:str(money(sum((Decimal(row['amount']) for row in advances if row['direction']==side),ZERO))) for side in ('customer','supplier')},
         'stock': stock, 'stock_value': str(money(sum((Decimal(row['value']) for row in stock), ZERO))),
         'cash': cash, 'cash_total': str(money(sum(account_amounts.values(), ZERO))), 'debts': debts,
         'debt_totals': {'owed_to_us': str(money(owed_to_us)), 'owed_by_us': str(money(owed_by_us))},

@@ -106,7 +106,7 @@ def current_debts(user, params):
     rows = []
     owed_to_us, owed_by_us = ZERO, ZERO
     for voucher in query:
-        amount = obligation(voucher, settlements=voucher.browse_settlements)
+        amount = obligation(voucher, settlements=voucher.browse_settlements, allocations=voucher.browse_allocations)
         if not amount:
             continue
         deadline = voucher.payload.get('due_date', '')

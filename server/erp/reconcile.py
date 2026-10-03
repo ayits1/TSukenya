@@ -5,8 +5,8 @@ from django.db.models import Count, Sum
 from .models import *
 from .services import LINE_KINDS, STOCK_KINDS, ZERO, money
 
-CHECKS = {'lot_balance': 'Партії: складські рухи = залишок партії', 'voucher_total': 'Документи: сума = рядки (+ додаткові витрати)', 'double_posting': 'Подвійне або неповне проведення', 'payroll': 'Зарплата: нарахування = змін і розрахунок', 'reversal': 'Скасовані документи: рухи в нуль'}
-CASH_KINDS = {'sale', 'customer_return', 'supplier_return', 'payment', 'cash_transfer', 'cash_opening', 'expense', 'payroll_payment', 'cash_difference'}
+CHECKS = {'allocations':'Розподіли платежів, аванси й борги', 'lot_balance': 'Партії: складські рухи = залишок партії', 'voucher_total': 'Документи: сума = рядки (+ додаткові витрати)', 'double_posting': 'Подвійне або неповне проведення', 'payroll': 'Зарплата: нарахування = змін і розрахунок', 'reversal': 'Скасовані документи: рухи в нуль'}
+CASH_KINDS = {'sale', 'customer_return', 'supplier_return', 'payment', 'payment_refund', 'cash_transfer', 'cash_opening', 'expense', 'payroll_payment', 'cash_difference'}
 VALUE_KINDS = {'inventory', 'production'}
 
 def issue(check, subject, message, expected=None, actual=None):
@@ -65,12 +65,12 @@ def expected_cash(v):
             if not add(p.get('account'), -amount if v.kind == 'customer_return' else amount): return None
     elif v.kind == 'cash_transfer':
         if not add(v.account_id, -v.total) or not add(v.payload.get('target_account'), v.total): return None
-    elif v.kind == 'payment':
-        reference = v.reference
-        if not reference or reference.kind not in {'sale', 'receipt', 'debt_opening'}: return None
-        if reference.kind == 'debt_opening' and not reference.party: return None
-        incoming = reference.kind == 'sale' or reference.kind == 'debt_opening' and reference.party.kind == 'customer'
-        if not add(v.account_id, v.total if incoming else -v.total): return None
+    elif v.kind in {'payment','payment_refund'}:
+        from .settlements import direction
+        if not v.party and not (v.reference and v.reference.party): return None
+        if not add(v.account_id, v.total*direction(v)*(-1 if v.kind=='payment_refund' else 1)): return None
+    elif v.kind=='advance_allocation':
+        pass
     elif v.kind == 'cash_difference':
         difference = number(v.payload.get('difference'))
         if difference is None or abs(difference) != v.total: return None
@@ -193,7 +193,41 @@ def check_reversals():
         if amount or rev != main: out.append(issue('reversal', f'voucher/{voucher}', f'Скасований документ № {voucher:06d}: по рахунку № {account} грошові рухи не обнуляються (сума {amount}, основних {main}, сторнувальних {rev}).', 0, amount))
     return out
 
-RUNNERS = {'lot_balance': check_lots, 'voucher_total': check_totals, 'double_posting': check_double_posting, 'payroll': check_payroll, 'reversal': check_reversals}
+def check_allocations():
+    from .settlements import SOURCE_KINDS, allocation_active, advance_balances
+    from .services import obligation, BusinessError
+    out=[];by_event=defaultdict(lambda:ZERO)
+    rows=list(PaymentAllocation.objects.select_related('settlement','payment','source','source__party'))
+    for row in rows:
+        event,payment,source=row.settlement,row.payment,row.source
+        by_event[event.pk]+=row.amount
+        valid=(event.kind in {'payment','advance_allocation'} and payment.kind=='payment' and source.kind in SOURCE_KINDS and row.amount>0
+               and event.party_id==payment.party_id==source.party_id and event.store_id==payment.store_id==source.store_id
+               and source.date<=event.date and payment.date<=event.date
+               and (source.kind=='debt_opening' or source.party is not None and source.kind==('sale' if source.party.kind=='customer' else 'receipt'))
+               and (event.pk==payment.pk if event.kind=='payment' else event.reference_id==payment.pk))
+        if not valid:out.append(issue('allocations',f'allocation/{row.pk}','Некоректні джерело, напрям, дата або сума розподілу.'))
+        if event.status=='posted' and not allocation_active(row):out.append(issue('allocations',f'allocation/{row.pk}','Активний розподіл посилається на непроведений платіж або джерело.'))
+    payments=list(Voucher.objects.filter(kind='payment',status='posted').select_related('party','reference__party'))
+    remaining=advance_balances(payments)
+    for v in payments:
+        if by_event[v.pk]>v.total or remaining[v.pk]<0:out.append(issue('allocations',f'voucher/{v.pk}','Розподіли та повернення перевищують платіж.',v.total,by_event[v.pk]))
+        if v.reference_id and v.reference.kind in SOURCE_KINDS and by_event[v.pk] and by_event[v.pk]!=v.total:out.append(issue('allocations',f'voucher/{v.pk}','Legacy оплата має неповний розподіл.'))
+    for v in Voucher.objects.filter(kind__in=['advance_allocation','payment_refund'],status='posted').select_related('reference'):
+        if not v.reference or v.reference.kind!='payment' or v.reference.status!='posted' or v.reference.store_id!=v.store_id or v.reference.party_id!=v.party_id or v.reference.date>v.date or v.total<=0:
+            out.append(issue('allocations',f'voucher/{v.pk}','Некоректні вихідний аванс, магазин, контрагент, дата або сума операції.'))
+        if v.kind=='advance_allocation' and by_event[v.pk]!=v.total:out.append(issue('allocations',f'voucher/{v.pk}','Сума використання авансу не дорівнює розподілам.',v.total,by_event[v.pk]))
+    from .browsing import with_settlements
+    for source in with_settlements(Voucher.objects.filter(kind__in=SOURCE_KINDS,status='posted')):
+        try:
+            amount=obligation(source,settlements=source.browse_settlements,allocations=source.browse_allocations)
+        except (BusinessError, KeyError, TypeError, AttributeError, InvalidOperation):
+            out.append(issue('allocations',f'voucher/{source.pk}','Некоректні реквізити боргу або повернень: залишок неможливо обчислити.'))
+            continue
+        if amount<0:out.append(issue('allocations',f'voucher/{source.pk}','Розподіли перевищують борг документа.',0,amount))
+    return out
+
+RUNNERS = {'lot_balance': check_lots, 'voucher_total': check_totals, 'double_posting': check_double_posting, 'payroll': check_payroll, 'reversal': check_reversals, 'allocations':check_allocations}
 
 def reconcile():
     """Runs every check; returns {'checks': {name: {'title', 'issues'}}, 'issues': n}."""
