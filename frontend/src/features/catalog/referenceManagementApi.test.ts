@@ -53,6 +53,7 @@ test('active/archive boundaries reject malformed maps and duplicated identities'
     { parentId: undefined },
     { revision: 'old' },
     { state: 'hidden' },
+    { state: ['active'] },
     { mergedInto: 'invalid/path' },
     { state: 'merged', mergedInto: null },
   ])
@@ -67,6 +68,7 @@ test('impact and immutable commit result require validated counts and dependency
   for (const changed of [
     { snapshot: 'stale' },
     { operation: 'delete' },
+    { operation: ['archive'] },
     { productCount: -1 },
     { blocked: [3] },
     { target: {} },

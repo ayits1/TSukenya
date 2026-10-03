@@ -12,7 +12,7 @@ const id = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(value);
 const token = (value: unknown) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 const operation = (value: unknown) =>
-  ['rename', 'merge', 'archive', 'restore'].includes(String(value));
+  typeof value === 'string' && ['rename', 'merge', 'archive', 'restore'].includes(value);
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('Invalid object');
@@ -22,7 +22,8 @@ export function decodeManagedReference(value: unknown): ManagedReference {
   const item = object(value);
   decodeReference(item);
   if (
-    !['active', 'archived', 'merged'].includes(String(item.state)) ||
+    typeof item.state !== 'string' ||
+    !['active', 'archived', 'merged'].includes(item.state) ||
     !token(item.revision) ||
     !(item.parentId === null || id(item.parentId)) ||
     !(item.mergedInto === null || id(item.mergedInto)) ||
