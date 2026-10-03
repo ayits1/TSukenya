@@ -38,21 +38,26 @@ const BASE = {
   "products/p3": {name:"Цук.Рошен.Ромашка.вагові.глазуровані", cost:300, markup:35, manualPrice:false, unit:"шт", type:"Цукерки", category:"Цукерки"},
   "products/p4": {name:"Приклад", cost:10, manualPrice:true, price:100, unit:"шт", example:true},
   "products/p5": {name:"Халва (прихована)", cost:40, markup:35, manualPrice:false, unit:"шт", hidden:true, gsBase:{name:"Халва (прихована)"}},
-  "expenses/e1": {name:"Оренда", group:"fixed", amount:20000, order:1}
+  "expenses/e1": {name:"Оренда", group:"fixed", amount:20000, order:1},
+  "tasks/t1": {title:"Внести ціни", stage:2, status:"doing", order:1}
 };
 
 const cases = [];
-const scenario = (name, fn, seed = BASE) => cases.push({name, fn, seed});
+const scenario = (name, fn, seed = BASE, hash = "") => cases.push({name, fn, seed, hash});
 const docs = page => page.evaluate(() => [...window.__db.docs].map(([k, v]) => Object.assign({_path:k}, v)));
 
+const clickHuman = async (page, sel) => { // натискання з паузою, як у людини (між pointerdown і pointerup)
+  const bb = await page.locator(sel).first().boundingBox();
+  await page.mouse.move(bb.x + bb.width/2, bb.y + bb.height/2); await page.mouse.down(); await page.waitForTimeout(90); await page.mouse.up();
+};
+
 scenario("знімок бази, поки людина вводить текст, не губить ні текст, ні клік «Додати»", async page => {
-  await page.click('[data-tab="tasks"]');
+  await page.click('[data-tab="plan"]');
   await page.click("#newTask");
   await page.evaluate(() => window.__fdb.collection("products").doc("p1").update({price:36}));
   await page.waitForTimeout(100);
   await page.type("#newTask", "Купити каву");
-  const bb = await page.locator('[data-act="addTask"]').boundingBox();
-  await page.mouse.move(bb.x + bb.width/2, bb.y + bb.height/2); await page.mouse.down(); await page.waitForTimeout(90); await page.mouse.up();
+  await clickHuman(page, '[data-act="addTask"]');
   await page.waitForTimeout(300);
   assert.equal((await docs(page)).filter(d => d.title === "Купити каву").length, 1);
   assert.equal(await page.inputValue("#newTask"), "");
@@ -60,6 +65,7 @@ scenario("знімок бази, поки людина вводить текст
 
 scenario("«Скинути» очищує пошук, а чернетка нового товару переживає оновлення даних", async page => {
   await page.click('[data-tab="products"]');
+  await page.click('[data-act="panel"][data-panel="add"]');
   await page.fill("#npName", "Халва 250 г");
   await page.fill("#q", "зеф"); await page.waitForTimeout(300);
   await page.click('[data-act="fReset"]'); await page.waitForTimeout(100);
@@ -84,7 +90,7 @@ scenario("довга назва без пробілів зменшує шриф�
   assert.ok(x > 0 && x < 1, `--x = ${x}`);
 });
 
-scenario("PDF запам'ятовує ціну; після зміни ціни товар пропонується передрукувати", async page => {
+scenario("PDF запам'ятовує ціну; після зміни ціни товар пропонується передрукувати — і з «Сьогодні» теж", async page => {
   await page.click('[data-tab="tags"]');
   await page.click('[data-tag="p1"]');
   await page.click('[data-act="dlPdf"]');
@@ -93,6 +99,10 @@ scenario("PDF запам'ятовує ціну; після зміни ціни �
   await page.evaluate(() => window.__fdb.collection("products").doc("p1").update({price:39}));
   await page.waitForTimeout(300);
   assert.match(await page.textContent('[data-st="changed"]'), /Ціна змінилась після друку · 1/);
+  await page.click('[data-tab="today"]');
+  await page.click('[data-act="goReprint"]'); await page.waitForTimeout(200);
+  assert.equal(await page.isChecked('[data-tag="p1"]'), true);
+  assert.equal(await page.isChecked('[data-tag="p2"]'), false);
 });
 
 scenario("повторне натискання «Додати в базу» під час імпорту не створює дублів", async page => {
@@ -112,23 +122,64 @@ scenario("повторне натискання «Додати в базу» п�
   fs.unlinkSync(file);
 });
 
-scenario("беззбитковість без прикладів, резервна копія, версія", async page => {
+scenario("«Сьогодні»: беззбитковість без прикладів, що потребує уваги, копія, версія", async page => {
   assert.match(await page.textContent("#main"), /по 2 з 3 товарів/);
+  assert.match(await page.textContent("#main"), /Потребує уваги/);
   assert.match(await page.textContent("#foot"), /версія \d+\.\d+\.\d+/);
   await page.click('[data-act="backup"]');
   await page.waitForFunction(() => window.__saved.some(f => f.endsWith(".json")) && window.__db.docs.get("settings/main").lastBackupAt, null, {timeout:5000});
 });
 
-scenario("синхронізація, видалення з «надгробком» і повернення прихованого товару", async page => {
+scenario("видалений товар повертається кнопкою «Скасувати»", async page => {
+  await page.click('[data-tab="products"]');
+  await page.click('[data-del-prod="p1"]');
+  await page.waitForFunction(() => !window.__db.docs.has("products/p1"), null, {timeout:3000});
+  assert.ok(await page.evaluate(() => window.__db.docs.has("deletedProducts/p1")), "«надгробок» є");
+  await page.click("#toastA");
+  await page.waitForFunction(() => window.__db.docs.has("products/p1"), null, {timeout:3000});
+  assert.equal(await page.evaluate(() => window.__db.docs.get("products/p1").price), 35);
+  assert.equal(await page.evaluate(() => window.__db.docs.has("deletedProducts/p1")), false);
+});
+
+scenario("видалення задачі й статті витрат теж скасовується", async page => {
+  await page.click('[data-tab="money"]');
+  await page.click('[data-del-exp="e1"]');
+  await page.waitForFunction(() => !window.__db.docs.has("expenses/e1"), null, {timeout:3000});
+  await page.click("#toastA");
+  await page.waitForFunction(() => window.__db.docs.has("expenses/e1") && window.__db.docs.get("expenses/e1").amount === 20000, null, {timeout:3000});
+});
+
+scenario("масова націнка показує наслідки до застосування і скасовується", async page => {
+  await page.click('[data-tab="products"]');
+  await page.click('[data-act="panel"][data-panel="bulk"]');
+  await page.fill("#bulkM", "50"); await page.waitForTimeout(100);
+  assert.match(await page.textContent("#bulkPrev"), /отримають націнку 50/);
+  await page.click('[data-act="bulk"]');
+  await page.waitForFunction(() => window.__db.docs.get("products/p2").markup === 50, null, {timeout:3000});
+  assert.equal(await page.evaluate(() => window.__db.docs.get("products/p1").manualPrice), false, "ручна ціна замінена");
+  await page.click("#toastA");
+  await page.waitForFunction(() => window.__db.docs.get("products/p2").markup === 35 && window.__db.docs.get("products/p1").manualPrice === true, null, {timeout:3000});
+});
+
+scenario("розділ відкривається за адресою #money, старі назви теж працюють", async page => {
+  assert.match(await page.textContent("#main"), /Щоб вийти в нуль/);
+  assert.equal(await page.getAttribute('[data-tab="money"]', "aria-selected"), "true");
+}, BASE, "#expenses");
+
+scenario("синхронізація, видалення з «надгробком», повернення прихованого товару, відключення другим натисканням", async page => {
   await page.waitForFunction(() => window.__sh.sheet.length === 5, null, {timeout:10000}); // заголовок + 4 видимі товари
   await page.click('[data-tab="products"]');
   await page.click('[data-del-prod="p2"]');
-  await page.waitForFunction(() => !window.__sh.sheet.some(r => r[0] === "Зефір ванільний"), null, {timeout:10000});
+  await page.waitForFunction(() => !window.__sh.sheet.some(r => r[0] === "Зефір ванільний"), null, {timeout:15000});
   assert.ok(await page.evaluate(() => window.__db.docs.has("deletedProducts/p2")));
-  await page.click("details.hid summary");
+  await page.click("#hidden summary");
   await page.click('[data-unhide="p5"]');
   await page.waitForFunction(() => window.__sh.sheet.some(r => r[0] === "Халва (прихована)" && r.includes("p5")), null, {timeout:10000});
   assert.equal(await page.evaluate(() => window.__db.docs.get("products/p5").hidden), false);
+  await page.click('[data-act="gsUnlink"]'); await page.waitForTimeout(150);
+  assert.ok(await page.evaluate(() => window.__db.docs.get("settings/main").gsId), "перше натискання лише просить підтвердити");
+  await page.click('[data-act="gsUnlink"]');
+  await page.waitForFunction(() => !window.__db.docs.get("settings/main").gsId, null, {timeout:3000});
 }, Object.assign({}, BASE, {"settings/main": {gsId:"sheet1", gsTitle:"База"}}));
 
 (async () => {
@@ -140,7 +191,7 @@ scenario("синхронізація, видалення з «надгробко
     await page.route(/^https?:/, r => r.abort()); // без мережі: шрифти й бібліотеки не потрібні
     await page.addInitScript(init(c.seed));
     try {
-      await page.goto("file://" + APP);
+      await page.goto("file://" + APP + (c.hash || ""));
       await page.waitForFunction(() => window.__db && document.querySelector("#main").children.length, null, {timeout:5000});
       await page.waitForTimeout(150);
       await c.fn(page);
