@@ -8,7 +8,7 @@ from server.erp.models import *
 from server.erp.services import *
 from server.erp.reporting import voucher_json
 from server.erp.reconcile import reconcile
-from .test_erp import AccountingFixture
+from tests.test_erp import AccountingFixture
 
 
 class MultilotTests(AccountingFixture):
@@ -210,6 +210,7 @@ class MultilotMigrationTests(TransactionTestCase):
     def test_backfill_preserves_line_references_and_leaves_production_components_unknown(self):
         from django.db.migrations.executor import MigrationExecutor
         executor=MigrationExecutor(connection)
+        latest_targets = executor.loader.graph.leaf_nodes('erp')
         executor.migrate([('erp','0006_legacy_create_receipt')])
         try:
             apps=executor.loader.project_state([('erp','0006_legacy_create_receipt')]).apps
@@ -248,4 +249,4 @@ class MultilotMigrationTests(TransactionTestCase):
             self.assertIsNone(StockEntry.objects.get(pk=self_component_reversal.pk).line_id)
             self.assertEqual(len(set(VoucherLine.objects.values_list('line_key',flat=True))),3)
         finally:
-            MigrationExecutor(connection).migrate([('erp','0007_multilot_lines')])
+            MigrationExecutor(connection).migrate(latest_targets)
