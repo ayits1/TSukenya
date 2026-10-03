@@ -26,6 +26,7 @@ export function CatalogReferenceField({
   description,
   creation,
   addButtonRef,
+  archived = false,
 }: {
   label: string;
   value: string;
@@ -38,10 +39,14 @@ export function CatalogReferenceField({
   description?: string;
   creation?: ReferenceCreation;
   addButtonRef?: Ref<HTMLButtonElement>;
+  archived?: boolean;
 }) {
   const selected = options.find((item) => referenceKey(item.value) === referenceKey(value));
   // Preserve an unchanged historical value even when its parent has no current option.
-  const choices = selected || !value ? options : [{ id: 'historical', value }, ...options];
+  const choices =
+    selected || !value
+      ? options
+      : [{ id: 'historical', value: archived ? `${value} · Архівований` : value }, ...options];
   return (
     <div className="tk-reference-field">
       <ComboBox
@@ -57,6 +62,12 @@ export function CatalogReferenceField({
         placeholder="Виберіть або знайдіть"
         {...(description ? { description } : {})}
       />
+      {archived ? (
+        <p className="tk-help">
+          «{value}» архівовано. Запис недоступний для нового вибору. Наявний товар може зберегти
+          його без зміни.
+        </p>
+      ) : null}
       <div className="tk-reference-actions">
         <Button
           ref={addButtonRef}

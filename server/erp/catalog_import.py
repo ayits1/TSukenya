@@ -49,6 +49,8 @@ def validate_payload(payload, *, committing=False):
 def plan(payload, user):
     entries = validate_payload(payload)
     config = defaults()
+    from .catalog_references import reference_records
+    references = reference_records()
     documents = list(Document.objects.filter(path__startswith='products/').order_by('path'))
     by_id = {doc.path.split('/', 1)[1]: doc for doc in documents}
     by_name = defaultdict(list)
@@ -100,7 +102,7 @@ def plan(payload, user):
                     require(isinstance(value[field], str) or field in {'price', 'promotionPrice'} and value[field] is None,
                             f'{field}: очікується десятковий рядок.')
             # CSV/XLSX carry historical free text choices, like legacy catalogue writes.
-            data = normalise_product(value, old, path, validate_references=False)
+            data = normalise_product(value, old, path, validate_references=False, references=references)
             product = serialize(Document(path=path, data=data), user, config)
             entry.update(action='update' if existing else 'create',
                          values={key: product[key] for key in (*TEXT_FIELDS, 'cost', 'markup', 'price', 'manualPrice', 'promotion', 'promotionPrice', 'priceAt', 'minStock')},

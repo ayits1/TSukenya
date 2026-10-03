@@ -140,6 +140,7 @@ def serialize(document, user, config):
     private = user.profile.role != 'cashier'
     return {
         'id': document.path.split('/', 1)[1], 'revision': revision(document, config),
+        'referenceIds': reference_bindings(data),
         **{key: str(data.get(key) or ('шт' if key == 'unit' else '')) for key in TEXT_FIELDS},
         'cost': format(cost, 'f') if private else None,
         'markup': format(markup, 'f') if private else None,
@@ -150,6 +151,20 @@ def serialize(document, user, config):
         'manualPrice': manual, 'promotion': bool(data.get('promotion')),
         'priceAt': price_date(data.get('priceAt')), 'minStock': format(decimal(data.get('minStock')), 'f'),
     }
+
+
+def reference_bindings(data):
+    from .catalog_references import FIELDS, legacy_item
+    stored = data.get('referenceIds') if isinstance(data.get('referenceIds'), dict) else {}
+    bindings = {}
+    for field in FIELDS:
+        text = data.get(field) or ('шт' if field == 'unit' else '')
+        if not isinstance(text, str) or not text: continue
+        identifier = stored.get(field)
+        parent = data.get('type', '') if field == 'category' else ''
+        parent = parent if isinstance(parent, str) else ''
+        bindings[field] = identifier if isinstance(identifier, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,120}', identifier) else legacy_item(field, text, parent)['id']
+    return bindings
 
 
 def base_query():
@@ -237,7 +252,7 @@ def unit_in_use(path, data):
     return None
 
 
-def normalise_product(value, old, path, *, validate_references=True, config=None, old_config=None):
+def normalise_product(value, old, path, *, validate_references=True, config=None, old_config=None, references=None, bind_references=True):
     """One strict write validator shared by the editor and atomic legacy imports."""
     from .views import validate_product
     require(isinstance(value, dict) and not (set(value) - PRODUCT_FIELDS), 'Запит містить невідомі поля товару.')
@@ -246,13 +261,17 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
         if key in value:
             require(isinstance(value[key], str) and len(value[key].strip()) <= maximum, f'{key}: некоректний текст.')
             data[key] = value[key].strip()
-    # B03: existing lots and posted lines keep the old unit, so a used product cannot silently relabel them.
-    if old.get('name') and (data.get('unit') or 'шт') != (old.get('unit') or 'шт'):
-        reason = unit_in_use(path, old)
-        require(reason is None, f'Одиницю обліку «{old.get("unit") or "шт"}» змінити не можна: {reason}. Для іншої фасовки створіть окремий товар.')
+    def guard_unit():
+        # Give the accounting constraint before an unrelated picker error, and recheck canonical aliases.
+        if old.get('name') and (data.get('unit') or 'шт') != (old.get('unit') or 'шт'):
+            reason = unit_in_use(path, old)
+            require(reason is None, f'Одиницю обліку «{old.get("unit") or "шт"}» змінити не можна: {reason}. Для іншої фасовки створіть окремий товар.')
+    guard_unit()
+    from .catalog_references import reference_records
+    references = reference_records() if references is None and (validate_references or bind_references) else references
     if validate_references:
         from .catalog_references import validate_reference_fields
-        validate_reference_fields(data, old, creating=not bool(old.get('name')))
+        validate_reference_fields(data, old, creating=not bool(old.get('name')), references=references)
     if 'minStock' in value: data['minStock'] = float(dec(value['minStock'], 'Мінімальний залишок', Decimal('.001')))
     for key in ('cost', 'markup', 'price', 'promotionPrice'):
         if key in value:
@@ -290,12 +309,19 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
     # Unchanged price terms keep an existing discount editable after an older settings change.
     validate_product(data, path, config, check_promotion=pricing_changed or bool(value.get('priceReviewed')))
     require(not data.get('barcode') or not Document.objects.filter(path__startswith='products/').exclude(pk=path).filter(data__barcode=data['barcode']).exists(), 'Цей штрихкод уже використовується.')
+    from .catalog_references import bind_reference_fields
+    if bind_references and (data != old or not old.get('name')):
+        bind_reference_fields(data, old, references=references)
+    guard_unit()
     return data
 
 
 def normalise_legacy(value, old, path):
     """Legacy /api/docs writes: only the sent keys change, with the v1 rules and free-text choices."""
     # The old portal clears text and the review date with null; v1 stores an empty string.
+    if 'referenceIds' in value:
+        require(value['referenceIds'] == old.get('referenceIds', {}), 'ID довідників визначає сервер; їх не можна змінювати вручну.')
+        value = {key: item for key, item in value.items() if key != 'referenceIds'}
     value = {key: '' if item is None and (key in TEXT_FIELDS or key == 'priceAt') else item for key, item in value.items()}
     return normalise_product(value, dict(old), path, validate_references=False)
 
@@ -304,6 +330,9 @@ def handle_catalog(request, user):
     from .views import response
     path = request.path.rstrip('/')
     collection = '/api/v1/catalog/products'
+    if path in {'/api/v1/catalog/references/manage', '/api/v1/catalog/references/preview', '/api/v1/catalog/references/commit'}:
+        from .catalog_reference_management import handle
+        return handle(request, user)
     if path in {'/api/v1/catalog/pricing/preview', '/api/v1/catalog/pricing/commit'} and request.method == 'POST':
         from .catalog_pricing import preview_pricing, commit_pricing
         return preview_pricing(request, user) if path.endswith('/preview') else commit_pricing(request, user)

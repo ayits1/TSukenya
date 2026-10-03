@@ -28,7 +28,7 @@ def preview_product_price(request, user):
         require('revision' not in value, 'Версія товару потребує ID.')
         old, path = new_product_data(config), 'products/__price_preview__'
         fields = {'name': 'Попередній розрахунок', **value}
-    data = normalise_product(fields, old, path, validate_references=False, config=config, old_config=config)
+    data = normalise_product(fields, old, path, validate_references=False, bind_references=False, config=config, old_config=config)
     regular = regular_price(data, config)
     promotion = promotion_amount(data)
     valid = bool(data.get('promotion') and promotion is not None and 0 < promotion < regular)

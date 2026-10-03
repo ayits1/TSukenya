@@ -1,0 +1,72 @@
+.tk-reference-manager {
+  overflow-wrap: anywhere;
+}
+.tk-reference-manager header {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  justify-content: space-between;
+}
+.tk-reference-manager header h2 {
+  margin-top: 0;
+}
+.tk-reference-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.tk-reference-grid > * {
+  min-width: 0;
+}
+.tk-reference-grid .tk-select-value {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.tk-reference-impact {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--tk-line);
+  border-radius: 12px;
+}
+.tk-reference-impact h3:focus-visible {
+  outline: 3px solid var(--tk-focus);
+  outline-offset: 4px;
+}
+.tk-reference-impact dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.tk-reference-impact dd {
+  margin: 4px 0 0;
+  font-size: 1.4em;
+  font-weight: 600;
+}
+.tk-reference-impact .tk-button {
+  min-height: 44px;
+  height: auto;
+  white-space: normal;
+}
+@media (max-width: 540px) {
+  .tk-reference-grid,
+  .tk-reference-impact dl {
+    grid-template-columns: 1fr;
+  }
+  .tk-reference-impact {
+    padding: 12px;
+  }
+  .tk-reference-manager header {
+    flex-wrap: wrap;
+  }
+}
+
+.tk-reference-impact h3 {
+  margin: 0 0 12px;
+}
+.tk-reference-impact h4 {
+  margin: 16px 0 8px;
+}
+.tk-reference-impact p {
+  margin: 12px 0;
+}

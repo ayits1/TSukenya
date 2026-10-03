@@ -291,9 +291,20 @@ export function ProductEditor({
       focusAfterCreation.current = null;
     }
   }, [referenceBusy, creation]);
+  const archivedSelection = (field: ReferenceField) =>
+    (references.data?.archivedItems || []).some(
+      (item) =>
+        item.field === field &&
+        referenceKey(item.value) === referenceKey(draft[field]) &&
+        (field !== 'category' || referenceKey(item.parentType) === referenceKey(draft.type)) &&
+        (!current?.referenceIds?.[field] || current.referenceIds[field] === item.id),
+    );
+  const archivedNewValue =
+    !current && (['type', 'category', 'pack', 'size', 'unit'] as const).some(archivedSelection);
   const reference = (field: ReferenceField) => (
     <CatalogReferenceField
       label={referenceLabels[field]}
+      archived={archivedSelection(field)}
       value={draft[field]}
       options={(references.data?.items || []).filter(
         (item) =>
@@ -317,7 +328,11 @@ export function ProductEditor({
         !referenceBusy &&
         !references.error &&
         !creation &&
-        (field !== 'category' || !!draft.type)
+        (field !== 'category' ||
+          !!references.data?.items.some(
+            (item) =>
+              item.field === 'type' && referenceKey(item.value) === referenceKey(draft.type),
+          ))
       }
       {...(field === 'category'
         ? {
@@ -368,7 +383,8 @@ export function ProductEditor({
                 creation ||
                 !references.data ||
                 references.error ||
-                !activePreview
+                !activePreview ||
+                archivedNewValue
               )
                 return;
               mutation.mutate();
@@ -643,7 +659,8 @@ export function ProductEditor({
                   !!creation ||
                   references.isPending ||
                   !!references.error ||
-                  !activePreview
+                  !activePreview ||
+                  archivedNewValue
                 }
               >
                 {mutation.isPending ? 'Зберігаємо…' : 'Зберегти товар'}

@@ -59,6 +59,8 @@ def plan(payload, user):
     validate_payload(payload)
     before_config = defaults()
     after_config = dict(before_config)
+    from .catalog_references import reference_records
+    references = reference_records()
     documents = list(Document.objects.filter(path__startswith='products/').order_by('path'))
     active = {document.path.split('/', 1)[1]: document for document in documents if document.data.get('hidden') is not True}
     kind = payload['kind']
@@ -98,7 +100,7 @@ def plan(payload, user):
                 elif payload['updateDefault'] and 'markup' not in old:
                     values['markup'] = format(before_config['markup'], 'f')
             entry['after'] = price_pair(Document(path=document.path, data={**old, **values}), user, after_config)
-            data = normalise_product(values, old, document.path, validate_references=False, config=after_config)
+            data = normalise_product(values, old, document.path, validate_references=False, config=after_config, references=references)
             entry['after'] = price_pair(Document(path=document.path, data=data), user, after_config)
             # Only stored changes are written and audited; equal numbers compare alike (30 == 30.0).
             record_changed = data != old
