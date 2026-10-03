@@ -123,7 +123,8 @@ class CatalogReferenceTests(TestCase):
         self.assertEqual(valid.status_code, 201)
         invalid = self.client.post('/api/v1/catalog/products', {'name': 'Товар', 'size': 'Ручне значення'}, content_type='application/json', **self.headers)
         self.assertEqual(invalid.status_code, 400)
-        legacy = self.client.patch('/api/docs/products/coffee', {'pack': 'Імпортоване пакування', 'size': '500 г'}, content_type='application/json', **self.headers)
+        version = self.client.get('/api/v1/catalog/products/coffee').json()['revision']
+        legacy = self.client.patch('/api/docs/products/coffee', {'pack': 'Імпортоване пакування', 'size': '500 г'}, content_type='application/json', HTTP_IF_MATCH=version, **self.headers)
         self.assertEqual(legacy.status_code, 200)
         self.assertIn('Імпортоване пакування', [item['value'] for item in self.references()])
 

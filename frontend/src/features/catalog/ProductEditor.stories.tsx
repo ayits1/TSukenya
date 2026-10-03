@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within, waitFor } from 'storybook/test';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ApiError } from '../../shared/api/client';
 import { ProductEditor } from './ProductEditor';
 import type { CatalogApi, ReferenceItem } from './api';
 import { catalogProducts, catalogReferences } from './fixtures';
@@ -82,6 +83,35 @@ export const SeparatePromotionPrice: Story = {
       expect.objectContaining({ price: '35', promotion: true, promotionPrice: '27.05' }),
       product.id,
     );
+  },
+};
+export const DuplicateNameIsNotAVersionConflict: Story = {
+  args: {
+    api: {
+      ...meta.args.api,
+      save: fn(async () => {
+        throw new ApiError(
+          409,
+          'Товар із такою назвою вже є в каталозі. Змініть назву або відкрийте наявний товар.',
+          'duplicate_name',
+        );
+      }),
+    },
+  },
+  play: async () => {
+    const form = within(within(document.body).getByRole('dialog'));
+    await waitFor(() =>
+      expect(form.getByRole('button', { name: 'Додати запис: Пакування' })).toBeEnabled(),
+    );
+    const name = form.getByRole('textbox', { name: 'Назва товару' });
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Наявна назва');
+    await userEvent.click(form.getByRole('button', { name: 'Зберегти товар' }));
+    await expect(await form.findByRole('alert')).toHaveTextContent('Товар із такою назвою вже є');
+    await expect(
+      form.queryByRole('button', { name: 'Завантажити актуальний товар' }),
+    ).not.toBeInTheDocument();
+    await expect(name).toHaveValue('Наявна назва');
   },
 };
 export const LegacyPromotionNeedsPrice: Story = {

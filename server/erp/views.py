@@ -93,14 +93,14 @@ def legacy_state(user):
         elif d.path=='project/state' and user.profile.role=='owner':data[d.path]=d.data
     return data
 
-def validate_product(data, path=None, config=None):
+def validate_product(data, path=None, config=None, check_promotion=True):
     require(isinstance(data.get('name'),str) and 0<len(data['name'].strip())<=250,'Вкажіть назву товару (до 250 символів).')
     if 'minStock' in data:dec(data['minStock'],'Мінімальний залишок',QTY)
     if data.get('promotionPrice') is not None:
         from .catalog import regular_price
         discount=dec(data['promotionPrice'],'Акційна ціна',minimum=Decimal('.01'))
         require(discount<=Decimal('99999999.99'),'Акційна ціна завелика.')
-        if data.get('promotion'):
+        if data.get('promotion') and check_promotion:
             require(discount<regular_price(data, config),'Акційна ціна має бути меншою за звичайну.')
     barcode=str(data.get('barcode','')).strip()
     require(len(barcode)<=80,'Штрихкод задовгий.')
@@ -128,8 +128,11 @@ def legacy_mutation(request,user,path):
         from .labels import revision as label_revision
         if request.headers['If-Match'] != label_revision(d.data if d else {}):
             return response({'error':'Макет уже змінено. Оновіть дані перед повторним збереженням.','code':'revision_conflict'},409)
-    if col=='products' and d is not None and request.headers.get('If-Match'):
+    if col=='products' and d is not None:
+        # Existing products are versioned like v1; the browser runtime sends their revision.
         from .catalog import revision
+        if request.method=='PUT':return response({'error':'Товар уже існує. Оновіть дані та збережіть лише змінені поля.','code':'product_exists'},409)
+        if not request.headers.get('If-Match'):return response({'error':'Оновіть дані перед збереженням: потрібна версія товару.','code':'revision_required'},428)
         if request.headers['If-Match']!=revision(d):return response({'error':'Товар уже змінено. Оновіть дані перед повторним збереженням.','code':'revision_conflict'},409)
     if request.method=='DELETE':
         require(d is not None,'Запис не знайдено.')
@@ -148,7 +151,7 @@ def legacy_mutation(request,user,path):
             if path=='settings/main' and 'storeNames' in value:
                 from .budget import freeze_budget
                 freeze_budget(prior)
-            value={**prior,**value}
+            if col!='products':value={**prior,**value}
         if col=='tasks':
             from .task_scope import prepare_task
             value=prepare_task(user,path,value,d.data if d is not None else None)
@@ -157,14 +160,15 @@ def legacy_mutation(request,user,path):
             value=validate_expense(value)
         if path=='settings/main':
             from .budget import validate_settings
-            value=validate_settings(value)
-        if col=='products':
+            from .catalog import keep_pricing_settings
             old=d.data if d is not None else {}
-            if (bool(old.get('promotion')),old.get('promotionPrice')) != (bool(value.get('promotion')),value.get('promotionPrice')):
-                value['priceAt']=timezone.localdate().isoformat()
-            validate_product(value,path)
-            barcode=str(value.get('barcode','')).strip()
-            require(not barcode or not Document.objects.filter(path__startswith='products/').exclude(pk=path).filter(data__barcode=barcode).exists(),'Цей штрихкод уже використовується.')
+            value=keep_pricing_settings(validate_settings(value,old),old)
+        if col=='products':
+            # The v1 validator also checks barcodes and refreshes the price review date.
+            from .catalog import normalise_legacy, duplicate_name, DUPLICATE_NAME
+            old=d.data if d is not None else {}
+            value=normalise_legacy(value,old,path)
+            if duplicate_name(value,old,path):return response(DUPLICATE_NAME,409)
         Document.objects.update_or_create(pk=path,defaults={'data':value})
     audit(user,'catalog_changed' if col=='products' else 'legacy_changed',path,{'method':request.method})
     return response({'ok':True,'id':id})
@@ -413,7 +417,8 @@ def handle(request):
         with transaction.atomic():
             ledger_lock();product=get(Document,'products/'+str(value.get('product')),'Готовий товар')
             if value['revision']!=revision(product):return response({'error':'Товар уже змінено. Оновіть рецептуру перед повторним збереженням.','code':'revision_conflict'},409)
-            data={**product.data,'recipe':value.get('recipe',[])};validate_product(data,product.pk)
+            # A recipe never changes price terms, so an older discount does not block it.
+            data={**product.data,'recipe':value.get('recipe',[])};validate_product(data,product.pk,check_promotion=False)
             require(len({str(row.get('product')) for row in data['recipe']})==len(data['recipe']),'Інгредієнт не може повторюватись.')
             product.data=data;product.save(update_fields=['data']);audit(user,'recipe_saved',product.pk,{'recipe':data['recipe']})
             saved_revision=revision(product)

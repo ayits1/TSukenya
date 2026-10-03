@@ -5,6 +5,7 @@ from django.conf import settings
 import json
 import re
 import secrets
+from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP
 from django.db import transaction
 from django.db.models import Q
@@ -15,19 +16,66 @@ from .services import require, dec, day, ledger_lock, audit
 EDIT_ROLES = {'owner', 'manager', 'warehouse'}
 TEXT_FIELDS = {'name': 250, 'type': 160, 'category': 160, 'pack': 160, 'size': 160, 'unit': 30, 'barcode': 80}
 PRICE_FIELDS = {'cost', 'markup', 'price', 'manualPrice', 'promotionPrice'}
+PRODUCT_FIELDS = set(TEXT_FIELDS) | PRICE_FIELDS | {'promotion', 'priceAt', 'priceReviewed', 'minStock'}
+PRICE_DATE = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}')
+
+
+def plain(value):
+    """One spelling per value: 30, 30.0 and Decimal('30.0000') compare and hash alike."""
+    return format(value.normalize(), 'f')
 
 
 def revision(document, config=None):
     config = defaults() if config is None else config
     material = {'path': document.path, 'data': document.data,
-        'pricing': {key: str(value) for key, value in config.items()}}
+        'pricing': {key: plain(value) for key, value in config.items()}}
     return hmac.new(settings.SECRET_KEY.encode(), json.dumps(material, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode(), hashlib.sha256).hexdigest()
+
+
+def pricing_config(data):
+    return {'markup': decimal(data.get('defaultMarkup', 30)), 'rounding': decimal(data.get('rounding', .5))}
 
 
 def defaults():
     document = Document.objects.filter(pk='settings/main').first()
-    data = document.data if document else {}
-    return {'markup': decimal(data.get('defaultMarkup', 30)), 'rounding': decimal(data.get('rounding', .5))}
+    return pricing_config(document.data if document else {})
+
+
+def keep_pricing_settings(value, old):
+    """Legacy settings writes cannot change prices outside the pricing preview/commit flow."""
+    require(pricing_config(value) == pricing_config(old), 'Націнку за замовчуванням і округлення змінюйте через попередній перегляд масової зміни цін.')
+    for key in ('defaultMarkup', 'rounding'):
+        # Equal values keep their stored spelling, so revisions do not change.
+        if key in old: value[key] = old[key]
+        else: value.pop(key, None)
+    return value
+
+
+def name_key(value):
+    """The key the catalogue import matches existing products by."""
+    from .catalog_references import clean
+    return clean(value).casefold() if isinstance(value, str) else ''
+
+
+def duplicate_name(data, old, path):
+    """Whether a new or renamed product would make the import name match ambiguous."""
+    key = name_key(data.get('name'))
+    if not key or old.get('name') and key == name_key(old.get('name')):
+        return False  # Existing duplicates stay editable until renamed.
+    # Whole documents decode names alike on every backend (SQLite turns "123" into a number).
+    documents = Document.objects.filter(path__startswith='products/').exclude(pk=path).values_list('data', flat=True)
+    return any(isinstance(item, dict) and name_key(item.get('name')) == key for item in documents)
+
+
+DUPLICATE_NAME = {'error': 'Товар із такою назвою вже є в каталозі. Змініть назву або відкрийте наявний товар.', 'code': 'duplicate_name'}
+
+
+def price_date(value):
+    # The API exposes YYYY-MM-DD or an empty date; older documents may use another ISO spelling.
+    try:
+        return date.fromisoformat(value).isoformat() if isinstance(value, str) and value else ''
+    except ValueError:
+        return ''
 
 
 def decimal(value):
@@ -82,7 +130,7 @@ def serialize(document, user, config):
         'promotionPrice': format(promotion, 'f') if promotion is not None else None,
         'salePrice': format(price, 'f'),
         'manualPrice': manual, 'promotion': bool(data.get('promotion')),
-        'priceAt': str(data.get('priceAt') or ''), 'minStock': format(decimal(data.get('minStock')), 'f'),
+        'priceAt': price_date(data.get('priceAt')), 'minStock': format(decimal(data.get('minStock')), 'f'),
     }
 
 
@@ -139,8 +187,7 @@ def save_product(request, user, identifier=None):
         identifier = secrets.token_urlsafe(18).replace('-', '_')
         document = Document(path='products/' + identifier)
         data = {'unit': 'шт', 'markup': float(defaults()['markup']), 'cost': 0, 'manualPrice': False, 'price': None}
-    allowed = set(TEXT_FIELDS) | PRICE_FIELDS | {'promotion', 'priceAt', 'revision', 'priceReviewed', 'minStock'}
-    require(not (set(value) - allowed), 'Запит містить невідомі поля товару.')
+    require(not (set(value) - PRODUCT_FIELDS - {'revision'}), 'Запит містить невідомі поля товару.')
     if request.method == 'DELETE':
         from .models import VoucherLine, StockLot
         require(not VoucherLine.objects.filter(product=document).exists() and not StockLot.objects.filter(product=document).exists(), 'Товар уже використовується в обліку. Його не можна видалити.')
@@ -149,6 +196,7 @@ def save_product(request, user, identifier=None):
         return response({'ok': True})
     old = dict(data)
     data = normalise_product({key: item for key, item in value.items() if key != 'revision'}, old, document.path)
+    if duplicate_name(data, old, document.path): return response(DUPLICATE_NAME, 409)
     document.data = data; document.save()
     audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1'})
     return response(serialize(document, user, defaults()), 200 if old.get('name') else 201)
@@ -157,8 +205,7 @@ def save_product(request, user, identifier=None):
 def normalise_product(value, old, path, *, validate_references=True, config=None):
     """One strict write validator shared by the editor and atomic legacy imports."""
     from .views import validate_product
-    allowed = set(TEXT_FIELDS) | PRICE_FIELDS | {'promotion', 'priceAt', 'priceReviewed', 'minStock'}
-    require(isinstance(value, dict) and not (set(value) - allowed), 'Запит містить невідомі поля товару.')
+    require(isinstance(value, dict) and not (set(value) - PRODUCT_FIELDS), 'Запит містить невідомі поля товару.')
     data = dict(old)
     for key, maximum in TEXT_FIELDS.items():
         if key in value:
@@ -181,10 +228,12 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
             require(isinstance(value[key], bool), f'{key}: очікується логічне значення.')
             if key != 'priceReviewed': data[key] = value[key]
     require(not data.get('manualPrice') or decimal(data.get('price')) > 0, 'Ручна ціна має бути більшою за нуль.')
-    if not data.get('manualPrice'): data['price'] = None
+    # Clear a calculated product's price only when asked to; absent and null mean the same.
+    if not data.get('manualPrice') and data.get('price') is not None and {'manualPrice', 'price'} & set(value): data['price'] = None
     if 'priceAt' in value:
         require(isinstance(value['priceAt'], str), 'Некоректна дата ціни.')
         if value['priceAt']:
+            require(PRICE_DATE.fullmatch(value['priceAt']), 'Вкажіть дату у форматі РРРР-ММ-ДД.')
             reviewed = day(value['priceAt']); require(reviewed <= timezone.localdate(), 'Дата ціни не може бути в майбутньому.')
         data['priceAt'] = value['priceAt']
     old_config = defaults()
@@ -199,9 +248,17 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
         require(bool(old.get('promotion')) and old.get('promotionPrice') is None and not pricing_changed, 'Вкажіть акційну ціну, меншу за звичайну.')
     if value.get('priceReviewed') or pricing_changed:
         data['priceAt'] = timezone.localdate().isoformat()
-    validate_product(data, path, config)
+    # Unchanged price terms keep an existing discount editable after an older settings change.
+    validate_product(data, path, config, check_promotion=pricing_changed or bool(value.get('priceReviewed')))
     require(not data.get('barcode') or not Document.objects.filter(path__startswith='products/').exclude(pk=path).filter(data__barcode=data['barcode']).exists(), 'Цей штрихкод уже використовується.')
     return data
+
+
+def normalise_legacy(value, old, path):
+    """Legacy /api/docs writes: only the sent keys change, with the v1 rules and free-text choices."""
+    # The old portal clears text and the review date with null; v1 stores an empty string.
+    value = {key: '' if item is None and (key in TEXT_FIELDS or key == 'priceAt') else item for key, item in value.items()}
+    return normalise_product(value, dict(old), path, validate_references=False)
 
 
 def handle_catalog(request, user):
