@@ -13,18 +13,18 @@ module.exports = async (page, until) => {
   await costHryvnias.fill('6');
   await costHryvnias.press(',');
   assert(await costKopecks.evaluate(input => input === document.activeElement), 'purchase comma moves to kopecks');
-  await costKopecks.fill('7');
+  await costKopecks.fill('07');
   await costKopecks.press('Tab');
-  assert.equal(await costKopecks.inputValue(), '07', 'purchase single digit means seven kopecks');
+  assert.equal(await costKopecks.inputValue(), '07', 'purchase 07 means seven kopecks');
   await dialog.getByText('Задати ціну продажу вручну', { exact: true }).click();
   const hryvnias = dialog.getByRole('textbox', { name: 'Звичайна ціна: гривні', exact: true });
   const kopecks = dialog.getByRole('textbox', { name: 'Звичайна ціна: копійки', exact: true });
   await hryvnias.fill('21');
   await hryvnias.press(',');
   assert(await kopecks.evaluate(input => input === document.activeElement), 'comma moves to kopecks');
-  await kopecks.fill('9');
+  await kopecks.fill('09');
   await kopecks.press('Tab');
-  assert.equal(await kopecks.inputValue(), '09', 'single kopeck digit means nine kopecks');
+  assert.equal(await kopecks.inputValue(), '09', '09 means nine kopecks');
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await hryvnias.scrollIntoViewIfNeeded();

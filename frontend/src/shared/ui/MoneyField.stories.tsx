@@ -47,9 +47,12 @@ export const KeyboardAndPaste: Story = {
     await expect(kopecks).toHaveValue('99');
     await userEvent.clear(kopecks);
     await userEvent.type(kopecks, '5');
-    await expect(canvas.getByLabelText('Десяткова сума')).toHaveTextContent('21.05');
+    await expect(canvas.getByLabelText('Десяткова сума')).toHaveTextContent('21.50');
     await userEvent.tab();
-    await expect(kopecks).toHaveValue('05');
+    await expect(kopecks).toHaveValue('50');
+    await userEvent.clear(kopecks);
+    await userEvent.type(kopecks, '05');
+    await expect(canvas.getByLabelText('Десяткова сума')).toHaveTextContent('21.05');
     await userEvent.click(hryvnias);
     await userEvent.keyboard(',');
     await expect(kopecks).toHaveFocus();
