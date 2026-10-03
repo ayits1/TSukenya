@@ -54,6 +54,8 @@ def auth(request):
 def owner(user):
     require(user.profile.role=='owner','Недостатньо прав. Операція доступна лише власнику.')
 
+CASHIER_PRODUCT_FIELDS={'name','type','category','pack','size','unit','barcode','regularPrice','promotion','promotionPrice','priceAt','minStock','hidden','example'}
+
 def legacy_state(user):
     from .catalog import revision, defaults, regular_price
     from .task_scope import task_visible, task_permissions
@@ -72,9 +74,10 @@ def legacy_state(user):
                 product['regularPrice']=float(regular_price(product,catalog_config))
                 product.setdefault('promotionPrice',None)
                 if user.profile.role=='cashier':
+                    # Allow-list: legacy sync metadata such as gsBase also carries purchase cost.
+                    product={k:v for k,v in product.items() if k in CASHIER_PRODUCT_FIELDS}
                     product['price']=product['regularPrice']
                     product['manualPrice']=True
-                    product.pop('cost',None);product.pop('markup',None)
             data[col].append({'id':id,'data':product,
                              **({'permissions':task_permissions(user,d.path,product)} if col=='tasks' else {}),
                              **({'revision':revision(d,catalog_config)} if col=='products' else {})})

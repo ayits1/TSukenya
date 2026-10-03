@@ -46,6 +46,26 @@ class TaskScopeTests(TestCase):
     def items(self):
         return {item['id']: item for item in self.client.get('/api/state').json()['data']['tasks']}
 
+    def test_debt_alerts_and_sync_costs_stay_with_finance_roles(self):
+        self.task('auto_due', store=self.a.pk, _alertKey='due:7', _alertActive=True,
+                  title='Перевірити оплату: Постачальник · документ № 000007 · 1500.00 грн')
+        self.task('auto_low', store=self.a.pk, _alertKey='low:1:p', _alertActive=True, title='Поповнити')
+        Document.objects.create(path='products/synced', data={
+            'name': 'Цукерки', 'unit': 'кг', 'cost': 180, 'markup': 30, 'manualPrice': False,
+            'gsBase': {'cost': '180', 'markup': '30', 'price': '234'}, 'gsRow': 4})
+        for role, sees_debts in [('cashier', False), ('warehouse', False), ('manager', True), ('accountant', True)]:
+            with self.subTest(role=role):
+                self.role(role, self.a)
+                state = self.client.get('/api/state').json()['data']
+                tasks = {item['id'] for item in state['tasks']}
+                self.assertIn('auto_low', tasks)
+                self.assertEqual('auto_due' in tasks, sees_debts)
+                product = next(p['data'] for p in state['products'] if p['id'] == 'synced')
+                if role == 'cashier':
+                    self.assertFalse({'cost', 'markup', 'gsBase', 'gsRow'} & set(product))
+                    self.assertEqual(product['price'], product['regularPrice'])
+                    self.assertEqual(product['name'], 'Цукерки')
+
     def test_scoped_read_and_authoritative_permissions_for_all_roles(self):
         for role in ['manager', 'cashier', 'warehouse', 'accountant']:
             with self.subTest(role=role):
