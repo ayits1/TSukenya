@@ -132,18 +132,27 @@ def cashier_differences(user, start, end, store=None):
 
 def late_return_bonus(user, start, end, store=None):
     """Percent already accrued on sales that a customer return of the period took back after the payroll was posted (B05).
-    The accrual stays final; this is information only. Salary percents are visible to owner/accountant, so only they get it."""
-    returns=scoped(Voucher.objects.filter(status='posted',kind='customer_return',date__gte=start,date__lte=end,reference__shift__isnull=False).select_related('reference__shift__employee','reference__shift__opened_by'),user)
+    The accrual stays final; this is information only. Salary percents are visible to owner/accountant, so only they get it.
+    Each WorkShift can show at most the basis that was actually accrued (w.basis_amount): late returns consume what remains, oldest first."""
+    eligible=WorkShift.objects.filter(payroll__status='posted',bonus_percent__gt=0,cash_shift__isnull=False)
+    returns=scoped(Voucher.objects.filter(status='posted',kind='customer_return',date__lte=end,reference__shift__in=eligible.values('cash_shift')).select_related('reference__shift__employee','reference__shift__opened_by'),user).order_by('date','pk')
     if store:returns=returns.filter(store_id=store)
+    returns=list(returns)
+    by_shift={}
+    for w in eligible.filter(cash_shift_id__in={r.reference.shift_id for r in returns}).select_related('payroll'):
+        by_shift.setdefault(w.cash_shift_id,[]).append([w,w.basis_amount])
     result={}
     for r in returns:
         sale=r.reference;cash_shift=sale.shift
-        key=('employee',cash_shift.employee_id) if cash_shift.employee_id else ('user',cash_shift.opened_by_id)
-        total=result.setdefault(key,[ZERO,cash_shift.employee.name if cash_shift.employee_id else cash_shift.opened_by.username])
-        for w in WorkShift.objects.filter(cash_shift=cash_shift,payroll__status='posted',payroll__date__lt=r.date,bonus_percent__gt=0):
-            if w.bonus_basis=='personal' and sale.employee_id!=w.employee_id:continue
-            basis=r.total-r.cost if w.bonus_basis=='profit' else r.total
-            total[0]+=max(ZERO,basis)*w.bonus_percent/Decimal(100)
+        total=None
+        if start<=r.date:
+            key=('employee',cash_shift.employee_id) if cash_shift.employee_id else ('user',cash_shift.opened_by_id)
+            total=result.setdefault(key,[ZERO,cash_shift.employee.name if cash_shift.employee_id else cash_shift.opened_by.username])
+        for item in by_shift.get(cash_shift.pk,[]):
+            w,remaining=item
+            if w.payroll.date>=r.date or (w.bonus_basis=='personal' and sale.employee_id!=w.employee_id):continue
+            used=min(max(ZERO,r.total-r.cost if w.bonus_basis=='profit' else r.total),remaining);item[1]=remaining-used
+            if total is not None:total[0]+=used*w.bonus_percent/Decimal(100)
     return result
 
 def product_margins(qs):
