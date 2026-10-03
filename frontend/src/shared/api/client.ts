@@ -1,4 +1,4 @@
-import { validateEffectivePricing, type EffectivePricing } from './effectivePricing';
+import { validateRequiredEffectivePricing } from './effectivePricing';
 import type { components } from './generated';
 
 export type ProductPricePreviewRequest = components['schemas']['ProductPricePreviewRequest'];
@@ -120,7 +120,7 @@ export function decodeHealth(value: unknown): Health {
 const nonnegativeDecimal = (value: unknown): value is string =>
   typeof value === 'string' && /^[0-9]+(\.[0-9]+)?$/.test(value) && Number.isFinite(Number(value));
 
-export function decodeProductPricePreview(value: unknown): ProductPricePreview & EffectivePricing {
+export function decodeProductPricePreview(value: unknown): ProductPricePreview {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -163,9 +163,10 @@ export function decodeProductPricePreview(value: unknown): ProductPricePreview &
     !nonnegativeDecimal(value.config.rounding)
   )
     throw new Error('Invalid product price preview');
-  validateEffectivePricing(value as Record<string, unknown>);
+  const effective = value as Record<string, unknown>;
+  validateRequiredEffectivePricing(effective);
   return {
-    ...(value as EffectivePricing),
+    ...effective,
     regularPrice: value.regularPrice,
     salePrice: value.salePrice,
     pricingRevision: value.pricingRevision,

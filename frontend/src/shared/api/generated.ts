@@ -1712,11 +1712,11 @@ export interface components {
       warnings: string[];
       /** @description True only for an enabled, valid explicit promotion below regularPrice. False for no promotion and grandfathered legacy badge-only/invalid promotions. */
       promotionValid: boolean;
-      readonly effectivePromotion?: components['schemas']['EffectivePromotion'];
+      readonly effectivePromotion: components['schemas']['EffectivePromotion'];
       /** Format: date */
-      readonly effectiveDay?: string;
-      readonly effectivePriceRevision?: string;
-      readonly priceContext?: components['schemas']['PriceContext'];
+      readonly effectiveDay: string;
+      readonly effectivePriceRevision: string;
+      readonly priceContext: components['schemas']['PriceContext'];
     };
     ReferenceManagedItem: {
       id: string;

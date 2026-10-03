@@ -116,9 +116,21 @@ const pricePreview = {
   pricingRevision: 'a'.repeat(64),
   warnings: [],
   promotionValid: true,
+  effectivePromotion: null,
+  effectiveDay: '2026-10-04',
+  effectivePriceRevision: 'f'.repeat(64),
+  priceContext: { storeId: null, storeName: null },
 };
 
 describe('Product price preview contract', () => {
+  it.each(['effectivePromotion', 'effectiveDay', 'effectivePriceRevision', 'priceContext'])(
+    'rejects missing mandatory context field %s',
+    (key) => {
+      const incomplete: Record<string, unknown> = { ...pricePreview };
+      delete incomplete[key];
+      expect(() => decodeProductPricePreview(incomplete)).toThrow();
+    },
+  );
   it('sends read-only POST with CSRF and cancellation, retaining exact decimal strings', async () => {
     const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json(pricePreview));
     const controller = new AbortController();
