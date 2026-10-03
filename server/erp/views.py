@@ -3,7 +3,7 @@ import hmac
 import json
 import logging
 import os
-from decimal import Decimal, ROUND_CEILING
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
 import re
 import secrets
 import time
@@ -533,4 +533,11 @@ def handle(request):
         return response(audit_events(user,request.GET))
     if path=='/api/erp/fiscal' and request.method=='POST':
         owner(user);value=body(request);Setting.objects.update_or_create(pk='fiscal_required',defaults={'value':'true' if value.get('required') else 'false'});audit(user,'fiscal_mode_changed','settings',{'required':bool(value.get('required'))});return response({'ok':True})
+    if path=='/api/erp/discount-limit' and request.method=='POST':
+        owner(user);value=body(request);old=discount_limit()
+        try:percent=Decimal(str(value.get('percent')).replace(',','.'))
+        except InvalidOperation:percent=Decimal(-1)
+        require(percent.is_finite() and 0<=percent<=100 and percent==percent.quantize(Decimal('.01')),'Максимальна знижка касира — число від 0 до 100 із не більше ніж двома знаками після коми.')
+        with transaction.atomic():Setting.objects.update_or_create(pk=DISCOUNT_KEY,defaults={'value':str(percent)});audit(user,'discount_limit_changed','settings',{'old':percent_text(old),'new':percent_text(percent)})
+        return response({'percent':percent_text(percent)})
     return response({'error':'Сторінку не знайдено.'},404)

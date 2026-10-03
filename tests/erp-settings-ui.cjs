@@ -67,6 +67,13 @@ print(json.dumps({'store':store.pk,'account':account.pk,'manager':manager.pk,'dr
   }
   pass('fiscal real setting save required/optional, fresh sale required field/validity/display, reopened setting value: PASS');
  }
+ if(['all','discount'].includes(from)){
+  await go(page,'setup');assert.match(await page.locator('#main').innerText(),/Максимальна знижка касира: 10%/);await page.locator('[data-trade=discount-limit]').click();assert.equal(await dialog(page).locator('[name=percent]').inputValue(),'10');
+  await dialog(page).locator('[name=percent]').fill('7.5');await submit(page,'/api/erp/discount-limit',200);await dialog(page).waitFor({state:'hidden'});assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).max_discount,'7.5');
+  await go(page,'setup');assert.match(await page.locator('#main').innerText(),/Максимальна знижка касира: 7.5%/);await page.locator('[data-trade=discount-limit]').click();assert.equal(await dialog(page).locator('[name=percent]').inputValue(),'7.5');await page.keyboard.press('Escape');
+  await go(page,'sales');await page.locator('[data-trade=new-voucher][data-kind=sale]').click();assert.equal(await dialog(page).locator('[name=discount_reason]').isVisible(),true);await page.keyboard.press('Escape');
+  pass('discount limit owner setting save, refreshed value, audited by server, sale form reason field: PASS');
+ }
  if(['all','detail'].includes(from)){
   await go(page,'finance');let created,posts=0,details=0,fail=true;const count=request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/erp/vouchers')posts++;};page.on('request',count);
   await page.route('**/api/erp/vouchers/*',async route=>{if(route.request().method()==='GET'&&/\/vouchers\/\d+$/.test(new URL(route.request().url()).pathname)){details++;if(fail)return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Подробиці тимчасово недоступні'})});}return route.continue();});
