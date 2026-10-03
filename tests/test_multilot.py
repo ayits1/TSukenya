@@ -123,6 +123,13 @@ class MultilotTests(AccountingFixture):
         post_voucher(self.u,first.pk)
         with self.assertRaisesMessage(BusinessError,'відсутній'):
             self.save('supplier_return',[{'product':'p','quantity':1,'price':1,'reference_line':other.lines.get().pk}],reference=first.pk)
+        for invalid in (0, False, True, -1, 1.0, '²', '9' * 30, 9223372036854775808, [], {}):
+            before = Voucher.objects.count()
+            with self.subTest(reference_line=invalid), self.assertRaisesMessage(BusinessError, 'Некоректний рядок'):
+                self.save('supplier_return', [{'product':'p','quantity':1,'price':1,'reference_line':invalid}], reference=first.pk)
+            self.assertEqual(Voucher.objects.count(), before)
+        with self.assertRaisesMessage(BusinessError, 'термін придатності'):
+            self.save(lines=[dict(self.rows()[0], expiry=[])])
         cashier=User.objects.create(username='cashier');Profile.objects.create(user=cashier,role='cashier',store=self.store)
         with self.assertRaisesMessage(BusinessError,'роль'):
             save_voucher(cashier,{'kind':'receipt','store':self.store.pk})

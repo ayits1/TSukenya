@@ -385,6 +385,7 @@ def save_voucher(user, body, pk=None):
         require(all(isinstance(x, dict) for x in rows), 'Некоректний товарний рядок.')
         if kind not in {'receipt', 'opening', 'supplier_return'}:
             require(len({str(x.get('product')) for x in rows}) == len(rows), 'Один товар має бути в одному рядку цього документа.')
+        require(all(row.get('expiry') is None or isinstance(row.get('expiry'), str) for row in rows), 'Некоректний термін придатності рядка.')
         if kind in {'receipt', 'opening'}:
             identities = [(str(row.get('product')), str(row.get('lot') or '').strip(), (row.get('expiry') or '') if not str(row.get('lot') or '').strip() else '') for row in rows]
             require(len(set(identities)) == len(rows), 'Рядки одного товару повинні мати різні партії або терміни придатності.')
@@ -394,7 +395,16 @@ def save_voucher(user, body, pk=None):
             price = dec(row.get('price',0), 'Ціна', Decimal('.0001'))
             lot_code = str(row.get('lot') or '').strip()
             require(len(lot_code) <= 80, 'Номер партії має містити не більше 80 символів.')
-            require(not row.get('reference_line') or v.reference and kind in ref_types, 'Рядок походження потребує відповідного вихідного документа.')
+            source_id = row.get('reference_line')
+            if source_id == '':
+                source_id = None  # Empty hidden input is an absent source in legacy form serialization.
+            if source_id is not None:
+                text = str(source_id)
+                require(type(source_id) in {int, str} and text.isascii() and text.isdigit() and len(text) <= 19,
+                        'Некоректний рядок вихідного документа.')
+                source_id = int(text)
+                require(0 < source_id <= 9223372036854775807, 'Некоректний рядок вихідного документа.')
+                require(v.reference and kind in ref_types, 'Рядок походження потребує відповідного вихідного документа.')
             expiry = day(row['expiry']) if row.get('expiry') else None
             require(kind not in {'sale','customer_order'} or price > 0, 'Вкажіть ненульову ціну продажу.')
             require(kind != 'inventory' or not row.get('lot'), 'Інвентаризація рахує повний залишок товару, без вибору окремої партії.')
@@ -402,9 +412,8 @@ def save_voucher(user, body, pk=None):
             ref_line = None
             if v.reference and kind in ref_types:
                 candidates = v.reference.lines.filter(product=product)
-                if row.get('reference_line'):
-                    require(str(row['reference_line']).isdigit(), 'Некоректний рядок вихідного документа.')
-                    ref_line = candidates.filter(pk=row['reference_line']).first()
+                if source_id is not None:
+                    ref_line = candidates.filter(pk=source_id).first()
                 else:
                     require(candidates.count() <= 1, 'Товар має кілька партій у вихідному документі. Виберіть конкретний рядок.')
                     ref_line = candidates.first()
