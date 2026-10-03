@@ -126,19 +126,20 @@ def legacy_create_fingerprint(value):
 @transaction.atomic
 def legacy_mutation(request,user,path,create_key=None):
     ledger_lock()
-    receipt=None
-    if create_key is not None:
-        require(re.fullmatch(r'[A-Za-z0-9_-]{16,80}',create_key or ''),'Некоректний ключ створення.')
-        receipt=LegacyCreateReceipt.objects.filter(pk=create_key).first()
-        if receipt:
-            if receipt.author_id!=user.pk or receipt.collection!=path.partition('/')[0]:
-                return response({'error':'Ключ створення вже використано іншим запитом.','code':'create_key_conflict'},409)
-            path=receipt.document_path
     col,_,id=path.partition('/')
     require(col in COLLECTIONS or path in SINGLE_DOCS,'Невідомий тип документа.')
     require(re.fullmatch(r'[A-Za-z0-9_-]{1,120}',id or ''),'Некоректний ID.')
     role=user.profile.role
     require(role=='owner' or col=='products' and role in {'manager','warehouse'} or col=='tasks' and role=='manager','Недостатньо прав для редагування.')
+    receipt=None
+    if create_key is not None:
+        require(re.fullmatch(r'[A-Za-z0-9_-]{16,80}',create_key or ''),'Некоректний ключ створення.')
+        receipt=LegacyCreateReceipt.objects.filter(pk=create_key).first()
+        if receipt:
+            if receipt.author_id!=user.pk or receipt.collection!=col:
+                return response({'error':'Ключ створення вже використано іншим запитом.','code':'create_key_conflict'},409)
+            path=receipt.document_path
+            col,_,id=path.partition('/')
     d=Document.objects.filter(pk=path).first()
     if col=='tasks' and d is not None:
         from .task_scope import authorize_task

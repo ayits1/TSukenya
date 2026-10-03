@@ -105,6 +105,11 @@ class LegacyCreateTests(TestCase):
         self.assertEqual(result.json()['code'], 'create_key_conflict')
         self.assertNotIn('id', result.json())
         self.assertEqual(Document.objects.get(pk='ideas/' + identifier).data, value)
+        other.profile.role = 'cashier'
+        other.profile.save()
+        result = self.create('ideas', value)
+        self.assertEqual(result.status_code, 403)
+        self.assertNotIn('code', result.json(), 'role refusal must precede receipt lookup')
 
     def test_replay_rechecks_role_original_scope_and_current_scope(self):
         self.user.profile.role = 'manager'
