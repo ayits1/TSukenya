@@ -370,22 +370,35 @@
   function totals(){
     const fixed = S.expenses.filter(e=>e.group==="fixed").reduce((s,e)=>s+num(e.amount),0);
     const variable = S.expenses.filter(e=>e.group!=="fixed").reduce((s,e)=>s+num(e.amount),0);
-    const ps = S.products.filter(p=>num(p.cost)>0 && priceOf(p)>0);
+    // Demo products imported from the original artifact do not describe the real assortment.
+    const real = realProducts(), ps = real.filter(p=>num(p.cost)>0 && priceOf(p)>0);
     const avgM = ps.length ? ps.reduce((s,p)=>s+marginOf(p),0)/ps.length : 0;
     const be = avgM>0 ? (fixed+variable)/avgM : 0;
-    return {fixed, variable, avgM, be, coverage:ps.length, total:S.products.length};
+    return {fixed, variable, avgM, be, coverage:ps.length, total:real.length, examples:S.products.length-real.length};
   }
+  const realProducts = () => S.products.filter(p=>!p.example);
+  async function clearExamples(){
+    const list=S.allProducts.filter(p=>p.example);
+    if(!list.length||!canClearExamples()||!confirm(`Прибрати ${list.length} товарів-прикладів зі старої демо-версії? Справжні товари не зміняться.`))return;
+    let removed=0;
+    for(const p of list)if(await write(()=>db.collection("products").doc(p.id).delete()))removed++;
+    // Examples already used in purchases, sales or recipes stay; the server explains why.
+    if(removed===list.length)toast("Приклади прибрано");
+    else toast(`Прибрано ${removed} із ${list.length}. Решту використано в обліку або рецептурі — приховайте їх у каталозі.`);
+  }
+  const canClearExamples = () => !window.TSUKENYA_SERVER || window.TSUKENYA_ROLE==="owner";
+  const examplesNotice = t => t.examples && canClearExamples() ? `<p class="muted">${t.examples} товарів-прикладів зі старої демо-версії не враховано в розрахунках. <button class="btn soft" type="button" data-act="clearEx">Прибрати приклади</button></p>` : "";
 
   function overview(){
-    const t=totals(), current=operationTasks().filter(x=>x.status!=='done'), noPrice=S.products.filter(p=>priceState(p)==='none').length, stale=S.products.filter(p=>priceState(p)==='stale').length;
+    const t=totals(), real=realProducts(), current=operationTasks().filter(x=>x.status!=='done'), noPrice=real.filter(p=>priceState(p)==='none').length, stale=real.filter(p=>priceState(p)==='stale').length;
     return `<section class="panel"><div class="stats">
-      <div class="stat"><div class="l">Товарів у каталозі</div><div class="v num">${S.products.length}</div></div>
+      <div class="stat"><div class="l">Товарів у каталозі</div><div class="v num">${real.length}</div></div>
       <div class="stat"><div class="l">Потребують ціни</div><div class="v num">${noPrice}</div></div>
       <div class="stat"><div class="l">Поточні задачі</div><div class="v num">${current.length}</div></div>
-      <div class="stat"><div class="l">План витрат на місяць</div><div class="v num">${money(t.fixed+t.variable)} грн</div></div>
+      ${window.TSUKENYA_SERVER&&window.TSUKENYA_ROLE!=="owner"?"":`<div class="stat"><div class="l">План витрат на місяць</div><div class="v num">${money(t.fixed+t.variable)} грн</div></div>`}
     </div></section>
     <section class="panel"><div class="row between gap-lg"><h3>Швидкі дії</h3></div><div class="quick-actions"><a href="#trade/purchases">Облік торгівлі<span>Закупівлі, склад і продажі</span></a><a href="#operations/products">Оновити каталог<span>Ціни, закупівля та націнка</span></a><a href="#operations/tags">Підготувати цінники<span>Макет, PDF і друк</span></a><a href="#operations/work">Запланувати роботу<span>Задачі та терміни</span></a></div></section>
-    <section class="panel"><div class="row between gap-lg"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${noPrice?`${noPrice} товарів без ціни. Заповніть ціну перед друком.`:'У всіх товарів є ціна.'} ${stale?`${stale} товарів мають застарілу дату ціни.`:''}</p></section>
+    <section class="panel"><div class="row between gap-lg"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${noPrice?`${noPrice} товарів без ціни. Заповніть ціну перед друком.`:'У всіх товарів є ціна.'} ${stale?`${stale} товарів мають застарілу дату ціни.`:''}</p>${examplesNotice(t)}</section>
     <section class="panel"><div class="row between gap-lg"><h3>Найближчі задачі</h3><a class="btn soft" href="#operations/work">Усі поточні задачі</a></div>${current.length?current.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')).slice(0,5).map(taskRow).join(''):'<div class="empty">Поточних задач немає. Додайте першу справу магазину.</div>'}</section>`;
   }
   function devOverview(){
@@ -1295,7 +1308,7 @@
         <div class="muted">≈ ${money0(t.be/30)} грн на день${stores>1?` · ≈ ${money0(t.be/30/stores)} грн на день з кожного магазину`:""}. Орієнтовний розрахунок за рівною часткою товарів: ${Math.round(t.avgM*100)}% маржі. Враховано ${t.coverage} із ${t.total} товарів. Це модель каталогу; фактична точка беззбитковості потребує структури продажів і змінних витрат.</div>`
         : t.fixed+t.variable===0 ? '<div>План витрат дорівнює нулю. Введіть суми, щоб оцінити потрібний виторг.</div>'
         : !t.coverage ? '<div>Недостатньо даних для розрахунку. Потрібен хоча б один товар із закупівельною ціною та ціною продажу.</div>'
-        : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}</div>
+        : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}${examplesNotice(t)}</div>
     </section>`;
   }
 
@@ -1343,6 +1356,7 @@
     if(a==='resetField'){const styles={...(tagCfg().styles||{})};delete styles[S.tagField||'name'];saveTag({styles,nameBig:false});selectField(S.tagField||'name');return;}
     if(a==='addWork'){const input=$('#newWork'),due=$('#newWorkDue');void addInline(a,'tasks',{title:input.value.trim(),scope:'operations',dueDate:due.value||null,status:'todo',order:Date.now()},[input,due],'Поточну задачу додано');return;}
     if(a==='addTask'){const input=$('#newTask');void addInline(a,'tasks',{title:input.value.trim(),scope:'development',stage:+$('#newTaskStage').value,status:'todo',order:Date.now()},[input,$('#newTaskStage')],'Задачу додано');return;}
+    if(a==="clearEx"){clearExamples();return;}
     if(a==='addIdea'){const input=$('#newIdea');void addInline(a,'ideas',{title:input.value.trim(),text:'Ідея власника',reaction:null,order:Date.now(),byOwner:true},[input],'Ідею записано');return;}
     if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? (window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)) : S.products.filter(p=>!c||p.category===c);
       if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
