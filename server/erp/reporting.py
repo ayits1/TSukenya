@@ -118,12 +118,32 @@ def cashier_differences(user, start, end, store=None):
         if difference:row['with_difference']+=1
         if difference<0:row['shortage']-=difference
         else:row['surplus']+=difference
+    late=late_return_bonus(user,start,end,store) if user.profile.role in {'owner','accountant'} else None
+    for key,amount in (late or {}).items():
+        row=rows.setdefault(key,{'employee':key[1] if key[0]=='employee' else None,'name':amount[1],'shifts':0,'with_difference':0,'shortage':ZERO,'surplus':ZERO,'revenue':ZERO,'seconds':0})
+        row['late_return_bonus']=amount[0]
     result=[]
     for row in sorted(rows.values(),key=lambda r:(-r['shortage'],r['name'])):
-        seconds=row.pop('seconds');hours=(Decimal(seconds)/3600).quantize(Decimal('.1'))
+        seconds=row.pop('seconds');late_bonus=row.pop('late_return_bonus',ZERO);hours=(Decimal(seconds)/3600).quantize(Decimal('.1'))
         # Shifts shorter than 6 minutes carry no meaningful hourly rate.
         per_hour=str(money(row['revenue']*3600/seconds)) if seconds>=360 else None
-        result.append({**row,'shortage':str(money(row['shortage'])),'surplus':str(money(row['surplus'])),'net':str(money(row['surplus']-row['shortage'])),'revenue':str(money(row['revenue'])),'hours':str(hours),'revenue_per_hour':per_hour})
+        result.append({**row,'shortage':str(money(row['shortage'])),'surplus':str(money(row['surplus'])),'net':str(money(row['surplus']-row['shortage'])),'revenue':str(money(row['revenue'])),'hours':str(hours),'revenue_per_hour':per_hour,**({'late_return_bonus':str(money(late_bonus))} if late is not None else {})})
+    return result
+
+def late_return_bonus(user, start, end, store=None):
+    """Percent already accrued on sales that a customer return of the period took back after the payroll was posted (B05).
+    The accrual stays final; this is information only. Salary percents are visible to owner/accountant, so only they get it."""
+    returns=scoped(Voucher.objects.filter(status='posted',kind='customer_return',date__gte=start,date__lte=end,reference__shift__isnull=False).select_related('reference__shift__employee','reference__shift__opened_by'),user)
+    if store:returns=returns.filter(store_id=store)
+    result={}
+    for r in returns:
+        sale=r.reference;cash_shift=sale.shift
+        key=('employee',cash_shift.employee_id) if cash_shift.employee_id else ('user',cash_shift.opened_by_id)
+        total=result.setdefault(key,[ZERO,cash_shift.employee.name if cash_shift.employee_id else cash_shift.opened_by.username])
+        for w in WorkShift.objects.filter(cash_shift=cash_shift,payroll__status='posted',payroll__date__lt=r.date,bonus_percent__gt=0):
+            if w.bonus_basis=='personal' and sale.employee_id!=w.employee_id:continue
+            basis=r.total-r.cost if w.bonus_basis=='profit' else r.total
+            total[0]+=max(ZERO,basis)*w.bonus_percent/Decimal(100)
     return result
 
 def product_margins(qs):
