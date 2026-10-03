@@ -84,7 +84,7 @@ def legacy_state(user):
         elif d.path=='project/state' and user.profile.role=='owner':data[d.path]=d.data
     return data
 
-def validate_product(data, path=None):
+def validate_product(data, path=None, config=None):
     require(isinstance(data.get('name'),str) and 0<len(data['name'].strip())<=250,'Вкажіть назву товару (до 250 символів).')
     if 'minStock' in data:dec(data['minStock'],'Мінімальний залишок',QTY)
     if data.get('promotionPrice') is not None:
@@ -92,7 +92,7 @@ def validate_product(data, path=None):
         discount=dec(data['promotionPrice'],'Акційна ціна',minimum=Decimal('.01'))
         require(discount<=Decimal('99999999.99'),'Акційна ціна завелика.')
         if data.get('promotion'):
-            require(discount<regular_price(data),'Акційна ціна має бути меншою за звичайну.')
+            require(discount<regular_price(data, config),'Акційна ціна має бути меншою за звичайну.')
     barcode=str(data.get('barcode','')).strip()
     require(len(barcode)<=80,'Штрихкод задовгий.')
     recipe=data.get('recipe',[])
@@ -335,7 +335,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/catalog-import.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':

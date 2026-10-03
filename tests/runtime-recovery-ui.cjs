@@ -1,0 +1,24 @@
+/* Native portal saved-write/read-failure recovery; isolated data only. */
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
+const root=path.resolve(__dirname,'..'),data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-runtime-ui-')),python=process.env.PYTHON_BIN||'python3',base='http://localhost:18220',password='isolated-runtime-password';
+const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-runtime-password"))'],{cwd:root,encoding:'utf8'}).trim();
+const env={...process.env,PORT:'18220',HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};for(const key of ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD'])delete env[key];
+const server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});let browser,page;
+const wait=async(fn,label='Timed out')=>{for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw Error(label);};
+(async()=>{
+ await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
+ browser=await chromium.launch({headless:true,...(process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
+ await require('./browser-login.cjs')(page,base,password);await page.goto(base+'/#operations/work');await page.locator('#newWork').waitFor();
+ let failRead=false,writes=0;await page.route('**/api/state',async route=>{if(failRead)await route.fulfill({status:503,contentType:'application/json',body:'{"error":"isolated read failure"}'});else await route.continue();});
+ await page.route('**/api/tasks',async route=>{if(route.request().method()==='POST'){writes++;const response=await route.fetch();assert.equal(response.status(),200);failRead=true;await route.fulfill({response});}else await route.continue();});
+ await page.locator('#newWork').fill('QA підтверджена задача');await page.locator('#newWork').press('Enter');await page.locator('#refreshNotice').waitFor({state:'visible'});await wait(async()=>await page.locator('#newWork').inputValue()==='');
+ assert.equal(writes,1);const confirmed=await(await page.request.get(base+'/api/state')).json();assert.equal(confirmed.data.tasks.filter(t=>t.data.title==='QA підтверджена задача').length,1);
+ const retry=page.locator('#retryRefresh');if(!process.env.QA_RUNTIME_FROM){await retry.click();await wait(async()=>await retry.isEnabled());assert(await page.locator('#refreshError').evaluate(el=>document.activeElement===el));assert.equal(writes,1);
+ for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.locator('#refreshNotice').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(os.tmpdir(),'tsukenya-runtime-recovery-'+width+'.png')});}
+ }
+ failRead=false;await retry.focus();await page.keyboard.press('Enter');await page.locator('#refreshNotice').waitFor({state:'hidden'});await page.locator('[data-task-id="'+confirmed.data.tasks.find(t=>t.data.title==='QA підтверджена задача').id+'"] .t').waitFor();assert.equal(writes,1);assert(await page.locator('#pageTitle').evaluate(el=>document.activeElement===el));
+ // A genuine write failure preserves the draft and remains a write failure.
+ await page.unroute('**/api/tasks');await page.route('**/api/tasks',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"isolated write failure"}'}));await page.locator('#newWork').fill('QA незбережена чернетка');await page.locator('#newWork').press('Enter');await page.getByText('Не вдалося зберегти, спробуйте ще раз',{exact:true}).waitFor();assert.equal(await page.locator('#newWork').inputValue(),'QA незбережена чернетка');assert.equal((await(await page.request.get(base+'/api/state')).json()).data.tasks.filter(t=>t.data.title==='QA незбережена чернетка').length,0);
+ assert.deepEqual(errors,[]);console.log('PASS: confirmed native task POST + GET503 clears draft without duplicate; persistent banner1440/390/320, failed and successful keyboard GET-only retries/focus; actual write failure preserves draft.');
+})().catch(async e=>{console.error(e);await page?.screenshot({path:path.join(os.tmpdir(),'tsukenya-runtime-ui-failure.png'),fullPage:true}).catch(()=>{});process.exitCode=1;}).finally(async()=>{await browser?.close();server.kill('SIGTERM');if(server.exitCode===null)await new Promise(r=>server.once('exit',r));fs.rmSync(data,{recursive:true,force:true});});

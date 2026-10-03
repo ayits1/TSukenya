@@ -154,7 +154,7 @@ def save_product(request, user, identifier=None):
     return response(serialize(document, user, defaults()), 200 if old.get('name') else 201)
 
 
-def normalise_product(value, old, path, *, validate_references=True):
+def normalise_product(value, old, path, *, validate_references=True, config=None):
     """One strict write validator shared by the editor and atomic legacy imports."""
     from .views import validate_product
     allowed = set(TEXT_FIELDS) | PRICE_FIELDS | {'promotion', 'priceAt', 'priceReviewed', 'minStock'}
@@ -187,17 +187,19 @@ def normalise_product(value, old, path, *, validate_references=True):
         if value['priceAt']:
             reviewed = day(value['priceAt']); require(reviewed <= timezone.localdate(), 'Дата ціни не може бути в майбутньому.')
         data['priceAt'] = value['priceAt']
-    config = defaults()
-    def price_terms(item):
+    old_config = defaults()
+    config = old_config if config is None else config
+    def price_terms(item, pricing):
         manual = bool(item.get('manualPrice'))
-        return (decimal(item.get('cost')), decimal(item.get('markup', config['markup'])), manual, decimal(item.get('price')) if manual else Decimal(0), bool(item.get('promotion')), promotion_amount(item))
+        return (decimal(item.get('cost')), decimal(item.get('markup', pricing['markup'])), manual, decimal(item.get('price')) if manual else Decimal(0), bool(item.get('promotion')), promotion_amount(item))
     # A legacy badge-only record can receive metadata edits without inventing an old
     # price. New promotions and pricing changes require an explicit discount.
+    pricing_changed = price_terms(old, old_config) != price_terms(data, config) or regular_price(old, old_config) != regular_price(data, config)
     if data.get('promotion') and data.get('promotionPrice') is None:
-        require(bool(old.get('promotion')) and old.get('promotionPrice') is None and price_terms(old) == price_terms(data), 'Вкажіть акційну ціну, меншу за звичайну.')
-    if value.get('priceReviewed') or price_terms(old) != price_terms(data):
+        require(bool(old.get('promotion')) and old.get('promotionPrice') is None and not pricing_changed, 'Вкажіть акційну ціну, меншу за звичайну.')
+    if value.get('priceReviewed') or pricing_changed:
         data['priceAt'] = timezone.localdate().isoformat()
-    validate_product(data, path)
+    validate_product(data, path, config)
     require(not data.get('barcode') or not Document.objects.filter(path__startswith='products/').exclude(pk=path).filter(data__barcode=data['barcode']).exists(), 'Цей штрихкод уже використовується.')
     return data
 
@@ -206,6 +208,9 @@ def handle_catalog(request, user):
     from .views import response
     path = request.path.rstrip('/')
     collection = '/api/v1/catalog/products'
+    if path in {'/api/v1/catalog/pricing/preview', '/api/v1/catalog/pricing/commit'} and request.method == 'POST':
+        from .catalog_pricing import preview_pricing, commit_pricing
+        return preview_pricing(request, user) if path.endswith('/preview') else commit_pricing(request, user)
     if path in {'/api/v1/catalog/import/preview', '/api/v1/catalog/import/commit'} and request.method == 'POST':
         from .catalog_import import preview_import, commit_import
         return preview_import(request, user) if path.endswith('/preview') else commit_import(request, user)

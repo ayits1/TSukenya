@@ -277,7 +277,9 @@
     if(tab==='products' && window.ReactCatalog){
       window.ReactLabels?.leave();
       window.Trade?.leave();renderPath();
-      if(!$('#react-catalog'))$('#main').innerHTML='<div id="react-catalog"></div>'+productTools();
+      if(!$('#react-catalog'))$('#main').innerHTML='<div id="react-catalog"></div><div id="catalog-tools"></div>';
+      const tools=$('#catalog-tools'),ready=!window.TSUKENYA_SERVER||S.productsLoaded&&S.settingsLoaded,key=(window.TSUKENYA_ROLE||'')+'|'+!!ready;
+      if(tools&&tools.dataset.key!==key){tools.innerHTML=ready?productTools():'<p role="status" class="muted">Завантажуємо інструменти каталогу…</p>';tools.dataset.key=key;}
       window.ReactCatalog.mount($('#react-catalog'));refreshFilters();return;
     }
     window.ReactCatalog?.leave();
@@ -335,7 +337,7 @@
     if(tab==='tags' && requested!=='tags' && window.ReactLabels?.dirty() && !confirm('Відкинути незбережені зміни макета?')){history.replaceState(null,'','#operations/tags');return;}
 
     const next=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
-    if(next!==tab && window.CatalogImport?.pending()){toast("Дочекайтеся результату імпорту.");history.replaceState(null,"","#"+SECTIONS[tab][0]+"/"+tab);return;}
+    if(next!==tab && (window.CatalogImport?.pending()||window.CatalogPricing?.pending())){toast("Дочекайтеся завершення збереження.");history.replaceState(null,"","#"+SECTIONS[tab][0]+"/"+tab);return;}
     if(next!==tab && budgetSaves.size){toast('Дочекайтеся збереження бюджету.');history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size || (hasInlineDraft() && !confirm('Відкинути незбережену назву задачі, ідеї або статті витрат?')))){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && budgetDrafts.size){
@@ -457,7 +459,7 @@
     if(window.TSUKENYA_SERVER && !["owner","manager","warehouse"].includes(window.TSUKENYA_ROLE))return "";
     return `<details class="panel disclosure" data-disclosure="import"><summary>Імпорт товарів із CSV або Excel</summary><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></details>
     <details class="panel disclosure" data-disclosure="sheets"><summary>Спільна Google-таблиця</summary><div id="linkBox">${linkInner()}</div></details>
-    <details class="panel disclosure" data-disclosure="bulk"><summary>Масове оновлення націнки та округлення</summary><div class="row"><label class="form-field">Націнка, %<input id="bulkM" type="number" value="${defMarkup()}"></label><label class="form-field">Застосувати до<select id="bulkC"><option value="">Усі товари</option><option value="__f">Показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><button class="btn" data-act="bulk">Оновити ціни</button><label class="form-field">Округлення<select id="rounding">${[[0.01,'До копійки'],[0.1,'До 10 коп.'],[0.5,'До 50 коп.'],[1,'До гривні']].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?'selected':''}>${l}</option>`).join('')}</select></label></div></details>`;
+    <details class="panel disclosure" data-disclosure="bulk"><summary>Масове оновлення націнки та округлення</summary>${window.TSUKENYA_SERVER&&window.CatalogPricing?`<div id="bulkBox">${window.CatalogPricing.html()}</div>`:`<div class="row"><label class="form-field">Націнка, %<input id="bulkM" type="number" value="${defMarkup()}"></label><label class="form-field">Застосувати до<select id="bulkC"><option value="">Усі товари</option><option value="__f">Показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><button class="btn" data-act="bulk">Оновити ціни</button><label class="form-field">Округлення<select id="rounding">${[[0.01,'До копійки'],[0.1,'До 10 коп.'],[0.5,'До 50 коп.'],[1,'До гривні']].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?'selected':''}>${l}</option>`).join('')}</select></label></div>`}</details>`;
   }
   function products(){
     const f=S.F.prod;
@@ -1313,12 +1315,27 @@
     </section>`;
   }
 
+  window.addEventListener('tsukenya:refresh-failed',()=>{
+    $('#refreshNotice').hidden=false;
+    $('#refreshError').textContent='Не вдалося оновити дані. Показано останній отриманий стан. Якщо запис уже підтверджено, повторюйте лише оновлення.';
+  });
+  window.addEventListener('tsukenya:refresh-succeeded',()=>{
+    $('#refreshNotice').hidden=true;$('#refreshError').textContent='';$('#noDb').hidden=true;
+  });
+  async function retryRefresh(button){
+    if(button.disabled)return;button.disabled=true;$('#refreshStatus').textContent='Оновлюємо дані…';
+    try{await window.TSUKENYA_REFRESH();$('#pageTitle').focus({preventScroll:true});}
+    catch(_){$('#refreshError').focus({preventScroll:true});}
+    finally{button.disabled=false;$('#refreshStatus').textContent='';}
+  }
+
   /* ---------- events ---------- */
   document.addEventListener("click", e=>{
     if(e.target.closest(".skip-link")){e.preventDefault();$("#main").focus();return;}
     if (S.openF && !e.target.closest(".dd")){ S.openF = null; refreshFilters(); }
     const field=e.target.closest('#individualPreview [data-field]');if(field){selectField(field.dataset.field);return;}
     const t = e.target.closest("button"); if(!t) return;
+    if(t.id==='retryRefresh'){void retryRefresh(t);return;}
     if(t.dataset.page){S.catalogPage=Number(t.dataset.page);refreshFilters();$("#prodList").scrollIntoView({block:"start"});return;}
     if(t.dataset.editField){selectField(t.dataset.editField);return;}
     if(t.dataset.editProduct){openProduct(t.dataset.editProduct);return;}
@@ -1422,12 +1439,12 @@
     if (el.id==="tcCustom"){ saveTag({custom:el.value.trim().slice(0,40)}); return; }
     if (el.id==="chainIn"){ const v = el.value.trim(); S.settings.chainName = v; renderPreview(); setDoc("settings/main",{chainName:v||"Мережа солодощів"},"Назву мережі збережено"); return; }
     if (el.dataset.store!==undefined){ const n = storeNames().slice(); n[+el.dataset.store] = el.value.trim(); saveStores(n, "Назву магазину збережено"); return; }
-    if (el.id==="rounding"){ setDoc("settings/main",{rounding:num(el.value)},"Округлення змінено"); }
+    if (el.id==="rounding" && !(window.TSUKENYA_SERVER&&window.CatalogPricing)){ setDoc("settings/main",{rounding:num(el.value)},"Округлення змінено"); }
     if (el.id==="stores"){ void saveBudget(el); }
   });
   $('#productEditor').addEventListener('close',()=>{const live=S.productOpener?.isConnected?S.productOpener:document.querySelector('[data-edit-product="'+S.productEditId+'"]');(live||document.querySelector('[data-act=newProduct]'))?.focus({preventScroll:true});});
   $('#productEditor').addEventListener('cancel',e=>{if(S.editDirty){e.preventDefault();closeProduct();}});
-  window.addEventListener('beforeunload',e=>{if(S.editDirty||S.tagSaving||S.tagSaveFailed||window.CatalogImport?.dirty()){e.preventDefault();e.returnValue='';}});
+  window.addEventListener('beforeunload',e=>{if(S.editDirty||S.tagSaving||S.tagSaveFailed||window.CatalogImport?.dirty()||window.CatalogPricing?.dirty()){e.preventDefault();e.returnValue='';}});
   document.addEventListener("input", e=>{
     if(e.target.matches(budgetFields)){trackBudget(e.target);return;}
     if(e.target.matches(inlineFields))e.target.setCustomValidity?.('');
@@ -1452,6 +1469,7 @@
   const noDbTimer = setTimeout(()=>{ if(!db) $("#noDb").hidden=false; }, 4000);
   window.claude?.use?.("downloads").then(d=>{ downloads=d; if(tab==="tags") render(); }).catch(()=>{});
   window.claude?.use?.("mcp").then(m=>{ mcp=m; if(tab==="tags"||tab==="products") render(); syncSetup(); }).catch(()=>{});
+  window.CatalogPricing?.configure(()=>({markup:defMarkup(),rounding:num(S.settings.rounding??0.5),categories:cats(),selectIds:scope=>(scope==='__f'?(window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)):S.products.filter(p=>!p.hidden&&p.category===scope)).map(p=>p.id)}));
   (window.claude?.use ? window.claude.use("db") : Promise.resolve(null)).then(d=>{
     if(!d){ $("#noDb").hidden=false; clearTimeout(noDbTimer); return; }
     db = d; clearTimeout(noDbTimer);
@@ -1467,7 +1485,7 @@
       S.products = S.allProducts.filter(p=>!p.hidden); S.productsLoaded=true; render(); if(firstProducts) syncSetup();
     }, ()=>{});
     sub("expenses","expenses",byOrder);
-    db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;render();syncSetup(); }, ()=>{});
+    db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;S.settingsLoaded=true;render();syncSetup(); }, ()=>{});
     db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{});
   }).catch(()=>{ $("#noDb").hidden=false; });
 })();

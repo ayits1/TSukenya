@@ -5,6 +5,7 @@
   let labelRevision = "";
   const listeners = new Map();
   let loading = null;
+  const roles = new Set(['owner', 'manager', 'cashier', 'warehouse', 'accountant']);
 
   function snapshot(path) {
     if (path.includes("/")) {
@@ -28,13 +29,24 @@
       if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
       if (!response.ok) throw new Error("Database unavailable");
       const result = await response.json();
-      const changed = JSON.stringify(data) !== JSON.stringify(result.data);
+      if (!result || typeof result.data !== 'object' || result.data === null || Array.isArray(result.data) ||
+          typeof result.csrf !== 'string' || !roles.has(result.role) ||
+          (result.labelRevision !== undefined && typeof result.labelRevision !== 'string')) {
+        throw new Error('Invalid database response');
+      }
+      const changed = JSON.stringify(data) !== JSON.stringify(result.data) || window.TSUKENYA_ROLE !== result.role;
       data = result.data;
-      window.TSUKENYA_ROLE = result.role || "owner";
+      window.TSUKENYA_ROLE = result.role;
       csrf = result.csrf;
       labelRevision = result.labelRevision || "";
       if (changed) { notify(); window.dispatchEvent(new Event('tsukenya:data-changed')); }
-    })().finally(() => { loading = null; });
+      window.dispatchEvent(new Event('tsukenya:refresh-succeeded'));
+    })().catch(error => {
+      window.dispatchEvent(new CustomEvent('tsukenya:refresh-failed', { detail: {
+        message: 'Не вдалося оновити дані. Показано останній отриманий стан; повторіть оновлення.',
+      } }));
+      throw error;
+    }).finally(() => { loading = null; });
     return loading;
   }
 
@@ -50,7 +62,9 @@
     if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
     if (!response.ok) throw new Error((await response.json()).error || "Save failed");
     const result = await response.json();
-    await refresh();
+    // The server already confirmed this write. A failed read is a separate UI
+    // recovery state; retrying the write could create a second document.
+    await refresh().catch(() => {});
     return result;
   }
 

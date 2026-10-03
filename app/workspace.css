@@ -74,3 +74,25 @@
 #impBox .form-error { overflow-wrap:anywhere; }
 #impBox > .row { flex-wrap:wrap; }
 #impBox button { white-space:normal;min-height:44px; }
+
+#refreshNotice { overflow-wrap:anywhere; }
+#refreshNotice p { margin-block:8px; }
+#refreshNotice button { min-height:44px;white-space:normal; }
+#refreshStatus:empty { display:none; }
+
+.pricing-sections { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px; }
+.pricing-sections section { min-width:0; }
+.pricing-fields { display:flex;flex-wrap:wrap;gap:12px; }
+.pricing-fields > label { flex:1 1 200px;min-width:0; }
+.pricing-check { display:flex;align-items:center;gap:10px;margin-block:12px;min-height:44px; }
+.pricing-check input { width:20px;flex:none; }
+.pricing-sections button { margin-top:16px; }
+.pricing-list { list-style:none;padding:0;margin-block:16px; }
+.pricing-item { padding-block:16px;border-bottom:1px solid var(--ui-line);overflow-wrap:anywhere; }
+.pricing-comparison { display:flex;flex-wrap:wrap;gap:12px 32px;margin-block:12px; }
+.pricing-comparison dt { color:var(--muted);font-size:13px; }
+.pricing-comparison dd { margin:0;font-variant-numeric:tabular-nums; }
+#bulkBox :is(.form-error,button,p) { overflow-wrap:anywhere; }
+#bulkBox button { white-space:normal;min-height:44px; }
+.pricing-actions { flex-wrap:wrap; }
+@media(max-width:1000px){.pricing-sections{grid-template-columns:minmax(0,1fr);}}

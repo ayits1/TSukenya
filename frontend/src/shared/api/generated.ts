@@ -701,6 +701,158 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/catalog/pricing/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Owner-only read-only preview. Standard cookie authentication, Origin and CSRF. At most 1000 affected products and 1 MiB JSON, with an explicit error rather than truncation. Markup selects active products and preserves manual prices unless resetManualPrices is true. Rounding is global and includes hidden products. Proposed prices and promotion validation use the authoritative shared Decimal calculation. Badge-only legacy promotions block changes that alter their regular price. Future default markup pins old fallback values for excluded existing products; metadata-only pinning preserves priceAt. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogPricingRequest'];
+        };
+      };
+      responses: {
+        /** @description Price preview */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogPricingPreview'];
+          };
+        };
+        /** @description Invalid request or row errors; no writes */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Session required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Owner role or CSRF required */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Catalogue snapshot or immutable idempotency key conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/pricing/commit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Owner-only atomic catalogue price change under the ERP ledger lock. Send the original reviewed payload, catalogue/pricing snapshot and one stable UUID. Revalidates every affected product and settings; row errors save nothing. Concurrent catalogue/pricing changes return 409. pricing_runs stores the immutable request hash, owner and original result; identical retries return that result without new writes, changed payload or owner returns 409. No stock or cash postings. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogPricingCommitRequest'];
+        };
+      };
+      responses: {
+        /** @description Atomic result or original retry result */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogPricingResult'];
+          };
+        };
+        /** @description Invalid request or row errors; no writes */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Session required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Owner role or CSRF required */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Catalogue snapshot or immutable idempotency key conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -988,6 +1140,107 @@ export interface components {
         action: 'create' | 'update';
         id: string;
         revision: string;
+      }[];
+    };
+    CatalogMarkupRequest: {
+      /** @constant */
+      kind: 'markup';
+      /** @description null selects all active products; explicit IDs must exist and be active. */
+      ids: null | string[];
+      markup: string;
+      /** @description false preserves manually priced products; true explicitly resets them to computed pricing. */
+      resetManualPrices: boolean;
+      /** @description Allowed only when ids is null. Existing excluded products lacking an explicit markup get their old fallback materialized, including hidden and skipped manual products. */
+      updateDefault: boolean;
+    };
+    CatalogRoundingRequest: {
+      /** @constant */
+      kind: 'rounding';
+      /** @enum {string} */
+      rounding: '0.01' | '0.1' | '0.5' | '1';
+    };
+    CatalogPricingRequest:
+      | components['schemas']['CatalogMarkupRequest']
+      | components['schemas']['CatalogRoundingRequest'];
+    CatalogMarkupCommitRequest: {
+      /** @constant */
+      kind: 'markup';
+      /** @description null selects all active products; explicit IDs must exist and be active. */
+      ids: null | string[];
+      markup: string;
+      /** @description false preserves manually priced products; true explicitly resets them to computed pricing. */
+      resetManualPrices: boolean;
+      /** @description Allowed only when ids is null. Existing excluded products lacking an explicit markup get their old fallback materialized, including hidden and skipped manual products. */
+      updateDefault: boolean;
+      snapshot: string;
+      /** Format: uuid */
+      idempotencyKey: string;
+    };
+    CatalogRoundingCommitRequest: {
+      /** @constant */
+      kind: 'rounding';
+      /** @enum {string} */
+      rounding: '0.01' | '0.1' | '0.5' | '1';
+      snapshot: string;
+      /** Format: uuid */
+      idempotencyKey: string;
+    };
+    CatalogPricingCommitRequest:
+      | components['schemas']['CatalogMarkupCommitRequest']
+      | components['schemas']['CatalogRoundingCommitRequest'];
+    CatalogPricingPair: {
+      regularPrice: string;
+      salePrice: string;
+    };
+    CatalogPricingSettingsValues: {
+      defaultMarkup: string;
+      rounding: string;
+    };
+    CatalogPricingSettings: {
+      before: components['schemas']['CatalogPricingSettingsValues'];
+      after: components['schemas']['CatalogPricingSettingsValues'];
+    };
+    /** @description Counts of preview product entries. changedRecords counts product writes, including metadata-only fallback pinning; settings changes appear separately. skippedManual counts successful skip entries and can overlap changedRecords when an old fallback must be pinned. errors prevents any commit. */
+    CatalogPricingSummary: {
+      candidates: number;
+      changedPrices: number;
+      changedRecords: number;
+      skippedManual: number;
+      errors: number;
+    };
+    CatalogPricingPreviewEntry: {
+      id: string;
+      name: string;
+      hidden: boolean;
+      /** @enum {string} */
+      action: 'update' | 'unchanged' | 'skip' | 'error';
+      before: components['schemas']['CatalogPricingPair'];
+      after: components['schemas']['CatalogPricingPair'];
+      error?: string;
+    };
+    CatalogPricingPreview: {
+      valid: boolean;
+      /** @enum {string} */
+      kind: 'markup' | 'rounding';
+      snapshot: string;
+      entries: components['schemas']['CatalogPricingPreviewEntry'][];
+      summary: components['schemas']['CatalogPricingSummary'];
+      settings: components['schemas']['CatalogPricingSettings'];
+    };
+    CatalogPricingResult: {
+      /** @constant */
+      ok: true;
+      /** @enum {string} */
+      kind: 'markup' | 'rounding';
+      /** Format: uuid */
+      idempotencyKey: string;
+      summary: components['schemas']['CatalogPricingSummary'];
+      settings: components['schemas']['CatalogPricingSettings'];
+      entries: {
+        id: string;
+        revision: string;
+        /** @enum {string} */
+        action: 'update' | 'unchanged' | 'skip';
       }[];
     };
   };

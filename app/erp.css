@@ -25,3 +25,27 @@
 
 @layer legacy { [data-trade][aria-disabled="true"]{cursor:progress} }
 @layer legacy { .trade-error,.trade-alert,.trade-saving { overflow-wrap:anywhere; } }
+
+@layer legacy {
+/* Seven document columns need room after the sidebar and panel padding. */
+.trade-table-wrap:has(> .trade-table > tbody > tr > td[data-label="Контрагент / працівник"]){container-type:inline-size;container-name:erp-documents;position:relative}
+.trade-table-wrap:has(> .trade-table > tbody > tr > td[data-label="Контрагент / працівник"]) td[data-label="Дата"] .trade-cell{white-space:nowrap}
+@container erp-documents (max-width:900px){
+  .trade-table{display:block;width:100%}
+  .trade-table thead{display:table-header-group;position:absolute;width:1px;height:1px;padding:0;margin:-1px;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .trade-table tbody{display:block;width:100%}
+  .trade-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;padding:20px 0;border-bottom:1px solid var(--line,#d7dfe6)}
+  .trade-table tr:last-child{border-bottom:0}
+  .trade-table td{display:block;min-width:0;width:auto;padding:0;border:0;text-align:left}
+  .trade-table td::before{content:attr(data-label);display:block;margin-bottom:5px;font-size:12px;color:var(--muted,#526575);text-align:left;white-space:normal}
+  .trade-table td>.trade-cell{display:block;min-width:0;text-align:left;overflow-wrap:anywhere}
+  .trade-table td:is([data-label="Документ"],[data-label="Контрагент / працівник"],[data-label="Дії"]){grid-column:1/-1}
+  .trade-table td[data-label="Документ"]>.trade-cell{font-weight:500}
+  .trade-table td[data-label="Документ"] .muted{font-weight:400}
+  .trade-table td[data-label="Сума"]>.trade-cell{white-space:nowrap}
+  .trade-table td[data-label="Дії"] .btn{min-height:44px;margin:6px}
+}
+@container erp-documents (max-width:340px){
+  .trade-table td[data-label="Сума"]{grid-column:1/-1}
+}
+}

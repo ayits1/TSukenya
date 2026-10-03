@@ -45,7 +45,7 @@ PYTHON_BIN=/tmp/tsukenya-crm-venv/bin/python node tests/erp-recovery-ui.cjs
 
 Перший combined helper зупинився на додатково знайденому focus race: queued `close` event форми забирав фокус із нового refresh alert. Close listener тепер відновлює opener лише коли поточний фокус у body/закритій формі. Повторено тільки `saved`; потім виконано невиконаний `tail`. Users повторено окремо після посилення доказу скасування GET: замість часової паузи helper чекає `requestfailed` і завершення відкладеного handler. Document групу додано після виявлення аналогічного custom voucher/post path; вона пройшла окремо. Перший запуск цієї групи зупинився на неоднозначному helper selector `#main .panel` у фінансах; його уточнено до `first()`. Після PASS уточнено тексти confirmed save/posted та повторено лише document групу з exact-count перевірками. Повного suite не запускали.
 
-Цей результат покриває shared `submit` для entity/simpleForm, custom `voucherForm.onsubmit` та existing `post-voucher`. Він підтверджує recovery після failed state GET; окремий failed detail GET після успішного draw і реальний save/post network-ambiguity не моделювали. UI не називає відхилене або непідтверджене проведення успішним. Реальний conflict, серверні права, screen reader, forced colors, 200% і physical printing цим helper не перевіряються. Серверні бухгалтерські сценарії та попередні фінансові/budget/history PASS залишаються окремими доказами.
+Цей результат покриває shared `submit` для entity/simpleForm, custom `voucherForm.onsubmit` та existing `post-voucher`. Він підтверджує recovery після failed state GET; failed detail GET після успішного draw перевірено наступним [ERP settings/recovery проходом](ERP-SETTINGS-RECOVERY-QA.md); реальний save/post network-ambiguity не моделювали. UI не називає відхилене або непідтверджене проведення успішним. Реальний conflict, серверні права, screen reader, forced colors, 200% і physical printing цим helper не перевіряються. Серверні бухгалтерські сценарії та попередні фінансові/budget/history PASS залишаються окремими доказами.
 
 ## Що перевірено початковим read-only проходом
 
@@ -73,10 +73,10 @@ PNG/JSON лежать у каталозі `os.tmpdir()` поточної маш�
 ## Мінімальне наступне покриття
 
 1. **Виконано:** bounded `tests/erp-recovery-ui.cjs` перевіряє змінені сценарії без повторення фінансів/бюджету/історії. Custom voucher write/read та post-voucher recovery теж виконано окремою `documents` групою.
-2. `users` POST conflict/403 та завершення сеансів після успішної зміни доступу — в окремому isolated context; цей прохід перевіряє лише mocked error і payload читання.
+2. **Виконано наступним isolated проходом:** реальні users conflict409/403, create/edit200 та завершення target session401. Доказ — [ERP-SETTINGS-RECOVERY-QA.md](ERP-SETTINGS-RECOVERY-QA.md).
 3. Рецептура: недоступний/порожній каталог, self/duplicate ingredient, server conflict між двома редакторами. Поточна UI-форма не має revision contract; бізнес-правила рецептури перевіряє окремий серверний аудит.
-4. Period: серверне відхилення через чернетки, reset/reopen після успіху, максимальна дата й причина; fiscal: успіх і відповідний стан нової sale-форми. У цьому проході ці реальні mutation-пути не перевірені.
-5. Screen reader та 200%/forced colors для саме цих негативних станів. Раніше успішні перевірки інших екранів не є доказом для нових станів.
+4. **Виконано наступним isolated проходом:** period draft rejection/rollback, close/reopen/reset; fiscal real save та відповідний required/optional стан свіжої sale-форми. Окремий server/UI date-boundary probe лишається поза цим доказом. Див. [ERP-SETTINGS-RECOVERY-QA.md](ERP-SETTINGS-RECOVERY-QA.md).
+5. **200% негативних users/period/detail виконано** в наступному проході. Screen reader/forced colors для цих негативних станів лишаються неперевіреними. Раніше успішні перевірки інших екранів не є доказом для них.
 
 ## Уточнення основного звіту
 

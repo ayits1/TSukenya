@@ -88,6 +88,7 @@
   }
   async function read(file, readers) {
     if (!file || locked()) return;
+    if(window.CatalogPricing?.dirty()){window.alert('Спершу перевірте результат незавершеної зміни цін.');return;}
     const token = ++sequence; state?.controller?.abort(); state = {fileName:file.name,loading:true}; notify();
     try {
       if (file.size > 5*1024*1024) throw Error('Файл більший за 5 МіБ. Розділіть його на окремі пакети.');
@@ -139,6 +140,7 @@
   }
   async function commit() {
     if (!state?.preview?.valid || state.saving || state.loading || state.completed || state.conflict) return;
+    if(window.CatalogPricing?.dirty()){window.alert('Спершу перевірте результат незавершеної зміни цін.');return;}
     const current = state; current.saving = true; current.failure = ''; notify();
     current.commitPayload ||= {...structuredClone(current.payload),snapshot:current.preview.snapshot,idempotencyKey:crypto.randomUUID()};
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(),30000);
