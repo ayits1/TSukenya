@@ -192,6 +192,7 @@ def entity_save(user,name,value):
     else:require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав.')
     model=allowed[name]
     obj=get(model,value['id'],'Запис') if value.get('id') else model()
+    if obj.pk:require_revision(obj,value.get('revision'))
     obj.name=str(value.get('name','')).strip()
     require(0<len(obj.name)<=160,'Вкажіть назву (до 160 символів).')
     if name in {'warehouses','accounts','employees'}:
@@ -259,6 +260,7 @@ def work_shift_save(user,value):
     require(not lock.closed_through or d>lock.closed_through,'Обліковий період закритий.')
     s=get(WorkShift,value['id'],'Зміна') if value.get('id') else WorkShift(employee=e,store=e.store,date=d)
     require(not s.payroll_id,'Зміну вже включено в нарахування.')
+    if s.pk:require_revision(s,value.get('revision'))
     require(not s.pk or s.employee_id==e.pk and s.date==d,'Працівника та дату існуючої зміни змінити не можна.')
     s.units=dec(value.get('units',1),'Частка зміни',CENT,minimum=CENT)
     require(s.units<=10,'Завелика кількість змін.')
@@ -283,6 +285,8 @@ def work_shift_save(user,value):
 def portal(request):
     try:
         return handle(request)
+    except Conflict as exc:
+        return response({'error':str(exc),'code':exc.code,**exc.extra},409)
     except BusinessError as exc:
         status=401 if request.portal_user is None and request.path!='/api/login' else 400
         if 'прав' in str(exc) or 'роль' in str(exc) or 'доступ' in str(exc) or 'не підтверджений' in str(exc):status=403
@@ -479,13 +483,19 @@ def handle(request):
     match=re.fullmatch(r'/api/erp/vouchers/(\d+)(?:/(post|reverse))?',path)
     if match:
         pk,action=match.groups();v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind)
-        if action=='post' and request.method=='POST':return response(voucher_json(post_voucher(user,pk),True,user=user))
+        if action=='post' and request.method=='POST':
+            value=body(request)
+            observed={'expected_revision':value['revision']} if 'revision' in value else {}
+            return response(voucher_json(post_voucher(user,pk,**observed),True,user=user))
         if action=='reverse' and request.method=='POST':return response(voucher_json(reverse_voucher(user,pk,body(request).get('reason','')),True,user=user))
         if not action and request.method=='GET':return response(voucher_json(v,True,user=user))
         if not action and request.method=='PUT':return response(voucher_json(save_voucher(user,body(request),pk),True,user=user))
         if not action and request.method=='DELETE':
             with transaction.atomic():
-                ledger_lock();v.refresh_from_db();require(v.status=='draft','Видалити можна тільки чернетку.');audit(user,'draft_deleted',f'voucher/{pk}');v.delete()
+                ledger_lock();v.refresh_from_db();scope(user,v.store);permission(user,v.kind);require(v.status=='draft','Видалити можна тільки чернетку.')
+                value=body(request)
+                if 'revision' in value:require_voucher_revision(v,value['revision'])
+                audit(user,'draft_deleted',f'voucher/{pk}');v.delete()
             return response({'ok':True})
     match=re.fullmatch('/api/erp/entities/(stores|warehouses|parties|accounts|employees)',path)
     if match and request.method=='POST':return entity_save(user,match[1],body(request))

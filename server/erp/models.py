@@ -92,6 +92,9 @@ class Voucher(models.Model):
     posted_at = models.DateTimeField(null=True)
     reversed_at = models.DateTimeField(null=True)
     idempotency_key = models.CharField(max_length=80, unique=True, default=uuid.uuid4)
+    # Draft edits must name the version they started from; a create retry must repeat the same request.
+    revision = models.PositiveIntegerField(default=1)
+    request_fingerprint = models.CharField(max_length=64, blank=True, default='')
     class Meta:
         indexes = [models.Index(fields=['store', 'date', 'status']), models.Index(fields=['kind', 'status'])]
 

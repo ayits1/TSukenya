@@ -8,7 +8,7 @@ from django.utils import timezone
 from .browsing import PAGE_SIZE, page_bounds, page_number, positive_integer
 from .models import CashShift, WorkShift
 from .reporting import scoped
-from .services import day, require
+from .services import day, record_revision, require
 
 WORK_FIELDS = (
     'id', 'employee_id', 'store_id', 'date', 'cash_shift_id', 'units',
@@ -17,6 +17,11 @@ WORK_FIELDS = (
 )
 # Till counts and differences are cash control data; the warehouse role has no till workflow.
 CASH_SHIFT_ROLES = {'owner', 'manager', 'accountant', 'cashier'}
+
+
+def work_shift_json(row):
+    # The edit form sends the revision back; a stale timesheet form gets 409 instead of overwriting (B06).
+    return {**{field: getattr(row, field) for field in WORK_FIELDS}, 'revision': record_revision(row)}
 
 
 def cash_shift_json(shift):
@@ -83,5 +88,5 @@ def work_shifts(user, params):
         query = query.filter(payroll__isnull=True).filter(Q(cash_shift__isnull=True) | Q(cash_shift__closed_at__isnull=False))
     total = query.count()
     page, pages, offset = page_bounds(total, requested)
-    return {'items': list(query.order_by('-date', '-pk')[offset:offset + PAGE_SIZE].values(*WORK_FIELDS)),
+    return {'items': [work_shift_json(row) for row in query.order_by('-date', '-pk')[offset:offset + PAGE_SIZE]],
             'total': total, 'page': page, 'pages': pages}

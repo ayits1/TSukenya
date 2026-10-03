@@ -202,6 +202,20 @@ def save_product(request, user, identifier=None):
     return response(serialize(document, user, defaults()), 200 if old.get('name') else 201)
 
 
+def unit_in_use(path, data):
+    """Why the base unit is fixed: stock quantities and recipes are counted in it. None when it is still free."""
+    from .models import VoucherLine, StockLot
+    if VoucherLine.objects.filter(product_id=path).exists() or StockLot.objects.filter(product_id=path).exists():
+        return 'товар уже є в облікових документах або на складі'
+    if data.get('recipe'):
+        return 'для товару задано рецептуру'
+    identifier = path.split('/', 1)[1]
+    recipes = Document.objects.filter(path__startswith='products/').exclude(pk=path).values_list('data', flat=True)
+    if any(isinstance(item, dict) and isinstance(item.get('recipe'), list) and any(isinstance(row, dict) and str(row.get('product')) == identifier for row in item['recipe']) for item in recipes):
+        return 'товар використовується як інгредієнт у рецептурі'
+    return None
+
+
 def normalise_product(value, old, path, *, validate_references=True, config=None):
     """One strict write validator shared by the editor and atomic legacy imports."""
     from .views import validate_product
@@ -211,6 +225,10 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
         if key in value:
             require(isinstance(value[key], str) and len(value[key].strip()) <= maximum, f'{key}: некоректний текст.')
             data[key] = value[key].strip()
+    # B03: existing lots and posted lines keep the old unit, so a used product cannot silently relabel them.
+    if old.get('name') and (data.get('unit') or 'шт') != (old.get('unit') or 'шт'):
+        reason = unit_in_use(path, old)
+        require(reason is None, f'Одиницю обліку «{old.get("unit") or "шт"}» змінити не можна: {reason}. Для іншої фасовки створіть окремий товар.')
     if validate_references:
         from .catalog_references import validate_reference_fields
         validate_reference_fields(data, old, creating=not bool(old.get('name')))

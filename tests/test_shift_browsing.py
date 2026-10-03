@@ -95,7 +95,7 @@ class ShiftBrowsingTests(TestCase):
     def test_work_paging_old_exact_and_selected_ids_preserves_dto(self):
         result = self.get('work-shifts')
         self.assertEqual((result['total'], result['pages'], len(result['items'])), (520, 18, 30))
-        self.assertEqual(set(result['items'][0]), set(WORK_FIELDS))
+        self.assertEqual(set(result['items'][0]), set(WORK_FIELDS) | {'revision'})
         last = self.get('work-shifts', page='999')
         self.assertEqual((last['page'], len(last['items'])), (18, 10))
         self.assertEqual(self.get('work-shifts', id=str(self.work[0].pk))['items'][0]['date'], '2024-01-01')
