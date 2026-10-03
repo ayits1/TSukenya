@@ -114,6 +114,34 @@ def cashier_differences(user, start, end, store=None):
         result.append({**row,'shortage':str(money(row['shortage'])),'surplus':str(money(row['surplus'])),'net':str(money(row['surplus']-row['shortage']))})
     return result
 
+def product_margins(qs):
+    """Per product for the period: sold quantity, net revenue, cost of sales, gross profit, write-offs and inventory differences."""
+    rows={}
+    def row(path,name,unit):
+        return rows.setdefault(path,{'product':path.split('/',1)[1],'name':name,'unit':unit,'quantity':ZERO,'revenue':ZERO,'cogs':ZERO,'writeoff_quantity':ZERO,'writeoff':ZERO,'inventory':ZERO})
+    lines=VoucherLine.objects.filter(voucher__in=qs.filter(kind__in=['sale','customer_return','writeoff'])).values('product_id','voucher__kind').annotate(q=Sum('quantity'),a=Sum('amount'),c=Sum('cost'))
+    names={d.pk:d.data for d in Document.objects.filter(pk__in={x['product_id'] for x in lines})}
+    for x in lines:
+        data=names.get(x['product_id'],{})
+        r=row(x['product_id'],str(data.get('name','')),str(data.get('unit','шт')))
+        sign=-1 if x['voucher__kind']=='customer_return' else 1
+        if x['voucher__kind']=='writeoff':
+            r['writeoff_quantity']+=x['q'] or ZERO;r['writeoff']+=x['c'] or ZERO
+        else:
+            r['quantity']+=sign*(x['q'] or ZERO);r['revenue']+=sign*(x['a'] or ZERO);r['cogs']+=sign*(x['c'] or ZERO)
+    for v in qs.filter(kind='inventory').only('payload'):
+        for d in v.payload.get('differences',[]):
+            path='products/'+str(d.get('product','')).removeprefix('products/')
+            data=names.get(path) or (Document.objects.filter(pk=path).values_list('data',flat=True).first() or {})
+            row(path,str(data.get('name','')),str(data.get('unit','шт')))['inventory']+=Decimal(d.get('value','0'))
+    result=[]
+    for r in rows.values():
+        gross=r['revenue']-r['cogs']
+        margin=(gross*100/r['revenue']).quantize(Decimal('.1')) if r['revenue']>0 else None
+        result.append({**r,'quantity':str(Decimal(r['quantity']).quantize(Decimal('.001'))),'writeoff_quantity':str(Decimal(r['writeoff_quantity']).quantize(Decimal('.001'))),'revenue':str(money(r['revenue'])),'cogs':str(money(r['cogs'])),'gross_profit':str(money(gross)),'margin':str(margin) if margin is not None else None,'writeoff':str(money(r['writeoff'])),'inventory':str(money(r['inventory'])),'result':str(money(gross-r['writeoff']+r['inventory']))})
+    result.sort(key=lambda r:(-Decimal(r['result']),r['name']))
+    return result
+
 def report(user, params):
     from .browsing import positive_integer
     today=timezone.localdate()
@@ -147,4 +175,4 @@ def report(user, params):
         ss=sales.filter(store=s);rr=returns.filter(store=s)
         rev=net_total(ss)-net_total(rr);cost=(ss.aggregate(n=Sum('cost'))['n'] or ZERO)-(rr.aggregate(n=Sum('cost'))['n'] or ZERO)
         by_store.append({'store':s.pk,'name':s.name,'revenue':str(rev),'gross_profit':str(rev-cost)})
-    return {'from':start.isoformat(),'to':end.isoformat(),'revenue':str(money(revenue)),'cogs':str(money(cogs)),'gross_profit':str(money(revenue-cogs)),'expenses':str(money(expenses)),'payroll':str(money(wages)),'writeoffs':str(money(writeoff)),'inventory_adjustment':str(money(inventory)),'supplier_return_variance':str(money(supplier_variance)),'cash_difference':str(money(cash_difference)),'cashiers':cashier_differences(user,start,end,selected_store),'profit':str(money(revenue-cogs-expenses-wages-writeoff+inventory+supplier_variance+cash_difference)),'cash_net':str(money(flow.aggregate(n=Sum('amount'))['n'] or ZERO)),'debts':debts,'debt_count':len(debts),'debt_totals':debt_totals,'by_store':by_store}
+    return {'from':start.isoformat(),'to':end.isoformat(),'revenue':str(money(revenue)),'cogs':str(money(cogs)),'gross_profit':str(money(revenue-cogs)),'expenses':str(money(expenses)),'payroll':str(money(wages)),'writeoffs':str(money(writeoff)),'inventory_adjustment':str(money(inventory)),'supplier_return_variance':str(money(supplier_variance)),'cash_difference':str(money(cash_difference)),'cashiers':cashier_differences(user,start,end,selected_store),'profit':str(money(revenue-cogs-expenses-wages-writeoff+inventory+supplier_variance+cash_difference)),'cash_net':str(money(flow.aggregate(n=Sum('amount'))['n'] or ZERO)),'debts':debts,'debt_count':len(debts),'debt_totals':debt_totals,'by_store':by_store,'products':product_margins(qs)}

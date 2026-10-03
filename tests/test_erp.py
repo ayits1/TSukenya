@@ -307,3 +307,20 @@ class ReplenishmentTests(AccountingFixture):
         self.assertEqual([(g['party'],[(l['product'],l['quantity'],l['price']) for l in g['lines']]) for g in groups],[(None,[('p','10.000','5.0000'),('new','2.500','0')])])
         accountant=User.objects.create(username='accountant');Profile.objects.create(user=accountant,role='accountant')
         with self.assertRaisesMessage(BusinessError,'Ваша роль не дозволяє'):self.suggest(accountant)
+
+class ProductMarginTests(AccountingFixture):
+    def test_margin_writeoffs_and_inventory_per_product(self):
+        Document.objects.create(path='products/q',data={'name':'Печиво','unit':'кг'})
+        self.v('receipt',10,5)
+        self.v('receipt',4,2,lines=[{'product':'q','quantity':4,'price':2}])
+        sale=self.sale(4,10)
+        self.v('customer_return',1,10,reference=sale.pk,party=self.customer.pk,payload={'payments':[{'account':self.bank.pk,'amount':'10'}]})
+        self.v('writeoff',2,0)
+        self.v('inventory',3,1,lines=[{'product':'q','quantity':3,'price':0}])
+        (p,q)=report(self.u,{})['products']
+        self.assertEqual((p['product'],p['quantity'],p['revenue'],p['cogs'],p['gross_profit'],p['margin'],p['writeoff_quantity'],p['writeoff'],p['inventory'],p['result']),
+                         ('p','3.000','30.00','15.00','15.00','50.0','2.000','10.00','0.00','5.00'))
+        self.assertEqual((q['name'],q['unit'],q['revenue'],q['margin'],q['inventory'],q['result']),('Печиво','кг','0.00',None,'-2.00','-2.00'))
+        r=report(self.u,{})
+        self.assertEqual(sum(Decimal(x['gross_profit']) for x in r['products']),Decimal(r['gross_profit']))
+        self.assertEqual(sum(Decimal(x['writeoff']) for x in r['products']),Decimal(r['writeoffs']))
