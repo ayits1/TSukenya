@@ -190,8 +190,13 @@
   async function createIdeaTask(idea,button){
     const key=`ideaTask:${idea.id}`;
     if(inlineSaves.has(key))return;
+    const prior=createPending.get(key);
+    if(prior?.terminal){
+      if(!confirm('Попередній запит уже створив задачу, яку згодом змінили або видалили. Перевірте список задач. Почати окреме нове створення?'))return;
+      createPending.delete(key);
+    }
     inlineSaves.add(key);button.disabled=true;
-    try{const {saved}=await stableAdd(key,'tasks',{title:idea.title,scope:'development',ideaId:idea.id,stage:S.project.stage||1,status:'todo',order:Date.now()});if(saved)toast('Задачу створено');}
+    try{const {saved,intent}=await stableAdd(key,'tasks',{title:idea.title,scope:'development',ideaId:idea.id,stage:S.project.stage||1,status:'todo',order:Date.now()});if(saved)toast('Задачу створено');else if(intent.terminal&&developmentTasks().some(task=>task.ideaId===idea.id))createPending.delete(key);}
     finally{inlineSaves.delete(key);button.disabled=false;if(pending)render();}
   }
   const budgetDrafts = new Map(), budgetSaves = new Set();
@@ -405,7 +410,7 @@
     const next=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     if(next!==tab && (window.CatalogImport?.pending()||window.CatalogPricing?.pending())){toast("Дочекайтеся завершення збереження.");history.replaceState(null,"","#"+SECTIONS[tab][0]+"/"+tab);return;}
     if(next!==tab && budgetSaves.size){toast('Дочекайтеся збереження бюджету.');history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
-    const draftKeys={work:['addWork'],tasks:['addTask'],ideas:['addIdea'],expenses:['addExp:fixed','addExp:variable']}[tab]||[];
+    const draftKeys={work:['addWork'],tasks:['addTask'],ideas:['addIdea',...[...createPending.keys()].filter(key=>key.startsWith('ideaTask:'))],expenses:['addExp:fixed','addExp:variable']}[tab]||[];
     if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size)){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && (hasInlineDraft()||draftKeys.some(key=>createPending.has(key)))){
       const uncertain=draftKeys.some(key=>createPending.has(key));
