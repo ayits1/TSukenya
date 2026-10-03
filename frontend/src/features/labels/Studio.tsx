@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../shared/ui/Button';
+import { ConflictComparison } from '../../shared/ui/ConflictComparison';
+import { compareThreeWay, resolveThreeWay } from '../../shared/merge/threeWay';
+import type { MergeChoice } from '../../shared/merge/threeWay';
 import { ApiError } from '../../shared/api/client';
 import { emptyFilters } from '../catalog/api';
 import type { CatalogApi, Filters, Product } from '../catalog/api';
@@ -18,6 +21,7 @@ import {
 } from './domain';
 import type { LabelConfig, LabelField, LabelProduct, LabelSettings } from './domain';
 import type { LabelApi, Proof, Workspace } from './api';
+import { LABEL_MERGE_FIELDS } from './conflict';
 
 type Draft = { config: LabelConfig; settings: LabelSettings };
 export type StudioMemory = {
@@ -197,6 +201,19 @@ function StudioWorkspace({
     [previewSearch, setPreviewSearch] = useState('');
   const [error, setError] = useState(''),
     [saveState, setSaveState] = useState<'idle' | 'saving' | 'error' | 'conflict'>('idle');
+  const [comparison, setComparison] = useState<{
+      base: Draft;
+      mine: Draft;
+      server: Workspace;
+      edit: number;
+      baseline: string;
+    } | null>(null),
+    [comparisonBusy, setComparisonBusy] = useState(false),
+    [comparisonNotice, setComparisonNotice] = useState(''),
+    [comparisonChoices, setComparisonChoices] = useState<Record<string, MergeChoice>>({});
+  const comparisonRequests = useRef(0),
+    comparisonController = useRef<AbortController | null>(null),
+    comparisonTrigger = useRef<HTMLButtonElement>(null);
   const [proof, setProof] = useState<Proof | null>(null),
     [preparing, setPreparing] = useState(false),
     [outputBusy, setOutputBusy] = useState(false),
@@ -235,12 +252,16 @@ function StudioWorkspace({
   useEffect(() => {
     const active = alive,
       generation = sequence,
-      controller = outputController;
+      controller = outputController,
+      compareController = comparisonController,
+      compareRequests = comparisonRequests;
     active.current = true;
     return () => {
       active.current = false;
       generation.current++;
       controller.current?.abort();
+      compareController.current?.abort();
+      compareRequests.current++;
     };
   }, []);
   useEffect(() => {
@@ -287,8 +308,91 @@ function StudioWorkspace({
     setAcknowledged(false);
     setPreparing(false);
   };
+  const closeComparison = (notice = '') => {
+    comparisonRequests.current++;
+    comparisonController.current?.abort();
+    comparisonController.current = null;
+    setComparison(null);
+    setComparisonBusy(false);
+    setComparisonChoices({});
+    setComparisonNotice(notice);
+  };
+  const compare = async () => {
+    if (!canEdit || busy.current || saveState !== 'conflict' || comparisonBusy) return;
+    const token = ++comparisonRequests.current,
+      controller = new AbortController(),
+      edit = edits.current,
+      baseline = saved.revision;
+    comparisonController.current?.abort();
+    comparisonController.current = controller;
+    setComparison(null);
+    setComparisonChoices({});
+    setComparisonNotice('');
+    setComparisonBusy(true);
+    setError('');
+    const current = () =>
+      alive.current && token === comparisonRequests.current && !controller.signal.aborted;
+    try {
+      const server = await api.workspace(controller.signal);
+      if (!current() || edit !== edits.current) return;
+      setComparison({
+        base: { config: saved.config, settings: saved.settings },
+        mine: draft,
+        server,
+        edit,
+        baseline,
+      });
+    } catch (cause) {
+      if (current())
+        setError(
+          `Не вдалося завантажити порівняння. ${message(cause)} Чернетку збережено; повторіть спробу.`,
+        );
+    } finally {
+      if (current()) {
+        comparisonController.current = null;
+        setComparisonBusy(false);
+      }
+    }
+  };
+  const applyComparison = () => {
+    if (
+      !comparison ||
+      busy.current ||
+      !canEdit ||
+      !comparison.server.canEdit ||
+      comparison.server.warnings.length
+    )
+      return;
+    if (comparison.edit !== edits.current || comparison.baseline !== saved.revision) {
+      closeComparison('Чернетку змінено. Порівняйте зміни повторно.');
+      return;
+    }
+    const merged = resolveThreeWay(
+      comparison.base,
+      comparison.mine,
+      { config: comparison.server.config, settings: comparison.server.settings },
+      LABEL_MERGE_FIELDS,
+      comparisonChoices,
+    );
+    if (!merged) return;
+    // Only accept a fresh baseline and a local merged draft. Saving is a separate user action.
+    setSaved(comparison.server);
+    edits.current++;
+    lastEdit.current = null;
+    setDraft(merged);
+    setHistory({ past: [], future: [] });
+    setSaveState('idle');
+    setError('');
+    closeComparison(
+      'Зміни узгоджено в чернетці. Натисніть «Зберегти макет», щоб зберегти їх на сервері.',
+    );
+    invalidate();
+  };
   const change = (next: Draft, mergeKey?: string) => {
     if (!canEdit || busy.current || saveState === 'saving') return;
+    closeComparison(
+      comparison || comparisonBusy ? 'Чернетку змінено. Порівняйте зміни повторно.' : '',
+    );
     // A colour drag reports every intermediate value. Consecutive changes of the same property
     // without a pause form one undo step instead of filling the 40-step history.
     const now = Date.now(),
@@ -307,6 +411,7 @@ function StudioWorkspace({
     if (!canEdit || busy.current || saveState === 'saving') return;
     const next = redo ? history.future[0] : history.past.at(-1);
     if (!next) return;
+    closeComparison();
     lastEdit.current = null;
     edits.current++;
     setHistory(
@@ -354,6 +459,7 @@ function StudioWorkspace({
   const reload = async () => {
     if (busy.current || saveState === 'saving') return;
     if (dirty && !confirm('Замінити чернетку збереженим макетом?')) return;
+    closeComparison();
     // An edit, undo or newer reload while waiting wins: a late response must not replace
     // that draft or clear its undo history.
     const token = ++reloads.current,
@@ -645,6 +751,66 @@ function StudioWorkspace({
       saveStatus={saveStatus}
       onSave={() => void save()}
       onReload={() => void reload()}
+      onCompare={(trigger) => {
+        comparisonTrigger.current = trigger;
+        void compare();
+      }}
+      comparisonBusy={comparisonBusy}
+      comparison={
+        <div className="tk-studio-comparison">
+          {comparisonBusy ? (
+            <div>
+              <p role="status">
+                Завантажуємо актуальний макет для порівняння. Чернетка залишається без змін…
+              </p>
+              <Button
+                onPress={() => {
+                  closeComparison('Порівняння скасовано. Чернетку збережено.');
+                  requestAnimationFrame(() => {
+                    if (alive.current) comparisonTrigger.current?.focus();
+                  });
+                }}
+              >
+                Скасувати порівняння
+              </Button>
+            </div>
+          ) : comparison ? (
+            <>
+              {!comparison.server.canEdit || comparison.server.warnings.length ? (
+                <p role="alert">
+                  {comparison.server.warnings.join(' ') ||
+                    'Редагування актуального макета недоступне.'}
+                </p>
+              ) : null}
+              <ConflictComparison
+                title="Порівняння макетів цінника"
+                rows={compareThreeWay(
+                  comparison.base,
+                  comparison.mine,
+                  { config: comparison.server.config, settings: comparison.server.settings },
+                  LABEL_MERGE_FIELDS,
+                )}
+                choices={comparisonChoices}
+                onChoice={(id, choice) =>
+                  setComparisonChoices((current) => ({ ...current, [id]: choice }))
+                }
+                onApply={applyComparison}
+                onCancel={() => {
+                  closeComparison('Порівняння скасовано. Чернетку збережено.');
+                  requestAnimationFrame(() => {
+                    if (alive.current) comparisonTrigger.current?.focus();
+                  });
+                }}
+                isDisabled={
+                  !comparison.server.canEdit || !!comparison.server.warnings.length || outputBusy
+                }
+              />
+            </>
+          ) : comparisonNotice ? (
+            <p role="status">{comparisonNotice}</p>
+          ) : null}
+        </div>
+      }
       canEdit={canEdit}
       selectedTab={tab}
       onTabChange={(next) => {

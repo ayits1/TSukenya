@@ -4,7 +4,7 @@ import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Catalog } from './Catalog';
 import { Button } from '../../shared/ui/Button';
-import { catalogPage, catalogProducts, catalogReferences } from './fixtures';
+import { catalogPage, catalogProducts, catalogReferences, fixturePricePreview } from './fixtures';
 import type { CatalogApi } from './api';
 
 const ignore = () => {};
@@ -31,6 +31,7 @@ function PendingFacets() {
           };
         },
         product: async () => product,
+        previewPrice: fixturePricePreview,
         save: async () => product,
         remove: async () => true,
         references: async () => catalogReferences,

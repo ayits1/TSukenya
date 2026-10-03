@@ -1,4 +1,21 @@
 import { referenceFields, type Product, type ProductPage, type ReferenceData } from './api';
+import type { PricePreview, PricePreviewRequest } from './api';
+/** Synthetic editor service; live calculations are tested against Django. */
+export async function fixturePricePreview(input: PricePreviewRequest): Promise<PricePreview> {
+  return {
+    regularPrice: input.manualPrice && input.price ? input.price : '35.00',
+    salePrice:
+      input.promotion && input.promotionPrice
+        ? input.promotionPrice
+        : input.manualPrice && input.price
+          ? input.price
+          : '35.00',
+    config: { markup: '30', rounding: '.5' },
+    pricingRevision: 'synthetic-pricing',
+    warnings: [],
+    promotionValid: !!input.promotion && !!input.promotionPrice,
+  };
+}
 export const catalogProducts: Product[] = [
   {
     id: 'sample-1',

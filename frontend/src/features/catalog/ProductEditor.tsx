@@ -7,6 +7,11 @@ import { DatePicker, ukraineToday } from '../../shared/ui/DatePicker';
 import { CatalogReferenceField } from './CatalogReferenceField';
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
+import { ConflictComparison } from '../../shared/ui/ConflictComparison';
+import { compareThreeWay, resolveThreeWay } from '../../shared/merge/threeWay';
+import type { MergeChoices } from '../../shared/merge/threeWay';
+import { productMergeFields } from './productMerge';
+import type { ProductDraft } from './productMerge';
 import {
   hasEffectivePromotion,
   type CatalogApi,
@@ -15,6 +20,8 @@ import {
   type ProductPatch,
   type ReferenceField,
   type ReferenceData,
+  type PricePreview,
+  type PricePreviewRequest,
   referenceKey,
 } from './api';
 
@@ -25,8 +32,10 @@ const referenceLabels: Record<ReferenceField, string> = {
   size: 'Об’єм / вага',
   unit: 'Одиниця',
 };
+const money = (value: string) =>
+  Number(value).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function initial(product: Product | undefined, markup: string): Required<ProductCreate> {
+function initial(product: Product | undefined, markup: string): ProductDraft {
   return {
     name: product?.name || '',
     type: product?.type || '',
@@ -72,6 +81,21 @@ export function ProductEditor({
     promotion: original.promotion || activatePromotion,
   }));
   const [notice, setNotice] = useState('');
+  const [manualAmount, setManualAmount] = useState(product?.price || '');
+  const [comparison, setComparison] = useState<{
+    base: ProductDraft;
+    mine: ProductDraft;
+    server: Product;
+    choices: MergeChoices;
+  } | null>(null);
+  const [preview, setPreview] = useState<
+    { key: string; value: PricePreview } | { key: string; error: Error } | null
+  >(null);
+  const [previewRetry, setPreviewRetry] = useState(0);
+  const previewSequence = useRef(0);
+  const compareButton = useRef<HTMLButtonElement>(null);
+  const noticeElement = useRef<HTMLParagraphElement>(null);
+  const focusAfterComparison = useRef<'compare' | 'notice' | null>(null);
   const client = useQueryClient();
   const referenceButtons = useRef<Partial<Record<ReferenceField, HTMLButtonElement>>>({});
   const focusAfterCreation = useRef<ReferenceField | null>(null);
@@ -136,13 +160,15 @@ export function ProductEditor({
   }, [dirty]);
   const mutation = useMutation({
     mutationFn: () => {
+      if (!activePreview || comparison)
+        throw new Error('Дочекайтеся актуального розрахунку ціни та узгодьте зміни.');
       const payload: ProductCreate | ProductPatch = current
-        ? { ...draft, revision: current.revision }
-        : draft;
+        ? { ...draft, revision: current.revision, pricingRevision: activePreview.pricingRevision }
+        : { ...draft, pricingRevision: activePreview.pricingRevision };
       return api.save(payload, current?.id);
     },
     retry: false,
-    onSuccess: onSaved,
+    onSuccess: (saved) => onSaved(saved),
   });
   const deletion = useMutation({
     mutationFn: () => api.remove(current!),
@@ -153,17 +179,18 @@ export function ProductEditor({
     mutationFn: () => api.product(current?.id || ''),
     retry: false,
     onSuccess: (fresh) => {
-      const value = initial(fresh, defaultMarkup);
-      setCurrent(fresh);
-      setOriginal(value);
-      setDraft(value);
-      mutation.reset();
-      setNotice('Завантажено актуальний товар. Повторіть потрібні зміни.');
+      setComparison({ base: original, mine: draft, server: fresh, choices: {} });
+      setNotice('Актуальну версію завантажено для порівняння. Чернетку збережено.');
     },
   });
   const close = () => {
     if (mutation.isPending || reload.isPending || deletion.isPending || addReference.isPending)
       return;
+    if (comparison) {
+      focusAfterComparison.current = 'compare';
+      setComparison(null);
+      return;
+    }
     if (!dirty || window.confirm('Відкинути незбережені зміни товару?')) onClose();
   };
   const text = (key: 'name' | 'barcode' | 'markup' | 'minStock', label: string) => (
@@ -176,8 +203,88 @@ export function ProductEditor({
       {...(key === 'name' ? { autoFocus: true, maxLength: 250 } : {})}
     />
   );
-  const referenceBusy =
+  const networkBusy =
     mutation.isPending || reload.isPending || deletion.isPending || addReference.isPending;
+  const referenceBusy = networkBusy || !!comparison;
+  const previewInput: PricePreviewRequest = {
+    ...(current ? { id: current.id, revision: current.revision } : {}),
+    cost: draft.cost,
+    markup: draft.markup,
+    manualPrice: draft.manualPrice,
+    price: draft.price,
+    promotion: draft.promotion,
+    promotionPrice: draft.promotionPrice,
+    priceReviewed: draft.priceReviewed,
+  };
+  const previewKey = JSON.stringify(previewInput);
+  const activePreview = preview?.key === previewKey && 'value' in preview ? preview.value : null;
+  const previewError = preview?.key === previewKey && 'error' in preview ? preview.error : null;
+  useEffect(() => {
+    const token = ++previewSequence.current,
+      controller = new AbortController();
+    const timer = setTimeout(() => {
+      void api.previewPrice(JSON.parse(previewKey), controller.signal).then(
+        (value) => {
+          if (!controller.signal.aborted && token === previewSequence.current)
+            setPreview({ key: previewKey, value });
+        },
+        (cause: unknown) => {
+          if (!controller.signal.aborted && token === previewSequence.current)
+            setPreview({
+              key: previewKey,
+              error:
+                cause instanceof Error
+                  ? cause
+                  : new Error('Не вдалося розрахувати ціну. Спробуйте ще раз.'),
+            });
+        },
+      );
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [api, previewKey, previewRetry]);
+  const comparisonRows = comparison
+    ? compareThreeWay(
+        comparison.base,
+        comparison.mine,
+        initial(comparison.server, defaultMarkup),
+        productMergeFields,
+      )
+    : [];
+  const applyComparison = () => {
+    if (!comparison || networkBusy) return;
+    const fresh = initial(comparison.server, defaultMarkup);
+    const merged = resolveThreeWay(
+      comparison.base,
+      comparison.mine,
+      fresh,
+      productMergeFields,
+      comparison.choices,
+    );
+    if (!merged) return;
+    setCurrent(comparison.server);
+    setOriginal(fresh);
+    setDraft(merged);
+    setManualAmount(merged.price || '');
+    focusAfterComparison.current = 'notice';
+    setComparison(null);
+    mutation.reset();
+    reload.reset();
+    setNotice('Узгоджені зміни перенесено в чернетку. Перевірте їх і збережіть товар.');
+  };
+  const revisionConflict = (error: unknown) =>
+    error instanceof ApiError && error.status === 409 && error.code === 'revision_conflict';
+  useEffect(() => {
+    if (comparison || !focusAfterComparison.current) return;
+    const target = focusAfterComparison.current;
+    focusAfterComparison.current = null;
+    const frame = requestAnimationFrame(() =>
+      (target === 'compare' ? compareButton.current : noticeElement.current)?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [comparison]);
   useEffect(() => {
     if (!referenceBusy && !creation && focusAfterCreation.current) {
       referenceButtons.current[focusAfterCreation.current]?.focus();
@@ -256,7 +363,14 @@ export function ProductEditor({
           <Form
             onSubmit={(event) => {
               event.preventDefault();
-              if (referenceBusy || creation || !references.data || references.error) return;
+              if (
+                referenceBusy ||
+                creation ||
+                !references.data ||
+                references.error ||
+                !activePreview
+              )
+                return;
               mutation.mutate();
             }}
           >
@@ -269,7 +383,7 @@ export function ProductEditor({
                 Закрити
               </Button>
             </header>
-            <fieldset disabled={mutation.isPending || reload.isPending || deletion.isPending}>
+            <fieldset disabled={referenceBusy}>
               <legend>Товар</legend>
               {text('name', 'Назва товару')}
               {references.isPending ? <p role="status">Завантажуємо довідники…</p> : null}
@@ -295,7 +409,7 @@ export function ProductEditor({
                 {text('minStock', 'Мінімальний залишок')}
               </div>
             </fieldset>
-            <fieldset disabled={mutation.isPending || reload.isPending || deletion.isPending}>
+            <fieldset disabled={referenceBusy}>
               <legend>Ціни та акція</legend>
               <div className="tk-editor-grid">
                 <MoneyField
@@ -308,13 +422,16 @@ export function ProductEditor({
               <Checkbox
                 className="tk-editor-checkbox"
                 isSelected={draft.manualPrice}
-                onChange={(value) =>
+                isDisabled={!draft.manualPrice && !manualAmount && !activePreview}
+                onChange={(value) => {
+                  const amount = manualAmount || activePreview?.regularPrice || '';
+                  if (value) setManualAmount(amount);
                   setDraft((old) => ({
                     ...old,
                     manualPrice: value,
-                    price: value ? old.price || current?.regularPrice || '' : null,
-                  }))
-                }
+                    price: value ? amount : null,
+                  }));
+                }}
               >
                 <span aria-hidden="true" className="tk-checkbox-mark" />
                 Задати ціну продажу вручну
@@ -323,7 +440,10 @@ export function ProductEditor({
                 <MoneyField
                   label="Звичайна ціна"
                   value={draft.price || ''}
-                  onChange={(price) => setDraft((old) => ({ ...old, price }))}
+                  onChange={(price) => {
+                    setManualAmount(price);
+                    setDraft((old) => ({ ...old, price }));
+                  }}
                   isRequired
                 />
               ) : (
@@ -341,8 +461,8 @@ export function ProductEditor({
                     </p>
                   ) : null}
                   <p className="tk-help">
-                    Після збереження сервер розрахує звичайну ціну із закупівлі, націнки й
-                    округлення. Акційна ціна її не замінює.
+                    Звичайна ціна розраховується із закупівлі, націнки й округлення. Акційна ціна її
+                    не замінює.
                   </p>
                 </div>
               )}
@@ -395,20 +515,107 @@ export function ProductEditor({
                 <span aria-hidden="true" className="tk-checkbox-mark" />
                 Ціну перевірено сьогодні
               </Checkbox>
+              <div
+                className="tk-editor-price-preview"
+                aria-busy={!activePreview && !previewError}
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {activePreview ? (
+                  <>
+                    <p>
+                      Звичайна ціна після збереження:{' '}
+                      <strong>{money(activePreview.regularPrice)} грн</strong>
+                    </p>
+                    <p>
+                      Ціна продажу: <strong>{money(activePreview.salePrice)} грн</strong>
+                    </p>
+                    <p className="tk-help">
+                      {draft.manualPrice
+                        ? 'Ручна ціна — без округлення до кроку.'
+                        : `Закупівля × (1 + націнка / 100), округлення вгору до ${money(activePreview.config.rounding)} грн.`}{' '}
+                      Під час акції стара ціна на ціннику — звичайна ціна перед знижкою.
+                    </p>
+                    {activePreview.warnings.map((warning) => (
+                      <p className="tk-error" key={warning}>
+                        {warning}
+                      </p>
+                    ))}
+                  </>
+                ) : previewError ? (
+                  <div role="alert">
+                    <p className="tk-error">{previewError.message}</p>
+                    <Button
+                      type="button"
+                      onPress={() => {
+                        setPreview(null);
+                        setPreviewRetry((old) => old + 1);
+                      }}
+                      isDisabled={referenceBusy}
+                    >
+                      Повторити розрахунок ціни
+                    </Button>
+                  </div>
+                ) : (
+                  <p>Розраховуємо актуальну ціну…</p>
+                )}
+              </div>
             </fieldset>
             {mutation.error || reload.error || deletion.error ? (
               <div className="tk-catalog-error" role="alert">
                 <p>{mutation.error?.message || reload.error?.message || deletion.error?.message}</p>
                 {mutation.error instanceof ApiError &&
-                mutation.error.status === 409 &&
-                mutation.error.code !== 'duplicate_name' ? (
-                  <Button onPress={() => reload.mutate()} isDisabled={reload.isPending}>
-                    Завантажити актуальний товар
+                mutation.error.code === 'pricing_revision_conflict' ? (
+                  <Button
+                    type="button"
+                    onPress={() => {
+                      mutation.reset();
+                      setPreview(null);
+                      setPreviewRetry((old) => old + 1);
+                    }}
+                    isDisabled={referenceBusy}
+                  >
+                    Оновити розрахунок ціни
                   </Button>
                 ) : null}
               </div>
             ) : null}
-            {notice ? <p role="status">{notice}</p> : null}
+            {(revisionConflict(mutation.error) ||
+              revisionConflict(previewError) ||
+              revisionConflict(deletion.error)) &&
+            current &&
+            !comparison ? (
+              <Button
+                type="button"
+                ref={compareButton}
+                onPress={() => reload.mutate()}
+                isDisabled={networkBusy}
+              >
+                {reload.isPending ? 'Завантажуємо версії…' : 'Порівняти зміни'}
+              </Button>
+            ) : null}
+            {comparison ? (
+              <ConflictComparison
+                rows={comparisonRows}
+                choices={comparison.choices}
+                onChoice={(id, choice) =>
+                  setComparison((old) =>
+                    old ? { ...old, choices: { ...old.choices, [id]: choice } } : old,
+                  )
+                }
+                onApply={applyComparison}
+                onCancel={() => {
+                  focusAfterComparison.current = 'compare';
+                  setComparison(null);
+                }}
+                isDisabled={networkBusy}
+              />
+            ) : null}
+            {notice ? (
+              <p role="status" ref={noticeElement} tabIndex={-1}>
+                {notice}
+              </p>
+            ) : null}
             <footer>
               {current ? (
                 <Button
@@ -432,7 +639,11 @@ export function ProductEditor({
                 type="submit"
                 variant="primary"
                 isDisabled={
-                  referenceBusy || !!creation || references.isPending || !!references.error
+                  referenceBusy ||
+                  !!creation ||
+                  references.isPending ||
+                  !!references.error ||
+                  !activePreview
                 }
               >
                 {mutation.isPending ? 'Зберігаємо…' : 'Зберегти товар'}

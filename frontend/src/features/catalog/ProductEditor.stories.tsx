@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiError } from '../../shared/api/client';
 import { ProductEditor } from './ProductEditor';
 import type { CatalogApi, ReferenceItem } from './api';
-import { catalogProducts, catalogReferences } from './fixtures';
+import { catalogProducts, catalogReferences, fixturePricePreview } from './fixtures';
 import './catalog.css';
 
 const product = catalogProducts[0]!;
@@ -22,6 +22,7 @@ const meta = {
         throw new Error('Not used in editor story');
       },
       product: async () => product,
+      previewPrice: fixturePricePreview,
       remove: async () => true,
       save: fn(async () => product),
       references: async () => ({
@@ -78,6 +79,7 @@ export const SeparatePromotionPrice: Story = {
     await userEvent.type(cents, '5');
     await userEvent.tab();
     await expect(cents).toHaveValue('50');
+    await waitFor(() => expect(form.getByRole('button', { name: 'Зберегти товар' })).toBeEnabled());
     await userEvent.click(form.getByRole('button', { name: 'Зберегти товар' }));
     await expect(args.api.save).toHaveBeenCalledWith(
       expect.objectContaining({ price: '35', promotion: true, promotionPrice: '27.50' }),
@@ -108,9 +110,7 @@ export const DuplicateNameIsNotAVersionConflict: Story = {
     await userEvent.type(name, 'Наявна назва');
     await userEvent.click(form.getByRole('button', { name: 'Зберегти товар' }));
     await expect(await form.findByRole('alert')).toHaveTextContent('Товар із такою назвою вже є');
-    await expect(
-      form.queryByRole('button', { name: 'Завантажити актуальний товар' }),
-    ).not.toBeInTheDocument();
+    await expect(form.queryByRole('button', { name: 'Порівняти зміни' })).not.toBeInTheDocument();
     await expect(name).toHaveValue('Наявна назва');
   },
 };
@@ -121,6 +121,7 @@ export const LegacyPromotionNeedsPrice: Story = {
     await expect(
       form.getByText('Для цієї акції ще не задано окрему ціну. Вкажіть її перед збереженням.'),
     ).toBeVisible();
+    await waitFor(() => expect(form.getByRole('button', { name: 'Зберегти товар' })).toBeEnabled());
     await userEvent.click(form.getByRole('button', { name: 'Зберегти товар' }));
     await expect(args.api.save).not.toHaveBeenCalled();
     await expect(form.getByRole('textbox', { name: 'Акційна ціна: гривні' })).toHaveFocus();

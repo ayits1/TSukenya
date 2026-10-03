@@ -27,6 +27,10 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  await page.goto(base+'/#operations/products');
  await until(async()=>await page.locator('.tk-product-table tbody tr').count()===20,'React catalogue page');
  assert(await page.evaluate(()=>!!window.ReactCatalog));console.log('React catalogue loaded');
+ if(process.env.QA_EDITOR_NEXT_ONLY){
+  await require('./catalog-editor-next.cjs')(page, until);
+  assert.deepEqual(errors,[]);return;
+ }
  if(process.env.QA_REFERENCES_ONLY){
   await require('./catalog-references.cjs')(page, until);
   assert.deepEqual(errors,[]);return;
@@ -64,6 +68,7 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  await dialog.getByRole('button',{name:'Додати й вибрати'}).click();
  await until(async()=>await dialog.getByRole('combobox',{name:'Категорія',exact:true}).inputValue()==='Тест','inline category creation');
  await dialog.getByRole('textbox',{name:'Мінімальний залишок'}).fill('3');
+ await until(async()=>await dialog.getByRole('checkbox',{name:'Задати ціну продажу вручну'}).isEnabled(),'authoritative preview before manual mode');
  await dialog.getByText('Задати ціну продажу вручну',{exact:true}).click();
  await dialog.getByRole('textbox',{name:'Звичайна ціна: гривні',exact:true}).fill('45');
  await dialog.getByText('Акція — окрема ціна та позначка на ціннику',{exact:true}).click();
@@ -81,8 +86,10 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  await page.getByRole('dialog').getByRole('button',{name:'Зберегти товар'}).click();
  await page.getByRole('alert').filter({hasText:'Товар уже змінено'}).waitFor();
  assert.equal(await page.getByRole('dialog').getByRole('textbox',{name:'Назва товару'}).inputValue(),'Незбережена моя назва');
- await page.getByRole('button',{name:'Завантажити актуальний товар'}).click();
- await until(async()=>await page.getByRole('dialog').getByRole('textbox',{name:'Назва товару'}).inputValue()==='Оновлено іншим редактором','explicit conflict reload');
+ await page.getByRole('button',{name:'Порівняти зміни'}).click();
+ await page.getByRole('radio',{name:'Взяти зміни сервера'}).focus();await page.keyboard.press('Space');
+ await page.getByRole('button',{name:'Застосувати узгоджені зміни'}).click();
+ await until(async()=>await page.getByRole('dialog').getByRole('textbox',{name:'Назва товару'}).inputValue()==='Оновлено іншим редактором','explicit conflict comparison');
  console.log('Conflict protection completed');await page.getByRole('button',{name:'Закрити редактор'}).click();
  await page.getByRole('searchbox',{name:'Пошук товару'}).fill('Оновлено іншим редактором');
  await until(async()=>await page.locator('.tk-product-link').count()===1,'updated search');

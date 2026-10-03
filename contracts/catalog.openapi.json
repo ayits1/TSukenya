@@ -1036,6 +1036,83 @@
           }
         }
       }
+    },
+    "/api/v1/catalog/products/price-preview": {
+      "post": {
+        "responses": {
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "ProductPricePreview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductPricePreview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductPricePreviewRequest"
+              }
+            }
+          }
+        },
+        "description": "Read-only authoritative Decimal price calculation. No product, audit, inventory or settings writes. Uses same validation and legacy promotion preservation as Save."
+      }
     }
   },
   "components": {
@@ -1314,6 +1391,11 @@
               }
             ],
             "description": "Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null."
+          },
+          "pricingRevision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Optional preview pricing settings revision. Mismatch returns pricing_revision_conflict before any write."
           }
         },
         "additionalProperties": false
@@ -1396,6 +1478,11 @@
               }
             ],
             "description": "Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null."
+          },
+          "pricingRevision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Optional preview pricing settings revision. Mismatch returns pricing_revision_conflict before any write."
           }
         },
         "additionalProperties": false
@@ -2635,6 +2722,114 @@
                 }
               }
             }
+          }
+        }
+      },
+      "ProductPricePreviewRequest": {
+        "type": "object",
+        "properties": {
+          "cost": {
+            "type": "string",
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
+          },
+          "markup": {
+            "type": "string",
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
+          },
+          "manualPrice": {
+            "type": "boolean"
+          },
+          "price": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+(\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promotion": {
+            "type": "boolean"
+          },
+          "promotionPrice": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+(\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null."
+          },
+          "priceReviewed": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "revision": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Read-only pricing inputs shared with Save. Existing id enables unchanged legacy promotion terms; revision without id is invalid."
+      },
+      "ProductPricePreview": {
+        "type": "object",
+        "required": [
+          "regularPrice",
+          "salePrice",
+          "config",
+          "pricingRevision",
+          "warnings",
+          "promotionValid"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "regularPrice": {
+            "type": "string",
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
+          },
+          "salePrice": {
+            "type": "string",
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
+          },
+          "config": {
+            "type": "object",
+            "required": [
+              "markup",
+              "rounding"
+            ],
+            "properties": {
+              "markup": {
+                "type": "string",
+                "pattern": "^[0-9]+(\\.[0-9]+)?$"
+              },
+              "rounding": {
+                "type": "string",
+                "pattern": "^[0-9]+(\\.[0-9]+)?$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "pricingRevision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "promotionValid": {
+            "type": "boolean",
+            "description": "True only for an enabled, valid explicit promotion below regularPrice. False for no promotion and grandfathered legacy badge-only/invalid promotions."
           }
         }
       }

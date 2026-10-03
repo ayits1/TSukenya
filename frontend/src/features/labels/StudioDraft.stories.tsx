@@ -7,7 +7,12 @@ import { Button } from '../../shared/ui/Button';
 import { Studio, initialStudioMemory } from './Studio';
 import { adaptLabelProduct } from './domain';
 import { studioConfig, studioSettings } from './fixtures';
-import { catalogPage, catalogProducts, catalogReferences } from '../catalog/fixtures';
+import {
+  catalogPage,
+  catalogProducts,
+  catalogReferences,
+  fixturePricePreview,
+} from '../catalog/fixtures';
 import type { CatalogApi } from '../catalog/api';
 import type { LabelApi } from './api';
 
@@ -54,6 +59,7 @@ function Draft() {
         session: async () => ({ role: 'owner', csrf: 'synthetic' }),
         list: async () => catalogPage,
         product: async () => product,
+        previewPrice: fixturePricePreview,
         save: async () => product,
         remove: async () => true,
         references: async () => catalogReferences,
