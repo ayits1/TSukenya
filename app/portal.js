@@ -161,7 +161,14 @@
   const upd = (col,id,data,ok) => write(()=>db.collection(col).doc(id).update(data), ok).then(r=>{ gsSoon(col); return r; });
   const add = (col,data,ok) => write(()=>db.collection(col).add(data), ok).then(r=>{ gsSoon(col); return r; });
   const del = (col,id,ok) => write(()=>db.collection(col).doc(id).delete(), ok).then(r=>{ gsSoon(col); return r; });
-  async function setDoc(path,data,ok){ return write(async()=>{ const ref=db.doc(path); const s=await ref.get(); s.exists ? await ref.update(data) : await ref.set(data); }, ok); }
+  async function setDoc(path,data,ok){ return write(async()=>{
+    const ref=db.doc(path), s=await ref.get(), settings=path==='settings/main';
+    // Settings are saved from the layout version this page shows. During queued layout saves the page keeps
+    // its own layout, so the version chains from its last write and another session's change gives 409.
+    const options=settings&&S.settingsRevision?{revision:S.settingsRevision}:undefined;
+    const result=s.exists ? await ref.update(data,options) : await ref.set(data,options);
+    if(settings&&S.tagSaving&&typeof result?.revision==='string')S.settingsRevision=result.revision;
+  }, ok); }
 
   const inlineSaves = new Set();
   const budgetDrafts = new Map(), budgetSaves = new Set();
@@ -249,7 +256,11 @@
   function tagSaveStatus(){const el=$('#tagSaveStatus');if(el)el.textContent=S.tagSaving?'Збереження…':S.tagSaveFailed?'Не збережено. Натисніть, щоб повторити.':'Макет збережено';}
   function saveTag(patch){
     const c=Object.assign(tagCfg(),patch);S.settings.tag=c;renderPreview();S.tagSaving=(S.tagSaving||0)+1;tagSaveStatus();
-    tagSaveQueue=tagSaveQueue.then(()=>setDoc('settings/main',{tag:c})).then(ok=>{S.tagSaving--;S.tagSaveFailed=!ok;tagSaveStatus();});
+    tagSaveQueue=tagSaveQueue.then(()=>setDoc('settings/main',{tag:c})).then(async ok=>{S.tagSaving--;S.tagSaveFailed=!ok;if(!ok&&!S.tagSaving)await adoptNewerLayout();tagSaveStatus();});
+  }
+  // A refused layout save shows the layout saved by another session; a transport failure keeps the draft for retry.
+  async function adoptNewerLayout(){
+    try{const s=await db.doc('settings/main').get();if(!S.tagSaving&&s.revision&&s.revision!==S.settingsRevision){S.settings=s.exists?s.data():{};S.settingsRevision=s.revision;render();}}catch(_){}
   }
   function saveStores(n, ok){
     const count=budgetStores();S.settings.storeNames = n;S.settings.budgetStores=count;
@@ -415,6 +426,31 @@
   const canClearExamples = () => !window.TSUKENYA_SERVER || window.TSUKENYA_ROLE==="owner";
   const examplesNotice = t => t.examples && canClearExamples() ? `<p class="muted">${t.examples} товарів-прикладів зі старої демо-версії не враховано в розрахунках. <button class="btn soft" type="button" data-act="clearEx">Прибрати приклади</button></p>` : "";
 
+  // Cash obligations on the overview: overdue both ways and supplier payments due within the server's window.
+  const FINANCE_ROLES=["owner","manager","accountant"];
+  function loadDebtSummary(){
+    if(!window.TSUKENYA_SERVER||!FINANCE_ROLES.includes(window.TSUKENYA_ROLE)||S.debtSummary?.state==="loading"||S.debtSummary&&Date.now()-S.debtSummary.at<300000)return;
+    S.debtSummary={state:"loading",at:Date.now()};
+    fetch("/api/erp/debts/summary",{credentials:"same-origin"})
+      .then(r=>r.ok?r.json():Promise.reject(Error("debts "+r.status)))
+      .then(d=>{S.debtSummary={...d,state:"ready",at:Date.now()};})
+      .catch(()=>{S.debtSummary={state:"error",at:Date.now()};})
+      .finally(()=>{if(tab==="overview")render();});
+  }
+  function debtSummaryHtml(){
+    if(!window.TSUKENYA_SERVER||!FINANCE_ROLES.includes(window.TSUKENYA_ROLE))return "";
+    loadDebtSummary();
+    const d=S.debtSummary, head='<div class="row between gap-lg"><h3>Борги й оплати</h3><a class="btn soft" href="#trade/finance">Фінанси</a></div>';
+    if(!d||d.state==="loading")return `<section class="panel">${head}<p class="muted" role="status">Завантажуємо борги…</p></section>`;
+    if(d.state==="error")return `<section class="panel">${head}<p class="muted">Не вдалося завантажити борги.</p><button class="btn soft" type="button" data-act="reloadDebts">Повторити</button></section>`;
+    const when=v=>v===d.today?"Сьогодні":new Date(v+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"short",day:"numeric",month:"short"}), count=n=>n?`${n} ${n%10===1&&n%100!==11?"документ":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"документи":"документів"}`:"немає";
+    const shown=d.payments.slice(0,6), rest=d.payments.length-shown.length;
+    return `<section class="panel debt-summary">${head}<div class="stats">
+      <div class="stat"><div class="l">Прострочено: нам винні</div><div class="v num">${money(num(d.overdue.to_us.amount))} грн</div><div class="muted">${count(d.overdue.to_us.count)}</div></div>
+      <div class="stat"><div class="l">Прострочено: ми винні</div><div class="v num">${money(num(d.overdue.by_us.amount))} грн</div><div class="muted">${count(d.overdue.by_us.count)}</div></div>
+      <div class="stat"><div class="l">Оплатити постачальникам за ${d.days} днів</div><div class="v num">${money(num(d.payments_total))} грн</div><div class="muted">${count(d.payments.length)}</div></div>
+    </div>${shown.length?`<h4 class="debt-calendar-title">Календар оплат постачальникам</h4><ul class="debt-calendar">${shown.map(x=>`<li><span class="when">${esc(when(x.due_date))}</span><span class="who">${esc(x.party)}<span class="muted"> · № ${esc(x.number)}</span></span><span class="num">${money(num(x.amount))} грн</span></li>`).join("")}</ul>${rest>0?`<p class="muted">І ще ${rest} у найближчі ${d.days} днів — повний перелік у розділі «Фінанси».</p>`:""}`:`<p class="muted">Найближчими ${d.days} днями оплат постачальникам за строками немає.</p>`}</section>`;
+  }
   function overview(){
     const t=totals(), real=realProducts(), current=operationTasks().filter(x=>x.status!=='done'), noPrice=real.filter(p=>priceState(p)==='none').length, stale=real.filter(p=>priceState(p)==='stale').length;
     return `<section class="panel"><div class="stats">
@@ -422,7 +458,7 @@
       <div class="stat"><div class="l">Потребують ціни</div><div class="v num">${noPrice}</div></div>
       <div class="stat"><div class="l">Поточні задачі</div><div class="v num">${current.length}</div></div>
       ${window.TSUKENYA_SERVER&&window.TSUKENYA_ROLE!=="owner"?"":`<div class="stat"><div class="l">План витрат на місяць</div><div class="v num">${money(t.fixed+t.variable)} грн</div></div>`}
-    </div></section>
+    </div></section>${debtSummaryHtml()}
     <section class="panel"><div class="row between gap-lg"><h3>Швидкі дії</h3></div><div class="quick-actions"><a href="#trade/purchases">Облік торгівлі<span>Закупівлі, склад і продажі</span></a><a href="#operations/products">Оновити каталог<span>Ціни, закупівля та націнка</span></a><a href="#operations/tags">Підготувати цінники<span>Макет, PDF і друк</span></a><a href="#operations/work">Запланувати роботу<span>Задачі та терміни</span></a></div></section>
     <section class="panel"><div class="row between gap-lg"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${noPrice?`${noPrice} товарів без ціни. Заповніть ціну перед друком.`:'У всіх товарів є ціна.'} ${stale?`${stale} товарів мають застарілу дату ціни.`:''}</p>${examplesNotice(t)}</section>
     <section class="panel"><div class="row between gap-lg"><h3>Найближчі задачі</h3><a class="btn soft" href="#operations/work">Усі поточні задачі</a></div>${current.length?current.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')).slice(0,5).map(taskRow).join(''):'<div class="empty">Поточних задач немає. Додайте першу справу магазину.</div>'}</section>`;
@@ -1410,6 +1446,7 @@
     if(a==='addTask'){const input=$('#newTask');void addInline(a,'tasks',{title:input.value.trim(),scope:'development',stage:+$('#newTaskStage').value,status:'todo',order:Date.now()},[input,$('#newTaskStage')],'Задачу додано');return;}
     if(a==="clearEx"){clearExamples();return;}
     if(a==="reloadFacts"){S.salesFacts=null;render(true);return;}
+    if(a==="reloadDebts"){S.debtSummary=null;render(true);return;}
     if(a==='addIdea'){const input=$('#newIdea');void addInline(a,'ideas',{title:input.value.trim(),text:'Ідея власника',reaction:null,order:Date.now(),byOwner:true},[input],'Ідею записано');return;}
     if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? (window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)) : S.products.filter(p=>!c||p.category===c);
       if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
@@ -1536,7 +1573,7 @@
       S.products = S.allProducts.filter(p=>!p.hidden); S.productsLoaded=true; render(); if(firstProducts) syncSetup();
     }, ()=>{});
     sub("expenses","expenses",byOrder);
-    db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;S.settingsLoaded=true;render();syncSetup(); }, ()=>{});
+    db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};if(!S.tagSaving)S.settingsRevision=s.revision;S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;S.settingsLoaded=true;render();syncSetup(); }, ()=>{});
     db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{});
   }).catch(()=>{ $("#noDb").hidden=false; });
 })();

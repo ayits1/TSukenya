@@ -171,6 +171,11 @@ def legacy_mutation(request,user,path):
             if duplicate_name(value,old,path):return response(DUPLICATE_NAME,409)
         Document.objects.update_or_create(pk=path,defaults={'data':value})
     audit(user,'catalog_changed' if col=='products' else 'legacy_changed',path,{'method':request.method})
+    if path=='settings/main':
+        # The next save chains from this version, not from a later poll that may carry another session's layout.
+        from .labels import revision as label_revision
+        saved=Document.objects.filter(pk=path).first()
+        return response({'ok':True,'id':id,'revision':label_revision(saved.data if saved else {})})
     return response({'ok':True,'id':id})
 
 @transaction.atomic
@@ -227,6 +232,8 @@ def shift_action(user,value):
         s.counted_cash=dec(value.get('counted'),'Фактична готівка')
         s.closed_at=timezone.now();s.note=str(value.get('note',''))[:4000];s.save()
         audit(user,'shift_closed',f'shift/{s.pk}',{'expected':str(s.expected_cash),'counted':str(s.counted_cash),'difference':str(s.counted_cash-s.expected_cash)})
+        # The difference is posted, so the next shift opens with the counted cash and does not inherit it.
+        post_cash_difference(user,s,s.note)
     else:
         a=get(CashAccount,value.get('account'),'Каса');scope(user,a.store)
         require(a.kind=='cash','Касову зміну можна відкрити лише для готівкового рахунку.')
@@ -436,6 +443,9 @@ def handle(request):
     if path=='/api/erp/ledger' and request.method=='GET':
         from .financial_browsing import ledger
         return response(ledger(user,request.GET))
+    if path=='/api/erp/debts/summary' and request.method=='GET':
+        from .financial_browsing import debt_summary
+        return response(debt_summary(user))
     if path=='/api/erp/debts' and request.method=='GET':
         from .financial_browsing import debts
         return response(debts(user,request.GET))

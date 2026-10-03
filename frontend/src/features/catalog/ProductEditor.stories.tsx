@@ -77,10 +77,10 @@ export const SeparatePromotionPrice: Story = {
     await userEvent.clear(cents);
     await userEvent.type(cents, '5');
     await userEvent.tab();
-    await expect(cents).toHaveValue('05');
+    await expect(cents).toHaveValue('50');
     await userEvent.click(form.getByRole('button', { name: 'Зберегти товар' }));
     await expect(args.api.save).toHaveBeenCalledWith(
-      expect.objectContaining({ price: '35', promotion: true, promotionPrice: '27.05' }),
+      expect.objectContaining({ price: '35', promotion: true, promotionPrice: '27.50' }),
       product.id,
     );
   },

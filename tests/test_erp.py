@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from django.test import TestCase, TransactionTestCase, Client
 from django.contrib.auth.models import User
@@ -235,3 +236,45 @@ class PayrollAndCashControlTests(AccountingFixture):
         self.assertEqual((zero.cost,shares[-1]),(Decimal('6.05'),Decimal('0')))
         self.assertEqual(receipt([1,2],'0.05')[1],[Decimal('0.01'),Decimal('0.04')])
         self.assertEqual(receipt([3,1],'1')[1],[Decimal('0.75'),Decimal('0.25')])
+
+class CashDifferenceTests(AccountingFixture):
+    def setUp(self):
+        super().setUp();self.cash_start();self.v('receipt',10,5)
+        self.morning=Employee.objects.create(name='Morning',store=self.store,shift_rate=300,bonus_percent=5)
+    cash_sale=PayrollAndCashControlTests.cash_sale
+    def shift(self,action,user=None,**value):
+        from server.erp.views import shift_action
+        return json.loads(shift_action(user or self.u,{'action':action,**value}).content)['id']
+    def open_till(self,employee,user=None):
+        return CashShift.objects.get(pk=self.shift('open',user,account=self.cash.pk,employee=employee.pk))
+    def test_shortage_is_posted_and_not_inherited_by_the_next_cashier(self):
+        evening=Employee.objects.create(name='Evening',store=self.store,shift_rate=300)
+        first=self.open_till(self.morning);self.cash_sale(first,5,20)
+        self.shift('close',id=first.pk,counted='1050',note='Не пробили чек')
+        posted=Voucher.objects.get(kind='cash_difference',shift=first)
+        self.assertEqual((posted.status,posted.total,posted.employee,posted.payload['direction'],posted.payload['difference']),('posted',Decimal('50.00'),self.morning,'shortage','-50.00'))
+        self.assertIn('Нестача каси за зміною',posted.note);self.assertIn('Не пробили чек',posted.note)
+        self.assertEqual(posted.cash_entries.get().amount,Decimal('-50.00'));self.assertEqual(cash_balance(self.cash),Decimal('1050.00'))
+        second=self.open_till(evening);self.assertEqual(second.opening_cash,Decimal('1050.00'))
+        self.cash_sale(second,1,10);self.shift('close',id=second.pk,counted='1060')
+        second.refresh_from_db();self.assertEqual(second.counted_cash-second.expected_cash,Decimal('0'))
+        self.assertFalse(Voucher.objects.filter(kind='cash_difference',shift=second).exists())
+        r=report(self.u,{})
+        self.assertEqual((r['cash_difference'],r['profit']),('-50.00',str(money(Decimal(r['gross_profit'])-50))))
+        self.assertEqual([(x['name'],x['shifts'],x['with_difference'],x['shortage'],x['surplus'],x['net']) for x in r['cashiers']],[('Morning',1,1,'50.00','0.00','-50.00'),('Evening',1,0,'0.00','0.00','0.00')])
+    def test_surplus_is_income_and_cashier_can_close_own_till(self):
+        cashier=User.objects.create(username='cashier');Profile.objects.create(user=cashier,role='cashier',store=self.store)
+        till=self.open_till(self.morning,cashier)
+        self.shift('close',cashier,id=till.pk,counted='1000.30')
+        posted=Voucher.objects.get(kind='cash_difference',shift=till)
+        self.assertEqual((posted.payload['direction'],posted.payload['category'],posted.total,posted.created_by),('surplus','Надлишок каси',Decimal('0.30'),cashier))
+        self.assertEqual(cash_balance(self.cash),Decimal('1000.30'));self.assertEqual(report(self.u,{})['cash_difference'],'0.30')
+    def test_difference_cannot_be_entered_or_reversed_by_hand(self):
+        till=self.open_till(self.morning);self.shift('close',id=till.pk,counted='990')
+        posted=Voucher.objects.get(kind='cash_difference')
+        with self.assertRaisesMessage(BusinessError,'проводиться автоматично'):save_voucher(self.u,{'kind':'cash_difference','store':self.store.pk,'account':self.cash.pk,'date':self.today,'amount':'10'})
+        with self.assertRaisesMessage(BusinessError,'Касову зміну вже закрито'):reverse_voucher(self.u,posted.pk,'помилка')
+    def test_closed_period_keeps_the_till_open(self):
+        till=self.open_till(self.morning);LedgerLock.objects.filter(pk=1).update(closed_through=timezone.localdate())
+        with self.assertRaisesMessage(BusinessError,'Обліковий період закритий'):self.shift('close',id=till.pk,counted='900')
+        till.refresh_from_db();self.assertIsNone(till.closed_at);self.assertFalse(Voucher.objects.filter(kind='cash_difference').exists())

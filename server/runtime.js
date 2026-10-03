@@ -77,6 +77,8 @@
       throw error;
     }
     const after = started, result = await response.json();
+    // The write's own layout version: valid even when the following read fails.
+    if (path === '/api/docs/settings/main' && typeof result?.revision === 'string') labelRevision = result.revision;
     // The server already confirmed this write. A failed read is a separate UI
     // recovery state; retrying the write could create a second document.
     await refresh(after).catch(() => {});
