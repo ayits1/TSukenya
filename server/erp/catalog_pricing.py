@@ -1,4 +1,5 @@
 """Owner-only, bounded catalogue price plans and atomic retry-safe changes."""
+from .business_audit import snapshot as audit_snapshot, change as audit_change
 import hashlib
 import hmac
 import re
@@ -154,15 +155,17 @@ def commit_pricing(request, user):
     settings = result['settings']
     if config != defaults():  # Decimal values: '30' and 30 are the same setting.
         document, _ = Document.objects.get_or_create(pk='settings/main', defaults={'data': {}})
+        before = audit_snapshot('settings', document.data)
         document.data = {**document.data, 'defaultMarkup': float(config['markup']), 'rounding': float(config['rounding'])}
         document.save()
-        audit(user, 'pricing_settings_changed', document.path, {'run': payload['idempotencyKey'], **settings})
+        audit(user, 'pricing_settings_changed', document.path, {'run': payload['idempotencyKey'], **settings, **audit_change(before, audit_snapshot('settings', document.data), observed=payload['snapshot'], reason='Масова зміна цін')})
     committed_entries = []
     for document, data, entry, record_changed in prepared:
         if record_changed:
+            before = audit_snapshot('product', document.data)
             document.data = data
             document.save()
-            audit(user, 'catalog_changed', document.path, {'method': 'PRICING', 'contract': 'v1', 'run': payload['idempotencyKey']})
+            audit(user, 'catalog_changed', document.path, {'method': 'PRICING', 'contract': 'v1', 'run': payload['idempotencyKey'], **audit_change(before, audit_snapshot('product', data), observed=payload['snapshot'], reason='Масова зміна цін')})
         committed_entries.append({'id': entry['id'], 'action': entry['action'], 'revision': revision(document, config)})
     observe_prices(user,observed,'pricing','Масова зміна цін',config=config)
     committed = {'ok': True, 'idempotencyKey': payload['idempotencyKey'], 'kind': result['kind'],

@@ -1,4 +1,5 @@
 """Read-only catalogue import plans and bounded, retry-safe atomic commits."""
+from .business_audit import snapshot as audit_snapshot, change as audit_change
 import hashlib
 import hmac
 import json
@@ -166,6 +167,7 @@ def commit_import(request, user):
     config = defaults()
     saved = []
     for entry, document, data in prepared:
+        before = audit_snapshot('product', document.data) if document is not None else None
         if document is None:
             identifier = str(uuid.uuid5(uuid.UUID(payload['idempotencyKey']), str(entry['line']))).replace('-', '_')
             path = 'products/' + identifier
@@ -177,7 +179,7 @@ def commit_import(request, user):
         document.data = data
         document.save()
         observe_prices(user,[document],'import','Імпорт товарів')
-        audit(user, 'catalog_changed', document.path, {'method': 'IMPORT', 'contract': 'v1', 'run': payload['idempotencyKey'], 'line': entry['line']})
+        audit(user, 'catalog_changed', document.path, {'method': 'IMPORT', 'contract': 'v1', 'run': payload['idempotencyKey'], 'line': entry['line'], **audit_change(before, audit_snapshot('product', data), observed=payload['snapshot'], reason='Імпорт товарів')})
         product = serialize(document, user, config)
         saved.append({'line': entry['line'], 'action': entry['action'], 'id': product['id'], 'revision': product['revision']})
     committed = {'ok': True, 'idempotencyKey': payload['idempotencyKey'], 'counts': result['counts'], 'entries': saved}

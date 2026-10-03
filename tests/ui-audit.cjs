@@ -27,6 +27,7 @@ await voucher({kind:'cash_opening',amount:1000,account:cash});
 if(process.env.QA_NATIVE_ONLY){await require('./native-work-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_BROWSE_ONLY){await require('./erp-browse-ui.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_SHIFT_BROWSE_ONLY){await require('./shift-browse-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}
+if(process.env.QA_BUSINESS_AUDIT_ONLY){await require('./business-audit-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_FINANCE_ONLY){await require('./finance-browse-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_AUTH_ONLY){await require('./auth-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_TRADE_ONLY){await require('./trade-dialog-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}

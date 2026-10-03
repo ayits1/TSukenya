@@ -1,4 +1,5 @@
 """Document posting. Decimal arithmetic and one atomic transaction per voucher."""
+from .business_audit import snapshot as audit_snapshot, change as audit_change
 from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_HALF_UP
 from datetime import date
 import hashlib
@@ -91,7 +92,8 @@ def get(model, key, label):
         raise BusinessError(f'{label}: запис не знайдено.')
 
 def audit(user, action, subject, detail=None):
-    AuditEvent.objects.create(user=user, action=action, subject=str(subject), detail=detail or {})
+    from .business_audit import context
+    AuditEvent.objects.create(user=user, action=action, subject=str(subject), detail=context(detail))
 
 def scope(user, store):
     p = user.profile
@@ -186,7 +188,7 @@ def post_cash_difference(user, shift, note=''):
     cash(v, shift.account, difference)
     v.status, v.posted_at = 'posted', timezone.now()
     v.save(update_fields=['status','posted_at'])
-    audit(user,'posted',f'voucher/{v.pk}',{'total':str(v.total),'kind':v.kind,'difference':str(difference)})
+    audit(user,'posted',f'voucher/{v.pk}',{**audit_change(None, audit_snapshot('voucher', v), reason=note or reason), 'total':str(v.total),'kind':v.kind,'difference':str(difference)})
     return v
 
 def net_total(qs):
@@ -297,6 +299,7 @@ def save_voucher(user, body, pk=None):
     require(posting_day <= timezone.localdate(), 'Документ не може бути датований майбутнім днем.')
     key = str(body.get('idempotency_key') or uuid.uuid4())
     require(len(key) <= 80, 'Некоректний ключ запиту.')
+    before = None
     if pk:
         v = get(Voucher, pk, 'Документ')
         scope(user, v.store)
@@ -305,6 +308,7 @@ def save_voucher(user, body, pk=None):
         expense_permission(user, v)
         # B06: a draft form saves only over the version it was opened from.
         require_voucher_revision(v, body.get('revision'))
+        before = audit_snapshot('voucher', v)
         v.revision += 1
     else:
         fingerprint = request_fingerprint(user, body)
@@ -471,7 +475,7 @@ def save_voucher(user, body, pk=None):
     v.lines.exclude(line_key__in=retained_lines).delete()
     from .settlements import save_allocations
     save_allocations(v, body)
-    audit(user, 'draft_saved', f'voucher/{v.pk}', {'kind':kind, **({'allocations': [{'source':r.source_id,'amount':str(r.amount)} for r in v.allocation_entries.all()]} if kind in {'payment','advance_allocation'} else {}), **({'expense_scope': expense_scope, 'old_expense_scope': old_expense_scope} if kind == 'expense' else {})})
+    audit(user, 'draft_saved', f'voucher/{v.pk}', {**audit_change(before, audit_snapshot('voucher', v), observed=body.get('revision'), reason=body.get('reason')), 'kind':kind, **({'allocations': [{'source':r.source_id,'amount':str(r.amount)} for r in v.allocation_entries.all()]} if kind in {'payment','advance_allocation'} else {}), **({'expense_scope': expense_scope, 'old_expense_scope': old_expense_scope} if kind == 'expense' else {})})
     return v
 
 def validate_reference_quantities(v):
@@ -544,6 +548,7 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     # Omitted revision keeps the explicit API 'post current' contract; browser sends its observed version.
     if expected_revision is not _UNOBSERVED_REVISION:
         require_voucher_revision(v, expected_revision)
+    before = audit_snapshot('voucher', v)
     require(not lock.closed_through or v.date > lock.closed_through, 'Обліковий період закритий.')
     require(v.store.active, 'Магазин вимкнений.')
     require_active_participants(v)
@@ -703,7 +708,7 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     v.cost = costs
     v.status, v.posted_at = 'posted', timezone.now()
     v.save()
-    audit(user,'posted',f'voucher/{v.pk}',{'total':str(v.total),'cost':str(v.cost),'kind':v.kind})
+    audit(user,'posted',f'voucher/{v.pk}',{**audit_change(before, audit_snapshot('voucher', v), observed=expected_revision), 'total':str(v.total),'cost':str(v.cost),'kind':v.kind})
     return v
 
 @transaction.atomic
@@ -718,6 +723,7 @@ def reverse_voucher(user, pk, reason):
     if v.status == 'reversed':
         return v
     require(v.status=='posted','Документ ще не проведено.')
+    before = audit_snapshot('voucher', v)
     require(not lock.closed_through or v.date>lock.closed_through,'Обліковий період закритий.')
     require(not PaymentAllocation.objects.filter(source=v,settlement__status='posted',payment__status='posted').exists(), 'Спочатку скасуйте розподіли платежів на цей документ.')
     require(not Voucher.objects.filter(reference=v,status='posted').exists(),'Спочатку скасуйте пов’язані оплати, надходження або повернення.')
@@ -745,5 +751,5 @@ def reverse_voucher(user, pk, reason):
         WorkShift.objects.filter(payroll=v).update(payroll=None,accrued=0,basis_amount=0)
     v.status,v.reversed_at='reversed',timezone.now()
     v.save(update_fields=['status','reversed_at'])
-    audit(user,'reversed',f'voucher/{v.pk}',{'reason':str(reason)[:4000]})
+    audit(user,'reversed',f'voucher/{v.pk}',audit_change(before, audit_snapshot('voucher', v), reason=reason))
     return v

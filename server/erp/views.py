@@ -1,3 +1,4 @@
+from .business_audit import snapshot as audit_snapshot, change as audit_change
 import hashlib
 import hmac
 import json
@@ -151,6 +152,8 @@ def legacy_mutation(request,user,path,create_key=None):
             path=receipt.document_path
             col,_,id=path.partition('/')
     d=Document.objects.filter(pk=path).first()
+    audit_kind = 'product' if col=='products' else 'budget' if col=='expenses' else 'settings' if path=='settings/main' else None
+    audit_before = audit_snapshot(audit_kind, d.data if d else None) if audit_kind else None
     if col=='tasks' and d is not None:
         from .task_scope import authorize_task
         authorize_task(user,d.data)
@@ -231,7 +234,9 @@ def legacy_mutation(request,user,path,create_key=None):
     if col=='products' and request.method!='DELETE':
         from .promotion_history import observe_prices
         observe_prices(user,[Document.objects.get(pk=path)],'legacy','Редагування товару')
-    audit(user,'catalog_changed' if col=='products' else 'legacy_changed',path,{'method':request.method})
+    saved = Document.objects.filter(pk=path).first() if audit_kind else None
+    audit_detail = audit_change(audit_before, audit_snapshot(audit_kind, saved.data if saved else None), observed=request.headers.get('If-Match')) if audit_kind else {}
+    audit(user,'catalog_changed' if col=='products' else 'legacy_changed',path,{'method':request.method, **audit_detail})
     if path=='settings/main':
         # The next save chains from this version, not from a later poll that may carry another session's layout.
         from .labels import revision as label_revision
@@ -249,6 +254,7 @@ def entity_save(user,name,value):
     model=allowed[name]
     obj=get(model,value['id'],'Запис') if value.get('id') else model()
     if obj.pk:require_revision(obj,value.get('revision'))
+    before = audit_snapshot('entity', obj) if obj.pk else None
     obj.name=str(value.get('name','')).strip()
     require(0<len(obj.name)<=160,'Вкажіть назву (до 160 символів).')
     if name in {'warehouses','accounts','employees'}:
@@ -279,7 +285,7 @@ def entity_save(user,name,value):
             if isinstance(prior_stores,list):
                 d.data['stores']=list(Store.objects.filter(active=True).order_by('pk').values_list('name',flat=True))
             d.save(update_fields=['data'])
-    audit(user,'entity_saved',f'{name}/{obj.pk}',{'name':obj.name})
+    audit(user,'entity_saved',f'{name}/{obj.pk}',{'name':obj.name, **audit_change(before, audit_snapshot('entity', obj), observed=value.get('revision'), reason=value.get('reason'))})
     return response({'id':obj.pk})
 
 @transaction.atomic
@@ -319,6 +325,7 @@ def work_shift_save(user,value):
     if not s.pk:require_active(e,'Працівник')
     require(not s.payroll_id,'Зміну вже включено в нарахування.')
     if s.pk:require_revision(s,value.get('revision'))
+    before = audit_snapshot('work_shift', s) if s.pk else None
     require(not s.pk or s.employee_id==e.pk and s.date==d,'Працівника та дату існуючої зміни змінити не можна.')
     s.units=dec(value.get('units',1),'Частка зміни',CENT,minimum=CENT)
     require(s.units<=10,'Завелика кількість змін.')
@@ -337,7 +344,7 @@ def work_shift_save(user,value):
     counted=WorkShift.objects.filter(employee=e,cash_shift=s.cash_shift,bonus_percent__gt=0).exclude(pk=s.pk).first() if s.cash_shift and s.bonus_percent>0 else None
     require(counted is None,f'Відсоток від виторгу касової зміни № {s.cash_shift_id} уже враховано в табелі за {counted.date.isoformat()}. Для цього дня залиште лише ставку (відсоток 0).' if counted else '')
     s.note=str(value.get('note',''))[:2000];s.full_clean();s.save()
-    audit(user,'work_shift_saved',f'work_shift/{s.pk}',{'rate':str(s.shift_rate),'percent':str(s.bonus_percent),'basis':s.bonus_basis})
+    audit(user,'work_shift_saved',f'work_shift/{s.pk}',{'rate':str(s.shift_rate),'percent':str(s.bonus_percent),'basis':s.bonus_basis, **audit_change(before, audit_snapshot('work_shift', s), observed=value.get('revision'), reason=value.get('reason'))})
     return response({'id':s.pk})
 
 def portal(request):
@@ -513,6 +520,9 @@ def handle(request):
             for rows in result.values():
                 for row in rows:row.pop('value',None)
         return response(result)
+    if path=='/api/erp/report/drilldown' and request.method=='GET':
+        from .report_drilldown import drilldown
+        return response(drilldown(user,request.GET))
     if path=='/api/erp/report' and request.method=='GET':
         require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав для фінансових звітів.')
         return response(report(user,request.GET))
@@ -563,7 +573,7 @@ def handle(request):
                 ledger_lock();v.refresh_from_db();scope(user,v.store);permission(user,v.kind);expense_permission(user,v);require(v.status=='draft','Видалити можна тільки чернетку.')
                 value=body(request)
                 if 'revision' in value:require_voucher_revision(v,value['revision'])
-                audit(user,'draft_deleted',f'voucher/{pk}');v.delete()
+                audit(user,'draft_deleted',f'voucher/{pk}',audit_change(audit_snapshot('voucher', v), None, observed=value.get('revision')));v.delete()
             return response({'ok':True})
     match=re.fullmatch('/api/erp/entities/(stores|warehouses|parties|accounts|employees)',path)
     if match and request.method=='POST':return entity_save(user,match[1],body(request))
