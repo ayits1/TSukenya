@@ -43,7 +43,10 @@ function deferred() {
 async function request(method, endpoint, value) {
   return page.evaluate(async ({ method, endpoint, value }) => {
     const session = await (await fetch('/api/v1/session')).json();
-    const response = await fetch(endpoint, { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf }, ...(value === undefined ? {} : { body: JSON.stringify(value) }) });
+    // Existing products are versioned like the browser runtime: send the current revision.
+    const product = method !== 'PUT' && endpoint.match(/^\/api\/docs\/products\/([A-Za-z0-9_-]+)$/)?.[1];
+    const revision = product ? (await (await fetch('/api/v1/catalog/products/' + product)).json()).revision : undefined;
+    const response = await fetch(endpoint, { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf, ...(revision ? { 'If-Match': revision } : {}) }, ...(value === undefined ? {} : { body: JSON.stringify(value) }) });
     const body = await response.json();
     if (!response.ok) throw new Error(`Isolated ${method} ${endpoint}: ${response.status} ${JSON.stringify(body)}`);
     return body;

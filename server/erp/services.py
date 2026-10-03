@@ -1,9 +1,9 @@
 """Document posting. Decimal arithmetic and one atomic transaction per voucher."""
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_HALF_UP
 from datetime import date
 import uuid
 from django.db import transaction
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Q
 from django.utils import timezone
 from .models import *
 
@@ -140,6 +140,7 @@ def payroll_debt(employee):
 def save_voucher(user, body, pk=None):
     lock = ledger_lock()
     kind = body.get('kind')
+    require(isinstance(kind, str), 'Некоректний тип документа.')
     permission(user, kind)
     store = get(Store, body.get('store'), 'Магазин')
     scope(user, store)
@@ -167,6 +168,7 @@ def save_voucher(user, body, pk=None):
         setattr(v, field, get(model, body[field], label) if body.get(field) else None)
     require(not v.warehouse or v.warehouse.store_id == store.pk, 'Склад належить іншому магазину.')
     require(not v.account or v.account.store_id == store.pk, 'Рахунок належить іншому магазину.')
+    require(not v.shift or v.shift.store_id == store.pk, 'Касова зміна належить іншому магазину.')
     if v.target:
         scope(user, v.target.store)
     if kind in LINE_KINDS:
@@ -222,6 +224,7 @@ def save_voucher(user, body, pk=None):
     rows = body.get('lines', [])
     if kind in LINE_KINDS:
         require(isinstance(rows,list) and 1 <= len(rows) <= 200, 'Додайте від 1 до 200 товарних рядків.')
+        require(all(isinstance(x, dict) for x in rows), 'Некоректний товарний рядок.')
         require(len({str(x.get('product')) for x in rows}) == len(rows), 'Один товар має бути в одному рядку документа. Різні партії оформлюйте окремими документами.')
         for row in rows:
             product = get(Document, 'products/'+str(row.get('product')), 'Товар')
@@ -257,9 +260,26 @@ def validate_reference_quantities(v):
         previous = VoucherLine.objects.filter(reference_line=line.reference_line, voucher__kind=v.kind, voucher__status='posted').exclude(voucher=v).aggregate(n=Sum('quantity'))['n'] or ZERO
         require(previous + line.quantity <= line.reference_line.quantity, f'{line.name}: перевищено кількість вихідного документа.')
 
+def bonus_duplicates(shift, ids=()):
+    # One cash-shift turnover may carry one employee's percent only once; another day keeps the rate only.
+    return WorkShift.objects.filter(employee_id=shift.employee_id, cash_shift_id=shift.cash_shift_id, bonus_percent__gt=0).exclude(pk=shift.pk).filter(Q(pk__in=list(ids)) | Q(payroll__status='posted'))
+
+def payroll_locked(v):
+    """Whether this sale/return changes a posted payroll basis; mirrors payroll_amount."""
+    accrued = WorkShift.objects.filter(store=v.store, payroll__status='posted')
+    # Without a cash shift a legacy percent reads every store sale/return of that day; later days also
+    # block backdating. A rate-only day does not depend on sales and never freezes trading.
+    if accrued.filter(cash_shift__isnull=True, bonus_percent__gt=0, date__gte=v.date).exists():
+        return True
+    if v.kind == 'sale':
+        return bool(v.shift_id) and accrued.filter(cash_shift_id=v.shift_id).exists()
+    source_shift = v.reference.shift_id if v.reference else None
+    return bool(source_shift) and accrued.filter(cash_shift_id=source_shift, payroll__date__gte=v.date).exists()
+
 def payroll_amount(v):
     ids = v.payload.get('shift_ids', [])
     require(isinstance(ids,list) and ids, 'Виберіть відпрацьовані зміни.')
+    require(len(ids) <= 1000 and all(type(x) is int and x > 0 for x in ids), 'Некоректний перелік відпрацьованих змін.')
     shifts = list(WorkShift.objects.filter(pk__in=ids, employee=v.employee, store=v.store, payroll__isnull=True))
     require(len(shifts) == len(set(ids)), 'Зміну вже оплачено або вона належить іншому працівнику.')
     total = ZERO
@@ -267,6 +287,7 @@ def payroll_amount(v):
         require(s.date <= v.date, 'Дата нарахування передує відпрацьованій зміні.')
         if s.cash_shift:
             require(s.cash_shift.closed_at is not None, 'Касову зміну потрібно закрити перед нарахуванням.')
+            require(not s.bonus_percent or not bonus_duplicates(s, ids).exists(), f'Зміна {s.date.isoformat()}: відсоток від виторгу касової зміни № {s.cash_shift_id} уже враховано в іншому дні цього працівника. Для повторного дня залиште лише ставку (відсоток 0).')
         sales = Voucher.objects.filter(status='posted', kind='sale', store=s.store, date=s.date)
         returns = Voucher.objects.filter(status='posted', kind='customer_return', store=s.store, date=s.date)
         if s.cash_shift:
@@ -312,17 +333,19 @@ def post_voucher(user, pk):
         warehouse_ids = [v.warehouse_id] + ([v.target_id] if v.target_id else [])
         require(not StockEntry.objects.filter(lot__warehouse_id__in=warehouse_ids, voucher__date__gt=v.date).exists(), 'Після цієї дати є складські операції. Оберіть поточну дату.')
     if v.kind in {'sale','customer_return'}:
-        require(not WorkShift.objects.filter(store=v.store, date__gte=v.date, payroll__status='posted').exists(), 'Зарплату за цей день уже нараховано. Спочатку скасуйте нарахування.')
+        require(not payroll_locked(v), 'Зарплату за цей день уже нараховано. Спочатку скасуйте нарахування.')
     lines = list(v.lines.select_related('product','reference_line'))
     costs = ZERO
     if v.kind in {'receipt','opening'}:
         extra = dec(v.payload['additional_cost']) if v.kind=='receipt' else ZERO
         base = sum((l.amount for l in lines), ZERO)
         require(not extra or base > 0, 'Додаткові витрати неможливо розподілити на товари з нульовою вартістю.')
-        remaining_extra = extra
-        for i,l in enumerate(lines):
-            allocation = remaining_extra if i==len(lines)-1 else money(extra*l.amount/base) if base else ZERO
-            remaining_extra -= allocation
+        # Proportional shares rounded down; the non-negative cent remainder goes to the largest line.
+        shares = [(extra*l.amount/base).quantize(CENT, rounding=ROUND_DOWN) if extra else ZERO for l in lines]
+        if extra:
+            largest = max(range(len(lines)), key=lambda i: lines[i].amount)
+            shares[largest] += extra - sum(shares, ZERO)
+        for l,allocation in zip(lines,shares):
             l.cost = l.amount + allocation
             incoming(v,l,l.quantity,l.cost)
             costs += l.cost
@@ -390,10 +413,10 @@ def post_voucher(user, pk):
         incoming(v,output,output.quantity,costs)
         v.payload['consumed'] = normalized
         v.total = ZERO
+    if v.kind in {'sale','customer_return'} and v.shift:
+        require(v.shift.store_id == v.store_id and not v.shift.closed_at, 'Касова зміна закрита або належить іншому магазину.')
+        require(user.profile.role != 'cashier' or v.shift.opened_by_id == user.pk, 'Касова зміна відкрита іншим касиром.')
     if v.kind == 'sale':
-        if v.shift:
-            require(v.shift.store_id == v.store_id and not v.shift.closed_at, 'Касова зміна закрита або належить іншому магазину.')
-            require(user.profile.role != 'cashier' or v.shift.opened_by_id == user.pk, 'Касова зміна відкрита іншим касиром.')
         require(v.employee is None or v.employee.store_id == v.store_id, 'Працівник належить іншому магазину.')
         fiscal = Setting.objects.filter(key='fiscal_required').first()
         require(not fiscal or fiscal.value != 'true' or v.payload['fiscal_ref'], 'Потрібен номер фіскального чека із вашого ПРРО.')
@@ -415,7 +438,10 @@ def post_voucher(user, pk):
         required_refund = max(ZERO,v.total-unpaid)
         require(refund == required_refund, f'Сума повернення коштів має бути {required_refund} грн; решта зменшує борг.')
         for p in v.payload['payments']:
-            cash(v,get(CashAccount,p['account'],'Рахунок'),-dec(p['amount']))
+            account = get(CashAccount,p['account'],'Рахунок')
+            if account.kind == 'cash':
+                require(v.shift and v.shift.account_id == account.pk, 'Для повернення готівки виберіть відкриту касову зміну цього рахунку.')
+            cash(v,account,-dec(p['amount']))
     elif v.kind == 'supplier_return':
         refund = sum((dec(p['amount']) for p in v.payload['payments']), ZERO)
         required_refund = max(ZERO, v.total-obligation(v.reference))
@@ -460,7 +486,7 @@ def reverse_voucher(user, pk, reason):
     require(not Voucher.objects.filter(reference=v,status='posted').exists(),'Спочатку скасуйте пов’язані оплати, надходження або повернення.')
     require(not v.shift or not v.shift.closed_at,'Касову зміну вже закрито. Документ цієї зміни скасовувати не можна.')
     if v.kind in {'sale','customer_return'}:
-        require(not WorkShift.objects.filter(store=v.store,date__gte=v.date,payroll__status='posted').exists(),'Спочатку скасуйте нарахування зарплати за цей день.')
+        require(not payroll_locked(v),'Спочатку скасуйте нарахування зарплати за цей день.')
     entries = list(v.stock_entries.filter(is_reversal=False).select_related('lot').order_by('-pk'))
     if entries:
         last = max(e.pk for e in entries)

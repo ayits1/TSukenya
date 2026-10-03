@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import os
 from decimal import Decimal, ROUND_CEILING
 import re
@@ -12,6 +13,7 @@ from django.http import HttpResponse, JsonResponse
 from django.db import transaction, IntegrityError
 from django.db.models import Sum, F
 from django.utils import timezone
+from django.core import signing
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import check_password, make_password
 from server.auth import LOGIN_HTML, ACCOUNT_HTML, FAVICON, hash_password, valid_password
@@ -23,6 +25,7 @@ COLLECTIONS={'tasks','ideas','products','expenses'}
 SINGLE_DOCS={'settings/main','project/state'}
 ROOT=settings.BASE_DIR
 OWNER=os.environ.get('OWNER_USERNAME','pavlo')
+DEVICE_COOKIE,DEVICE_SALT,DEVICE_AGE='ts_device','tsukenya.login-device',180*86400
 
 
 def response(value, status=200):
@@ -43,6 +46,11 @@ def user_valid(user,password):
         if stored:return valid_password(password,stored.value)
     return check_password(password,user.password)
 
+def trusted_device(request,username):
+    # OWASP device cookie: signed on a successful login, it names the user this browser already proved.
+    try:return signing.loads(request.COOKIES.get(DEVICE_COOKIE,''),salt=DEVICE_SALT,max_age=DEVICE_AGE)==username
+    except signing.BadSignature:return False
+
 def auth(request):
     require(request.portal_user is not None,'Сеанс завершився. Увійдіть знову.')
     if request.method not in {'GET','HEAD'}:
@@ -53,6 +61,8 @@ def auth(request):
 
 def owner(user):
     require(user.profile.role=='owner','Недостатньо прав. Операція доступна лише власнику.')
+
+CASHIER_PRODUCT_FIELDS={'name','type','category','pack','size','unit','barcode','regularPrice','promotion','promotionPrice','priceAt','minStock','hidden','example'}
 
 def legacy_state(user):
     from .catalog import revision, defaults, regular_price
@@ -72,9 +82,10 @@ def legacy_state(user):
                 product['regularPrice']=float(regular_price(product,catalog_config))
                 product.setdefault('promotionPrice',None)
                 if user.profile.role=='cashier':
+                    # Allow-list: legacy sync metadata such as gsBase also carries purchase cost.
+                    product={k:v for k,v in product.items() if k in CASHIER_PRODUCT_FIELDS}
                     product['price']=product['regularPrice']
                     product['manualPrice']=True
-                    product.pop('cost',None);product.pop('markup',None)
             data[col].append({'id':id,'data':product,
                              **({'permissions':task_permissions(user,d.path,product)} if col=='tasks' else {}),
                              **({'revision':revision(d,catalog_config)} if col=='products' else {})})
@@ -82,14 +93,14 @@ def legacy_state(user):
         elif d.path=='project/state' and user.profile.role=='owner':data[d.path]=d.data
     return data
 
-def validate_product(data, path=None, config=None):
+def validate_product(data, path=None, config=None, check_promotion=True):
     require(isinstance(data.get('name'),str) and 0<len(data['name'].strip())<=250,'Вкажіть назву товару (до 250 символів).')
     if 'minStock' in data:dec(data['minStock'],'Мінімальний залишок',QTY)
     if data.get('promotionPrice') is not None:
         from .catalog import regular_price
         discount=dec(data['promotionPrice'],'Акційна ціна',minimum=Decimal('.01'))
         require(discount<=Decimal('99999999.99'),'Акційна ціна завелика.')
-        if data.get('promotion'):
+        if data.get('promotion') and check_promotion:
             require(discount<regular_price(data, config),'Акційна ціна має бути меншою за звичайну.')
     barcode=str(data.get('barcode','')).strip()
     require(len(barcode)<=80,'Штрихкод задовгий.')
@@ -117,8 +128,11 @@ def legacy_mutation(request,user,path):
         from .labels import revision as label_revision
         if request.headers['If-Match'] != label_revision(d.data if d else {}):
             return response({'error':'Макет уже змінено. Оновіть дані перед повторним збереженням.','code':'revision_conflict'},409)
-    if col=='products' and d is not None and request.headers.get('If-Match'):
+    if col=='products' and d is not None:
+        # Existing products are versioned like v1; the browser runtime sends their revision.
         from .catalog import revision
+        if request.method=='PUT':return response({'error':'Товар уже існує. Оновіть дані та збережіть лише змінені поля.','code':'product_exists'},409)
+        if not request.headers.get('If-Match'):return response({'error':'Оновіть дані перед збереженням: потрібна версія товару.','code':'revision_required'},428)
         if request.headers['If-Match']!=revision(d):return response({'error':'Товар уже змінено. Оновіть дані перед повторним збереженням.','code':'revision_conflict'},409)
     if request.method=='DELETE':
         require(d is not None,'Запис не знайдено.')
@@ -137,7 +151,7 @@ def legacy_mutation(request,user,path):
             if path=='settings/main' and 'storeNames' in value:
                 from .budget import freeze_budget
                 freeze_budget(prior)
-            value={**prior,**value}
+            if col!='products':value={**prior,**value}
         if col=='tasks':
             from .task_scope import prepare_task
             value=prepare_task(user,path,value,d.data if d is not None else None)
@@ -146,14 +160,15 @@ def legacy_mutation(request,user,path):
             value=validate_expense(value)
         if path=='settings/main':
             from .budget import validate_settings
-            value=validate_settings(value)
-        if col=='products':
+            from .catalog import keep_pricing_settings
             old=d.data if d is not None else {}
-            if (bool(old.get('promotion')),old.get('promotionPrice')) != (bool(value.get('promotion')),value.get('promotionPrice')):
-                value['priceAt']=timezone.localdate().isoformat()
-            validate_product(value,path)
-            barcode=str(value.get('barcode','')).strip()
-            require(not barcode or not Document.objects.filter(path__startswith='products/').exclude(pk=path).filter(data__barcode=barcode).exists(),'Цей штрихкод уже використовується.')
+            value=keep_pricing_settings(validate_settings(value,old),old)
+        if col=='products':
+            # The v1 validator also checks barcodes and refreshes the price review date.
+            from .catalog import normalise_legacy, duplicate_name, DUPLICATE_NAME
+            old=d.data if d is not None else {}
+            value=normalise_legacy(value,old,path)
+            if duplicate_name(value,old,path):return response(DUPLICATE_NAME,409)
         Document.objects.update_or_create(pk=path,defaults={'data':value})
     audit(user,'catalog_changed' if col=='products' else 'legacy_changed',path,{'method':request.method})
     return response({'ok':True,'id':id})
@@ -247,6 +262,8 @@ def work_shift_save(user,value):
         closed=timezone.localtime(s.cash_shift.closed_at).date() if s.cash_shift.closed_at else timezone.localdate()
         require(opened<=d<=closed,'Дата табеля не відповідає касовій зміні.')
     require(s.bonus_percent==0 or s.cash_shift is not None,'Для відсотка від виторгу виберіть касову зміну.')
+    counted=WorkShift.objects.filter(employee=e,cash_shift=s.cash_shift,bonus_percent__gt=0).exclude(pk=s.pk).first() if s.cash_shift and s.bonus_percent>0 else None
+    require(counted is None,f'Відсоток від виторгу касової зміни № {s.cash_shift_id} уже враховано в табелі за {counted.date.isoformat()}. Для цього дня залиште лише ставку (відсоток 0).' if counted else '')
     s.note=str(value.get('note',''))[:2000];s.full_clean();s.save()
     audit(user,'work_shift_saved',f'work_shift/{s.pk}',{'rate':str(s.shift_rate),'percent':str(s.bonus_percent),'basis':s.bonus_basis})
     return response({'id':s.pk})
@@ -262,6 +279,9 @@ def portal(request):
         return response({'error':' '.join(exc.messages)},400)
     except IntegrityError:
         return response({'error':'Запис уже існує або використовується в обліку.'},409)
+    except (TypeError,ValueError):
+        logging.getLogger(__name__).warning('Malformed request data: %s %s',request.method,request.path,exc_info=True)
+        return response({'error':'Некоректні дані запиту.'},400)
 
 def handle(request):
     path=request.path
@@ -279,13 +299,16 @@ def handle(request):
         forwarded=request.headers.get('X-Forwarded-For','').split(',')[0].strip()
         if request.META.get('HTTP_X_FORWARDED_PROTO'):remote=forwarded or remote
         bucket_keys=[hashlib.sha256(('user:'+username).encode()).hexdigest(),hashlib.sha256(('ip:'+remote).encode()).hexdigest()]
+        # A browser that already signed in as this user skips the username-wide lockout; the IP bucket still applies.
+        trusted=trusted_device(request,username)
         now=int(time.time())
         with transaction.atomic():
-            for key in bucket_keys:
+            for key in bucket_keys[1:] if trusted else bucket_keys:
                 throttle,_=LoginThrottle.objects.get_or_create(pk=key,defaults={'until':now+900})
                 throttle=LoginThrottle.objects.select_for_update().get(pk=key)
                 if throttle.until<=now:throttle.attempts=0;throttle.until=now+900
                 if throttle.attempts>=15:return response({'error':'Забагато спроб входу. Повторіть через 15 хвилин.'},429)
+                # Reserved under the row lock for concurrent attempts; refunded below on success, so only failures count.
                 if key==bucket_keys[0]:throttle.attempts+=1
                 throttle.save()
         u=User.objects.filter(username=username,is_active=True).first()
@@ -293,13 +316,14 @@ def handle(request):
             LoginThrottle.objects.filter(pk=bucket_keys[1]).update(attempts=F('attempts')+1)
             time.sleep(.3)
             return response({'error':'Невірний логін або пароль'},401)
-        LoginThrottle.objects.filter(pk=bucket_keys[0]).delete()
+        if not trusted:LoginThrottle.objects.filter(pk=bucket_keys[0],attempts__gt=0).update(attempts=F('attempts')-1)
         LoginThrottle.objects.filter(until__lt=int(time.time())).delete()
         token,csrf=secrets.token_urlsafe(32),secrets.token_urlsafe(32)
         PortalSession.objects.filter(expires__lt=int(time.time())).delete()
         PortalSession.objects.create(user=u,token_hash=hashlib.sha256(token.encode()).hexdigest(),csrf=csrf,expires=int(time.time())+7*86400)
         result=response({'ok':True})
         result.set_cookie('ts_session',token,max_age=7*86400,httponly=True,secure=request.is_secure(),samesite='Strict')
+        result.set_cookie(DEVICE_COOKIE,signing.dumps(u.username,salt=DEVICE_SALT),max_age=DEVICE_AGE,httponly=True,secure=request.is_secure(),samesite='Strict')
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
@@ -393,7 +417,8 @@ def handle(request):
         with transaction.atomic():
             ledger_lock();product=get(Document,'products/'+str(value.get('product')),'Готовий товар')
             if value['revision']!=revision(product):return response({'error':'Товар уже змінено. Оновіть рецептуру перед повторним збереженням.','code':'revision_conflict'},409)
-            data={**product.data,'recipe':value.get('recipe',[])};validate_product(data,product.pk)
+            # A recipe never changes price terms, so an older discount does not block it.
+            data={**product.data,'recipe':value.get('recipe',[])};validate_product(data,product.pk,check_promotion=False)
             require(len({str(row.get('product')) for row in data['recipe']})==len(data['recipe']),'Інгредієнт не може повторюватись.')
             product.data=data;product.save(update_fields=['data']);audit(user,'recipe_saved',product.pk,{'recipe':data['recipe']})
             saved_revision=revision(product)

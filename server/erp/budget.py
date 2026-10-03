@@ -24,9 +24,17 @@ def freeze_budget(data):
     return data
 
 
-def validate_settings(data):
+def valid_stale_days(value):
+    return type(value) is int and 1 <= value <= 3650
+
+
+def validate_settings(data, old=None):
+    old = old or {}
     if 'budgetStores' in data:
         require(valid_count(data['budgetStores']), 'Кількість магазинів бюджету має бути цілим числом від 1 до 1000.')
+    # Label Studio reads this term; an older stored value does not block unrelated saves.
+    if 'staleDays' in data and ('staleDays' not in old or (type(data['staleDays']), data['staleDays']) != (type(old['staleDays']), old['staleDays'])):
+        require(valid_stale_days(data['staleDays']), 'Термін перевірки ціни має бути цілим числом від 1 до 3650 днів.')
     return data
 
 

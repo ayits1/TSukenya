@@ -4,15 +4,16 @@
   let csrf = "";
   let labelRevision = "";
   const listeners = new Map();
-  let loading = null;
+  let loading = null, loadingId = 0, started = 0, polled = 0;
   const roles = new Set(['owner', 'manager', 'cashier', 'warehouse', 'accountant']);
 
   function snapshot(path) {
     if (path.includes("/")) {
       const value = data[path];
-      return { exists: !!value && Object.keys(value).length > 0, data: () => structuredClone(value || {}) };
+      // `revision` is the version this snapshot shows; editors pass it back as If-Match.
+      return { exists: !!value && Object.keys(value).length > 0, data: () => structuredClone(value || {}), revision: path === "settings/main" ? labelRevision : undefined };
     }
-    return { docs: (data[path] || []).map(item => ({ id: item.id, data: () => structuredClone(item.data), permissions: () => structuredClone(item.permissions || {}) })) };
+    return { docs: (data[path] || []).map(item => ({ id: item.id, revision: item.revision, data: () => structuredClone(item.data), permissions: () => structuredClone(item.permissions || {}) })) };
   }
 
   function notify() {
@@ -22,8 +23,12 @@
     }
   }
 
-  async function refresh() {
-    if (loading) return loading;
+  // `after` is the last GET number started before a confirmed write. A GET that
+  // began earlier may predate the write, so a fresh one is chained after it.
+  async function refresh(after) {
+    if (loading && !(after >= loadingId)) return loading;
+    if (loading) return loading.catch(() => {}).then(() => refresh(after));
+    const id = loadingId = ++started;
     loading = (async () => {
       const response = await fetch("/api/state", { credentials: "same-origin", cache: "no-store" });
       if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
@@ -46,13 +51,15 @@
         message: 'Не вдалося оновити дані. Показано останній отриманий стан; повторіть оновлення.',
       } }));
       throw error;
-    }).finally(() => { loading = null; });
+    }).finally(() => { if (loadingId === id) loading = null; });
     return loading;
   }
 
-  async function mutate(method, path, value) {
+  // options.revision: the version the edit started from. Without it the latest
+  // received version is sent, which only suits immediate one-field actions.
+  async function mutate(method, path, value, options) {
     const productId=path.startsWith('/api/docs/products/')?path.slice('/api/docs/products/'.length):null;
-    const version=productId?data?.products?.find(item=>item.id===productId)?.revision:path==='/api/docs/settings/main'?labelRevision:null;
+    const version=options?.revision||(productId?data?.products?.find(item=>item.id===productId)?.revision:path==='/api/docs/settings/main'?labelRevision:null);
     const response = await fetch(path, {
       method,
       credentials: "same-origin",
@@ -60,11 +67,19 @@
       body: value === undefined ? undefined : JSON.stringify(value),
     });
     if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
-    if (!response.ok) throw new Error((await response.json()).error || "Save failed");
-    const result = await response.json();
+    if (!response.ok) {
+      const failure = await response.json().catch(() => ({}));
+      const error = new Error(typeof failure.error === "string" && failure.error ? failure.error : "Save failed");
+      // Business refusals (4xx: rights, validation, version conflict) carry a Ukrainian reason meant for people.
+      // Other failures keep the UI's own text, so English or internal details never reach it.
+      if (response.status >= 400 && response.status < 500 && error.message === failure.error) error.serverMessage = failure.error;
+      error.status = response.status;
+      throw error;
+    }
+    const after = started, result = await response.json();
     // The server already confirmed this write. A failed read is a separate UI
     // recovery state; retrying the write could create a second document.
-    await refresh().catch(() => {});
+    await refresh(after).catch(() => {});
     return result;
   }
 
@@ -73,9 +88,9 @@
     return {
       id,
       async get() { await refresh(); return snapshot(path); },
-      set(value) { return mutate("PUT", `/api/docs/${path}`, value); },
-      update(value) { return mutate("PATCH", `/api/docs/${path}`, value); },
-      delete() { return mutate("DELETE", `/api/docs/${path}`); },
+      set(value, options) { return mutate("PUT", `/api/docs/${path}`, value, options); },
+      update(value, options) { return mutate("PATCH", `/api/docs/${path}`, value, options); },
+      delete(options) { return mutate("DELETE", `/api/docs/${path}`, undefined, options); },
       onSnapshot(callback) {
         const set = listeners.get(path) || new Set(); set.add(callback); listeners.set(path, set);
         if (data) callback(snapshot(path));
@@ -110,7 +125,9 @@
     },
   };
 
-  window.TSUKENYA_REFRESH = refresh;
+  // Explicit refreshes follow writes made through other APIs (catalogue, import, pricing): a background
+  // poll that is already in flight may predate them, so it is followed by a new read instead of shared.
+  window.TSUKENYA_REFRESH = () => refresh(loading && loadingId === polled ? loadingId : undefined);
   window.TSUKENYA_SERVER = true;
   window.claude = {
     use(name) {
@@ -119,5 +136,5 @@
       return Promise.reject(new Error("Google connector is not configured on this server"));
     },
   };
-  setInterval(() => { if (!document.hidden && data) refresh().catch(() => {}); }, 5000);
+  setInterval(() => { if (!document.hidden && data && !loading) { refresh().catch(() => {}); polled = loadingId; } }, 5000);
 })();

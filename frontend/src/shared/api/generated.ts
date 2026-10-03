@@ -147,7 +147,7 @@ export interface paths {
       };
     };
     put?: never;
-    /** @description Create a product. Nonempty dictionary fields must exist in references; category must belong to type. Legacy imports retain their text compatibility. */
+    /** @description Create a product. Nonempty dictionary fields must exist in references; category must belong to type. Legacy imports retain their text compatibility. 409 `duplicate_name` when another product has the same name after trimming, collapsing spaces and ignoring case (the import matching key). */
     post: {
       parameters: {
         query?: never;
@@ -292,6 +292,7 @@ export interface paths {
     };
     put?: never;
     post?: never;
+    /** @description Delete an unused product. 400 when it is used in accounting or a recipe, 403 for roles without catalogue editing, 409 `revision_conflict` for a stale revision. */
     delete: {
       parameters: {
         query?: never;
@@ -318,18 +319,56 @@ export interface paths {
             'application/json': components['schemas']['Success'];
           };
         };
-        /** @description Revision conflict */
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
         409: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
         };
       };
     };
     options?: never;
     head?: never;
-    /** @description Changed dictionary fields must exist in references; changing type also validates category. Unchanged historical values are preserved. */
+    /** @description Changed dictionary fields must exist in references; changing type also validates category. Unchanged historical values are preserved. 409 `revision_conflict` for a stale revision; `duplicate_name` when a renamed product matches another product name after trimming, collapsing spaces and ignoring case. Existing duplicates stay editable without a rename. */
     patch: {
       parameters: {
         query?: never;
@@ -374,6 +413,15 @@ export interface paths {
         };
         /** @description Error */
         403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
           headers: {
             [name: string]: unknown;
           };
@@ -867,6 +915,7 @@ export interface components {
       size: string;
       unit: string;
       barcode: string;
+      /** @description Price review date YYYY-MM-DD, separate from purchase document dates; empty when the price was never reviewed. */
       priceAt: string;
       cost: string | null;
       markup: string | null;
@@ -908,6 +957,7 @@ export interface components {
       price?: string | null;
       manualPrice?: boolean;
       promotion?: boolean;
+      /** @description Price review date YYYY-MM-DD, separate from purchase document dates; empty when the price was never reviewed. */
       priceAt?: string;
       priceReviewed?: boolean;
       minStock?: string;
@@ -928,6 +978,7 @@ export interface components {
       price?: string | null;
       manualPrice?: boolean;
       promotion?: boolean;
+      /** @description Price review date YYYY-MM-DD, separate from purchase document dates; empty when the price was never reviewed. */
       priceAt?: string;
       priceReviewed?: boolean;
       minStock?: string;

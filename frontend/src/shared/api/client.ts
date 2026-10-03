@@ -2,6 +2,8 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    /** Stable server error code, for example `revision_conflict` or `duplicate_name`. */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -44,7 +46,11 @@ export function createApiClient({
         value && typeof value === 'object' && 'error' in value && typeof value.error === 'string'
           ? value.error
           : `Помилка запиту (${response.status}).`;
-      throw new ApiError(response.status, message);
+      const code =
+        value && typeof value === 'object' && 'code' in value && typeof value.code === 'string'
+          ? value.code
+          : undefined;
+      throw new ApiError(response.status, message, code);
     }
     try {
       return decode(value);

@@ -103,6 +103,23 @@ class LabelTests(TestCase):
         value=self.payload();value['config']['oldPrice']='yes'
         self.assertEqual(self.patch(value).status_code,400)
 
+    def legacy_settings(self,value):
+        return self.client.patch('/api/docs/settings/main',value,content_type='application/json',HTTP_IF_MATCH=self.workspace()['revision'],**self.headers)
+
+    def test_legacy_stale_days_stays_decodable_by_label_studio(self):
+        for days in [0,-1,3651,1.5,'30',True,None]:
+            self.assertEqual(self.legacy_settings({'staleDays':days}).status_code,400,days)
+        self.assertNotIn('staleDays',Document.objects.get(pk='settings/main').data)
+        self.assertEqual(self.legacy_settings({'staleDays':14}).status_code,200)
+        self.assertEqual(self.workspace()['settings']['staleDays'],14)
+        # An older invalid term reads as the default and does not block unrelated saves.
+        doc=Document.objects.get(pk='settings/main');doc.data['staleDays']=0;doc.save()
+        self.assertEqual(self.workspace()['settings']['staleDays'],30)
+        self.assertEqual(self.legacy_settings({'chainName':'Нова назва'}).status_code,200)
+        value=self.payload();value['settings']['staleDays']=30
+        self.assertEqual(self.patch(value).status_code,200)
+        self.assertEqual(Document.objects.get(pk='settings/main').data['staleDays'],30)
+
 
 class LabelConcurrencyTests(TransactionTestCase):
     def setUp(self): LabelTests.setUp(self)

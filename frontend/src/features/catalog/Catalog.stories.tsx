@@ -78,6 +78,36 @@ export const PromotionWithoutPrice: Story = {
   },
 };
 
+export const PromotionButtonNames: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // The accessible name contains the visible text (WCAG 2.5.3).
+    const active = canvas.getByRole('button', { name: 'Акція: Кава Американо' });
+    await expect(active).toHaveTextContent('Акція');
+    await expect(active).toHaveAttribute('aria-pressed', 'true');
+    // Enabling opens the editor for a promotion price, so it is not presented as a toggle.
+    const inactive = canvas.getByRole('button', {
+      name: `Без акції: ${catalogPage.items[1]!.name}`,
+    });
+    await expect(inactive).toHaveTextContent('Без акції');
+    await expect(inactive).not.toHaveAttribute('aria-pressed');
+    await expect(inactive).toHaveAttribute('aria-haspopup', 'dialog');
+  },
+};
+export const FilterOutsideCurrentFacets: Story = {
+  args: {
+    filters: { ...emptyFilters, type: 'Морозиво', category: 'Пломбір', pack: 'Ріжок' },
+    data: { ...catalogPage, items: [], total: 0 },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Товарів не знайдено')).toBeVisible();
+    // Facets no longer list the active values; the fields still show what narrows the list.
+    await expect(canvas.getByRole('combobox', { name: 'Група' })).toHaveValue('Морозиво');
+    await expect(canvas.getByRole('combobox', { name: 'Категорія' })).toHaveValue('Пломбір');
+    await expect(canvas.getByRole('combobox', { name: 'Пакування' })).toHaveValue('Ріжок');
+  },
+};
 export const PromotionAfterRegularChange: Story = {
   args: {
     data: {

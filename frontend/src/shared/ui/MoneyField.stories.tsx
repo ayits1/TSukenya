@@ -73,6 +73,26 @@ export const KeyboardAndPaste: Story = {
     await expect(canvas.getByLabelText('Збережена сума')).toHaveTextContent('21.00');
   },
 };
+export const KopecksWithoutHryvnias: Story = {
+  args: { initial: '' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const hryvnias = canvas.getByRole('textbox', { name: 'Продаж: гривні' });
+    const kopecks = canvas.getByRole('textbox', { name: 'Продаж: копійки' });
+    const amount = canvas.getByLabelText('Десяткова сума');
+    const save = canvas.getByRole('button', { name: 'Зберегти' });
+    // Kopecks without гривні are a whole amount, not an empty one the server rejects.
+    await expect(amount).toBeEmptyDOMElement();
+    await userEvent.click(hryvnias);
+    await userEvent.keyboard(',50');
+    await expect(amount).toHaveTextContent('0.50');
+    await userEvent.tab();
+    await expect(hryvnias).toHaveValue('0');
+    await expect(kopecks).toHaveValue('50');
+    await userEvent.click(save);
+    await expect(canvas.getByLabelText('Збережена сума')).toHaveTextContent('0.50');
+  },
+};
 export const Invalid: Story = {
   args: { initial: '21.999' },
   play: async ({ canvasElement }) => {

@@ -56,7 +56,7 @@ const wait=async(fn,message='Timed out')=>{for(let i=0;i<120;i++){if(await fn())
  // Snapshot change must produce an explicit review step, without silently overwriting.
  await upload('Назва;Закупівля\nQA імпорт 0;12');await button('commit').waitFor();
  const identifier=saved.data.products.find(p=>p.data.name==='QA імпорт 0').id;
- const mutation=await page.request.patch(base+'/api/docs/products/'+identifier,{headers:{Origin:base,'X-CSRF-Token':saved.csrf},data:{cost:11}});assert.equal(mutation.status(),200);
+ const mutation=await page.request.patch(base+'/api/docs/products/'+identifier,{headers:{Origin:base,'X-CSRF-Token':saved.csrf,'If-Match':saved.data.products.find(p=>p.id===identifier).revision},data:{cost:11}});assert.equal(mutation.status(),200);
  await button('commit').click();await page.getByText(/Каталог або налаштування цін уже змінено/).waitFor();assert.equal((await state()).data.products.find(p=>p.id===identifier).data.cost,11);
  await button('preview').click();await button('commit').waitFor();
  // Save and subsequent read have separate outcomes; refresh retry must not issue another POST.

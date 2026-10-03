@@ -6,11 +6,15 @@ import {
   decodeLabelConfig,
   defaultConfig,
   fieldStyle,
+  formatLabelMoney,
+  formatPer100,
   labelConfigWarnings,
   labelCopies,
   pageGeometry,
+  per100Kopecks,
   printIssues,
   tagParts,
+  withFieldStyle,
 } from './domain';
 
 const product = adaptLabelProduct({
@@ -216,5 +220,68 @@ describe('physical label domain', () => {
       'Непідтримуваний стиль: name.rotation.',
       'Непідтримуваний елемент макета: barcode.',
     ]);
+  });
+  it('saves only the edited style property, so untouched sizes keep scaling with the format', () => {
+    // A colour-only edit on 58×40 must not freeze the 22 pt price default.
+    const small = withFieldStyle(defaultConfig(), 'price', { color: '#cc0000' });
+    expect(small.styles.price).toEqual({ color: '#cc0000' });
+    const large = { ...small, size: 'l' as const };
+    expect(fieldStyle(large, 'price')).toMatchObject({ size: 36.3, color: '#cc0000' });
+    expect(fieldStyle(large, 'name').size).toBe(16.5);
+    // Each later edit is merged into the stored override, never into the computed style.
+    const edited = withFieldStyle(
+      withFieldStyle(withFieldStyle(large, 'price', { font: 'georgia' }), 'price', {
+        weight: '600',
+      }),
+      'price',
+      { align: 'center' },
+    );
+    expect(edited.styles.price).toEqual({
+      color: '#cc0000',
+      font: 'georgia',
+      weight: '600',
+      align: 'center',
+    });
+    expect(fieldStyle({ ...edited, size: 'm' }, 'price').size).toBe(27.5);
+    // An explicitly chosen size is physical and stays fixed across formats.
+    const sized = withFieldStyle(edited, 'price', { size: 30 });
+    expect(fieldStyle({ ...sized, size: 's' }, 'price').size).toBe(30);
+    expect(sized.styles.name).toBeUndefined();
+    expect(decodeLabelConfig(sized)).toEqual(sized);
+  });
+  it('derives the 100 g price from exact kopecks with half-up rounding', () => {
+    expect(per100Kopecks(100.05)).toBe(1001);
+    expect(per100Kopecks('100.05')).toBe(1001);
+    expect(per100Kopecks(12.35)).toBe(124);
+    expect(per100Kopecks(150.5)).toBe(1505);
+    expect(per100Kopecks(150)).toBe(1500);
+    expect(per100Kopecks('0.05')).toBe(1);
+    expect(per100Kopecks('0.04')).toBe(0);
+    // More precise decimals are rounded once, from the exact value: 1.23496 → 1.23, not 12.35 → 1.24.
+    expect(per100Kopecks('12.345')).toBe(123);
+    expect(per100Kopecks('12.3496')).toBe(123);
+    expect(per100Kopecks('12.355')).toBe(124);
+    expect(per100Kopecks(-1)).toBeNull();
+    expect(per100Kopecks('abc')).toBeNull();
+    expect(formatPer100(100.05)).toBe('10,01');
+    expect(formatPer100(12.35)).toBe('1,24');
+    // Same grouping as formatLabelMoney (no-break space).
+    expect(formatPer100(12345.6)).toBe('1 234,56');
+    expect(formatPer100(12345.6)).toBe(formatLabelMoney(1234.56));
+    // The float path (Math.round(price / 10 * 100) / 100) printed 10,00 and 1,23 here.
+    const kilo = (salePrice: number) =>
+      tagParts({ ...product, salePrice, promotion: false }, defaultConfig(), settings, date).per100;
+    expect(kilo(100.05)).toBe('100 г — 10,01 грн');
+    expect(kilo(12.35)).toBe('100 г — 1,24 грн');
+    expect(kilo(0)).toBe('');
+    // Every two-decimal price up to 1000 грн agrees with integer half-up division of kopecks.
+    const mismatches: number[] = [];
+    for (let kopecks = 1; kopecks <= 100_000; kopecks++) {
+      const price = Number(
+        `${Math.floor(kopecks / 100)}.${String(kopecks % 100).padStart(2, '0')}`,
+      );
+      if (per100Kopecks(price) !== Math.floor((kopecks + 5) / 10)) mismatches.push(kopecks);
+    }
+    expect(mismatches).toEqual([]);
   });
 });

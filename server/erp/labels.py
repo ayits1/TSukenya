@@ -19,8 +19,11 @@ def sign(value):
 
 
 def identity(data):
+    from .budget import valid_stale_days
     names = data.get('storeNames', [])
-    return {'chainName': str(data.get('chainName') or ''), 'storeNames': names if isinstance(names, list) else [], 'staleDays': data.get('staleDays', 30)}
+    stale = data.get('staleDays', 30)
+    # An older invalid term must not make the workspace undecodable.
+    return {'chainName': str(data.get('chainName') or ''), 'storeNames': names if isinstance(names, list) else [], 'staleDays': stale if valid_stale_days(stale) else 30}
 
 
 def revision(data):

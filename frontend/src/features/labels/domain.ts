@@ -284,6 +284,18 @@ export function fieldStyle(config: LabelConfig, key: LabelField): LabelStyle {
     align: raw.align ?? def[3],
   };
 }
+/**
+ * Store only the edited properties on top of the saved override. A computed style must not be
+ * written back: its default point size depends on the format and would stop scaling.
+ */
+export const withFieldStyle = (
+  config: LabelConfig,
+  key: LabelField,
+  patch: Partial<LabelStyle>,
+): LabelConfig => ({
+  ...config,
+  styles: { ...config.styles, [key]: { ...config.styles[key], ...patch } },
+});
 export const fieldVisible = (config: LabelConfig, key: LabelField) =>
   key === 'custom' ? config.customEnabled : config[key];
 export const formatLabelMoney = (value: number, decimals = true) =>
@@ -291,6 +303,28 @@ export const formatLabelMoney = (value: number, decimals = true) =>
     minimumFractionDigits: decimals ? 2 : 0,
     maximumFractionDigits: decimals ? 2 : 0,
   });
+/**
+ * Price of 100 g for a per-kilogram price, in kopecks, rounded half up from the exact decimal.
+ * Number → String returns the shortest decimal that round-trips, i.e. the server's decimal string,
+ * so no binary float division is involved. Returns null for negative or malformed values.
+ */
+export function per100Kopecks(price: number | string): number | null {
+  const match = /^(\d+)(?:[.,](\d+))?$/.exec(String(price).trim());
+  if (!match) return null;
+  const fraction = match[2] ?? '';
+  // price × 100 kopecks ÷ 10: keep one fraction digit in the whole part, round on the next one.
+  const digits = match[1]! + fraction;
+  const kept = digits.length - Math.max(0, fraction.length - 1);
+  const whole = Number(digits.slice(0, kept) + '0'.repeat(Math.max(0, 1 - fraction.length)));
+  return whole + (Number(digits[kept] ?? '0') >= 5 ? 1 : 0);
+}
+/** Exact kopecks as Ukrainian money text, e.g. 1001 → "10,01". */
+export const formatKopecks = (kopecks: number) =>
+  `${Math.floor(kopecks / 100).toLocaleString('uk-UA')},${String(kopecks % 100).padStart(2, '0')}`;
+export const formatPer100 = (price: number | string) => {
+  const kopecks = per100Kopecks(price);
+  return kopecks === null ? '' : formatKopecks(kopecks);
+};
 export const hasPromotionPrice = (product: LabelProduct) =>
   product.promotion && product.salePrice > 0 && (product.regularPrice ?? 0) > product.salePrice;
 const PACK_LABELS: Record<string, string> = {
@@ -319,6 +353,7 @@ export function tagParts(
   date = new Date(),
 ): Record<LabelField, string> {
   const price = product.salePrice;
+  const per100 = product.unit === 'кг' && price > 0 ? formatPer100(price) : '';
   const result: Record<LabelField, string> = {
     chain: settings.chainName,
     store: settings.storeNames[config.storeIdx] ?? '',
@@ -333,7 +368,7 @@ export function tagParts(
         : formatLabelMoney(price, config.kop || Math.abs(price - Math.round(price)) >= 0.005),
     oldPrice: hasPromotionPrice(product) ? `${formatLabelMoney(product.regularPrice!)} грн` : '',
     unit: product.unit === '100 г' ? 'грн за 100 г' : `грн за 1 ${product.unit}`,
-    per100: product.unit === 'кг' && price > 0 ? `100 г — ${formatLabelMoney(price / 10)} грн` : '',
+    per100: per100 ? `100 г — ${per100} грн` : '',
     category: product.category,
     date: date.toLocaleDateString('uk-UA'),
   };
