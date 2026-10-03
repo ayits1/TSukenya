@@ -1,4 +1,5 @@
-from datetime import timedelta
+import json
+from datetime import datetime, timedelta
 from decimal import Decimal
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -70,8 +71,38 @@ def state(user):
     entities['closed_through']=lock.closed_through
     entities['role']=user.profile.role
     entities['username']=user.username
+    if user.profile.role in {'owner','manager'}:entities['alerts_status']=alert_status()
     entities['fiscal_required']=Setting.objects.filter(key='fiscal_required',value='true').exists()
     return entities
+
+ALERT_OK_KEY,ALERT_ERROR_KEY='alerts_last_ok','alerts_last_error'
+ALERT_STALE_MINUTES=90  # Cron runs every 30 minutes: three missed runs need attention.
+ALERT_PUBLIC_ERROR='Не вдалося оновити контроль операцій. Повторіть перевірку; якщо помилка повториться, зверніться до адміністратора.'
+
+def alert_status():
+    now=timezone.now()
+    def read(key):
+        row=Setting.objects.filter(key=key).first()
+        try:
+            value=json.loads(row.value) if row else None
+            if not isinstance(value,dict) or not isinstance(value.get('at'),str) or value.get('source') not in {'manual','scheduler'}:return None
+            at=datetime.fromisoformat(value['at'])
+            if timezone.is_naive(at) or at>now:return None
+            public={'at':at.isoformat(),'source':value['source']}
+            if key==ALERT_ERROR_KEY:
+                # Sanitize old stored exceptions too: SQL and infrastructure details never reach the browser.
+                public['message']=ALERT_PUBLIC_ERROR
+                reference=value.get('reference')
+                if isinstance(reference,str) and len(reference)==12 and all(c in '0123456789abcdef' for c in reference):public['reference']=reference
+            else:
+                for field in ('active','created','resolved','reopened'):
+                    number=value.get(field)
+                    if isinstance(number,int) and not isinstance(number,bool) and number>=0:public[field]=number
+            return public,at
+        except (ValueError,TypeError,OverflowError):return None
+    ok,error=read(ALERT_OK_KEY),read(ALERT_ERROR_KEY)
+    stale=not ok or now-ok[1]>=timedelta(minutes=ALERT_STALE_MINUTES)
+    return {'ok':ok[0] if ok else None,'error':error[0] if error and (not ok or error[1]>ok[1]) else None,'stale':stale}
 
 def stock(user):
     today=timezone.localdate()
