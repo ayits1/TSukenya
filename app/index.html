@@ -302,7 +302,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const PACKS = ["Банка","ПЕТ","Скло","Стакан","Коробка","Пакет","Упаковка","Ваговий","Штучно"];
   const CUPS = ["S","M","L","XL","XXL","3XL"];
   const PRICE_LABEL = {ok:"Актуальна ціна", stale:"Застаріла ціна", none:"Немає ціни"};
-  const today = () => new Date().toISOString().slice(0,10);
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }; // місцева дата: о 00:30 за Києвом UTC ще «вчора»
   const catKey = p => p.category || NOCAT;
   const packKey = p => p.pack || NOPACK;
   const sizeKey = p => p.size || NOSIZE;
@@ -380,7 +380,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   /* CALC-START */
   // Ціни, маржа, застарілість і беззбитковість. Залежать лише від S.settings і num — їх перевіряють tests/calc.test.js.
   const defMarkup = () => S.settings.defaultMarkup ?? 30;
-  function roundPrice(x){ const r = S.settings.rounding ?? 0.5; return Math.ceil(x/r - 1e-9)*r || 0; } // || 0: без закупівлі виходить -0, а його друкують як «-0»
+  function roundPrice(x){ const r = S.settings.rounding ?? 0.5; return Math.round(Math.ceil(x/r - 1e-9)*r*100)/100 || 0; } // до копійки: інакше 1.2000000000000002; || 0: без закупівлі виходить -0
   function priceOf(p){
     if (p.manualPrice && p.price != null) return num(p.price);
     const m = p.markup ?? defMarkup();
@@ -406,6 +406,12 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     const n = ms.length, avgM = n ? ms.reduce((s,m)=>s+m,0)/n : 0, q = f => n ? ms[Math.round(f*(n-1))] : 0;
     const lo = q(0.25), hi = q(0.75), per = m => m>0 ? costs/m : 0;
     return {fixed, variable, avgM, be:per(avgM), n, total:real.length, examples:products.length-real.length, lo, hi, beLo:per(hi), beHi:per(lo)};
+  }
+  // Чи треба друкувати цінник: none — немає ціни; new — ще не друкували; changed — ціна змінилась після друку; ok — актуальний
+  function tagStatus(p){
+    const pr = priceOf(p); if (pr <= 0) return "none";
+    if (p.printedPrice == null) return "new";
+    return Math.abs(num(p.printedPrice) - pr) >= 0.005 ? "changed" : "ok";
   }
   const backupDue = (at, now = Date.now()) => { const t = at ? Date.parse(at) : NaN; return !isFinite(t) || (now-t)/864e5 >= 7; }; // нагадування про копію щотижня
   /* CALC-END */
@@ -434,9 +440,11 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (db) setDoc("settings/main", {tag:c});
   }
   function saveStores(n, ok){
-    S.settings.storeNames = n; S.settings.stores = Math.max(1, n.length);
+    // кількість магазинів (для розрахунку на магазин) лише зростає за списком назв; зменшують її у «Витратах»
+    const stores = Math.max(1, num(S.settings.stores) || 1, n.filter(x=>String(x).trim()).length);
+    S.settings.storeNames = n; S.settings.stores = stores;
     if (tab==="tags") render();
-    if (db) setDoc("settings/main", {storeNames:n, stores:Math.max(1, n.length)}, ok);
+    if (db) setDoc("settings/main", {storeNames:n, stores}, ok);
   }
   /* ---------- header + path ---------- */
   function renderPath(){
@@ -460,16 +468,31 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
 
   /* ---------- tabs ---------- */
+  // Поля, які людина почала заповнювати (змінене значення), переживають перемальовування.
+  const formKey = el => el.id ? "#"+el.id : el.dataset.newexp ? `[data-newexp="${el.dataset.newexp}"]` : "";
+  const edited = el => el.tagName==="SELECT" ? [...el.options].some(o=>o.selected!==o.defaultSelected) : el.value!==el.defaultValue;
   function render(){
     const a = document.activeElement;
     if (a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
     pending = false;
     renderPath();
     const m = $("#main");
+    const keep = [...m.querySelectorAll("input[id]:not([type=checkbox]):not([type=file]), select[id], input[data-newexp]")].filter(edited).map(el=>[formKey(el), el.value]);
     m.innerHTML = ({overview, tasks, ideas, products, tags, expenses})[tab]();
+    keep.forEach(([k, v])=>{ const el = k && m.querySelector(k); if (el) el.value = v; });
     if (tab==="tags") renderPreview();
   }
-  $("#main").addEventListener("focusout", ()=>setTimeout(()=>{ if(pending) render(); },0));
+  // Знімки бази приходять пачками (імпорт, синхронізація) — перемальовуємо раз на кадр.
+  let renderQ = 0;
+  const renderSoon = () => { if (!renderQ) renderQ = requestAnimationFrame(()=>{ renderQ = 0; render(); }); };
+  // Відкладене перемальовування — після кліку, а не між натисканням і відпусканням кнопки (інакше кнопку замінить і клік загубиться).
+  // На дотик click приходить окремо після pointerup, тому головний сигнал — сам click; pointerup — запасний, якщо кліку не було.
+  let pointer = false;
+  const afterPointer = () => { pointer = false; if (pending) render(); };
+  document.addEventListener("pointerdown", ()=>{ pointer = true; }, true);
+  document.addEventListener("click", ()=>setTimeout(afterPointer, 0));
+  document.addEventListener("pointerup", ()=>setTimeout(()=>{ if (pointer) afterPointer(); }, 400), true);
+  $("#main").addEventListener("focusout", ()=>setTimeout(()=>{ if (pending && !pointer) render(); }, 0));
   $("#tabs").addEventListener("click", e=>{
     const b = e.target.closest(".tab"); if(!b) return;
     tab = b.dataset.tab;
@@ -523,7 +546,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   /* ---------- ideas ---------- */
   function ideaCard(i){
     const r = i.reaction;
-    return `<article class="idea ${r||""}"><h3>${esc(i.title)}</h3><p class="muted">${esc(i.text)}</p>
+    return `<article class="idea ${r==="yes"||r==="no" ? r : ""}"><h3>${esc(i.title)}</h3><p class="muted">${esc(i.text)}</p>
       <div class="acts">${r ? `<span class="muted">${r==="yes"?"Беремо в роботу":"Відкладено"}</span><button class="btn soft" data-react="${i.id}" data-v="">Змінити</button>`
         : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Так, цікаво</button><button class="btn soft" data-react="${i.id}" data-v="no">Не зараз</button>`}</div></article>`;
   }
@@ -554,7 +577,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
         <td><input type="text" class="w-size" value="${esc(p.size||"")}" data-psize data-id="${p.id}" aria-label="Розмір" placeholder="—"></td>
         <td><select data-punit data-id="${p.id}" aria-label="Одиниця продажу">${unitOpts(p.unit||"шт")}</select></td>
         <td class="r"><input type="number" step="0.01" min="0" value="${num(p.cost)}" data-pf="cost" data-id="${p.id}" aria-label="Закупівля"></td>
-        <td class="r"><input type="number" step="1" value="${p.markup??defMarkup()}" data-pf="markup" data-id="${p.id}" aria-label="Націнка"></td>
+        <td class="r"><input type="number" step="1" value="${num(p.markup??defMarkup())}" data-pf="markup" data-id="${p.id}" aria-label="Націнка"></td>
         <td class="r"><input type="number" step="0.01" min="0" value="${pr}" data-pf="price" data-id="${p.id}" aria-label="Ціна продажу" title="${p.manualPrice?"Ціну задано вручну":"Ціна рахується з націнки"}"></td>
         <td class="r num">${num(p.cost)>0 ? `${money(pr-num(p.cost))} грн · ${Math.round(marginOf(p)*100)}%` : "—"}</td>
         <td>${stCell}</td>
@@ -682,7 +705,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (!list.length) return `<div class="empty">Нічого не знайдено за цими фільтрами. <button class="btn soft" data-act="fReset">Скинути фільтри</button></div>`;
     return `<div class="pick">${sortByType(list).map((p,i,arr)=>{
       const sub = (i===0||catKey(arr[i-1])!==catKey(p)||typeOf(arr[i-1])!==typeOf(p)) ? `<div class="pick-grp">${esc(catKey(p))}</div>` : "";
-      const st = priceState(p), ptxt = st==="none" ? "немає ціни" : money(priceOf(p))+" грн"+(st==="stale" ? " · застаріла" : "");
+      const st = priceState(p), ptxt = st==="none" ? "немає ціни" : money(priceOf(p))+" грн"+(st==="stale" ? " · застаріла" : "")+(tagStatus(p)==="changed" ? ` · було ${money(num(p.printedPrice))}` : "");
       const on = S.tagSel.has(p.id);
       return sub+`<div class="prow${on?" on":""}" data-row="${p.id}"><label><input type="checkbox" data-tag="${p.id}" ${on?"checked":""}><span style="flex:1">${esc(p.name)}</span><span class="num">${ptxt}</span></label><input type="number" class="qty" min="0" max="500" step="1" inputmode="numeric" data-qty="${p.id}" value="${qtyOf(p.id)}" aria-label="Скільки цінників: ${esc(p.name)}" title="Скільки цінників надрукувати"></div>`;}).join("")}</div>`;
   }
@@ -690,11 +713,29 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const syncChecks = () => document.querySelectorAll("[data-tag]").forEach(cb=>{ const on = S.tagSel.has(cb.dataset.tag); cb.checked = on; const r = cb.closest(".prow"); if (r) r.classList.toggle("on", on); const q = r && r.querySelector("[data-qty]"); if (q && document.activeElement!==q) q.value = qtyOf(cb.dataset.tag); });
   function tagCopies(){ const out = []; sortByType(selectedProducts()).forEach(p=>{ for (let i=0; i<qtyOf(p.id); i++) out.push(p); }); return out; }
   function perSheet(){ const [tw, th] = TAG_SIZES[tagCfg().size] || TAG_SIZES.s; return Math.floor((210-16)/tw) * Math.floor((297-16)/th); }
+  // Які цінники треба друкувати: ціна змінилась після останнього друку / PDF / CSV, або цінника ще не було
+  const byTagStatus = st => S.products.filter(p=>tagStatus(p)===st);
+  function reprintRow(){
+    const chg = byTagStatus("changed").length, nw = byTagStatus("new").length;
+    if (!chg && !nw) return "";
+    return `<div class="row" style="margin:8px 0 0">${chg ? `<button class="btn rasp" data-act="selTagSt" data-st="changed" title="Ціна змінилась після останнього друку, PDF чи CSV">Ціна змінилась після друку · ${chg}</button>` : ""}${nw ? `<button class="btn soft" data-act="selTagSt" data-st="new" title="Для цих товарів цінник ще не друкували з панелі">Ще без цінника · ${nw}</button>` : ""}</div>`;
+  }
+  // Запам'ятовуємо ціну, з якою надрукували цінник (без синхронізації: таблиці це поле не стосується)
+  async function markPrinted(list){
+    if (!db) return;
+    const at = today(), seen = new Set();
+    for (const p of list){
+      const pr = priceOf(p); if (seen.has(p.id) || pr <= 0 || (num(p.printedPrice)===pr && p.printedAt===at)) continue;
+      seen.add(p.id);
+      try{ await db.collection("products").doc(p.id).update({printedPrice:pr, printedAt:at}); }catch(_){}
+    }
+  }
   function tags(){
     const f = S.F.tags;
     return `<section class="panel"><h2 class="gap-lg">Цінники</h2>
       ${syncNote()}
       ${filterBar(f)}
+      ${reprintRow()}
       <div class="row" style="margin:8px 0 12px"><button class="btn soft" data-act="selShown">Вибрати всі показані</button><button class="btn soft" data-act="unselShown">Зняти показані</button><button class="btn soft" data-act="selNone">Очистити вибір</button></div>
       <div class="qbar" style="margin-bottom:8px"><span class="muted">Число праворуч від товару — скільки цінників надрукувати.</span></div>
       <div id="pickBox">${pickList(filtered(f))}</div>
@@ -746,6 +787,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     try{ window.print(); }catch(e){}
     // якщо вікно друку не відкрилося (браузер заблокував), print() повертається миттєво
     if (Date.now()-t0 < 150) toast("Якщо вікно друку не з’явилося, натисніть Ctrl+P (на Mac — Cmd+P) або скористайтеся кнопкою «Завантажити PDF».");
+    else markPrinted(selectedProducts());
   }
   /* ---------- PDF (без бібліотек: малюємо аркуші на canvas і пакуємо в PDF) ---------- */
   const PX_MM = 300/25.4, PT = 300/72;
@@ -761,7 +803,8 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       while (last.length>1 && ctx.measureText(last+"…").width > maxW) last = last.slice(0,-1);
       lines.length = maxLines-1; lines.push(last+"…");
     }
-    return lines;
+    // слово, ширше за рядок (назва без пробілів), обрізаємо — інакше воно налазить на сусідній цінник
+    return lines.map(l=>{ if (ctx.measureText(l).width <= maxW) return l; let v = l.replace(/…$/, ""); while (v.length>1 && ctx.measureText(v+"…").width > maxW) v = v.slice(0,-1); return v+"…"; });
   }
   function fscale(c){ const f=+c.font||1; return {n:f, g:+(1+(f-1)*0.35).toFixed(3), q:+(1+(f-1)*0.6).toFixed(3)}; }
   function drawTag(ctx, x, y, p, c, fx = 1){
@@ -774,6 +817,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       ctx.lineWidth = 2; ctx.strokeStyle = c.border==="solid" ? "#555" : "#999"; ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
     } else { ctx.lineWidth = 1; ctx.strokeStyle = "#eee"; ctx.strokeRect(x, y, w, h); }
     ctx.textBaseline = "top";
+    let wide = false; // щось не влазить у ширину — fitFactor зменшить шрифт
     const fit = (txt, maxW) => { let v = String(txt); if (ctx.measureText(v).width <= maxW) return v; while (v.length>1 && ctx.measureText(v+"…").width > maxW) v = v.slice(0,-1); return v+"…"; };
     // верх
     let ty = y+padY;
@@ -789,6 +833,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (t.name){
       const ns = c.nameBig ? 12.5 : 10;
       ctx.fillStyle = "#1c1c1c"; ctx.font = `600 ${pt(ns,FS.n)}px ${F}`; ty += 0.8*PX_MM;
+      if (String(t.name).split(/\s+/).some(w=>ctx.measureText(w).width > iw)) wide = true;
       wrapText(ctx, t.name, iw, 2).forEach(l=>{ ctx.fillText(l, x+padX, ty); ty += pt(ns,FS.n)*1.15; });
     }
     if (t.pack){ ctx.fillStyle = "#555"; ctx.font = `400 ${pt(7.5)}px ${F}`; ty += 0.5*PX_MM; ctx.fillText(fit(t.pack, iw), x+padX, ty); ty += pt(7.5)*1.2; }
@@ -804,11 +849,14 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (t.unit){ ctx.fillStyle = "#444"; ctx.font = `400 ${pt(8,FS.n)}px ${F}`; by -= pt(8,FS.n)*1.3; ctx.fillText(fit(t.unit, iw), x+padX, by); }
     if (t.price){
       const ps = pt(22,FS.q); by -= ps*1.02;
-      ctx.fillStyle = "#1c1c1c"; ctx.font = `700 ${ps}px ${F}`; ctx.fillText(t.price, x+padX, by);
-      if (!c.unit){ const pw = ctx.measureText(t.price).width; ctx.font = `600 ${ps*0.45}px ${F}`; ctx.fillText("грн", x+padX+pw+1*PX_MM, by+ps*0.5); }
+      ctx.fillStyle = "#1c1c1c"; ctx.font = `700 ${ps}px ${F}`;
+      const pw = Math.min(ctx.measureText(t.price).width, iw); ctx.fillText(t.price, x+padX, by, iw);
+      let full = ctx.measureText(t.price).width;
+      if (!c.unit){ ctx.font = `600 ${ps*0.45}px ${F}`; const gw = ctx.measureText("грн").width; full += 1*PX_MM + gw; ctx.fillText("грн", x+padX+pw+1*PX_MM, by+ps*0.5, Math.max(1, iw-pw-1*PX_MM)); }
+      if (full > iw) wide = true;
     }
     ctx.restore();
-    return topEnd <= by - 0.4*PX_MM;
+    return !wide && topEnd <= by - 0.4*PX_MM;
   }
   const _fitCache = new Map();
   function fitFactor(p, c){
@@ -841,7 +889,8 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
   async function makePdf(btn){
     const list = tagCopies();
-    if (!list.length || !downloads) return;
+    if (!list.length || !downloads || makePdf.busy) return; // кнопку могло перемалювати знімком бази — не запускаємо вдруге
+    makePdf.busy = true;
     const label = btn.textContent; btn.disabled = true; btn.textContent = "Готую PDF…";
     try{
       try{ const txt = "Абвгґдеєжзиіїйклмнопрстуфхцчшщьюя АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ 0123456789 ABCabc";
@@ -857,9 +906,9 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
         const blob = await new Promise(r=>cv.toBlob(r, "image/jpeg", 0.92));
         pages.push({bytes:new Uint8Array(await blob.arrayBuffer()), w:W, h:H});
       }
-      await save(`tsinnyky-${new Date().toISOString().slice(0,10)}.pdf`, pdfFromJpegs(pages));
+      if (await save(`tsinnyky-${today()}.pdf`, pdfFromJpegs(pages))) markPrinted(selectedProducts());
     }catch(e){ toast("Не вдалося зібрати PDF, спробуйте ще раз"); }
-    finally{ btn.textContent = label; renderPreview(); }
+    finally{ makePdf.busy = false; btn.textContent = label; renderPreview(); }
   }
   function csv(list){
     const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
@@ -874,7 +923,8 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   /* ---------- резервна копія ---------- */
   // Усі дані панелі одним JSON-файлом. Відновлення — через Claude в чаті (файл надсилають у чат).
   async function backupJson(btn){
-    if (!downloads || !db) return;
+    if (!downloads || !db || backupJson.busy) return;
+    backupJson.busy = true;
     const label = btn.textContent; btn.disabled = true; btn.textContent = "Збираю копію…";
     try{
       const col = async c => (await db.collection(c).get()).docs.map(x=>({id:x.id, ...x.data()}));
@@ -884,7 +934,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
         products:await col("products"), deletedProducts:await col("deletedProducts"), tasks:await col("tasks"), ideas:await col("ideas"), expenses:await col("expenses")};
       if (await save(`tsukenya-kopiia-${today()}.json`, JSON.stringify(data, null, 1))) await setDoc("settings/main", {lastBackupAt:today()});
     }catch(e){ toast("Не вдалося зібрати копію, спробуйте ще раз"); }
-    finally{ btn.disabled = false; btn.textContent = label; }
+    finally{ backupJson.busy = false; btn.disabled = false; btn.textContent = label; }
   }
   function backupPanel(){
     const at = S.settings.lastBackupAt, due = backupDue(at), has = S.allProducts.length || S.tasks.length || S.expenses.length;
@@ -994,9 +1044,17 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     return {items, skipped, dup, nNew: items.filter(i=>!i.ex).length, nUpd: items.filter(i=>i.ex).length};
   }
   /* IMPORT-END */
+  // Підсумок останнього імпорту: скільки цінників треба передрукувати
+  function importDone(){
+    const d = S.impDone; if (!d) return "";
+    const res = d.stop || (d.fail ? `Готово: ${d.ok} з ${d.total}, не вдалося ${d.fail}.` : `Готово: додано ${d.nNew}, оновлено ${d.nUpd}.`);
+    const tagsTxt = d.changed.length ? ` Ціна змінилась у ${d.changed.length} ${d.changed.length===1?"товару":"товарів"} — їхні цінники варто передрукувати.` : " Ціни на цінниках не змінились.";
+    return `<div class="notice row between" style="margin:8px 0 14px"><span>${esc(res)}${tagsTxt}</span><span class="row">${d.changed.length ? `<button class="btn rasp" data-act="impTags">Вибрати для цінників</button>` : ""}<button class="btn soft" data-act="impDoneClose">Закрити</button></span></div>`;
+  }
   function importInner(){
     const imp = S.imp, head = `<h3>Завантажити товари з Excel</h3>`;
-    if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Група, Категорія, Пакування, Об’єм / вага, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
+    if (imp && imp.busy) return `${head}<p class="muted" role="status" style="margin:10px 0">Додаю ${imp.busy.done} з ${imp.busy.total}… Не закривайте сторінку.</p>`;
+    if (!imp) return `${head}${importDone()}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Група, Категорія, Пакування, Об’єм / вага, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
       <div class="row"><button class="btn rasp" data-act="pickFile">Обрати файл</button><button class="btn soft" data-act="gsOpen" ${mcp?"":"disabled"} title="${mcp?"":"Google Drive тут ще не підключений"}">З Google Таблиці</button><button class="btn soft" data-act="tplXlsx" ${downloads?"":"disabled"}>Завантажити шаблон</button></div>${gsPanel("import")}
       <p class="muted" style="margin-top:10px">Файл не відкривається? Надішліть його в чат Claude, і я внесу товари сам.</p>`;
     if (imp.error) return `${head}<div class="warn" style="margin:10px 0 14px">${esc(imp.error)}</div>
@@ -1032,27 +1090,30 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     }
     renderImport();
   }
-  async function applyImport(btn){
+  async function applyImport(){
     if (!db) { toast("Зміни зараз не зберігаються"); return; }
+    if (!S.imp || S.imp.busy) return; // уже додаємо: повторне натискання створило б дублі
     const plan = buildPlan(), total = plan.items.length; if (!total) return;
-    btn.disabled = true; let done = 0, fail = 0, stop = "";
-    const run = it => it.ex ? db.collection("products").doc(it.ex.id).update(it.data) : db.collection("products").add(it.data);
+    const imp = S.imp; imp.busy = {done:0, total}; renderImport();
+    let done = 0, fail = 0, stop = ""; const changed = [];
+    const run = async it => it.ex ? (await db.collection("products").doc(it.ex.id).update(it.data), it.ex.id) : (await db.collection("products").add(it.data)).id;
     for (const it of plan.items){
-      btn.textContent = `Додаю ${done+1} з ${total}…`;
-      try{ await run(it); }
+      imp.busy.done = done+1; renderImport();
+      let id = null;
+      try{ id = await run(it); }
       catch(e){
         if (e && (e.code==="unavailable" || e.code==="resource_exhausted")){
           await new Promise(r=>setTimeout(r, 1200));
-          try{ await run(it); } catch(e2){ fail++; }
+          try{ id = await run(it); } catch(e2){ fail++; }
         } else if (e && e.code==="quota_exceeded"){ stop = "У базі закінчилося місце для нових товарів."; break; }
         else if (e && e.code==="invalid_argument"){ stop = "Немає прав змінювати дані."; break; }
         else fail++;
       }
+      if (id){ const before = it.ex ? priceOf(it.ex) : 0, after = priceOf(Object.assign({}, it.ex || {}, it.data)); if (after>0 && Math.abs(after-before)>=0.005) changed.push(id); }
       done++;
     }
-    const ok = done - fail;
-    S.imp = null; renderImport();
-    toast(stop || (fail ? `Готово: ${ok} з ${total}, не вдалося ${fail}` : `Готово: додано ${plan.nNew}, оновлено ${plan.nUpd}`));
+    S.imp = null; S.impDone = {ok:done-fail, total, fail, stop, nNew:plan.nNew, nUpd:plan.nUpd, changed}; renderImport();
+    toast(stop || (fail ? `Готово: ${done-fail} з ${total}, не вдалося ${fail}` : `Готово: додано ${plan.nNew}, оновлено ${plan.nUpd}`));
   }
   async function tplXlsx(){
     if (!downloads) { toast("Завантаження файлів тут недоступне"); return; }
@@ -1438,7 +1499,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       <div class="row" style="margin-top:10px"><input type="text" placeholder="Нова стаття" data-newexp="${g}" style="flex:1"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
       <div class="total"><span>Разом на місяць</span><span class="num">${money0(sum)} грн</span></div></div>`;
     return `<section class="panel"><div class="row between gap-lg"><h2>Витрати мережі на місяць</h2>
-      <label class="inl">Магазинів у мережі <input id="stores" type="number" min="1" step="1" value="${S.settings.stores||1}" style="width:70px"></label></div>
+      <label class="inl">Магазинів у мережі <input id="stores" type="number" min="1" step="1" value="${num(S.settings.stores)||1}" style="width:70px"></label></div>
       <p class="muted gap-lg">Впишіть суми за місяць на всю мережу. Зміни зберігаються, щойно ви перейдете до іншого поля.</p>
       <div class="cols">
         ${block("Постійні","Платите щомісяця, навіть якщо продажів мало",fx,"fixed",t.fixed)}
@@ -1450,7 +1511,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
 
   /* ---------- events ---------- */
   document.addEventListener("click", e=>{
-    if (S.openF && !e.target.closest(".dd")){ S.openF = null; refreshFilters(); }
+    if (S.openF && !e.target.closest(".dd")){ S.openF = null; const fx = $("#facets"); if (fx) fx.innerHTML = facetsHtml(curF()); } // фільтр не змінився — списки не чіпаємо
     const t = e.target.closest("button"); if(!t) return;
     if (t.dataset.go){ document.querySelector(`.tab[data-tab="${t.dataset.go}"]`).click(); return; }
     if (t.dataset.gsid){ gsPick(t.dataset.gsid, t.dataset.gst, t.dataset.gsu); return; }
@@ -1465,15 +1526,16 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (t.dataset.purge){ if(confirm("Видалити товар назавжди? Відновити його не вийде.")) del("products",t.dataset.purge,"Товар видалено"); return; }
     if (t.dataset.delExp){ if(confirm("Видалити статтю витрат?")) del("expenses",t.dataset.delExp); return; }
     const a = t.dataset.act;
-    if (a==="addTask"){ const v=$("#newTask").value.trim(); if(!v) return; const st=+$("#newTaskStage").value;
+    if (a==="addTask"){ const v=$("#newTask").value.trim(); if(!v) return; const st=+$("#newTaskStage").value; $("#newTask").value = "";
       add("tasks",{title:v,stage:st,status:"todo",order:Date.now()},"Задачу додано"); }
-    if (a==="addIdea"){ const v=$("#newIdea").value.trim(); if(!v) return; add("ideas",{title:v,text:"Ідея власника",reaction:"yes",order:Date.now(),byOwner:true},"Ідею записано"); }
+    if (a==="addIdea"){ const v=$("#newIdea").value.trim(); if(!v) return; $("#newIdea").value = ""; add("ideas",{title:v,text:"Ідея власника",reaction:"yes",order:Date.now(),byOwner:true},"Ідею записано"); }
     if (a==="clearEx"){ if(confirm("Прибрати всі товари-приклади?")) S.products.filter(p=>p.example).reduce((pr,p)=>pr.then(()=>del("products",p.id)),Promise.resolve()).then(()=>toast("Приклади прибрано")); }
     if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? filtered(S.F.prod) : S.products.filter(p=>!c||p.category===c);
       if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
       (async()=>{ for(const p of list) await upd("products",p.id,{markup:m,manualPrice:false,price:null,priceAt:today()}); if(!c) await setDoc("settings/main",{defaultMarkup:m}); toast("Ціни перераховано"); })(); }
     if (a==="addProd"){ const n=$("#npName").value.trim(); if(!n) return;
-      const cost=num($("#npCost").value); add("products",{name:n,type:$("#npType").value,category:$("#npCat").value.trim(),pack:$("#npPack").value||null,size:$("#npSize").value.trim()||null,unit:$("#npUnit").value,cost,markup:num($("#npMarkup").value),manualPrice:false,priceAt:cost>0?today():null,costAt:cost>0?today():null},"Товар додано"); }
+      const cost=num($("#npCost").value); add("products",{name:n,type:$("#npType").value,category:$("#npCat").value.trim(),pack:$("#npPack").value||null,size:$("#npSize").value.trim()||null,unit:$("#npUnit").value,cost,markup:num($("#npMarkup").value),manualPrice:false,priceAt:cost>0?today():null,costAt:cost>0?today():null},"Товар додано");
+      ["#npName","#npSize","#npCost"].forEach(k=>{ $(k).value = ""; }); $("#npName").focus(); }
     if (a==="selShown"){ filtered(S.F.tags).forEach(p=>S.tagSel.add(p.id)); syncChecks(); renderPreview(); }
     if (a==="unselShown"){ filtered(S.F.tags).forEach(p=>S.tagSel.delete(p.id)); syncChecks(); renderPreview(); }
     if (a==="qtyAll"){ const v = Math.max(1, Math.min(500, Math.round(num($("#qtyAll").value)))); if (!S.tagSel.size){ toast("Спершу позначте товари"); return; } S.tagSel.forEach(id=>{ S.tagQty[id] = v; }); syncChecks(); renderPreview(); toast(`Кожному вибраному — по ${v} шт`); }
@@ -1485,10 +1547,13 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (a==="addStore"){ const n = storeNames().slice(); n.push(""); saveStores(n); setTimeout(()=>{ const i = document.querySelector(`[data-store="${n.length-1}"]`); if (i) i.focus(); }, 60); }
     if (a==="delStore"){ const i = +t.dataset.i, n = storeNames().slice(), nm = n[i];
       if (nm && !confirm(`Видалити магазин «${nm}»?`)) return;
-      n.splice(i,1); const c = tagCfg(); saveStores(n, "Магазин видалено"); if (c.storeIdx >= n.length) saveTag({storeIdx:Math.max(0,n.length-1)}); }
+      n.splice(i,1); const c = tagCfg(); saveStores(n, "Магазин видалено");
+      if (i < c.storeIdx) saveTag({storeIdx:c.storeIdx-1}); else if (c.storeIdx >= n.length) saveTag({storeIdx:Math.max(0,n.length-1)}); }
     if (a==="pickFile"){ $("#impFile").click(); }
     if (a==="impCancel"){ S.imp = null; renderImport(); }
-    if (a==="impGo"){ applyImport(t); }
+    if (a==="impGo"){ S.impDone = null; applyImport(); }
+    if (a==="impDoneClose"){ S.impDone = null; renderImport(); }
+    if (a==="impTags"){ const ids = S.impDone ? S.impDone.changed : []; S.tagSel = new Set(ids); ids.forEach(id=>{ S.tagQty[id] = S.tagQty[id] || 1; }); S.F.tags = newF(); document.querySelector('.tab[data-tab="tags"]').click(); toast(`Вибрано ${ids.length} — перевірте кількість і друкуйте`); }
     if (a==="tplXlsx"){ tplXlsx(); }
     if (a==="gsOpen"){ S.gs = {mode:"import", q:"", files:null}; renderGs(); gsSearch(); }
     if (a==="gsLinkOpen"){ S.gs = {mode:"link", q:"", files:null}; renderGs(); gsSearch(); }
@@ -1497,8 +1562,9 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (a==="gsUnlink"){ if (confirm("Відключити таблицю? Товари в застосунку залишаться.")) setDoc("settings/main", {gsId:null, gsTitle:null, gsUrl:null}, "Таблицю відключено").then(()=>{ S.sync = null; }); }
     if (a==="gsSearch"){ gsSearch(); }
     if (a==="gsClose"){ S.gs = null; renderGs(); }
-    if (a==="dlCsv"){ save(`tsinnyky-${new Date().toISOString().slice(0,10)}.csv`, csv(selectedProducts())); }
-    if (a==="addExp"){ const g=t.dataset.g, inp=document.querySelector(`[data-newexp="${g}"]`), v=inp.value.trim(); if(!v) return;
+    if (a==="dlCsv"){ const list = selectedProducts(); save(`tsinnyky-${today()}.csv`, csv(list)).then(ok=>{ if (ok) markPrinted(list); }); }
+    if (a==="selTagSt"){ const ids = byTagStatus(t.dataset.st).map(p=>p.id); S.tagSel = new Set(ids); syncChecks(); renderPreview(); toast(`Вибрано ${ids.length}`); }
+    if (a==="addExp"){ const g=t.dataset.g, inp=document.querySelector(`[data-newexp="${g}"]`), v=inp.value.trim(); if(!v) return; inp.value = "";
       add("expenses",{name:v,group:g,amount:0,order:Date.now()},"Статтю додано"); }
   });
   document.addEventListener("change", e=>{
@@ -1552,20 +1618,20 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   window.claude?.use?.("mcp").then(m=>{ mcp=m; if(tab==="tags"||tab==="products") render(); syncSetup(); }).catch(()=>{});
   (window.claude?.use ? window.claude.use("db") : Promise.resolve(null)).then(d=>{
     if(!d){ $("#noDb").hidden=false; clearTimeout(noDbTimer); return; }
-    db = d; clearTimeout(noDbTimer);
+    db = d; clearTimeout(noDbTimer); $("#noDb").hidden = true;
     const byOrder = (a,b)=>(a.order??0)-(b.order??0);
     const sub = (col, key, sort) => db.collection(col).onSnapshot(s=>{
-      S[key] = s.docs.map(x=>({id:x.id, ...x.data()})).sort(sort); render();
+      S[key] = s.docs.map(x=>({id:x.id, ...x.data()})).sort(sort); renderSoon();
     }, ()=>{});
     sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
     sub("ideas","ideas",byOrder);
     db.collection("products").onSnapshot(s=>{
       S.allProducts = s.docs.map(x=>({id:x.id, ...x.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name),"uk"));
-      S.products = S.allProducts.filter(p=>!p.hidden); render();
+      S.products = S.allProducts.filter(p=>!p.hidden); renderSoon();
     }, ()=>{});
     sub("expenses","expenses",byOrder);
-    db.doc("settings/main").onSnapshot(s=>{ S.settings = s.exists ? s.data() : {}; render(); syncSetup(); }, ()=>{});
-    db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{});
+    db.doc("settings/main").onSnapshot(s=>{ S.settings = s.exists ? s.data() : {}; renderSoon(); syncSetup(); }, ()=>{});
+    db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; renderSoon(); }, ()=>{});
   }).catch(()=>{ $("#noDb").hidden=false; });
 })();
 </script>

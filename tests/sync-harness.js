@@ -25,7 +25,7 @@ const {norm, parseNum, unitNorm, packNorm} = importer();
 const sizeLabel = new Function(region("SIZE-LABEL") + "; return sizeLabel;")();
 // Блок розрахунків застосунку (CALC) з налаштуваннями settings; за замовчуванням — округлення 0,5 грн і націнка 30 %
 function calc(settings = {rounding:0.5, defaultMarkup:30}){
-  return new Function("S", "num", CALC + "; return {priceOf, marginOf, roundPrice, priceState, checkedAt, breakEven, staleDays, backupDue};")({settings}, num);
+  return new Function("S", "num", CALC + "; return {priceOf, marginOf, roundPrice, priceState, checkedAt, breakEven, staleDays, backupDue, tagStatus};")({settings}, num);
 }
 const {priceOf} = calc();
 const pj = r => { let x = r && r.payload; if (typeof x === "string"){ try{ x = JSON.parse(x); }catch(_){} } return x; };

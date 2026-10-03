@@ -75,3 +75,23 @@ test("нагадування про резервну копію — якщо ї�
   assert.equal(backupDue(ago(6), NOW), false);
   assert.equal(backupDue(ago(8), NOW), true);
 });
+
+test("округлення до копійок і 10 коп. без хвостів 1.2000000000000002", () => {
+  for (const r of [0.01, 0.1]){
+    const {priceOf} = calc({rounding:r, defaultMarkup:30});
+    for (let c = 1; c <= 200; c += 0.5) for (const m of [20, 25, 30, 35, 40]){
+      const v = priceOf({cost:c, markup:m});
+      assert.equal(v, Math.round(v*100)/100, `${c} грн + ${m}% з кроком ${r}: ${v}`);
+      assert.ok(v >= c*(1+m/100) - 1e-9, "округлення лише вгору");
+    }
+  }
+});
+
+test("цінник: ще не друкували, ціна змінилась після друку, актуальний", () => {
+  const {tagStatus} = calc();
+  assert.equal(tagStatus({manualPrice:true, price:0}), "none");
+  assert.equal(tagStatus({manualPrice:true, price:35}), "new");
+  assert.equal(tagStatus({manualPrice:true, price:35, printedPrice:35}), "ok");
+  assert.equal(tagStatus({manualPrice:true, price:39, printedPrice:35}), "changed");
+  assert.equal(tagStatus({cost:40, markup:35, printedPrice:"54"}), "ok", "54 грн = 40 + 35 %");
+});

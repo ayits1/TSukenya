@@ -3,7 +3,8 @@
   "private": true,
   "description": "Цукерня — панель власника мережі магазинів солодощів",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:ui": "node tests/ui.e2e.js"
   },
   "engines": {
     "node": ">=20"
