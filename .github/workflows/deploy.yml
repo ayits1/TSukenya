@@ -1,0 +1,65 @@
+name: Deploy to VPS
+# Manual only. Streams a `git archive` of a reviewed main commit to the VPS, where the deploy key
+# can run nothing but deploy/ci_deploy.py (forced command). Modes: status, check (dry run), release.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'status — що працює; check — пробний запуск без змін; release — реліз'
+        type: choice
+        options: [check, release, status]
+        default: check
+      ref:
+        description: 'Коміт або гілка; лише коміти, що вже є в main'
+        type: string
+        default: main
+permissions:
+  contents: read
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST || '2.28.196.21' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reviewed main commit only
+        id: commit
+        run: |
+          sha="$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$sha" origin/main || { echo "::error::$sha is not in main"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Коміт: \`$sha\` · режим: **${{ inputs.mode }}**" >> "$GITHUB_STEP_SUMMARY"
+      - name: SSH key and pinned host key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          [ -n "$DEPLOY_SSH_KEY" ] && [ -n "$DEPLOY_KNOWN_HOSTS" ] || { echo "::error::Secrets DEPLOY_SSH_KEY and DEPLOY_KNOWN_HOSTS are not set (see deploy/setup_ci_deploy.sh)"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: ${{ inputs.mode }}
+        env:
+          MODE: ${{ inputs.mode }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -o pipefail
+          ssh_vps() { ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ServerAliveInterval=30 "root@$DEPLOY_HOST" "$@"; }
+          if [ "$MODE" = status ]; then
+            ssh_vps status < /dev/null | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            git archive --format=tar.gz "$SHA" | ssh_vps "$MODE $SHA" 2>&1 | tee "$RUNNER_TEMP/out.log"
+            { echo '```'; tail -n 40 "$RUNNER_TEMP/out.log"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Remove key
+        if: always()
+        run: rm -f ~/.ssh/deploy

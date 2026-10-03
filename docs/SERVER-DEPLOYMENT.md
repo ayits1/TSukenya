@@ -20,6 +20,19 @@
 
 ## Оновлення
 
+### З GitHub Actions (основний шлях)
+
+Workflow `Deploy to VPS` (`.github/workflows/deploy.yml`) запускається лише вручну: Actions → Deploy to VPS → Run workflow, режим `status`, `check` (пробний запуск без змін) або `release`. Розгортає тільки коміти, що вже є в `main`: передає `git archive` коміту по SSH, а на VPS виконується `deploy/release.py` того самого коміту.
+
+SSH-ключ деплою на VPS обмежений примусовою командою `/usr/local/sbin/tsukenya-ci-deploy` (`deploy/ci_deploy.py`, опція `restrict`): без оболонки й переадресацій, лише `status`, `check <sha>`, `release <sha>`, і SHA має збігатися з SHA в отриманому архіві. Журнал викликів: `releases/ci-deploy.log`. Ключ хоста закріплено в секреті `DEPLOY_KNOWN_HOSTS`.
+
+Одноразове налаштування (власник репозиторію й root на VPS):
+1. На VPS: `curl -fsSL https://raw.githubusercontent.com/ayits1/TSukenya/main/deploy/setup_ci_deploy.sh | sh`. Скрипт друкує два значення.
+2. GitHub → Settings → Secrets and variables → Actions: секрети `DEPLOY_SSH_KEY` і `DEPLOY_KNOWN_HOSTS` з цими значеннями. Settings → Environments → `production`: за бажанням — обов'язкове підтвердження перед запуском.
+3. Видалити приватний ключ з VPS (`rm /root/.ssh/tsukenya_github_deploy`); відкликати доступ — видалити рядок `tsukenya-github-deploy` з `/root/.ssh/authorized_keys`.
+
+### Вручну скриптом
+
 Основний шлях з 03.10.2026: `deploy/release.py` розгортає рівно один коміт Git і записує його SHA, який показує `/health` (поле `release`).
 
 1. На робочому комп'ютері: `git fetch origin && git archive --format=tar.gz -o tsukenya-<sha>.tar.gz <sha>`; скопіювати архів у `/opt/tsukenya/releases/` на VPS. Архів GitHub «Download ZIP» не підходить: у ньому інша структура й немає SHA.
