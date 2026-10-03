@@ -430,6 +430,9 @@ def handle(request):
             product.data=data;product.save(update_fields=['data']);audit(user,'recipe_saved',product.pk,{'recipe':data['recipe']})
             saved_revision=revision(product)
         return response({'ok':True,'revision':saved_revision})
+    if path=='/api/erp/replenishment' and request.method=='GET':
+        from .replenishment import replenishment
+        return response(replenishment(user))
     if path=='/api/erp/stock' and request.method=='GET':
         require(user.profile.role in {'owner','manager','warehouse','accountant','cashier'},'Недостатньо прав.')
         result=stock(user)

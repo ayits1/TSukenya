@@ -278,3 +278,32 @@ class CashDifferenceTests(AccountingFixture):
         till=self.open_till(self.morning);LedgerLock.objects.filter(pk=1).update(closed_through=timezone.localdate())
         with self.assertRaisesMessage(BusinessError,'Обліковий період закритий'):self.shift('close',id=till.pk,counted='900')
         till.refresh_from_db();self.assertIsNone(till.closed_at);self.assertFalse(Voucher.objects.filter(kind='cash_difference').exists())
+
+class ReplenishmentTests(AccountingFixture):
+    def setUp(self):
+        # The minimum applies to every warehouse; one warehouse keeps the expectations readable.
+        super().setUp();self.other.delete()
+    def suggest(self,user=None):
+        from server.erp.replenishment import replenishment
+        return replenishment(user or self.u)
+    def test_suggests_up_to_minimum_from_last_supplier_minus_open_orders(self):
+        self.p.data['minStock']=10;self.p.save()
+        self.v('receipt',10,5);self.sale(7)
+        (group,)=self.suggest()['groups']
+        self.assertEqual((group['warehouse'],group['party'],group['party_name'],group['total']),(self.wh.pk,self.party.pk,'Supplier','35.00'))
+        self.assertEqual([(l['product'],l['quantity'],l['price'],l['available'],l['on_order']) for l in group['lines']],[('p','7.000','5.0000','3.000','0')])
+        order=self.v('purchase_order',4,5)
+        self.assertEqual(self.suggest()['groups'][0]['lines'][0]['quantity'],'3.000')
+        self.v('receipt',4,5,reference=order.pk)
+        line=self.suggest()['groups'][0]['lines'][0]
+        self.assertEqual((line['quantity'],line['available'],line['on_order']),('3.000','7.000','0'))
+        self.v('purchase_order',3,5)
+        self.assertEqual(self.suggest(),{'groups':[],'covered':1})
+    def test_unknown_or_inactive_supplier_and_rights(self):
+        Document.objects.create(path='products/new',data={'name':'Новинка','unit':'кг','minStock':'2.5'})
+        self.p.data['minStock']=20;self.p.save();self.v('receipt',10,5)
+        self.party.active=False;self.party.save()
+        groups=self.suggest()['groups']
+        self.assertEqual([(g['party'],[(l['product'],l['quantity'],l['price']) for l in g['lines']]) for g in groups],[(None,[('p','10.000','5.0000'),('new','2.500','0')])])
+        accountant=User.objects.create(username='accountant');Profile.objects.create(user=accountant,role='accountant')
+        with self.assertRaisesMessage(BusinessError,'Ваша роль не дозволяє'):self.suggest(accountant)
