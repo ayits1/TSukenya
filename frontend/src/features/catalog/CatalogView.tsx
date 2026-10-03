@@ -23,6 +23,7 @@ export function CatalogView({
   onPromotion,
   busy = false,
   message = '',
+  onReferences,
 }: {
   data: ProductPage;
   filters: Filters;
@@ -31,6 +32,7 @@ export function CatalogView({
   onPromotion: (product: Product) => void;
   busy?: boolean;
   message?: string;
+  onReferences?: () => void;
 }) {
   const change = (patch: Partial<Filters>) => onFilters({ ...filters, ...patch, page: 1 });
   const start = (data.page - 1) * data.limit;
@@ -41,6 +43,11 @@ export function CatalogView({
           <h2>Каталог товарів</h2>
           <p>Каталог, актуальні ціни та акційні пропозиції</p>
         </div>
+        {onReferences ? (
+          <Button onPress={onReferences} isDisabled={busy}>
+            Довідники
+          </Button>
+        ) : null}
         {data.canEdit ? (
           <Button variant="primary" onPress={() => onEdit()} isDisabled={busy}>
             Додати товар

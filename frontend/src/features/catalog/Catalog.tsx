@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
 import { CatalogView } from './CatalogView';
+import { ReferenceManager } from './ReferenceManager';
 import { ProductEditor } from './ProductEditor';
 import { emptyFilters, type CatalogApi, type Product, type Filters } from './api';
 import './catalog.css';
@@ -27,6 +28,7 @@ export function Catalog({
     null,
   );
   const [message, setMessage] = useState('');
+  const [managingReferences, setManagingReferences] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(filters.q), 250);
     return () => clearTimeout(timer);
@@ -112,6 +114,7 @@ export function Catalog({
       ) : null}
       <CatalogView
         data={result.data}
+        onReferences={() => setManagingReferences(true)}
         filters={filters}
         onFilters={(value) => {
           setMessage('');
@@ -126,6 +129,9 @@ export function Catalog({
         busy={result.isFetching || promotion.isPending}
         message={message}
       />
+      {managingReferences ? (
+        <ReferenceManager onClose={() => setManagingReferences(false)} onChanged={onChanged} />
+      ) : null}
       {editing ? (
         <ProductEditor
           {...editing}

@@ -27,6 +27,10 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  await page.goto(base+'/#operations/products');
  await until(async()=>await page.locator('.tk-product-table tbody tr').count()===20,'React catalogue page');
  assert(await page.evaluate(()=>!!window.ReactCatalog));console.log('React catalogue loaded');
+ if(process.env.QA_REFERENCE_MANAGEMENT_ONLY){
+  await require('./catalog-reference-management.cjs')(page, until);
+  assert.deepEqual(errors,[]);return;
+ }
  if(process.env.QA_EDITOR_NEXT_ONLY){
   await require('./catalog-editor-next.cjs')(page, until);
   assert.deepEqual(errors,[]);return;
