@@ -3,5 +3,5 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {"generate": "openapi-typescript ../../contracts/catalog.openapi.json -o ../../frontend/src/shared/api/generated.ts"},
-  "devDependencies": {"openapi-typescript": "7.13.0", "typescript": "5.9.3"}
+  "devDependencies": {"openapi-typescript": "7.13.0", "typescript": "6.0.3"}
 }
