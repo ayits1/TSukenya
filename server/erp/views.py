@@ -246,6 +246,7 @@ def shift_action(user,value):
         require(not CashShift.objects.filter(account=a,closed_at__isnull=True).exists(),'На цій касі вже відкрита зміна.')
         e=get(Employee,value['employee'],'Працівник') if value.get('employee') else None
         require(not e or e.store_id==a.store_id,'Працівник належить іншому магазину.')
+        require_active(e,'Працівник')
         s=CashShift.objects.create(account=a,store=a.store,employee=e,opened_by=user,opening_cash=cash_balance(a))
         audit(user,'shift_opened',f'shift/{s.pk}')
     return response({'id':s.pk})
@@ -259,6 +260,7 @@ def work_shift_save(user,value):
     d=day(value.get('date'));require(d<=timezone.localdate(),'Зміну не можна відмітити майбутнім днем.')
     require(not lock.closed_through or d>lock.closed_through,'Обліковий період закритий.')
     s=get(WorkShift,value['id'],'Зміна') if value.get('id') else WorkShift(employee=e,store=e.store,date=d)
+    if not s.pk:require_active(e,'Працівник')
     require(not s.payroll_id,'Зміну вже включено в нарахування.')
     if s.pk:require_revision(s,value.get('revision'))
     require(not s.pk or s.employee_id==e.pk and s.date==d,'Працівника та дату існуючої зміни змінити не можна.')

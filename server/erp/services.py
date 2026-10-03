@@ -195,6 +195,20 @@ def payroll_debt(employee):
     qs = Voucher.objects.filter(employee=employee, status='posted')
     return net_total(qs.filter(kind='payroll')) - net_total(qs.filter(kind='payroll_payment'))
 
+# B09: new commitments need active participants; returns, debt payments and payroll for worked shifts stay open to inactive ones.
+ACTIVE_PARTY_KINDS = {'sale','customer_order','purchase_order','receipt'}
+ACTIVE_EMPLOYEE_KINDS = {'sale'}
+def require_active(obj, what):
+    require(obj is None or obj.active, f'{what} «{getattr(obj, "name", "")}» неактивний: нові операції з ним заборонені. Оберіть іншого або активуйте запис.')
+
+def require_active_participants(v):
+    if v.kind in ACTIVE_PARTY_KINDS and v.party:
+        require_active(v.party, 'Постачальник' if v.party.kind == 'supplier' else 'Покупець')
+    if v.kind in ACTIVE_EMPLOYEE_KINDS:
+        require_active(v.employee, 'Працівник')
+        if v.shift:
+            require_active(v.shift.employee, 'Працівник касової зміни')
+
 @transaction.atomic
 def save_voucher(user, body, pk=None):
     lock = ledger_lock()
@@ -243,11 +257,12 @@ def save_voucher(user, body, pk=None):
     if kind == 'transfer':
         require(v.target and v.target != v.warehouse, 'Виберіть інший склад призначення.')
     if kind in {'receipt','purchase_order','supplier_return'}:
-        require(v.party and v.party.kind == 'supplier' and v.party.active, 'Виберіть постачальника.')
+        require(v.party and v.party.kind == 'supplier', 'Виберіть постачальника.')
     if kind in {'sale','customer_return','customer_order'} and v.party:
-        require(v.party.kind == 'customer' and v.party.active, 'Виберіть покупця.')
+        require(v.party.kind == 'customer', 'Виберіть покупця.')
     if kind == 'customer_order':
         require(v.party is not None, 'Виберіть покупця для замовлення.')
+    require_active_participants(v)
     if v.reference:
         require(v.reference.pk != v.pk and v.reference.store_id == store.pk, 'Пов’язаний документ належить іншому магазину.')
         require(v.reference.status == 'posted', 'Пов’язаний документ ще не проведений.')
@@ -388,6 +403,7 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
         require_voucher_revision(v, expected_revision)
     require(not lock.closed_through or v.date > lock.closed_through, 'Обліковий період закритий.')
     require(v.store.active, 'Магазин вимкнений.')
+    require_active_participants(v)
     require(not v.reference or v.reference.status == 'posted', 'Вихідний документ скасований.')
     validate_reference_quantities(v)
     if v.kind in {'customer_return','supplier_return'}:
