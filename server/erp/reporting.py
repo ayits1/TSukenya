@@ -16,16 +16,23 @@ def voucher_json(v, detail=False, *, user):
         result['outstanding'] = str(obligation(v))
     if detail:
         result['payload']=deepcopy(v.payload)
-        result['lines']=[{'id':l.pk,'product':l.product_id.split('/',1)[1],'name':l.name,'unit':l.unit,'quantity':str(l.quantity),'price':str(l.price),'amount':str(l.amount),'cost':str(l.cost),'lot':l.lot,'expiry':l.expiry.isoformat() if l.expiry else ''} for l in v.lines.all()]
+        result['lines']=[{'id':l.pk,'line_key':str(l.line_key),'reference_line':l.reference_line_id,'product':l.product_id.split('/',1)[1],'name':l.name,'unit':l.unit,'quantity':str(l.quantity),'price':str(l.price),'amount':str(l.amount),'cost':str(l.cost),'lot':l.lot,'expiry':l.expiry.isoformat() if l.expiry else ''} for l in v.lines.all()]
         for row in result['lines']:
             l = v.lines.get(pk=row['id'])
+            if v.kind == 'receipt' and v.status == 'posted':
+                from .services import receipt_source
+                source = receipt_source(l, strict=False)
+                row['origin_known'] = source is not None
+                if source:
+                    row['lot'] = source.lot.code
+                    row['expiry'] = source.lot.expiry.isoformat() if source.lot.expiry else ''
             next_kind={'purchase_order':'receipt','customer_order':'sale','sale':'customer_return','receipt':'supplier_return'}.get(v.kind)
             if next_kind:
                 used=VoucherLine.objects.filter(reference_line=l,voucher__kind=next_kind,voucher__status='posted').aggregate(n=Sum('quantity'))['n'] or ZERO
                 row['remaining']=str(l.quantity-used)
                 returned_amount=VoucherLine.objects.filter(reference_line=l,voucher__kind=next_kind,voucher__status='posted').aggregate(n=Sum('amount'))['n'] or ZERO
                 row['remaining_amount']=str(money(l.amount-returned_amount))
-        result['movements']=[{'warehouse':e.lot.warehouse_id,'product':e.lot.product_id.split('/',1)[1],'lot':e.lot.code,'quantity':str(e.quantity),'value':str(e.value),'reversal':e.is_reversal} for e in v.stock_entries.select_related('lot')]
+        result['movements']=[{'warehouse':e.lot.warehouse_id,'product':e.lot.product_id.split('/',1)[1],'lot':e.lot.code,'line':e.line_id,'quantity':str(e.quantity),'value':str(e.value),'reversal':e.is_reversal} for e in v.stock_entries.select_related('lot')]
         result['cash_movements']=[{'account':e.account_id,'amount':str(e.amount),'reversal':e.is_reversal} for e in v.cash_entries.all()]
     if user.profile.role == 'cashier':
         result.pop('cost', None)

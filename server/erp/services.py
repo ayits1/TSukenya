@@ -106,14 +106,32 @@ def ledger_lock():
 def cash_balance(account):
     return money(CashEntry.objects.filter(account=account).aggregate(n=Sum('amount'))['n'] or ZERO)
 
-def movement(v, lot, qty, value):
+def movement(v, lot, qty, value, line=None):
     lot.quantity += qty
     lot.value += value
     require(lot.quantity <= Decimal('999999999999999') and lot.value <= Decimal('9999999999999999.99'), 'Перевищено максимальний обсяг облікового залишку.')
     require(lot.quantity >= 0 and lot.value >= 0, 'Недостатньо товару для цієї операції.')
     require(lot.quantity != 0 or lot.value == 0, 'Неузгоджений залишок партії.')
     lot.save(update_fields=['quantity','value'])
-    StockEntry.objects.create(voucher=v, lot=lot, quantity=qty, value=value)
+    StockEntry.objects.create(voucher=v, lot=lot, quantity=qty, value=value, line=line if line and line.pk else None)
+
+def receipt_source(line, *, strict=True):
+    """Exact received line; old unannotated movements are accepted only when unambiguous."""
+    entries = line.voucher.stock_entries.filter(quantity__gt=0, is_reversal=False).select_related('lot')
+    annotated = list(entries.filter(line=line))
+    if annotated:
+        if len(annotated) != 1:
+            require(not strict, 'Рядок надходження має неоднозначне походження партії.')
+            return None
+        return annotated[0]
+    if line.voucher.lines.filter(product=line.product).count() != 1:
+        require(not strict, 'Історична партія не має однозначного рядка походження.')
+        return None
+    legacy = list(entries.filter(line__isnull=True, lot__product=line.product))
+    if len(legacy) > 1:
+        require(not strict, 'Історична партія не має однозначного руху походження.')
+        return None
+    return legacy[0] if legacy else None
 
 def incoming(v, line, quantity, value, warehouse=None, code=None, expiry=None):
     wh = warehouse or v.warehouse
@@ -121,7 +139,7 @@ def incoming(v, line, quantity, value, warehouse=None, code=None, expiry=None):
     expiry = expiry if expiry is not None else line.expiry
     lot, _ = StockLot.objects.get_or_create(warehouse=wh, product=line.product, code=code, defaults={'expiry': expiry})
     require(lot.expiry == expiry, 'Термін придатності цієї партії вже відрізняється. Вкажіть інший номер партії.')
-    movement(v, lot, quantity, value)
+    movement(v, lot, quantity, value, line)
     return lot
 
 def outgoing(v, line, quantity, *, allow_expired=False):
@@ -135,7 +153,7 @@ def outgoing(v, line, quantity, *, allow_expired=False):
             continue
         take = min(remaining, lot.quantity)
         value = lot.value if take == lot.quantity else money(lot.value * take / lot.quantity)
-        movement(v, lot, -take, -value)
+        movement(v, lot, -take, -value, line)
         total += value
         consumed.append((lot, take, value))
         remaining -= take
@@ -359,47 +377,99 @@ def save_voucher(user, body, pk=None):
     if kind not in LINE_KINDS:
         v.total = dec(body.get('amount',0), minimum=ZERO if kind=='payroll' else CENT)
     v.save()
-    v.lines.all().delete()
+    existing_lines = {str(line.line_key): line for line in v.lines.all()}
+    retained_lines = set()
     rows = body.get('lines', [])
     if kind in LINE_KINDS:
         require(isinstance(rows,list) and 1 <= len(rows) <= 200, 'Додайте від 1 до 200 товарних рядків.')
         require(all(isinstance(x, dict) for x in rows), 'Некоректний товарний рядок.')
-        require(len({str(x.get('product')) for x in rows}) == len(rows), 'Один товар має бути в одному рядку документа. Різні партії оформлюйте окремими документами.')
+        if kind not in {'receipt', 'opening', 'supplier_return'}:
+            require(len({str(x.get('product')) for x in rows}) == len(rows), 'Один товар має бути в одному рядку цього документа.')
+        require(all(row.get('expiry') is None or isinstance(row.get('expiry'), str) for row in rows), 'Некоректний термін придатності рядка.')
+        if kind in {'receipt', 'opening'}:
+            identities = [(str(row.get('product')), str(row.get('lot') or '').strip(), (row.get('expiry') or '') if not str(row.get('lot') or '').strip() else '') for row in rows]
+            require(len(set(identities)) == len(rows), 'Рядки одного товару повинні мати різні партії або терміни придатності.')
         for row in rows:
             product = get(Document, 'products/'+str(row.get('product')), 'Товар')
             quantity = dec(row.get('quantity'), 'Кількість', QTY, minimum=ZERO if kind=='inventory' else QTY)
             price = dec(row.get('price',0), 'Ціна', Decimal('.0001'))
+            lot_code = str(row.get('lot') or '').strip()
+            require(len(lot_code) <= 80, 'Номер партії має містити не більше 80 символів.')
+            source_id = row.get('reference_line')
+            if source_id == '':
+                source_id = None  # Empty hidden input is an absent source in legacy form serialization.
+            if source_id is not None:
+                text = str(source_id)
+                require(type(source_id) in {int, str} and text.isascii() and text.isdigit() and len(text) <= 19,
+                        'Некоректний рядок вихідного документа.')
+                source_id = int(text)
+                require(0 < source_id <= 9223372036854775807, 'Некоректний рядок вихідного документа.')
+                require(v.reference and kind in ref_types, 'Рядок походження потребує відповідного вихідного документа.')
             expiry = day(row['expiry']) if row.get('expiry') else None
             require(kind not in {'sale','customer_order'} or price > 0, 'Вкажіть ненульову ціну продажу.')
             require(kind != 'inventory' or not row.get('lot'), 'Інвентаризація рахує повний залишок товару, без вибору окремої партії.')
             amount = money(quantity * price)
             ref_line = None
             if v.reference and kind in ref_types:
-                ref_line = v.reference.lines.filter(product=product).first()
-                require(ref_line is not None, 'Товар відсутній у вихідному документі.')
+                candidates = v.reference.lines.filter(product=product)
+                if source_id is not None:
+                    ref_line = candidates.filter(pk=source_id).first()
+                else:
+                    require(candidates.count() <= 1, 'Товар має кілька партій у вихідному документі. Виберіть конкретний рядок.')
+                    ref_line = candidates.first()
+                require(ref_line is not None, 'Товар або рядок відсутній у вихідному документі.')
                 if kind in {'customer_return','supplier_return'}:
                     price = ref_line.price
                     amount = money(quantity * price)
             require(amount <= Decimal('99999999999999.99'), 'Сума рядка перевищує допустиме значення.')
-            line = VoucherLine.objects.create(voucher=v, product=product, name=str(product.data.get('name',''))[:250], unit=str(product.data.get('unit','шт'))[:30], quantity=quantity, price=price, amount=amount, lot=str(row.get('lot',''))[:80], expiry=expiry, reference_line=ref_line)
+            sent_key = row.get('line_key')
+            if not sent_key:
+                matches = [l for l in existing_lines.values() if l.product_id == product.pk and str(l.line_key) not in retained_lines]
+                if len(matches) == 1 and sum(str(r.get('product')) == str(row.get('product')) for r in rows) == 1:
+                    sent_key = str(matches[0].line_key)
+            try:
+                line_key = uuid.UUID(str(sent_key)) if sent_key else uuid.uuid4()
+            except (ValueError, TypeError, AttributeError):
+                raise BusinessError('Некоректний ідентифікатор товарного рядка.')
+            require(str(line_key) not in retained_lines, 'Ідентифікатор товарного рядка повторюється.')
+            line = existing_lines.get(str(line_key))
+            require(line is not None or not VoucherLine.objects.filter(line_key=line_key).exists(), 'Товарний рядок належить іншому документу.')
+            if line is None:
+                line = VoucherLine(voucher=v, line_key=line_key)
+            line.product, line.name, line.unit = product, str(product.data.get('name',''))[:250], str(product.data.get('unit','шт'))[:30]
+            line.quantity, line.price, line.amount = quantity, price, amount
+            line.lot, line.expiry, line.reference_line = lot_code, expiry, ref_line
+            if kind == 'supplier_return':
+                source = receipt_source(ref_line)
+                require(source is not None, 'Партію вихідного надходження не знайдено.')
+                require(not line.lot or line.lot == source.lot.code, 'Повернення має стосуватись партії вихідного рядка.')
+                line.lot, line.expiry = source.lot.code, source.lot.expiry
+            line.save()
+            retained_lines.add(str(line_key))
             v.total += line.amount
+        v.lines.exclude(line_key__in=retained_lines).delete()
+        if kind == 'supplier_return':
+            refs = list(v.lines.values_list('reference_line_id', flat=True))
+            require(len(set(refs)) == len(refs), 'Кожну отриману партію додавайте одним рядком повернення.')
         if kind == 'customer_order':
             apply_discounts(user, v)
         if kind == 'receipt':
             v.total += dec(v.payload['additional_cost'])
         require(v.total <= Decimal('99999999999999.99'), 'Сума документа перевищує допустиме значення.')
         v.save(update_fields=['total'])
+    v.lines.exclude(line_key__in=retained_lines).delete()
     audit(user, 'draft_saved', f'voucher/{v.pk}', {'kind':kind, **({'expense_scope': expense_scope, 'old_expense_scope': old_expense_scope} if kind == 'expense' else {})})
     return v
 
 def validate_reference_quantities(v):
     if not v.reference:
         return
-    for line in v.lines.all():
-        if not line.reference_line:
-            continue
-        previous = VoucherLine.objects.filter(reference_line=line.reference_line, voucher__kind=v.kind, voucher__status='posted').exclude(voucher=v).aggregate(n=Sum('quantity'))['n'] or ZERO
-        require(previous + line.quantity <= line.reference_line.quantity, f'{line.name}: перевищено кількість вихідного документа.')
+    requested = v.lines.exclude(reference_line=None).values('reference_line').annotate(quantity=Sum('quantity'))
+    for row in requested:
+        original = v.reference.lines.get(pk=row['reference_line'])
+        previous = VoucherLine.objects.filter(reference_line=original, voucher__kind=v.kind, voucher__status='posted').exclude(voucher=v).aggregate(n=Sum('quantity'))['n'] or ZERO
+        require(previous + row['quantity'] <= original.quantity, f'{original.name}: перевищено кількість вихідного документа.')
+
 
 def bonus_duplicates(shift, ids=()):
     # One cash-shift turnover may carry one employee's percent only once; another day keeps the rate only.
@@ -502,17 +572,18 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     elif v.kind in {'sale','writeoff','supplier_return','transfer'}:
         for l in lines:
             if v.kind == 'supplier_return':
-                source=v.reference.stock_entries.filter(lot__product=l.product,quantity__gt=0,is_reversal=False).select_related('lot').first()
+                source = receipt_source(l.reference_line)
                 require(source is not None, 'Партію вихідного надходження не знайдено.')
                 require(not l.lot or l.lot==source.lot.code,'Повернення має стосуватись партії вихідного надходження.')
                 l.lot=source.lot.code
+                l.expiry=source.lot.expiry
             l.cost, consumed = outgoing(v,l,l.quantity,allow_expired=v.kind in {'writeoff','supplier_return','transfer'})
             if v.kind == 'transfer':
                 for lot,qty,value in consumed:
                     # Prefix includes the source warehouse: lot codes cannot collide across warehouses.
                     incoming(v,l,qty,value,warehouse=v.target,code=f'W{v.warehouse_id}:{lot.pk}',expiry=lot.expiry)
             costs += l.cost
-            l.save(update_fields=['cost'])
+            l.save(update_fields=['cost','lot','expiry'])
     elif v.kind == 'customer_return':
         for l in lines:
             ref = l.reference_line
@@ -650,7 +721,7 @@ def reverse_voucher(user, pk, reason):
             lot.quantity -= e.quantity
             lot.value -= e.value
             lot.save(update_fields=['quantity','value'])
-            StockEntry.objects.create(voucher=v,lot=lot,quantity=-e.quantity,value=-e.value,is_reversal=True)
+            StockEntry.objects.create(voucher=v,lot=lot,quantity=-e.quantity,value=-e.value,is_reversal=True,line_id=e.line_id)
     for entry in v.cash_entries.filter(is_reversal=False).select_related('account'):
         scope(user,entry.account.store)
         require(cash_balance(entry.account)-entry.amount>=0,'Скасування призведе до від’ємного залишку коштів.')
