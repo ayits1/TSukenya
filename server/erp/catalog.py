@@ -261,6 +261,12 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
         if key in value:
             require(isinstance(value[key], str) and len(value[key].strip()) <= maximum, f'{key}: некоректний текст.')
             data[key] = value[key].strip()
+    def guard_unit():
+        # Give the accounting constraint before an unrelated picker error, and recheck canonical aliases.
+        if old.get('name') and (data.get('unit') or 'шт') != (old.get('unit') or 'шт'):
+            reason = unit_in_use(path, old)
+            require(reason is None, f'Одиницю обліку «{old.get("unit") or "шт"}» змінити не можна: {reason}. Для іншої фасовки створіть окремий товар.')
+    guard_unit()
     from .catalog_references import reference_records
     references = reference_records() if references is None and (validate_references or bind_references) else references
     if validate_references:
@@ -306,10 +312,7 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
     from .catalog_references import bind_reference_fields
     if bind_references and (data != old or not old.get('name')):
         bind_reference_fields(data, old, references=references)
-    # B03: existing lots and posted lines keep the old unit, so a used product cannot silently relabel them.
-    if old.get('name') and (data.get('unit') or 'шт') != (old.get('unit') or 'шт'):
-        reason = unit_in_use(path, old)
-        require(reason is None, f'Одиницю обліку «{old.get("unit") or "шт"}» змінити не можна: {reason}. Для іншої фасовки створіть окремий товар.')
+    guard_unit()
     return data
 
 
