@@ -1,0 +1,13 @@
+{
+  "name": "tsukenya",
+  "private": true,
+  "description": "Цукерня — панель власника мережі магазинів солодощів",
+  "scripts": {
+    "test": "node --test",
+    "test:ui": "node tests/ui.e2e.js",
+    "check": "npm test && npm run test:ui"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

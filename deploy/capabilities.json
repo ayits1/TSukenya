@@ -1,0 +1,10 @@
+{
+  "db": {},
+  "downloads": true,
+  "mcp": {
+    "servers": [
+      {"server": "Google Drive", "tools": ["search_files", "download_file_content", "create_file"]},
+      {"server": "Google Sheets", "tools": ["get_values", "update_values", "batch_clear_values"]}
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+name: Перевірки
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    name: Тести (синхронізація, розрахунки, імпорт, правила артефакту)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  ui:
+    name: Перевірки в браузері
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm i --no-save playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
