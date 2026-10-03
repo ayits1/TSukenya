@@ -652,7 +652,7 @@ function StudioWorkspace({
       }}
       previewProduct={previewProduct}
       previewProducts={suggestions.data?.items.map(toLabel) || []}
-      previewLoading={suggestions.isFetching}
+      previewLoading={suggestions.isFetching || previewQuery !== previewSearch}
       onPreviewProductChange={(id) => {
         const product =
           suggestions.data?.items.find((product) => product.id === id) ||

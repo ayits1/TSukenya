@@ -9,6 +9,7 @@ import {
   ListBoxItem,
   Text,
   FieldError,
+  useFilter,
 } from 'react-aria-components';
 import type { ComboBoxProps } from 'react-aria-components';
 import type { Choice } from './Select';
@@ -29,7 +30,7 @@ type Search =
       search: 'server';
       /** Committed option, kept so the input shows its label while it is absent from results. */
       selectedOption?: Choice | null;
-      /** The server has not answered for the current text yet. */
+      /** The server has not answered for the current text yet (including a pending debounce). */
       isLoading?: boolean;
     };
 type Props = Omit<
@@ -55,13 +56,17 @@ export function ComboBox({
   ...props
 }: Props) {
   const server = search === 'server';
+  const { contains } = useFilter({ sensitivity: 'base' });
   const items =
     server && selectedOption && !options.some((option) => option.id === selectedOption.id)
       ? [selectedOption, ...options]
       : options;
-  // While typing, list exactly the server results (React Aria filters by text, so by label);
-  // the committed option only resolves the input label and shows when the list opens unfiltered.
+  // Fresh server results are listed exactly (React Aria filters by text, so by label); the committed
+  // option only resolves the input label. While the answer for the typed text is pending, the
+  // previous results are narrowed locally so ArrowDown+Enter cannot pick an unrelated stale item.
   const results = server ? new Set(options.map((option) => option.label)) : null;
+  const serverFilter = (text: string, input: string) =>
+    results!.has(text) && (!isLoading || contains(text, input));
   return (
     <AriaComboBox
       {...props}
@@ -70,7 +75,7 @@ export function ComboBox({
         if (key !== null) props.onSelectionChange?.(key);
       }}
       defaultItems={items}
-      {...(results ? { defaultFilter: (text: string) => results.has(text) } : {})}
+      {...(results ? { defaultFilter: serverFilter } : {})}
       menuTrigger="focus"
       allowsEmptyCollection
       allowsCustomValue={false}
