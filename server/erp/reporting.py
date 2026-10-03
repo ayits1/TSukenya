@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from datetime import datetime, timedelta
 from decimal import Decimal
 from django.db.models import Sum, Q
@@ -14,7 +15,7 @@ def voucher_json(v, detail=False, *, user):
     if v.kind in {'receipt','sale','debt_opening'} and v.status=='posted':
         result['outstanding'] = str(obligation(v))
     if detail:
-        result['payload']=v.payload
+        result['payload']=deepcopy(v.payload)
         result['lines']=[{'id':l.pk,'product':l.product_id.split('/',1)[1],'name':l.name,'unit':l.unit,'quantity':str(l.quantity),'price':str(l.price),'amount':str(l.amount),'cost':str(l.cost),'lot':l.lot,'expiry':l.expiry.isoformat() if l.expiry else ''} for l in v.lines.all()]
         for row in result['lines']:
             l = v.lines.get(pk=row['id'])
@@ -28,6 +29,8 @@ def voucher_json(v, detail=False, *, user):
         result['cash_movements']=[{'account':e.account_id,'amount':str(e.amount),'reversal':e.is_reversal} for e in v.cash_entries.all()]
     if user.profile.role == 'cashier':
         result.pop('cost', None)
+        for discount in result.get('payload', {}).get('discounts', []):
+            discount.pop('below_cost', None)
         for line in result.get('lines', []):
             line.pop('cost', None)
         for movement in result.get('movements', []):
