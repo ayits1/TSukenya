@@ -36,6 +36,7 @@ test("зміна в таблиці: закупівля Coca-Cola 0,5 л = 25, р
   assert.deepEqual(counts(run()), {...ZERO, writes:1, dbUpdates:1, changed:1});
   const p = prods.find(x => x.name === "Coca-Cola 0,5 л");
   assert.equal(p.cost, 25); assert.equal(p.manualPrice, false); assert.equal(p.price, null);
+  assert.equal(p.costAt, env.today, "нова закупівля з таблиці — від неї рахується застарілість");
   assert.equal(env.priceOf(p), 32.5);
   assert.equal(sheet[r][col("Ціна на цінник, грн")], "32,5");
   assertStable();
@@ -67,6 +68,14 @@ test("новий рядок у таблиці стає товаром, ID зап
   assert.equal(r[col("ID")], p.id);
   assert.equal(r[col("Ціна на цінник, грн")], "54");
   assertStable();
+});
+
+test("зміна лише назви не оновлює дату закупівлі", () => {
+  const p = prods.find(x => x.name === "Coca-Cola 0,5 л"); p.costAt = "2026-09-01";
+  const r = rowOf(0, "Coca-Cola 0,5 л"); sheet[r][0] = "Coca-Cola 0,5 л (ПЕТ)";
+  run();
+  assert.equal(p.name, "Coca-Cola 0,5 л (ПЕТ)"); assert.equal(p.costAt, "2026-09-01");
+  sheet[r][0] = "Coca-Cola 0,5 л"; run(); assertStable();
 });
 
 test("рядок видалено в таблиці — товар ховається", () => {

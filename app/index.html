@@ -126,6 +126,9 @@ td.r,th.r{text-align:right}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
 .exp{display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
 .exp .n{flex:1}
+.foot{margin:28px 0 8px;font-size:.85rem;text-align:center}
+.hid summary{cursor:pointer;font-weight:600;font-size:1.05rem}
+.hid summary::marker{color:var(--muted)}
 .total{display:flex;justify-content:space-between;padding-top:10px;font-weight:600}
 .be{background:var(--mint-soft);border-radius:14px;padding:18px;margin-top:18px}
 .be .big{font-size:1.8rem;font-weight:700}
@@ -262,11 +265,13 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   </nav>
 
   <main id="main"></main>
+  <footer class="foot muted" id="foot"></footer>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (function(){
+  const APP_VERSION = "1.1.0"; // разом із CHANGELOG.md
   const STAGES = [
     {n:1, name:"База товарів і витрат"},
     {n:2, name:"Цінники з накладних"},
@@ -278,8 +283,9 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const NOTYPE = "Без типу";
   const typeOf = p => p.type || NOTYPE;
   const allTypes = () => [...TYPES, ...new Set(S.products.map(typeOf).filter(t=>t!==NOTYPE && !TYPES.includes(t)))];
-  const typeRank = t => { const i = allTypes().indexOf(t); return i<0 ? 999 : i; };
-  const sortByType = list => list.slice().sort((a,b)=> typeRank(typeOf(a))-typeRank(typeOf(b)) || String(a.category||"").localeCompare(String(b.category||""),"uk") || String(a.name).localeCompare(String(b.name),"uk"));
+  const UK = new Intl.Collator("uk");
+  const typeRanker = () => { const m = new Map(allTypes().map((t,i)=>[t,i])); return t => m.has(t) ? m.get(t) : 999; }; // порядок груп рахуємо раз на сортування
+  const sortByType = list => { const rank = typeRanker(); return list.slice().sort((a,b)=> rank(typeOf(a))-rank(typeOf(b)) || UK.compare(String(a.category||""), String(b.category||"")) || UK.compare(String(a.name), String(b.name))); };
   const typeOpts = cur => { const l = allTypes(); if (cur && cur!==NOTYPE && !l.includes(cur)) l.push(cur); return (cur===NOTYPE?`<option value="" selected>${NOTYPE}</option>`:"") + l.map(t=>`<option ${t===cur?"selected":""}>${esc(t)}</option>`).join(""); };
   let db = null, downloads = null, mcp = null, tab = "overview", pending = false;
   const $ = s => document.querySelector(s);
@@ -301,13 +307,6 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const packKey = p => p.pack || NOPACK;
   const sizeKey = p => p.size || NOSIZE;
   const allPacks = () => [...PACKS, ...new Set(S.products.map(p=>p.pack).filter(x=>x && !PACKS.includes(x)))];
-  const staleDays = () => S.settings.staleDays ?? 30;
-  function priceState(p){
-    if (priceOf(p) <= 0) return "none";
-    const t = p.priceAt ? Date.parse(p.priceAt) : NaN;
-    if (!isFinite(t)) return "stale";
-    return (Date.now()-t)/864e5 > staleDays() ? "stale" : "ok";
-  }
   function newF(){ return {q:"", types:new Set(), cats:new Set(), packs:new Set(), sizes:new Set(), price:new Set()}; }
   const FACETS = [
     {k:"types", label:"Група", val:typeOf},
@@ -337,9 +336,9 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     S.products.forEach(p=>{ const v = fc.val(p); if (!m.has(v)) m.set(v,0); });
     S.products.filter(p=>matches(p,f,fc.k)).forEach(p=>{ const v = fc.val(p); m.set(v,(m.get(v)||0)+1); });
     const last = {types:NOTYPE, cats:NOCAT, packs:NOPACK, sizes:NOSIZE}[fc.k];
-    const pl = allPacks(), po = x => pl.indexOf(x)<0 ? 99 : pl.indexOf(x), PO = ["ok","stale","none"];
+    const pl = allPacks(), po = x => pl.indexOf(x)<0 ? 99 : pl.indexOf(x), PO = ["ok","stale","none"], rank = typeRanker();
     const ord = {
-      types:(a,b)=>typeRank(a)-typeRank(b),
+      types:(a,b)=>rank(a)-rank(b),
       cats:(a,b)=>a.localeCompare(b,"uk"),
       packs:(a,b)=>po(a)-po(b),
       sizes:(a,b)=>sizeRank(a)-sizeRank(b) || a.localeCompare(b,"uk"),
@@ -356,7 +355,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (fc.k!=="price" && ents.length<=1 && !st.size) return "";
     const open = S.openF===fc.k;
     const opts = ents.map(([v,n])=>`<label class="dd-opt${n===0&&!st.has(v)?" zero":""}"><input type="checkbox" data-f="${fc.k}" data-v="${esc(v)}" ${st.has(v)?"checked":""}><span class="dd-t">${esc(fc.k==="price"?PRICE_LABEL[v]:v)}</span><span class="dd-n">${n}</span></label>`).join("");
-    const extra = fc.k==="price" ? `<label class="dd-stale">Застаріла — старіша за <select id="staleDays" aria-label="Через скільки днів ціна вважається застарілою">${[7,14,30,60,90].map(d=>`<option value="${d}" ${d===staleDays()?"selected":""}>${d} днів</option>`).join("")}</select></label>` : "";
+    const extra = fc.k==="price" ? `<label class="dd-stale" title="Для товарів із закупівлею — від дня, коли її востаннє вносили (накладна, таблиця чи правка); зміна націнки цю дату не оновлює.">Застаріла — старіша за <select id="staleDays" aria-label="Через скільки днів ціна вважається застарілою">${[7,14,30,60,90].map(d=>`<option value="${d}" ${d===staleDays()?"selected":""}>${d} днів</option>`).join("")}</select></label>` : "";
     return `<div class="dd${open?" open":""}${st.size?" active":""}"><button type="button" class="dd-btn" data-ddtoggle="${fc.k}" aria-expanded="${open}" aria-haspopup="true"><span class="dd-l">${esc(ddLabel(fc,f))}</span><span class="dd-caret" aria-hidden="true">▾</span></button>${open ? `<div class="dd-pop" role="group" aria-label="${fc.label}">${st.size?`<button type="button" class="dd-clear" data-fclear="${fc.k}">Очистити вибір</button>`:""}<div class="dd-list">${opts}</div>${extra}</div>` : ""}</div>`;
   }
   const facetsHtml = f => FACETS.map(fc=>facetRow(fc,f)).join("");
@@ -378,14 +377,38 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2200); }
 
   /* ---------- pricing ---------- */
+  /* CALC-START */
+  // Ціни, маржа, застарілість і беззбитковість. Залежать лише від S.settings і num — їх перевіряють tests/calc.test.js.
   const defMarkup = () => S.settings.defaultMarkup ?? 30;
-  function roundPrice(x){ const r = S.settings.rounding ?? 0.5; return Math.ceil(x/r - 1e-9)*r; }
+  function roundPrice(x){ const r = S.settings.rounding ?? 0.5; return Math.ceil(x/r - 1e-9)*r || 0; } // || 0: без закупівлі виходить -0, а його друкують як «-0»
   function priceOf(p){
     if (p.manualPrice && p.price != null) return num(p.price);
     const m = p.markup ?? defMarkup();
     return roundPrice(num(p.cost)*(1+num(m)/100));
   }
   const marginOf = p => { const pr = priceOf(p); return pr>0 ? (pr-num(p.cost))/pr : 0; };
+  const staleDays = () => S.settings.staleDays ?? 30;
+  // Від якої дати рахуємо застарілість: для товару із закупівлею — коли її востаннє вносили (накладна, таблиця, правка),
+  // бо зміна націнки не робить стару закупівельну ціну свіжою; для ручної ціни без закупівлі — коли змінили ціну.
+  const checkedAt = p => (num(p.cost)>0 ? p.costAt || p.priceAt : p.priceAt) || null;
+  function priceState(p, now = Date.now()){
+    if (priceOf(p) <= 0) return "none";
+    const at = checkedAt(p), t = at ? Date.parse(at) : NaN;
+    if (!isFinite(t)) return "stale";
+    return (now-t)/864e5 > staleDays() ? "stale" : "ok";
+  }
+  // Точка беззбитковості. Продажів у базі ще немає, тож маржа — середня по товарах із закупівлею й ціною (без прикладів).
+  // Діапазон beLo–beHi — якщо продаватимуться переважно товари з маржею як у верхньої чи нижньої чверті асортименту.
+  function breakEven(products, expenses){
+    const sum = fixed => expenses.filter(e=>(e.group==="fixed")===fixed).reduce((s,e)=>s+num(e.amount),0);
+    const fixed = sum(true), variable = sum(false), costs = fixed + variable;
+    const real = products.filter(p=>!p.example), ms = real.filter(p=>num(p.cost)>0 && priceOf(p)>0).map(marginOf).sort((a,b)=>a-b);
+    const n = ms.length, avgM = n ? ms.reduce((s,m)=>s+m,0)/n : 0, q = f => n ? ms[Math.round(f*(n-1))] : 0;
+    const lo = q(0.25), hi = q(0.75), per = m => m>0 ? costs/m : 0;
+    return {fixed, variable, avgM, be:per(avgM), n, total:real.length, examples:products.length-real.length, lo, hi, beLo:per(hi), beHi:per(lo)};
+  }
+  const backupDue = (at, now = Date.now()) => { const t = at ? Date.parse(at) : NaN; return !isFinite(t) || (now-t)/864e5 >= 7; }; // нагадування про копію щотижня
+  /* CALC-END */
 
   /* ---------- db writes ---------- */
   async function write(fn, ok){
@@ -431,6 +454,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     $("#overall").textContent = all ? `Виконано ${done} з ${all} задач` : "";
     const nt = S.project.nextStep;
     $("#next").hidden = !nt; $("#nextText").textContent = nt || "";
+    $("#foot").textContent = `Панель «Цукерня» · версія ${APP_VERSION}`;
     const u = S.project.updatedAt;
     $("#updated").textContent = u ? "Оновлено " + new Date(u).toLocaleDateString("uk-UA",{day:"numeric",month:"long"}) : "";
   }
@@ -454,14 +478,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   });
 
   /* ---------- totals ---------- */
-  function totals(){
-    const fixed = S.expenses.filter(e=>e.group==="fixed").reduce((s,e)=>s+num(e.amount),0);
-    const variable = S.expenses.filter(e=>e.group!=="fixed").reduce((s,e)=>s+num(e.amount),0);
-    const ps = S.products.filter(p=>num(p.cost)>0);
-    const avgM = ps.length ? ps.reduce((s,p)=>s+marginOf(p),0)/ps.length : 0;
-    const be = avgM>0 ? (fixed+variable)/avgM : 0;
-    return {fixed, variable, avgM, be};
-  }
+  const totals = () => breakEven(S.products, S.expenses);
 
   function overview(){
     const t = totals();
@@ -469,13 +486,14 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     const fresh = S.ideas.filter(i=>!i.reaction);
     return `<section class="panel"><div class="stats">
       <div class="stat"><div class="v num">${S.products.length}</div><div class="l">товарів у базі</div></div>
-      <div class="stat"><div class="v num">${Math.round(t.avgM*100)}%</div><div class="l">середня маржа в ціні продажу</div></div>
+      <div class="stat"><div class="v num">${t.n ? Math.round(t.avgM*100)+"%" : "—"}</div><div class="l">${t.n ? `середня маржа в ціні продажу, по ${t.n} з ${t.total} товарів` : "середня маржа: ще немає товарів із закупівельною ціною"}</div></div>
       <div class="stat"><div class="v num">${money0(t.fixed+t.variable)} грн</div><div class="l">витрати на місяць</div></div>
       <div class="stat"><div class="v num">${t.be?money0(t.be)+" грн":"—"}</div><div class="l">виручка на місяць, щоб вийти в нуль</div></div>
     </div></section>
     <section class="panel"><div class="row between gap-lg"><h2>Зараз у роботі</h2><button class="btn soft" data-go="tasks">Усі задачі</button></div>
       ${doing.length ? doing.map(taskRow).join("") : `<div class="empty">Нічого не в роботі. Відкрийте «Задачі» й позначте, за що беремося.</div>`}
     </section>
+    ${backupPanel()}
     <section class="panel"><div class="row between gap-lg"><h2>Ідеї, що чекають вашої відповіді</h2><button class="btn soft" data-go="ideas">Усі ідеї</button></div>
       ${fresh.length ? `<div class="ideas">${fresh.slice(0,3).map(ideaCard).join("")}</div>` : `<div class="empty">На всі ідеї ви вже відповіли. Попросіть Claude в чаті запропонувати нові.</div>`}
     </section>`;
@@ -520,12 +538,15 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const packOpts = cur => { const l = allPacks(); if (cur && !l.includes(cur)) l.push(cur); return `<option value="">${NOPACK}</option>` + l.map(x=>`<option ${x===cur?"selected":""}>${esc(x)}</option>`).join(""); };
   function productList(list){
     if (!list.length) return `<div class="empty">${S.products.length ? `Нічого не знайдено за цими фільтрами. <button class="btn soft" data-act="fReset">Скинути фільтри</button>` : "Товарів ще немає. Надішліть накладну в чат або додайте товар нижче."}</div>`;
+    const perType = new Map(); list.forEach(p=>perType.set(typeOf(p), (perType.get(typeOf(p))||0)+1));
     return `<div class="scroll"><table><thead><tr><th>Назва</th><th>Тип</th><th>Пакування</th><th>Об’єм / вага</th><th>Од.</th><th class="r">Закупівля, грн</th><th class="r">Націнка, %</th><th class="r">Ціна продажу, грн</th><th class="r">Заробіток з одиниці</th><th>Ціна оновлена</th><th></th></tr></thead><tbody>
       ${sortByType(list).map((p,i,arr)=>{const pr=priceOf(p), st=priceState(p);
-        const head = (i===0||typeOf(arr[i-1])!==typeOf(p)) ? `<tr class="grp"><th colspan="11">${esc(typeOf(p))} · ${arr.filter(x=>typeOf(x)===typeOf(p)).length}</th></tr>` : "";
+        const head = (i===0||typeOf(arr[i-1])!==typeOf(p)) ? `<tr class="grp"><th colspan="11">${esc(typeOf(p))} · ${perType.get(typeOf(p))}</th></tr>` : "";
         const sub = (i===0||typeOf(arr[i-1])!==typeOf(p)||catKey(arr[i-1])!==catKey(p)) ? `<tr class="sgrp"><td colspan="11">${esc(catKey(p))}</td></tr>` : "";
         const when = p.priceAt ? new Date(p.priceAt).toLocaleDateString("uk-UA",{day:"numeric",month:"short"}) : "—";
-        const stCell = st==="none" ? `<span class="badge bad">немає ціни</span>` : st==="stale" ? `<span class="badge">застаріла</span> ${when}` : `<span class="muted">${when}</span>`;
+        const chk = checkedAt(p), chkTxt = chk ? new Date(chk).toLocaleDateString("uk-UA") : "невідомо коли";
+        const stTitle = num(p.cost)>0 ? `Закупівельну ціну востаннє вносили ${chkTxt}` : `Ціну востаннє змінювали ${chkTxt}`;
+        const stCell = st==="none" ? `<span class="badge bad">немає ціни</span>` : st==="stale" ? `<span class="badge" title="${esc(stTitle)}. Застаріла — якщо понад ${staleDays()} днів.">застаріла</span> ${when}` : `<span class="muted" title="${esc(stTitle)}">${when}</span>`;
         return head+sub+`<tr>
         <td>${esc(p.name)}${p.example?'<span class="badge">приклад</span>':""}</td>
         <td><select data-ptype data-id="${p.id}" aria-label="Тип товару">${typeOpts(typeOf(p))}</select></td>
@@ -540,6 +561,16 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
         <td><button class="x" data-del-prod="${p.id}" aria-label="Видалити товар">×</button></td></tr>`;}).join("")}
       </tbody></table></div>`;
   }
+  // Товари, чий рядок видалили в Google-таблиці. Повернути — знову показати й дописати рядок у таблицю.
+  function hiddenProducts(){
+    const hid = S.allProducts.filter(p=>p.hidden);
+    if (!hid.length) return "";
+    return `<section class="panel"><details class="hid"><summary>Приховані товари · ${hid.length}</summary>
+      <p class="muted" style="margin:8px 0 10px">Їхні рядки видалили з Google-таблиці, тому тут і на цінниках їх не видно. Поверніть товар — і рядок знову з’явиться в таблиці. Або видаліть назавжди.</p>
+      ${hid.map(p=>`<div class="exp"><span class="n">${esc(p.name)}</span><span class="muted num">${priceOf(p)>0 ? money(priceOf(p))+" грн" : "без ціни"}</span>
+        <button class="btn soft" data-unhide="${esc(p.id)}">Повернути</button><button class="btn soft" data-purge="${esc(p.id)}" aria-label="Видалити назавжди: ${esc(p.name)}">Видалити назавжди</button></div>`).join("")}
+    </details></section>`;
+  }
   function products(){
     const f = S.F.prod, hasEx = S.products.some(p=>p.example);
     return `<section class="panel"><div id="linkBox">${linkInner()}</div></section>
@@ -550,6 +581,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       ${hasEx?`<p class="muted gap-lg">Товари з позначкою «приклад» — для орієнтиру. <button class="btn soft" data-act="clearEx">Прибрати приклади</button></p>`:""}
       <div id="prodList">${productList(filtered(f))}</div>
     </section>
+    ${hiddenProducts()}
     <section class="panel"><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></section>
     <section class="panel"><h3 class="gap-lg">Змінити націнку одним махом</h3>
       <div class="row"><label class="inl">Нова націнка <input id="bulkM" type="number" value="${defMarkup()}"> %</label>
@@ -833,9 +865,32 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     return "\uFEFF" + rows.map(r=>r.map(q).join(";")).join("\r\n");
   }
   async function save(filename, data){
-    if(!downloads) return;
-    try{ await downloads.save({filename, data}); toast("Файл збережено"); }
-    catch(e){ if(e&&e.code==="declined") return; toast(e&&e.code==="rate_limited"?"Зачекайте кілька секунд і спробуйте ще раз":"Не вдалося зберегти файл"); }
+    if(!downloads) return false;
+    try{ const r = await downloads.save({filename, data}); toast(r && r.status==="delivered" ? "Файл передано" : "Файл збережено"); return true; }
+    catch(e){ if(e&&e.code==="declined") return false; toast(e&&e.code==="rate_limited"?"Зачекайте кілька секунд і спробуйте ще раз":"Не вдалося зберегти файл"); return false; }
+  }
+  /* ---------- резервна копія ---------- */
+  // Усі дані панелі одним JSON-файлом. Відновлення — через Claude в чаті (файл надсилають у чат).
+  async function backupJson(btn){
+    if (!downloads || !db) return;
+    const label = btn.textContent; btn.disabled = true; btn.textContent = "Збираю копію…";
+    try{
+      const col = async c => (await db.collection(c).get()).docs.map(x=>({id:x.id, ...x.data()}));
+      const one = async path => { const d = await db.doc(path).get(); return d.exists ? d.data() : null; };
+      const data = {app:"tsukenya", version:APP_VERSION, savedAt:new Date().toISOString(),
+        settings:await one("settings/main"), project:await one("project/state"),
+        products:await col("products"), deletedProducts:await col("deletedProducts"), tasks:await col("tasks"), ideas:await col("ideas"), expenses:await col("expenses")};
+      if (await save(`tsukenya-kopiia-${today()}.json`, JSON.stringify(data, null, 1))) await setDoc("settings/main", {lastBackupAt:today()});
+    }catch(e){ toast("Не вдалося зібрати копію, спробуйте ще раз"); }
+    finally{ btn.disabled = false; btn.textContent = label; }
+  }
+  function backupPanel(){
+    const at = S.settings.lastBackupAt, due = backupDue(at), has = S.allProducts.length || S.tasks.length || S.expenses.length;
+    if (!has) return "";
+    const when = at ? `Остання копія — ${new Date(at).toLocaleDateString("uk-UA",{day:"numeric",month:"long"})}.` : "Резервну копію ще не зберігали.";
+    const act = downloads ? `<button class="btn ${due?"rasp":"soft"}" data-act="backup">Зберегти копію (JSON)</button>` : `<span class="muted">Попросіть Claude в чаті зберегти копію даних.</span>`;
+    return `<section class="panel"><div class="${due?"notice":""}" style="margin:0"><div class="row between"><div><b>Резервна копія</b> <span class="muted">${when}${due?" Варто зберігати щотижня.":""}</span></div>${act}</div>
+      <p class="muted" style="margin-top:6px">У файлі всі товари, задачі, ідеї, витрати й налаштування. Щоб відновити дані з копії, надішліть файл у чат Claude.</p></div></section>`;
   }
 
   /* ---------- import from Excel ---------- */
@@ -921,7 +976,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       if (!(cost>0 || price>0) && !sync) { skipped++; continue; }
       seen.add(k);
       const ex = byName.get(k), data = {name:r.name, unit:r.unit || ex?.unit || "шт"};
-      if (cost>0) data.cost = cost; else if (!ex) data.cost = 0;
+      if (cost>0){ data.cost = cost; data.costAt = today(); } else if (!ex) data.cost = 0;
       if (price>0){ data.price = price; data.manualPrice = true; }
       else { if (r.markup>0) data.markup = r.markup; else if (!sync || !ex) data.markup = imp.markup; data.manualPrice = false; data.price = null; }
       if (r.category) data.category = r.category; else if (!ex) data.category = "";
@@ -1189,6 +1244,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       const d = {name:m.name, type:m.type || null, category:m.category, pack:m.pack || null, size:m.size || null, unit:m.unit, cost:+m.cost, markup:+m.markup};
       if (+m.price > 0){ d.price = +m.price; d.manualPrice = true; } else { d.price = null; d.manualPrice = false; }
       if (!p || n2(p.cost)!==m.cost || n2(p.markup ?? def)!==m.markup || (p.manualPrice && +p.price>0 ? n2(p.price) : "0")!==m.price) d.priceAt = env.today;
+      if (+m.cost>0 && (!p || n2(p.cost)!==m.cost)) d.costAt = env.today; // від цієї дати рахується «застаріла ціна»
       return d;
     };
     const rowOut = (m, id, pr, priceAt) => {
@@ -1353,6 +1409,20 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   function expRow(e){
     return `<div class="exp"><span class="n">${esc(e.name)}</span><input type="number" min="0" step="100" value="${num(e.amount)}" data-exp="${e.id}" aria-label="${esc(e.name)}, грн на місяць"><span class="muted">грн</span><button class="x" data-del-exp="${e.id}" aria-label="Видалити статтю">×</button></div>`;
   }
+  function beBlock(t){
+    const pct = m => Math.round(m*100) + "%", stores = S.settings.stores || 1;
+    if (!t.be){
+      if (t.fixed + t.variable <= 0) return `<div>Точка беззбитковості з’явиться, коли ви впишете суми витрат.</div>`;
+      if (!t.n) return `<div>Точка беззбитковості з’явиться, коли в товарів будуть закупівельні ціни${t.examples ? " (товари-приклади не враховуються)" : ""}.</div>`;
+      return `<div>Середня маржа не більша за нуль — перевірте ціни продажу: з такими цінами витрати не покриваються.</div>`;
+    }
+    const range = t.n >= 4 && t.beHi - t.beLo >= t.be*0.02
+      ? `<div class="muted">Залежно від того, що продаватиметься більше, — від ${money0(t.beLo)} до ${money0(t.beHi)} грн на місяць (маржа ${pct(t.hi)} або ${pct(t.lo)}).</div>` : "";
+    const basis = (t.n < t.total ? ` Пораховано по ${t.n} з ${t.total} товарів — у решти немає закупівельної ціни.` : "") + (t.examples ? " Товари-приклади не враховуються." : "");
+    return `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div>
+        <div class="big num">${money0(t.be)} грн на місяць</div>
+        <div class="muted">≈ ${money0(t.be/30)} грн на день${stores>1?` · ≈ ${money0(t.be/30/stores)} грн на день з кожного магазину`:""}. Розрахунок за середньою маржею ${pct(t.avgM)}.${basis}</div>${range}`;
+  }
   function expenses(){
     const t = totals(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
     const block = (title, hint, list, g, sum) => `<div><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
@@ -1366,10 +1436,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
         ${block("Постійні","Платите щомісяця, навіть якщо продажів мало",fx,"fixed",t.fixed)}
         ${block("Змінні","Залежать від обсягу закупівель і продажів",vr,"variable",t.variable)}
       </div>
-      <div class="be">${t.be ? `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div>
-        <div class="big num">${money0(t.be)} грн на місяць</div>
-        <div class="muted">≈ ${money0(t.be/30)} грн на день${(S.settings.stores||1)>1?` · ≈ ${money0(t.be/30/(S.settings.stores||1))} грн на день з кожного магазину`:""}. Розрахунок за середньою маржею ${Math.round(t.avgM*100)}%.</div>`
-        : `<div>Точка беззбитковості з’явиться, коли будуть суми витрат і товари з цінами.</div>`}</div>
+      <div class="be">${beBlock(t)}</div>
     </section>`;
   }
 
@@ -1385,6 +1452,9 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (t.dataset.delTask){ if(confirm("Видалити задачу?")) del("tasks",t.dataset.delTask,"Задачу видалено"); return; }
     if (t.dataset.react!==undefined && t.dataset.react){ upd("ideas",t.dataset.react,{reaction:t.dataset.v||null}, t.dataset.v==="yes"?"Записав: беремо в роботу":t.dataset.v==="no"?"Записав: відкладаємо":null); return; }
     if (t.dataset.delProd){ if(confirm("Видалити товар?")) del("products",t.dataset.delProd,"Товар видалено"); return; }
+    // gsBase:null — синхронізація вважатиме товар новим для таблиці й допише його рядок, а не сховає знову
+    if (t.dataset.unhide){ upd("products",t.dataset.unhide,{hidden:false,gsBase:null},"Товар повернено"); return; }
+    if (t.dataset.purge){ if(confirm("Видалити товар назавжди? Відновити його не вийде.")) del("products",t.dataset.purge,"Товар видалено"); return; }
     if (t.dataset.delExp){ if(confirm("Видалити статтю витрат?")) del("expenses",t.dataset.delExp); return; }
     const a = t.dataset.act;
     if (a==="addTask"){ const v=$("#newTask").value.trim(); if(!v) return; const st=+$("#newTaskStage").value;
@@ -1395,13 +1465,14 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
       (async()=>{ for(const p of list) await upd("products",p.id,{markup:m,manualPrice:false,price:null,priceAt:today()}); if(!c) await setDoc("settings/main",{defaultMarkup:m}); toast("Ціни перераховано"); })(); }
     if (a==="addProd"){ const n=$("#npName").value.trim(); if(!n) return;
-      const cost=num($("#npCost").value); add("products",{name:n,type:$("#npType").value,category:$("#npCat").value.trim(),pack:$("#npPack").value||null,size:$("#npSize").value.trim()||null,unit:$("#npUnit").value,cost,markup:num($("#npMarkup").value),manualPrice:false,priceAt:cost>0?today():null},"Товар додано"); }
+      const cost=num($("#npCost").value); add("products",{name:n,type:$("#npType").value,category:$("#npCat").value.trim(),pack:$("#npPack").value||null,size:$("#npSize").value.trim()||null,unit:$("#npUnit").value,cost,markup:num($("#npMarkup").value),manualPrice:false,priceAt:cost>0?today():null,costAt:cost>0?today():null},"Товар додано"); }
     if (a==="selShown"){ filtered(S.F.tags).forEach(p=>S.tagSel.add(p.id)); syncChecks(); renderPreview(); }
     if (a==="unselShown"){ filtered(S.F.tags).forEach(p=>S.tagSel.delete(p.id)); syncChecks(); renderPreview(); }
     if (a==="qtyAll"){ const v = Math.max(1, Math.min(500, Math.round(num($("#qtyAll").value)))); if (!S.tagSel.size){ toast("Спершу позначте товари"); return; } S.tagSel.forEach(id=>{ S.tagQty[id] = v; }); syncChecks(); renderPreview(); toast(`Кожному вибраному — по ${v} шт`); }
     if (a==="selNone"){ S.tagSel.clear(); syncChecks(); renderPreview(); }
     if (a==="fReset"){ S.F[tab==="tags"?"tags":"prod"] = newF(); S.openF = null; render(); }
     if (a==="dlPdf"){ makePdf(t); }
+    if (a==="backup"){ backupJson(t); }
     if (a==="printTags"){ printTags(); }
     if (a==="addStore"){ const n = storeNames().slice(); n.push(""); saveStores(n); setTimeout(()=>{ const i = document.querySelector(`[data-store="${n.length-1}"]`); if (i) i.focus(); }, 60); }
     if (a==="delStore"){ const i = +t.dataset.i, n = storeNames().slice(), nm = n[i];
@@ -1437,7 +1508,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (el.dataset.pf){ const p=S.products.find(x=>x.id===el.dataset.id); if(!p) return; const v=num(el.value);
       if (el.dataset.pf==="price") upd("products",p.id,{price:v,manualPrice:true,priceAt:today()});
       else if (el.dataset.pf==="markup") upd("products",p.id,{markup:v,manualPrice:false,price:null,priceAt:today()});
-      else upd("products",p.id,{cost:v,priceAt:today()}); return; }
+      else upd("products",p.id,{cost:v,priceAt:today(),costAt:today()}); return; }
     if (el.dataset.exp){ upd("expenses",el.dataset.exp,{amount:num(el.value)}); return; }
     if (el.dataset.qty){ const id = el.dataset.qty, v = Math.round(num(el.value));
       if (v <= 0){ S.tagSel.delete(id); S.tagQty[id] = 1; } else { S.tagQty[id] = Math.min(500, v); S.tagSel.add(id); }

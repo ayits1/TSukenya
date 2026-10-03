@@ -6,17 +6,20 @@ const region = name => {
   if (!m) throw new Error(`У app/index.html немає маркерів ${name}-START / ${name}-END`);
   return m[0];
 };
-const ENGINE = region("SYNC-ENGINE"), RUNNER = region("SYNC-RUNNER");
+const ENGINE = region("SYNC-ENGINE"), RUNNER = region("SYNC-RUNNER"), CALC = region("CALC");
 
-// Допоміжні функції застосунку (спрощені копії; округлення 0,5 грн, націнка за замовчуванням 30 %)
+// Допоміжні функції застосунку (спрощені копії)
 const norm = v => String(v ?? "").toLowerCase().replace(/[.,:;()№]/g, " ").replace(/\s+/g, " ").trim();
 const num = v => { const x = parseFloat(String(v).replace(",", ".")); return isFinite(x) ? x : 0; };
 function parseNum(v){ if (typeof v === "number") return isFinite(v) ? v : 0; const x = parseFloat(String(v ?? "").replace(/[\s ]/g, "").replace(/грн|₴|uah/gi, "").replace(",", ".")); return isFinite(x) ? x : 0; }
 function unitNorm(v){ const s = norm(v); if (!s) return ""; if (s === "кг") return "кг"; if (s === "100 г") return "100 г"; if (["уп","упаковка"].includes(s)) return "уп"; return "шт"; }
 const PACKS = ["Банка","ПЕТ","Скло","Стакан","Коробка","Пакет","Упаковка","Ваговий","Штучно"];
 const packNorm = v => { const t = norm(v); if (!t) return ""; return PACKS.find(x => norm(x) === t) || String(v).trim(); };
-const roundPrice = x => Math.ceil(x / 0.5 - 1e-9) * 0.5;
-function priceOf(p){ if (p.manualPrice && p.price != null) return num(p.price); return roundPrice(num(p.cost) * (1 + num(p.markup ?? 30) / 100)); }
+// Блок розрахунків застосунку (CALC) з налаштуваннями settings; за замовчуванням — округлення 0,5 грн і націнка 30 %
+function calc(settings = {rounding:0.5, defaultMarkup:30}){
+  return new Function("S", "num", CALC + "; return {priceOf, marginOf, roundPrice, priceState, checkedAt, breakEven, staleDays, backupDue};")({settings}, num);
+}
+const {priceOf} = calc();
 const pj = r => { let x = r && r.payload; if (typeof x === "string"){ try{ x = JSON.parse(x); }catch(_){} } return x; };
 
 const {planSync, GS_COLS} = new Function(ENGINE + "; return {planSync, GS_COLS};")();
@@ -37,4 +40,4 @@ function device({db, mcp, today = "2026-10-03"}){
   return {S, gsSync, timers};
 }
 
-module.exports = {planSync, GS_COLS, makeEnv, device, priceOf, norm};
+module.exports = {planSync, GS_COLS, makeEnv, device, calc, priceOf, norm, region, html};

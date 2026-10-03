@@ -107,3 +107,20 @@ test("товар видалено в застосунку — рядок очи�
   assert.equal(z.length, 1, "рядок без «надгробка» знову став товаром"); assert.ok(!z[0].hidden);
   assert.equal(sh.sheet.find(r => r[0] === "Зефір")[idCol(sh)], z[0].id);
 });
+
+test("прихований товар повертають у застосунку — рядок знову з’являється в таблиці, товар більше не ховається", async () => {
+  const {db, sh, A, clock} = await setup();
+  sh.sheet.push(["Халва 250 г", "40", "35", ""]);
+  await A.gsSync(); clock.t += 5000;
+  const [halva] = named(db, "Халва 250 г");
+  sh.sheet.splice(sh.sheet.findIndex(r => r[0] === "Халва 250 г"), 1);   // рядок видалили в таблиці
+  await A.gsSync(); clock.t += 5000;
+  assert.equal(named(db, "Халва 250 г")[0].hidden, true);
+  await db.collection("products").doc(halva.id).update({hidden:false, gsBase:null});   // кнопка «Повернути»
+  await A.gsSync(); clock.t += 5000;
+  await A.gsSync();
+  const [back] = named(db, "Халва 250 г");
+  assert.ok(!back.hidden, "не сховався знову");
+  const rows = sh.sheet.filter(r => r[0] === "Халва 250 г");
+  assert.equal(rows.length, 1); assert.equal(rows[0][idCol(sh)], halva.id);
+});
