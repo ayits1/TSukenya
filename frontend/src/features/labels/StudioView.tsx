@@ -683,7 +683,7 @@ export function StudioView(props: StudioViewProps) {
                 label="Категорія"
                 options={choices(props.facets.category, 'Усі категорії')}
                 selectedKey={props.filters.category || '*'}
-                isDisabled={props.outputBusy}
+                isDisabled={props.outputBusy || props.loading}
                 onSelectionChange={(key) =>
                   filters({ category: key === '*' ? '' : String(key), pack: '' })
                 }

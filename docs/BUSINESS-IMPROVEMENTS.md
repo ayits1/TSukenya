@@ -356,4 +356,4 @@
 
 ## Захист поточної рецептури · 03.10.2026
 
-Fresh GET + required revision, серверний409, draft recovery й заборона duplicate ingredient реалізовані. Два справжні паралельні editors на PostgreSQL підтвердили один запис і один conflict. [RECIPE-RECOVERY-QA.md](RECIPE-RECOVERY-QA.md). Це закриває мовчазний overwrite редактора; B14 версій виробничих партій, виходу й генеалогії залишається окремим планом.
+Fresh GET + required revision, серверний409, draft recovery й заборона duplicate ingredient реалізовані. Два справжні паралельні editors на PostgreSQL підтвердили один запис і один conflict. [RECIPE-RECOVERY-QA.md](RECIPE-RECOVERY-QA.md). Це закриває мовчазний overwrite редактора; B12 версій виробничих партій, виходу й генеалогії залишається окремим планом.

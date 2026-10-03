@@ -20,4 +20,4 @@
 
 Helper створює власні синтетичні товари й тимчасову SQLite на localhost18224. Немає production/shared Sheet записів. Артефакти: `os.tmpdir()/tsukenya-recipes-qa/results-{validation,tail,zoom}.json`, `tsukenya-recipes-{1440,390,320,zoom-200}.png`.
 
-Для повтору невдалого конкретного сценарію `QA_RECIPES_FROM=validation|conflict|read|layout|zoom|tail`; звичайний запуск `all`. Повний entrypoint очищає цей прапорець й включає helper; **повну регресію цього разу не запускали**. Не підтверджено screen readers, WebKit або всі комбінації бізнес-рецептів; версії виробничих партій/генеалогія лишаються B14 бізнес-пропозицією.
+Для повтору невдалого конкретного сценарію `QA_RECIPES_FROM=validation|conflict|read|layout|zoom|tail`; звичайний запуск `all`. Повний entrypoint очищає цей прапорець й включає helper; **повну регресію цього разу не запускали**. Не підтверджено screen readers, WebKit або всі комбінації бізнес-рецептів; версії виробничих партій/генеалогія лишаються B12 бізнес-пропозицією.

@@ -221,3 +221,15 @@ Backup перед публікацією: `backups/tsukenya-crm-20261003T021739Z
 Live GET-only proof — PASS: exact SHA256 labels JS/CSS/lazy output, чотирьох JS source-файлів; SSH SHA256 Dockerfile/views/csv_format/adapter/index також збігаються. Синтетичний CSV roundtrip в browser, наявний label preview, fresh recipe GET/revision,1440/390/320 та44px, бюджет320. API writes тільки login; digest бізнес-документів `/api/state` до/після незмінний. Переглянуто live recipe320 PNG. Web/PG healthy, свій health200, сусідній HTTPS200. Реальних recipe POST/імпортів/друку на production не виконували.
 
 Ізольовані докази: [CSV-FORMAT.md](CSV-FORMAT.md), [RECIPE-RECOVERY-QA.md](RECIPE-RECOVERY-QA.md). Рецептури15/15 на PostgreSQL включають справжній одночасний200+409 й одинaudit. Spreadsheet editor opening та screen readers лишаються поза цим доказом. Повної регресії не запускали; загальний аудит залишається активним.
+
+## Завершальний пакет аудиту UI/UX · 03.10.2026
+
+Опубліковано захист залежних фільтрів каталогу/Studio під час запиту та українські пояснення основних подій журналу з розкривними оригінальними JSON. Серверна схема, проведення й бізнес-правила не змінені.
+
+Backup: `backups/tsukenya-crm-20261003T024358Z.dump`; checksum і `pg_restore --list` — PASS. Попередній код: `releases/pre-final-ui-20261003T024358Z.tar.gz`; реліз: `releases/tsukenya-final-ui-20261003T024358Z.tar.gz`, явні16файлів code/tests/docs, без секретів/даних. Після архіву передано фінальні deployment/audit docs. Перебудовано лише web; `up -d --no-deps web`, без зміни PostgreSQL/gateway/сусіднього проєкту.
+
+Відкат цього UI: відновити попередні `app/erp-finance.js`, `frontend/src/features/catalog/CatalogView.tsx`, `frontend/src/features/labels/StudioView.tsx` із pre-final-ui й перебудувати web. Нові stories/tests/docs не впливають на старий runtime; БД для відкату UI не відновлювати.
+
+Live readonly PASS: exact SHA256 compiled catalogue/labels/CSS/lazy output та `erp-finance.js`; реальний затриманий GET каталогу й Studio1440/320 підтвердив disabled старих категорій/пакування та відновлення після відповіді. Журнал320: original JSON/disclosure, Enter/Escape,44px/no overflow. Бюджет зі скриншота1440/768/390/320: читабельна «Оренда», окремі назва/сума, no page overflow; PNG1440/320 переглянуто. `writes=[]`, page errors=[], digest `/api/state.data` до/після незмінний; єдиний POST — вхід. Web/PG healthy, свій health200, сусідній HTTPS200.
+
+Артефакти: `/tmp/tsukenya-live-final-ui-results.json`, `/tmp/tsukenya-live-final-{products,tags}-{1440,320}.png`, `/tmp/tsukenya-live-final-audit-320.png`, `/tmp/tsukenya-live-final-budget-{1440,768,390,320}.png`. Фінальна звірка — [UI-UX-AUDIT-COMPLETION.md](UI-UX-AUDIT-COMPLETION.md); вузькі локальні докази — [FILTERS-AND-AUDIT-QA.md](FILTERS-AND-AUDIT-QA.md). Повна регресія не запускалась.

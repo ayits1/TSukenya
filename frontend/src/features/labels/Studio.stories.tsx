@@ -234,6 +234,8 @@ export const LoadingProducts: Story = {
     await expect(canvas.getByRole('checkbox', { name: 'Американо' })).toBeDisabled();
     await expect(canvas.getByLabelText('Копій: Американо')).toBeDisabled();
     await expect(canvas.getByRole('button', { name: 'Обрати цю сторінку' })).toBeDisabled();
+    await expect(canvas.getByRole('combobox', { name: 'Категорія' })).toBeDisabled();
+    await expect(canvas.getByRole('combobox', { name: 'Група' })).toBeEnabled();
   },
 };
 export const EditAndSave: Story = {

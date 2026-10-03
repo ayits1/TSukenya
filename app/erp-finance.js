@@ -4,6 +4,31 @@
   const actions = {posted:'Проведення документа',reversed:'Скасування проведення',draft_saved:'Збереження чернетки',draft_deleted:'Видалення чернетки',catalog_changed:'Зміна товару',catalog_reference_created:'Новий запис довідника товарів',legacy_changed:'Зміна даних порталу',entity_saved:'Зміна довідника обліку',label_layout_changed:'Зміна макета цінника',shift_opened:'Відкриття касової зміни',shift_closed:'Закриття касової зміни',work_shift_saved:'Зміна табеля',user_saved:'Зміна доступу користувача',password_changed:'Зміна пароля',period_changed:'Зміна облікового періоду',fiscal_mode_changed:'Зміна режиму ПРРО',recipe_saved:'Зміна рецептури',alerts_updated:'Оновлення контролю операцій'};
   let activeAudit = null;
   function create({api,esc,amount,name,table,option,kinds,getState}) {
+    function auditSummary(event) {
+      const detail=event.detail;
+      if(!detail||typeof detail!=='object'||Array.isArray(detail))return 'Опис події доступний у технічних подробицях.';
+      if(['user_saved','user_created','user_updated'].includes(event.action)) {
+        const roles={owner:'Власник',manager:'Керівник магазину',cashier:'Касир',warehouse:'Склад',accountant:'Бухгалтер'};
+        const parts=[];
+        if(Object.hasOwn(detail,'role'))parts.push(typeof detail.role==='string'&&Object.hasOwn(roles,detail.role)?`Роль: ${roles[detail.role]}.`:'Роль не розпізнано.');
+        if(typeof detail.active==='boolean')parts.push(`Стан: ${detail.active?'Активний':'Заблокований'}.`);
+        if(parts.length)return parts.join(' ');
+      }
+      if(event.action==='recipe_saved'&&Array.isArray(detail.recipe))return `Інгредієнтів у рецептурі: ${detail.recipe.length}.`;
+      if(event.action==='catalog_pricing_changed') {
+        const labels={candidates:'Товарів у перевірці',changedPrices:'Товарів зі зміненою ціною',changedRecords:'Змінено записів товарів',skippedManual:'Пропущено товарів із ручною ціною',errors:'Помилок'};
+        const parts=Object.entries(labels).filter(([key])=>Number.isSafeInteger(detail[key])&&detail[key]>=0).map(([key,label])=>`${label}: ${detail[key]}.`);
+        if(parts.length)return parts.join(' ');
+      }
+      return 'Опис події доступний у технічних подробицях.';
+    }
+    function auditDetails(event) {
+      return `<div data-audit-summary>${esc(auditSummary(event))}</div><details data-audit-technical><summary aria-label="Технічні подробиці події № ${esc(event.id)}" style="min-height:44px;padding:10px 0;box-sizing:border-box;cursor:pointer;scroll-margin-block:8px">Технічні подробиці</summary><div class="trade-history" style="text-align:left">Дія: ${esc(event.action)}</div><pre class="trade-history" style="margin:8px 0 0;text-align:left;font:12px/1.5 ui-monospace,monospace">${esc(JSON.stringify(event.detail,null,2))}</pre></details>`;
+    }
+    function auditAction(event) {
+      const label=Object.hasOwn(actions,event.action)?actions[event.action]:event.action==='catalog_pricing_changed'?'Групова зміна цін':'Інша подія';
+      return `<span style="display:block;min-width:80px">${esc(label)}</span>`;
+    }
     const states = new Map();
     const titles = {debts:'боргів',ledger:'грошових операцій',audit:'журналу змін'};
     const input = (key,type='text',attrs='') => `<input name="${key}" type="${type}" ${attrs}>`;
@@ -41,7 +66,7 @@
           esc(x.date)+`<span class="muted">№ ${String(x.voucher).padStart(6,'0')}</span>`,esc(x.account)+`<span class="muted">${esc(name('stores',x.store_id))}</span>`,esc(kinds[x.kind])+(x.reversal?' · скасування':'')+(x.note?`<span class="muted">${esc(x.note)}</span>`:''),amount(x.amount)+' грн',`<button class="btn soft" type="button" data-trade="view" data-id="${x.voucher}" aria-label="Відкрити документ № ${x.voucher}">Документ</button>`
         ]),'Грошових операцій за вибраними умовами немає.');
         else results.innerHTML=table(['Подія / час','Користувач','Дія','Об’єкт','Подробиці'],data.events.map(e=>[
-          `№ ${e.id}<span class="muted">${esc(new Date(e.at).toLocaleString('uk-UA',{timeZone:'Europe/Kyiv'}))}</span>`,esc(e.user__username),esc(actions[e.action]||e.action),esc(e.subject),`<span class="trade-history">${esc(JSON.stringify(e.detail))}</span>`
+          `№ ${e.id}<span class="muted">${esc(new Date(e.at).toLocaleString('uk-UA',{timeZone:'Europe/Kyiv'}))}</span>`,esc(e.user__username),auditAction(e),esc(e.subject),auditDetails(e)
         ]),'Подій за вибраними умовами немає.');
       }
       async function load(focus=false) {

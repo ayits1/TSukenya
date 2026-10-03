@@ -62,6 +62,7 @@ export function CatalogView({
         />
         <ComboBox
           label="Категорія"
+          isDisabled={busy}
           options={choices(data.facets.category, 'Усі категорії')}
           selectedKey={filters.category || '*'}
           onSelectionChange={(key) =>
@@ -70,6 +71,7 @@ export function CatalogView({
         />
         <ComboBox
           label="Пакування"
+          isDisabled={busy}
           options={choices(data.facets.pack, 'Усе пакування')}
           selectedKey={filters.pack || '*'}
           onSelectionChange={(key) => change({ pack: key === '*' ? '' : String(key) })}

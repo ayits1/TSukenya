@@ -23,7 +23,7 @@ Helper створює власну SQLite й server process на **localhost:182
 - `QA_SETTINGS_FROM=users|period|fiscal|detail|zoom|detail-zoom` — одна конкретна група для повтору; default `all` — лише перелічені нові стани.
 - `QA_SETTINGS_PORT` — інший вільний localhost-порт.
 - `CHROME_PATH` — executable локального Chrome.
-- Shared harness і entrypoint повної регресії не змінювали. Для майбутнього включення цього самостійного helper у full-check його mode/port environment слід очистити, як у інших targeted helpers.
+- Helper уже включено у `scripts/full-check.mjs`; entrypoint очищає `QA_SETTINGS_FROM` і `QA_SETTINGS_PORT`. Цільовий прохід не запускав повну регресію.
 
 ## Фактичний результат
 
