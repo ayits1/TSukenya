@@ -82,7 +82,7 @@ class CashShift(models.Model):
     note = models.TextField(blank=True)
 
 class Voucher(models.Model):
-    KIND = [('purchase_order','Замовлення постачальнику'),('receipt','Надходження'),('opening','Початкові залишки'),('sale','Продаж'),('customer_return','Повернення покупця'),('supplier_return','Повернення постачальнику'),('transfer','Переміщення'),('writeoff','Списання'),('inventory','Інвентаризація'),('production','Виробництво'),('payment','Оплата боргу'),('expense','Витрата'),('cash_opening','Початкові кошти'),('payroll','Нарахування зарплати'),('payroll_payment','Виплата зарплати / аванс'),('customer_order','Замовлення покупця'),('debt_opening','Початкова заборгованість'),('cash_transfer','Переміщення коштів'),('cash_difference','Касове розходження')]
+    KIND = [('purchase_order','Замовлення постачальнику'),('receipt','Надходження'),('opening','Початкові залишки'),('sale','Продаж'),('customer_return','Повернення покупця'),('supplier_return','Повернення постачальнику'),('transfer','Переміщення'),('writeoff','Списання'),('inventory','Інвентаризація'),('production','Виробництво'),('payment','Платіж / аванс'),('advance_allocation','Використання авансу'),('payment_refund','Повернення авансу'),('expense','Витрата'),('cash_opening','Початкові кошти'),('payroll','Нарахування зарплати'),('payroll_payment','Виплата зарплати / аванс'),('customer_order','Замовлення покупця'),('debt_opening','Початкова заборгованість'),('cash_transfer','Переміщення коштів'),('cash_difference','Касове розходження')]
     kind = models.CharField(max_length=24, choices=KIND)
     status = models.CharField(max_length=12, default='draft')
     date = models.DateField()
@@ -108,6 +108,15 @@ class Voucher(models.Model):
     request_fingerprint = models.CharField(max_length=64, blank=True, default='')
     class Meta:
         indexes = [models.Index(fields=['store', 'date', 'status']), models.Index(fields=['kind', 'status'])]
+
+class PaymentAllocation(models.Model):
+    settlement = models.ForeignKey(Voucher, on_delete=models.CASCADE, related_name='allocation_entries')
+    payment = models.ForeignKey(Voucher, on_delete=models.RESTRICT, related_name='funded_allocations')
+    source = models.ForeignKey(Voucher, on_delete=models.PROTECT, related_name='settlement_allocations')
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['settlement','source'], name='allocation_event_source'), models.CheckConstraint(condition=models.Q(amount__gt=0), name='allocation_amount_positive')]
+
 
 class VoucherLine(models.Model):
     line_key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)

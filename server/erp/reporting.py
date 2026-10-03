@@ -16,6 +16,11 @@ def voucher_json(v, detail=False, *, user):
         result['outstanding'] = str(obligation(v))
     if detail:
         result['payload']=deepcopy(v.payload)
+        if v.kind in {'payment','advance_allocation'}:
+            result['allocations']=[{'source':r.source_id,'number':f'{r.source_id:06d}','amount':str(r.amount)} for r in v.allocation_entries.all()]
+        if v.kind=='payment' and v.status=='posted':
+            from .settlements import unused
+            result['unallocated']=str(unused(v))
         result['lines']=[{'id':l.pk,'line_key':str(l.line_key),'reference_line':l.reference_line_id,'product':l.product_id.split('/',1)[1],'name':l.name,'unit':l.unit,'quantity':str(l.quantity),'price':str(l.price),'amount':str(l.amount),'cost':str(l.cost),'lot':l.lot,'expiry':l.expiry.isoformat() if l.expiry else ''} for l in v.lines.all()]
         for row in result['lines']:
             l = v.lines.get(pk=row['id'])

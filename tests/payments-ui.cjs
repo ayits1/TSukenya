@@ -1,0 +1,54 @@
+/* B15 isolated payment UI: explicit multi allocation, advance, refund and party reconciliation. */
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
+const root=path.resolve(__dirname,'..'),data=fs.mkdtempSync(path.join(os.tmpdir(),'b15-payments-ui-')),python=process.env.PYTHON_BIN||'python3',port=18236,base=`http://localhost:${port}`,password='isolated-b15-owner-password';
+const hash=execFileSync(python,['-c',`from server.auth import hash_password;print(hash_password('${password}'))`],{cwd:root,encoding:'utf8'}).trim();
+const env={...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'test.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};for(const key of ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD','TSUKENYA_REQUIRE_POSTGRES'])delete env[key];
+const server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});let browser;
+const wait=async fn=>{for(let n=0;n<100;n++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
+(async()=>{
+ await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
+ browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
+ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await require('./browser-login.cjs')(page,base,password);
+ const api=(endpoint,method='GET',value)=>page.evaluate(async({endpoint,method,value})=>{const s=await(await fetch('/api/state')).json();const response=await fetch('/api/'+endpoint,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:value===undefined?undefined:JSON.stringify(value)});return{status:response.status,value:await response.json()};},{endpoint,method,value});
+ const ok=async(...args)=>{const result=await api(...args);assert(result.status<300,JSON.stringify(result));return result.value;};
+ const state=await ok('erp/state'),store=state.stores[0].id,warehouse=state.warehouses[0].id,account=state.accounts[0].id;
+
+ const supplier=(await ok('erp/entities/parties','POST',{name:'B15 постачальник',kind:'supplier'})).id;
+ const product=(await ok('v1/catalog/products','POST',{name:'B15 товар',cost:'1',markup:'100'})).id;
+ const day=new Date().toISOString().slice(0,10);
+ const posted=async body=>{const v=await ok('erp/vouchers','POST',{date:day,store,...body});return ok('erp/vouchers/'+v.id+'/post','POST',{});};
+ await posted({kind:'cash_opening',account,amount:'2000'});
+ const a=await posted({kind:'receipt',warehouse,party:supplier,lines:[{product,quantity:'10',price:'100'}]}),b=await posted({kind:'receipt',warehouse,party:supplier,lines:[{product,quantity:'10',price:'50'}]});
+ if(process.argv.includes('--failure-only')){
+  await posted({kind:'payment',party:supplier,account,amount:'100',allocations:[]});
+  await page.goto(base+'/#trade/finance');await page.locator('[data-advances] [data-pay=allocate]').waitFor();
+  const reject=route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Ізольована тимчасова помилка читання.'})});
+  await page.route('**/api/erp/advances?*',reject);await page.locator('[data-advances] form button[type=submit], [data-advances] form button:not([type])').click();
+  await page.locator('[data-advances] [data-pay-error]').getByText('Ізольована тимчасова помилка читання.').waitFor();assert.equal(await page.locator('[data-advances] [data-pay=allocate]').count(),0);
+  await page.unroute('**/api/erp/advances?*',reject);await page.locator('[data-advances] form button:not([type])').click();await page.locator('[data-advances] [data-pay=allocate]').waitFor();
+  await page.locator('[data-advances] [name=party]').selectOption(String(supplier));await page.locator('[data-advances] [data-pay=statement]').click();await page.locator('[data-pay-statement]').getByText('Звірка сходиться',{exact:true}).waitFor();
+  await page.route('**/api/erp/party-statement?*',reject);await page.locator('dialog[open] form button').click();await page.locator('#tradeFormError').getByText('Ізольована тимчасова помилка читання.').waitFor();assert.equal(await page.locator('[data-pay-statement] table').count(),0);assert.equal(await page.locator('[data-pay-statement]').innerText(),'');
+  await page.unroute('**/api/erp/party-statement?*',reject);await page.locator('dialog[open] form button').click();await page.locator('[data-pay-statement]').getByText('Звірка сходиться',{exact:true}).waitFor();assert.deepEqual(errors,[]);
+  console.log('PAYMENTS READ FAILURE PASS: stale advance actions/statement removed after GET503; GET retry restores authoritative read');return;
+ }
+ await page.goto(base+'/#trade/finance');await page.locator('[data-trade=new-voucher][data-kind=payment]').click();
+ const form=()=>page.locator('#tradeAllocationForm');await form().locator('[name=party]').selectOption(String(supplier));await form().locator('[name=amount]').fill('1600');await form().locator('[name=note]').fill('Чернетка не губиться під час пошуку');
+ await page.locator('[data-pay=add]').click();await page.locator('.trade-document-browser[open] [data-browse-results]').waitFor();await page.keyboard.press('Escape');await page.locator('.trade-document-browser[open]').waitFor({state:'hidden'});
+ assert.equal(await form().locator('[name=note]').inputValue(),'Чернетка не губиться під час пошуку');assert(await page.locator('[data-pay=add]').evaluate(el=>document.activeElement===el));
+ async function add(source){const n=await page.locator('[data-allocation]').count();await page.locator('[data-pay=add]').click();const d=page.locator('.trade-document-browser[open]');await d.locator('[name=q]').fill(source.number);await d.locator('[type=submit]').click();await d.locator(`[data-browse=choose][data-id="${source.id}"]`).click();await page.waitForFunction(n=>document.querySelectorAll('[data-allocation]').length===n+1,n);}
+ await add(a);await add(b);assert.deepEqual(await page.locator('[data-allocation]').evaluateAll(els=>els.map(e=>e.value)),['1000.00','500.00']);assert.match(await page.locator('[data-pay-summary]').textContent(),/100,00/);
+ for(const width of [1440,390,320]){await page.setViewportSize({width,height:950});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`payment body overflow ${width}`);assert(await page.locator('dialog[open]').evaluate(d=>d.scrollWidth<=d.clientWidth+1),`payment dialog overflow ${width}`);}
+ await page.setViewportSize({width:1440,height:1000});await page.locator('[form=tradeAllocationForm][value=post]').click();await page.getByRole('heading',{name:/Платіж \/ аванс · №/}).waitFor({timeout:8000}).catch(async e=>{throw Error(await page.locator('dialog[open]').innerText()+' INVALID='+await page.locator(':invalid').evaluateAll(els=>els.map(e=>e.name+': '+e.validationMessage)),{cause:e});});
+ let list=await ok('erp/vouchers?kind=payment');assert.equal(list.total,1);let payment=await ok('erp/vouchers/'+list.items[0].id);assert.equal(payment.allocations.length,2);assert.equal(payment.cash_movements.length,1);assert.equal(payment.unallocated,'100.00');assert.equal((await ok('erp/vouchers/'+a.id)).outstanding,'0.00');assert.equal((await ok('erp/vouchers/'+b.id)).outstanding,'0.00');
+ const c=await posted({kind:'receipt',warehouse,party:supplier,lines:[{product,quantity:'1',price:'50'}]});
+ await page.locator('[data-trade=use-advance]').click();await form().waitFor();await add(c);assert.equal(await form().locator('[name=amount]').inputValue(),'50.00');await page.locator('[form=tradeAllocationForm][value=post]').click();await page.getByRole('heading',{name:/Використання авансу · №/}).waitFor();
+ const allocations=await ok('erp/vouchers?kind=advance_allocation'),allocation=await ok('erp/vouchers/'+allocations.items[0].id);assert.equal(allocation.cash_movements.length,0);assert.equal(allocation.allocations[0].source,c.id);payment=await ok('erp/vouchers/'+payment.id);assert.equal(payment.unallocated,'50.00');
+ await page.locator('[data-trade=close]').click();await page.locator('[data-advances] [data-pay=refund]').click();await form().waitFor();assert.equal(await form().locator('[name=amount]').inputValue(),'50.00');await page.locator('[form=tradeAllocationForm][value=post]').click();await page.getByRole('heading',{name:/Повернення авансу · №/}).waitFor();
+ const refunds=await ok('erp/vouchers?kind=payment_refund'),refund=await ok('erp/vouchers/'+refunds.items[0].id);assert.equal(refund.cash_movements[0].amount,'50.00');assert.equal((await ok('erp/vouchers/'+payment.id)).unallocated,'0.00');
+ await page.locator('[data-trade=close]').click();await page.locator('[data-advances] [name=party]').selectOption(String(supplier));await page.locator('[data-advances] [data-pay=statement]').click();await page.locator('[data-pay-statement]').getByText('Звірка сходиться',{exact:true}).waitFor();assert.match(await page.locator('[data-pay-statement]').innerText(),/на кінець: 0,00 грн/);assert.equal(await page.locator('dialog[open]').getAttribute('data-dirty'),null);
+ for(const width of [1440,390,320]){await page.setViewportSize({width,height:950});assert(await page.locator('dialog[open]').evaluate(d=>d.scrollWidth<=d.clientWidth+1),`statement dialog overflow ${width}`);}
+ let confirmCount=0;page.on('dialog',async d=>{confirmCount++;await d.dismiss();});await page.locator('dialog[open] [name=from]').fill(day);await page.keyboard.press('Escape');await page.locator('dialog[open]').waitFor({state:'hidden'});assert.equal(confirmCount,0,'read-only date filter must not become an unsaved document');
+ await page.goto(base+'/#trade/reports');await page.locator('[data-trade=report-mode][data-mode=balances]').click();await page.getByRole('heading',{name:'Невикористані аванси на дату'}).waitFor();assert.match(await page.locator('#tradeReportResult').innerText(),/Отримано від покупців: 0,00 грн/);
+ assert.deepEqual(errors,[]);console.log('PAYMENTS UI PASS: multi-source one cash, preserved search draft/focus, explicit advance allocation without cash, refund, reconciled party statement, historical advances, 1440/390/320 layouts');
+})().catch(error=>{console.error(error);process.exitCode=1}).finally(async()=>{await browser?.close();server.kill();if(server.exitCode===null)await new Promise(resolve=>server.once('exit',resolve));fs.rmSync(data,{recursive:true,force:true});});
