@@ -274,6 +274,19 @@ class CashDifferenceTests(AccountingFixture):
         posted=Voucher.objects.get(kind='cash_difference')
         with self.assertRaisesMessage(BusinessError,'проводиться автоматично'):save_voucher(self.u,{'kind':'cash_difference','store':self.store.pk,'account':self.cash.pk,'date':self.today,'amount':'10'})
         with self.assertRaisesMessage(BusinessError,'Касову зміну вже закрито'):reverse_voucher(self.u,posted.pk,'помилка')
+    def test_revenue_per_open_hour_by_cashier(self):
+        from datetime import timedelta
+        first=self.open_till(self.morning);self.cash_sale(first,5,20)
+        sale=self.sale(1,30,shift=first.pk)
+        self.v('customer_return',1,30,reference=sale.pk,party=self.customer.pk,shift=first.pk,payload={'payments':[{'account':self.bank.pk,'amount':'30'}]})
+        self.shift('close',id=first.pk,counted='1100')
+        CashShift.objects.filter(pk=first.pk).update(opened_at=F('closed_at')-timedelta(hours=4))
+        brief=self.open_till(self.morning);self.shift('close',id=brief.pk,counted='1100')
+        (row,)=report(self.u,{})['cashiers']
+        self.assertEqual((row['shifts'],row['revenue'],row['revenue_per_hour']),(2,'100.00','25.00'))
+        self.assertEqual(Decimal(row['hours']),Decimal('4.0'))
+        CashShift.objects.filter(pk=first.pk).update(opened_at=F('closed_at')-timedelta(minutes=3))
+        self.assertIsNone(report(self.u,{})['cashiers'][0]['revenue_per_hour'])
     def test_closed_period_keeps_the_till_open(self):
         till=self.open_till(self.morning);LedgerLock.objects.filter(pk=1).update(closed_through=timezone.localdate())
         with self.assertRaisesMessage(BusinessError,'Обліковий період закритий'):self.shift('close',id=till.pk,counted='900')
@@ -324,3 +337,4 @@ class ProductMarginTests(AccountingFixture):
         r=report(self.u,{})
         self.assertEqual(sum(Decimal(x['gross_profit']) for x in r['products']),Decimal(r['gross_profit']))
         self.assertEqual(sum(Decimal(x['writeoff']) for x in r['products']),Decimal(r['writeoffs']))
+
