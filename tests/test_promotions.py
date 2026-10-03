@@ -58,6 +58,7 @@ class CampaignTests(ApiFixture):
         changed={k:v for k,v in payload.items() if k!='idempotencyKey'};changed.update(revision=a['revision'],prices=[{'product':'p','price':'24.00'}])
         url='/api/v1/promotions/campaigns/'+a['id'];self.assertEqual(self.call('patch',url,changed).status_code,200)
         self.assertEqual(self.call('patch',url,changed).status_code,409)
+        detail=self.client.get(url);self.assertEqual(detail.status_code,200);self.assertEqual(detail.json()['revision'],2)
         self.assertEqual(self.call('post','/api/v1/promotions/campaigns',payload).json()['code'],'create_changed')
         archived=self.call('delete',url,{'revision':2,'reason':'Пропозицію завершено'});self.assertEqual(archived.status_code,200)
         self.assertEqual(self.product()['salePrice'],'30.00');self.assertEqual(PromotionPrice.objects.count(),1)
