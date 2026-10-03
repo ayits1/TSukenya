@@ -110,6 +110,7 @@ class Voucher(models.Model):
         indexes = [models.Index(fields=['store', 'date', 'status']), models.Index(fields=['kind', 'status'])]
 
 class VoucherLine(models.Model):
+    line_key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     voucher = models.ForeignKey(Voucher, on_delete=models.CASCADE, related_name='lines')
     product = models.ForeignKey(Document, on_delete=models.PROTECT)
     name = models.CharField(max_length=250)
@@ -133,6 +134,7 @@ class StockLot(models.Model):
         constraints = [models.UniqueConstraint(fields=['warehouse', 'product', 'code'], name='stock_lot_key'), models.CheckConstraint(condition=models.Q(quantity__gte=0), name='stock_nonnegative'), models.CheckConstraint(condition=models.Q(value__gte=0), name='stock_value_nonnegative')]
 
 class StockEntry(models.Model):
+    line = models.ForeignKey(VoucherLine, null=True, blank=True, on_delete=models.PROTECT, related_name="stock_entries")
     voucher = models.ForeignKey(Voucher, on_delete=models.PROTECT, related_name='stock_entries')
     lot = models.ForeignKey(StockLot, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=18, decimal_places=3)
