@@ -162,6 +162,74 @@ class CatalogPricingTests(TestCase):
         self.assertEqual(hidden.data['markup'], 30)
         self.assertEqual(hidden.data['priceAt'], '2020-01-01')
 
+    def revisions(self):
+        return {identifier: self.client.get('/api/v1/catalog/products/' + identifier).json()['revision'] for identifier in ('one', 'manual', 'bare')}
+
+    def test_same_values_in_another_spelling_change_nothing(self):
+        Document.objects.create(path='products/bare', data={'name': 'bare', 'cost': 10, 'markup': 30})
+        stored = {document.path: document.data for document in Document.objects.all()}
+        before = self.revisions()
+        payload = self.markup(markup='30', updateDefault=True)
+        preview = self.post('preview', payload).json()
+        self.assertEqual(preview['summary'], {'candidates': 3, 'changedPrices': 0, 'changedRecords': 0, 'skippedManual': 1, 'errors': 0})
+        self.assertEqual(preview['settings'], {'before': {'defaultMarkup': '30', 'rounding': '0.5'}, 'after': {'defaultMarkup': '30', 'rounding': '0.5'}})
+        result = self.post('commit', self.prepare(payload)).json()
+        self.assertEqual({entry['id']: entry['revision'] for entry in result['entries']}, before)
+        self.assertEqual(self.revisions(), before)
+        self.assertEqual({document.path: document.data for document in Document.objects.exclude(path__startswith='pricing_runs/')}, stored)
+        self.assertEqual(list(AuditEvent.objects.values_list('action', flat=True)), ['catalog_pricing_changed'])
+        rounding = self.post('commit', self.prepare({'kind': 'rounding', 'rounding': '0.5'})).json()
+        self.assertEqual(rounding['summary']['changedRecords'], 0)
+        self.assertEqual(self.revisions(), before)
+        self.assertFalse(AuditEvent.objects.filter(action__in={'catalog_changed', 'pricing_settings_changed'}).exists())
+
+    def test_commit_revisions_match_later_reads(self):
+        Document.objects.create(path='products/bare', data={'name': 'bare', 'cost': 10})
+        for payload in (self.markup(markup='35', updateDefault=True), self.markup(ids=['one'], markup='12.5'),
+                        {'kind': 'rounding', 'rounding': '1'}, {'kind': 'rounding', 'rounding': '0.1'}):
+            with self.subTest(payload=payload):
+                result = self.post('commit', self.prepare(payload))
+                self.assertEqual(result.status_code, 200)
+                committed = {entry['id']: entry['revision'] for entry in result.json()['entries']}
+                current = self.revisions()
+                self.assertEqual(committed, {identifier: current[identifier] for identifier in committed})
+                # The listing and the import read the same versions.
+                listing = {item['id']: item['revision'] for item in self.client.get('/api/v1/catalog/products').json()['items']}
+                self.assertEqual(listing, current)
+        self.settings.refresh_from_db()
+        self.assertEqual((self.settings.data['defaultMarkup'], self.settings.data['rounding']), (35, .1))
+
+    def test_revision_ignores_number_spelling_of_pricing_settings(self):
+        from decimal import Decimal
+        from server.erp.catalog import revision
+        expected = revision(self.product)
+        for markup, rounding in ((Decimal('30.0000'), Decimal('0.50')), (Decimal('3E+1'), Decimal('.5')), (Decimal(30), Decimal('0.5000'))):
+            self.assertEqual(revision(self.product, {'markup': markup, 'rounding': rounding}), expected)
+        self.assertNotEqual(revision(self.product, {'markup': Decimal('30.0001'), 'rounding': Decimal('.5')}), expected)
+
+    def test_legacy_settings_cannot_change_price_terms(self):
+        before = self.client.get('/api/v1/catalog/products/one').json()
+        version = lambda: self.client.get('/api/state').json()['labelRevision']
+        write = lambda method, value: getattr(self.client, method)('/api/docs/settings/main', value, content_type='application/json', HTTP_IF_MATCH=version(), **self.headers)
+        for value in ({'defaultMarkup': 60}, {'rounding': 0}, {'rounding': 0.25}, {'rounding': '0,5'}, {'rounding': 1},
+                      {'defaultMarkup': None}, {'defaultMarkup': '30%'}, {'chainName': 'Інша', 'defaultMarkup': 31}):
+            with self.subTest(value=value):
+                self.assertEqual(write('patch', value).status_code, 400)
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.data, {'defaultMarkup': 30, 'rounding': .5, 'chainName': 'Збережена мережа'})
+        self.assertFalse(AuditEvent.objects.exists())
+        # Equal values keep the stored spelling; other settings still save.
+        self.assertEqual(write('patch', {'defaultMarkup': '30.00', 'rounding': 0.5, 'chainName': 'Нова мережа'}).status_code, 200)
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.data, {'defaultMarkup': 30, 'rounding': .5, 'chainName': 'Нова мережа'})
+        self.assertEqual(self.client.get('/api/v1/catalog/products/one').json()['revision'], before['revision'])
+        self.assertEqual(write('put', {'chainName': 'Без цін'}).status_code, 200)
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.data, {'defaultMarkup': 30, 'rounding': .5, 'chainName': 'Без цін'})
+        self.settings.data = {'defaultMarkup': 40}
+        self.settings.save()
+        self.assertEqual(write('put', {'chainName': 'Без цін'}).status_code, 400)
+
     def test_invalid_or_hidden_selection_and_strict_numbers(self):
         self.create('hidden', hidden=True)
         payloads = [self.markup(ids=[]), self.markup(ids=['missing']), self.markup(ids=['hidden']),

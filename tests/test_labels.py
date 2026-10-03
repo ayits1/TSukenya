@@ -50,6 +50,17 @@ class LabelTests(TestCase):
         self.assertEqual(Document.objects.get(pk='settings/main').data['rounding'],1)
         result=self.client.patch('/api/docs/settings/main',{'tag':{'size':'l'}},content_type='application/json',HTTP_IF_MATCH=value['revision'],**self.headers)
         self.assertEqual(result.status_code,409)
+    def test_legacy_settings_saves_chain_from_the_returned_revision(self):
+        legacy=lambda value,version:self.client.patch('/api/docs/settings/main',value,content_type='application/json',HTTP_IF_MATCH=version,**self.headers)
+        first=legacy({'tag':{'size':'l'}},self.workspace()['revision'])
+        self.assertEqual(first.status_code,200);self.assertEqual(first.json()['revision'],self.workspace()['revision'])
+        second=legacy({'chainName':'Нова назва'},first.json()['revision'])
+        self.assertEqual(second.status_code,200);self.assertEqual(second.json()['revision'],self.workspace()['revision'])
+        doc=Document.objects.get(pk='settings/main');doc.data['tag']={'size':'s'};doc.save()
+        conflict=legacy({'tag':{'size':'m'}},second.json()['revision'])
+        self.assertEqual(conflict.status_code,409)
+        self.assertEqual(conflict.json(),{'error':'Макет уже змінено. Оновіть дані перед повторним збереженням.','code':'revision_conflict'})
+        self.assertEqual(Document.objects.get(pk='settings/main').data['tag'],{'size':'s'})
     def test_invalid_config_and_csrf_are_rejected(self):
         for patch in [{'styleVersion':3},{'styles':{'price':{'size':float('inf')}}},{'styles':{'unknown':{}}},{'promo':'yes'},{'size':'poster'},{'styles':{'price':{'color':'red'}}}]:
             value=self.payload();value['config'].update(patch)
@@ -102,6 +113,23 @@ class LabelTests(TestCase):
         self.assertTrue(self.workspace()['config']['oldPrice'])
         value=self.payload();value['config']['oldPrice']='yes'
         self.assertEqual(self.patch(value).status_code,400)
+
+    def legacy_settings(self,value):
+        return self.client.patch('/api/docs/settings/main',value,content_type='application/json',HTTP_IF_MATCH=self.workspace()['revision'],**self.headers)
+
+    def test_legacy_stale_days_stays_decodable_by_label_studio(self):
+        for days in [0,-1,3651,1.5,'30',True,None]:
+            self.assertEqual(self.legacy_settings({'staleDays':days}).status_code,400,days)
+        self.assertNotIn('staleDays',Document.objects.get(pk='settings/main').data)
+        self.assertEqual(self.legacy_settings({'staleDays':14}).status_code,200)
+        self.assertEqual(self.workspace()['settings']['staleDays'],14)
+        # An older invalid term reads as the default and does not block unrelated saves.
+        doc=Document.objects.get(pk='settings/main');doc.data['staleDays']=0;doc.save()
+        self.assertEqual(self.workspace()['settings']['staleDays'],30)
+        self.assertEqual(self.legacy_settings({'chainName':'Нова назва'}).status_code,200)
+        value=self.payload();value['settings']['staleDays']=30
+        self.assertEqual(self.patch(value).status_code,200)
+        self.assertEqual(Document.objects.get(pk='settings/main').data['staleDays'],30)
 
 
 class LabelConcurrencyTests(TransactionTestCase):

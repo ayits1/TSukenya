@@ -6,10 +6,16 @@ TASK_SCOPES = {'operations', 'development'}
 TASK_STATUSES = {'todo', 'doing', 'done'}
 
 
+# Overdue-payment alerts carry counterparty names and debt amounts.
+FINANCE_ALERT_ROLES = {'owner', 'manager', 'accountant'}
+
+
 def task_visible(user, data):
     if user.profile.role == 'owner':
         return True
     if data.get('scope') != 'operations':
+        return False
+    if str(data.get('_alertKey', '')).startswith('due:') and user.profile.role not in FINANCE_ALERT_ROLES:
         return False
     store = data.get('store')
     if store is None:

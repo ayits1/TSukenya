@@ -399,7 +399,9 @@ export function ProductEditor({
             {mutation.error || reload.error || deletion.error ? (
               <div className="tk-catalog-error" role="alert">
                 <p>{mutation.error?.message || reload.error?.message || deletion.error?.message}</p>
-                {mutation.error instanceof ApiError && mutation.error.status === 409 ? (
+                {mutation.error instanceof ApiError &&
+                mutation.error.status === 409 &&
+                mutation.error.code !== 'duplicate_name' ? (
                   <Button onPress={() => reload.mutate()} isDisabled={reload.isPending}>
                     Завантажити актуальний товар
                   </Button>

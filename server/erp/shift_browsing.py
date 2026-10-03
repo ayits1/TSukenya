@@ -8,13 +8,15 @@ from django.utils import timezone
 from .browsing import PAGE_SIZE, page_bounds, page_number, positive_integer
 from .models import CashShift, WorkShift
 from .reporting import scoped
-from .services import ROLE_KINDS, day, require
+from .services import day, require
 
 WORK_FIELDS = (
     'id', 'employee_id', 'store_id', 'date', 'cash_shift_id', 'units',
     'shift_rate', 'bonus_percent', 'bonus_basis', 'accrued', 'basis_amount',
     'payroll_id', 'note',
 )
+# Till counts and differences are cash control data; the warehouse role has no till workflow.
+CASH_SHIFT_ROLES = {'owner', 'manager', 'accountant', 'cashier'}
 
 
 def cash_shift_json(shift):
@@ -45,7 +47,7 @@ def filters(query, params, date_field):
 
 
 def cash_shifts(user, params):
-    require(user.profile.role in ROLE_KINDS, 'Недостатньо прав для касових змін.')
+    require(user.profile.role in CASH_SHIFT_ROLES, 'Недостатньо прав для касових змін.')
     requested = page_number(params)
     query = scoped(CashShift.objects.select_related('opened_by'), user).annotate(
         opened_day=TruncDate('opened_at', tzinfo=ZoneInfo('Europe/Kyiv')),

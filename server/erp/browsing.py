@@ -2,7 +2,7 @@
 import re
 from decimal import Decimal
 
-from django.db.models import DecimalField, Exists, F, OuterRef, Prefetch, Subquery, Sum, Value
+from django.db.models import DecimalField, Exists, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 
 from .models import Voucher, VoucherLine
@@ -78,6 +78,8 @@ def references(user, params):
     query = filter_search(query, params)
     query = with_settlements(query.select_related('party')).order_by('-pk')
     if purpose == 'payment':
+        # Retail sales (no customer) are posted only when fully paid, so they never carry debt.
+        query = query.exclude(Q(kind='sale', party__isnull=True))
         # Reuse the authoritative obligation calculation, including returns and
         # embedded sale payments; these sources do not expose line/cost details.
         eligible = []
