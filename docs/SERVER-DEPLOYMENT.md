@@ -19,6 +19,17 @@
 
 ## Оновлення
 
+Основний шлях з 03.10.2026: `deploy/release.py` розгортає рівно один коміт Git і записує його SHA, який показує `/health` (поле `release`).
+
+1. На робочому комп'ютері: `git fetch origin && git archive --format=tar.gz -o tsukenya-<sha>.tar.gz <sha>`; скопіювати архів у `/opt/tsukenya/releases/` на VPS. Архів GitHub «Download ZIP» не підходить: у ньому інша структура й немає SHA.
+2. На VPS від root: `python3 /opt/tsukenya/deploy/release.py /opt/tsukenya/releases/tsukenya-<sha>.tar.gz --check` — перевіряє архів, показує поточну й нову версію та що буде замінено, нічого не змінює. Для першого запуску, поки скрипта ще немає на сервері: `tar xzf <архів> -C /tmp deploy/release.py && python3 /tmp/deploy/release.py <архів> --check`.
+3. Той самий запуск без `--check`: `backup.py` → архів поточного коду `releases/pre-<час>.tar.gz` → заміна лише каталогів коду (`app`, `server`, `frontend`, `tools`, `contracts`, `data`, `deploy`, `manage.py`, `package*.json`, `.npmrc`, `.nvmrc`, `.dockerignore`) → `compose config --quiet` → `up -d --build --no-deps web` → очікування, доки внутрішній і публічний `/health` покажуть новий SHA → `releases/CURRENT`.
+4. Скрипт не змінює `.env`, `.env.database`, `.private`, `storage`, БД, Caddy й інші проєкти. `compose.production.yaml` замінюється лише з `--with-compose`. Паралельний другий реліз блокується.
+5. Відкат коду: команда, яку скрипт друкує в кінці або при помилці, — той самий скрипт з архівом `releases/pre-<час>.tar.gz`. БД при відкаті коду не відновлюється; міграції в цьому проєкті лише додають.
+6. Перевірити вхід, каталог, цінники, продаж, повернення й закриття зміни. Тести на робочій базі не запускати.
+
+Ручний спосіб, як і раніше:
+
 1. `python3 /opt/tsukenya/backup.py` — consistent PostgreSQL dump та checksum.
 2. Передавати тільки код; не перезаписувати `.env`, `.env.database`, `.private`, `storage` чи DB volume.
 3. У `/opt/tsukenya`: `docker compose -p tsukenya -f compose.production.yaml config --quiet`, потім `docker compose -p tsukenya -f compose.production.yaml up -d --build web`.
