@@ -443,6 +443,9 @@ def handle(request):
     if path=='/api/erp/ledger' and request.method=='GET':
         from .financial_browsing import ledger
         return response(ledger(user,request.GET))
+    if path=='/api/erp/debts/summary' and request.method=='GET':
+        from .financial_browsing import debt_summary
+        return response(debt_summary(user))
     if path=='/api/erp/debts' and request.method=='GET':
         from .financial_browsing import debts
         return response(debts(user,request.GET))

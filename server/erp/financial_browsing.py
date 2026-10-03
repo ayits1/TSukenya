@@ -2,6 +2,9 @@
 import re
 from zoneinfo import ZoneInfo
 
+from datetime import timedelta
+from decimal import Decimal
+
 from django.db.models import Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
@@ -137,3 +140,32 @@ def debts(user, params):
     page, pages, offset = page_bounds(total, requested)
     return {'items': rows[offset:offset + PAGE_SIZE], 'total': total, 'page': page, 'pages': pages,
             'debt_totals': totals}
+
+
+CALENDAR_DAYS = 14
+
+
+def debt_summary(user):
+    """Overview card: overdue amounts both ways and supplier payments due in the next two weeks."""
+    financial_access(user)
+    rows, _ = current_debts(user, {})
+    today = timezone.localdate()
+    horizon = (today + timedelta(days=CALENDAR_DAYS - 1)).isoformat()
+    overdue = {'to_us': {'amount': ZERO, 'count': 0}, 'by_us': {'amount': ZERO, 'count': 0}}
+    payments = []
+    for row in rows:
+        amount = Decimal(row['amount'])
+        if amount <= 0:
+            continue
+        side = overdue['by_us' if row['kind'] == 'receipt' else 'to_us']
+        if row['overdue']:
+            side['amount'] += amount
+            side['count'] += 1
+        elif row['kind'] == 'receipt' and row['due_date'] and row['due_date'] <= horizon:
+            payments.append({key: row[key] for key in ('voucher', 'number', 'store', 'party', 'due_date')} | {'amount': str(amount)})
+    payments.sort(key=lambda row: (row['due_date'], row['voucher']))
+    return {
+        'today': today.isoformat(), 'days': CALENDAR_DAYS,
+        'overdue': {side: {'amount': str(money(value['amount'])), 'count': value['count']} for side, value in overdue.items()},
+        'payments': payments, 'payments_total': str(money(sum((Decimal(row['amount']) for row in payments), ZERO))),
+    }
