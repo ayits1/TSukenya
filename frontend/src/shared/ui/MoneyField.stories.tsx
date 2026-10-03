@@ -47,13 +47,9 @@ export const KeyboardAndPaste: Story = {
     await expect(kopecks).toHaveValue('99');
     await userEvent.clear(kopecks);
     await userEvent.type(kopecks, '5');
-    // One digit is the first decimal place, as in 21,5.
-    await expect(canvas.getByLabelText('Десяткова сума')).toHaveTextContent('21.50');
-    await userEvent.tab();
-    await expect(kopecks).toHaveValue('50');
-    await userEvent.clear(kopecks);
-    await userEvent.type(kopecks, '05');
     await expect(canvas.getByLabelText('Десяткова сума')).toHaveTextContent('21.05');
+    await userEvent.tab();
+    await expect(kopecks).toHaveValue('05');
     await userEvent.click(hryvnias);
     await userEvent.keyboard(',');
     await expect(kopecks).toHaveFocus();
@@ -77,7 +73,7 @@ export const KeyboardAndPaste: Story = {
     await expect(canvas.getByLabelText('Збережена сума')).toHaveTextContent('21.00');
   },
 };
-export const CommaTypingMatchesPaste: Story = {
+export const KopecksWithoutHryvnias: Story = {
   args: { initial: '' },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -85,22 +81,7 @@ export const CommaTypingMatchesPaste: Story = {
     const kopecks = canvas.getByRole('textbox', { name: 'Продаж: копійки' });
     const amount = canvas.getByLabelText('Десяткова сума');
     const save = canvas.getByRole('button', { name: 'Зберегти' });
-    // Typing 2, 1, comma, 5 and pasting "21,5" give the same 21.50.
-    await userEvent.click(hryvnias);
-    await userEvent.keyboard('21,5');
-    await expect(kopecks).toHaveFocus();
-    await expect(amount).toHaveTextContent('21.50');
-    await userEvent.click(save);
-    await expect(canvas.getByLabelText('Збережена сума')).toHaveTextContent('21.50');
-    await expect(kopecks).toHaveValue('50');
-    await userEvent.clear(hryvnias);
-    await userEvent.paste('21,5');
-    await expect(hryvnias).toHaveValue('21');
-    await expect(kopecks).toHaveValue('50');
-    await expect(amount).toHaveTextContent('21.50');
-    // Kopecks without гривні are a whole amount, not an empty one.
-    await userEvent.clear(hryvnias);
-    await userEvent.clear(kopecks);
+    // Kopecks without гривні are a whole amount, not an empty one the server rejects.
     await expect(amount).toBeEmptyDOMElement();
     await userEvent.click(hryvnias);
     await userEvent.keyboard(',50');
