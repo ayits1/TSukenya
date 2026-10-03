@@ -58,6 +58,9 @@ export type StudioViewProps = {
   saveStatus: 'saved' | 'dirty' | 'saving' | 'error' | 'conflict';
   onSave: () => void;
   onReload: () => void;
+  onCompare?: (trigger: HTMLButtonElement) => void;
+  comparisonBusy?: boolean;
+  comparison?: ReactNode;
   canUndo?: boolean;
   onUndo?: () => void;
   canRedo?: boolean;
@@ -330,9 +333,25 @@ export function StudioView(props: StudioViewProps) {
             {props.error ||
               'Збережений макет змінився. Завантажте актуальний макет перед збереженням.'}
             {saveStatus === 'conflict' ? (
-              <Button onPress={props.onReload} isDisabled={props.outputBusy || props.preparing}>
-                Завантажити збережений макет
-              </Button>
+              <>
+                {props.onCompare ? (
+                  <Button
+                    onPress={(event) => {
+                      if (event.target instanceof HTMLButtonElement)
+                        props.onCompare?.(event.target);
+                    }}
+                    isDisabled={!!(props.outputBusy || props.preparing || props.comparisonBusy)}
+                  >
+                    {props.comparisonBusy ? 'Завантажуємо для порівняння…' : 'Порівняти зміни'}
+                  </Button>
+                ) : null}
+                <Button
+                  onPress={props.onReload}
+                  isDisabled={!!(props.outputBusy || props.preparing || props.comparisonBusy)}
+                >
+                  Завантажити збережений макет
+                </Button>
+              </>
             ) : null}
             {props.onRetryProducts ? (
               <Button
@@ -344,6 +363,7 @@ export function StudioView(props: StudioViewProps) {
             ) : null}
           </div>
         ) : null}
+        {props.comparison}
         <TabPanel id="design">
           <div className="tk-studio-toolbar">
             <Select
