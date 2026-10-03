@@ -110,9 +110,7 @@ export const DuplicateNameIsNotAVersionConflict: Story = {
     await userEvent.type(name, 'Наявна назва');
     await userEvent.click(form.getByRole('button', { name: 'Зберегти товар' }));
     await expect(await form.findByRole('alert')).toHaveTextContent('Товар із такою назвою вже є');
-    await expect(
-      form.queryByRole('button', { name: 'Завантажити актуальний товар' }),
-    ).not.toBeInTheDocument();
+    await expect(form.queryByRole('button', { name: 'Порівняти зміни' })).not.toBeInTheDocument();
     await expect(name).toHaveValue('Наявна назва');
   },
 };

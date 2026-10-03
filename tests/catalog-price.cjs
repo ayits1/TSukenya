@@ -16,6 +16,7 @@ module.exports = async (page, until) => {
   await costKopecks.fill('07');
   await costKopecks.press('Tab');
   assert.equal(await costKopecks.inputValue(), '07', 'purchase 07 means seven kopecks');
+  await until(async () => await dialog.getByRole('checkbox', { name: 'Задати ціну продажу вручну' }).isEnabled(), 'authoritative calculated preview before manual mode');
   await dialog.getByText('Задати ціну продажу вручну', { exact: true }).click();
   const hryvnias = dialog.getByRole('textbox', { name: 'Звичайна ціна: гривні', exact: true });
   const kopecks = dialog.getByRole('textbox', { name: 'Звичайна ціна: копійки', exact: true });
