@@ -13,8 +13,15 @@ def issue(check, subject, message, expected=None, actual=None):
     return {'check': check, 'subject': subject, 'message': message, 'expected': None if expected is None else str(expected), 'actual': None if actual is None else str(actual)}
 
 def number(value):
-    try: return Decimal(str(value))
-    except (InvalidOperation, ValueError): return None
+    try:
+        result = Decimal(str(value))
+        return result if result.is_finite() and result.copy_abs() <= Decimal('999999999999999999999999') else None
+    except (InvalidOperation, ValueError, TypeError): return None
+
+def identifier(value):
+    if isinstance(value, bool) or not isinstance(value, (int, str)): return None
+    text = str(value)
+    return int(text) if len(text) <= 19 and text.isascii() and text.isdigit() and 0 < int(text) <= 9223372036854775807 else None
 
 def check_lots():
     sums = {r['lot']: r for r in StockEntry.objects.values('lot').annotate(q=Sum('quantity'), v=Sum('value'))}
@@ -33,44 +40,75 @@ def check_totals():
         else:
             expected = sums.get(v.pk, ZERO)
             if v.kind == 'receipt':
-                extra = number(v.payload.get('additional_cost', 0))
-                if extra is None: out.append(issue('voucher_total', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): некоректні додаткові витрати «{v.payload.get("additional_cost")}».')); continue
+                extra = number(v.payload.get('additional_cost', 0)) if isinstance(v.payload, dict) else None
+                if extra is None: out.append(issue('voucher_total', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): некоректні додаткові витрати «{v.payload.get("additional_cost") if isinstance(v.payload, dict) else v.payload}».')); continue
                 expected += extra
         if v.total != expected: out.append(issue('voucher_total', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): сума {v.total} не дорівнює очікуваній {expected}.', expected, v.total))
     return out
 
 def expected_cash(v):
-    if v.kind not in CASH_KINDS: return ZERO
+    """Signed original amounts by account/direction, so opposite extra entries cannot cancel."""
+    if v.kind not in CASH_KINDS: return {}
+    if not isinstance(v.payload, dict): return None
+    want = defaultdict(lambda: ZERO)
+    def add(account, amount):
+        account = identifier(account)
+        if account is None or amount is None: return False
+        if amount: want[(account, 'in' if amount > 0 else 'out')] += amount
+        return True
     if v.kind in {'sale', 'customer_return', 'supplier_return'}:
-        total = ZERO
-        for p in v.payload.get('payments') or []:
+        payments = v.payload.get('payments', [])
+        if not isinstance(payments, list): return None
+        for p in payments:
             amount = number(p.get('amount')) if isinstance(p, dict) else None
-            if amount is None: return None
-            total += amount
-        return total
-    return v.total * 2 if v.kind == 'cash_transfer' else v.total
+            if amount is None or amount < 0: return None
+            if not add(p.get('account'), -amount if v.kind == 'customer_return' else amount): return None
+    elif v.kind == 'cash_transfer':
+        if not add(v.account_id, -v.total) or not add(v.payload.get('target_account'), v.total): return None
+    elif v.kind == 'payment':
+        reference = v.reference
+        if not reference or reference.kind not in {'sale', 'receipt', 'debt_opening'}: return None
+        if reference.kind == 'debt_opening' and not reference.party: return None
+        incoming = reference.kind == 'sale' or reference.kind == 'debt_opening' and reference.party.kind == 'customer'
+        if not add(v.account_id, v.total if incoming else -v.total): return None
+    elif v.kind == 'cash_difference':
+        difference = number(v.payload.get('difference'))
+        if difference is None or abs(difference) != v.total: return None
+        if not add(v.account_id, difference): return None
+    else:
+        amount = -v.total if v.kind in {'expense', 'payroll_payment'} else v.total
+        if not add(v.account_id, amount): return None
+    return dict(want)
 
 def expected_stock(v, lines):
-    """Expected non-reversal stock movement of a posted voucher as {(product path, 'in'|'out'): quantity}."""
+    """Expected original quantities by product, warehouse and direction."""
+    if not isinstance(v.payload, dict): return None
     want = defaultdict(lambda: ZERO)
     if v.kind in {'receipt', 'opening', 'customer_return'}:
-        for p, q in lines: want[(p, 'in')] += q
+        for p, q in lines: want[(p, v.warehouse_id, 'in')] += q
     elif v.kind in {'sale', 'writeoff', 'supplier_return'}:
-        for p, q in lines: want[(p, 'out')] += q
+        for p, q in lines: want[(p, v.warehouse_id, 'out')] += q
     elif v.kind == 'transfer':
-        for p, q in lines: want[(p, 'out')] += q; want[(p, 'in')] += q
+        for p, q in lines:
+            want[(p, v.warehouse_id, 'out')] += q
+            want[(p, v.target_id, 'in')] += q
     elif v.kind == 'production':
-        for p, q in lines: want[(p, 'in')] += q
-        for c in v.payload.get('consumed') or []:
+        for p, q in lines: want[(p, v.warehouse_id, 'in')] += q
+        consumed = v.payload.get('consumed', [])
+        if not isinstance(consumed, list): return None
+        for c in consumed:
             q = number(c.get('quantity')) if isinstance(c, dict) else None
-            if q is None or not c.get('product'): return None
-            want[('products/' + str(c['product']), 'out')] += q
+            product = c.get('product') if isinstance(c, dict) else None
+            if q is None or q <= 0 or not isinstance(product, str) or not product: return None
+            want[('products/' + product, v.warehouse_id, 'out')] += q
     elif v.kind == 'inventory':
-        for d in v.payload.get('differences') or []:
+        differences = v.payload.get('differences', [])
+        if not isinstance(differences, list): return None
+        for d in differences:
             q = number(d.get('difference')) if isinstance(d, dict) else None
             product = d.get('product') if isinstance(d, dict) else None
-            if q is None or not product: return None
-            if q: want[(product, 'in' if q > 0 else 'out')] += abs(q)
+            if q is None or not isinstance(product, str) or not product: return None
+            if q: want[(product, v.warehouse_id, 'in' if q > 0 else 'out')] += abs(q)
     return {k: x for k, x in want.items() if x}
 
 def check_stock_quantities():
@@ -78,15 +116,15 @@ def check_stock_quantities():
     ids = list(Voucher.objects.filter(status__in=['posted', 'reversed'], kind__in=STOCK_KINDS).values_list('pk', flat=True))
     lines, actual = defaultdict(list), defaultdict(lambda: ZERO)
     for l in VoucherLine.objects.filter(voucher__in=ids).values('voucher', 'product', 'quantity'): lines[l['voucher']].append((l['product'], l['quantity']))
-    for e in StockEntry.objects.filter(voucher__in=ids, is_reversal=False).values('voucher', 'lot__product', 'quantity'): actual[(e['voucher'], e['lot__product'], 'in' if e['quantity'] > 0 else 'out')] += abs(e['quantity'])
+    for e in StockEntry.objects.filter(voucher__in=ids, is_reversal=False).values('voucher', 'lot__product', 'lot__warehouse', 'quantity'): actual[(e['voucher'], e['lot__product'], e['lot__warehouse'], 'in' if e['quantity'] > 0 else 'out')] += abs(e['quantity'])
     by_voucher = defaultdict(dict)
-    for (voucher, product, way), q in actual.items(): by_voucher[voucher][(product, way)] = q
+    for (voucher, product, warehouse, way), q in actual.items(): by_voucher[voucher][(product, warehouse, way)] = q
     for v in Voucher.objects.filter(pk__in=ids).order_by('pk'):
         want = expected_stock(v, lines.get(v.pk, []))
         if want is None: out.append(issue('double_posting', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): некоректні дані для звірки складських рухів.')); continue
         got = by_voucher.get(v.pk, {})
         for k in sorted(set(want) | set(got), key=str):
-            if want.get(k, ZERO) != got.get(k, ZERO): out.append(issue('double_posting', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): по товару {k[0]} складський рух ({"прихід" if k[1] == "in" else "витрата"}) {got.get(k, ZERO)} замість очікуваних {want.get(k, ZERO)}.', want.get(k, ZERO), got.get(k, ZERO)))
+            if want.get(k, ZERO) != got.get(k, ZERO): out.append(issue('double_posting', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): по товару {k[0]} на складі № {k[1]} складський рух ({"прихід" if k[2] == "in" else "витрата"}) {got.get(k, ZERO)} замість очікуваних {want.get(k, ZERO)}.', want.get(k, ZERO), got.get(k, ZERO)))
     return out
 
 def check_double_posting():
@@ -94,20 +132,26 @@ def check_double_posting():
     for r in StockEntry.objects.values('voucher', 'lot', 'is_reversal').annotate(n=Count('pk')).filter(n__gt=1).order_by('voucher', 'lot'):
         out.append(issue('double_posting', f'voucher/{r["voucher"]}', f'Документ № {r["voucher"]:06d}: {r["n"]} {"сторнувальних" if r["is_reversal"] else "основних"} складських рухів по партії № {r["lot"]} замість одного.', 1, r['n']))
     stock = {(r['voucher'], r['is_reversal']): r['n'] for r in StockEntry.objects.values('voucher', 'is_reversal').annotate(n=Count('pk'))}
-    cash = defaultdict(lambda: ZERO)
-    for e in CashEntry.objects.filter(is_reversal=False).values('voucher', 'amount'): cash[e['voucher']] += abs(e['amount'])
+    cash = defaultdict(lambda: defaultdict(lambda: ZERO))
+    for e in CashEntry.objects.filter(is_reversal=False).values('voucher', 'account', 'amount'):
+        if e['amount']: cash[e['voucher']][(e['account'], 'in' if e['amount'] > 0 else 'out')] += e['amount']
+    cash_reversals = set(CashEntry.objects.filter(is_reversal=True).values_list('voucher', flat=True))
     cash_rows = {r['voucher']: r['n'] for r in CashEntry.objects.values('voucher').annotate(n=Count('pk'))}
-    for v in Voucher.objects.order_by('pk'):
+    for v in Voucher.objects.select_related('reference__party').order_by('pk'):
         has_stock = (v.pk, False) in stock or (v.pk, True) in stock
         if v.status == 'draft' and (has_stock or v.pk in cash_rows): out.append(issue('double_posting', f'voucher/{v.pk}', f'Чернетка № {v.pk:06d} ({v.kind}) має складські або грошові рухи.'))
         if v.status == 'posted' and (v.pk, True) in stock: out.append(issue('double_posting', f'voucher/{v.pk}', f'Проведений документ № {v.pk:06d} ({v.kind}) має сторнувальні складські рухи.'))
+        if v.status == 'posted' and v.pk in cash_reversals: out.append(issue('double_posting', f'voucher/{v.pk}', f'Проведений документ № {v.pk:06d} ({v.kind}) має сторнувальні грошові рухи.'))
         if v.status == 'posted' and has_stock and v.kind not in STOCK_KINDS: out.append(issue('double_posting', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}) не має змінювати склад, але має складські рухи.'))
         if v.status == 'posted' and v.kind in STOCK_KINDS and v.kind != 'inventory' and not (v.pk, False) in stock: out.append(issue('double_posting', f'voucher/{v.pk}', f'Проведений документ № {v.pk:06d} ({v.kind}) не має складських рухів.'))
         if v.status in {'posted', 'reversed'}:
-            expected = expected_cash(v)
+            expected = expected_cash(v) if isinstance(v.payload, dict) else None
             if expected is None: out.append(issue('double_posting', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): некоректні оплати в документі.')); continue
-            if v.kind == 'cash_difference' and not cash_rows.get(v.pk): continue
-            if cash[v.pk] != expected: out.append(issue('double_posting', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): грошові рухи {cash[v.pk]} замість очікуваних {expected}.', expected, cash[v.pk]))
+            got = cash[v.pk]
+            for account, direction in sorted(set(expected) | set(got)):
+                key = (account, direction)
+                if got.get(key, ZERO) != expected.get(key, ZERO):
+                    out.append(issue('double_posting', f'voucher/{v.pk}', f'Документ № {v.pk:06d} ({v.kind}): по рахунку № {account} ({"прихід" if direction == "in" else "витрата"}) грошові рухи {got.get(key, ZERO)} замість очікуваних {expected.get(key, ZERO)}.', expected.get(key, ZERO), got.get(key, ZERO)))
     return out
 
 def check_payroll():
@@ -121,12 +165,12 @@ def check_payroll():
             continue
         accrued = sum((s.accrued for s in mine), ZERO)
         if v.total != accrued: out.append(issue('payroll', f'voucher/{v.pk}', f'Нарахування № {v.pk:06d}: сума {v.total} не дорівнює сумі змін {accrued}.', accrued, v.total))
-        calc = v.payload.get('calculation')
-        if not isinstance(calc, list) or {c.get('id') for c in calc if isinstance(c, dict)} != {s.pk for s in mine} or len(calc) != len(mine):
+        calc = v.payload.get('calculation') if isinstance(v.payload, dict) else None
+        if not isinstance(calc, list) or any(not isinstance(c, dict) or identifier(c.get('id')) is None for c in calc) or {identifier(c['id']) for c in calc} != {s.pk for s in mine} or len(calc) != len(mine):
             out.append(issue('payroll', f'voucher/{v.pk}', f'Нарахування № {v.pk:06d}: розрахунок у документі не збігається зі змінами {sorted(s.pk for s in mine)}.')); continue
         by_id = {s.pk: s for s in mine}
         for c in calc:
-            s = by_id[c['id']]
+            s = by_id[identifier(c['id'])]
             if number(c.get('accrued')) != s.accrued or number(c.get('basis_amount')) != s.basis_amount: out.append(issue('payroll', f'voucher/{v.pk}', f'Нарахування № {v.pk:06d}, зміна № {s.pk}: розрахунок {c.get("accrued")} не збігається з нарахованим {s.accrued}.', c.get('accrued'), s.accrued))
         for s in mine:
             formula = money(s.units * s.shift_rate + s.basis_amount * s.bonus_percent / Decimal(100))
