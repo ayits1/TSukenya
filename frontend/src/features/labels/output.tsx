@@ -16,6 +16,15 @@ export type LabelOutputSnapshot = {
   settings: LabelSettings;
   date: Date;
 };
+export type LabelOutputProgress = {
+  stage: 'fonts' | 'capture' | 'pages' | 'download' | 'print';
+  completed: number;
+  total: number;
+};
+export type LabelOutputOptions = {
+  signal?: AbortSignal;
+  onProgress?: (progress: LabelOutputProgress) => void;
+};
 const DPI = 300;
 const PX_MM = DPI / 25.4;
 type Box = { x: number; y: number; w: number; h: number };
@@ -65,15 +74,50 @@ function hiddenHost() {
     },
   };
 }
-async function readyFonts(host: HTMLElement) {
+function assertActive(signal?: AbortSignal) {
+  if (signal?.aborted) throw new DOMException('Підготовку скасовано.', 'AbortError');
+}
+/** Font loading and canvas encoding continue in the browser, but never retain the output root. */
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  assertActive(signal);
+  if (!signal) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener('abort', abort);
+      reject(new DOMException('Підготовку скасовано.', 'AbortError'));
+    };
+    signal.addEventListener('abort', abort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', abort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', abort);
+        reject(error);
+      },
+    );
+  });
+}
+function progress(options: LabelOutputOptions, value: LabelOutputProgress) {
+  assertActive(options.signal);
+  options.onProgress?.(value);
+  assertActive(options.signal);
+}
+async function readyFonts(host: HTMLElement, options: LabelOutputOptions) {
+  progress(options, { stage: 'fonts', completed: 0, total: 1 });
   const fonts = new Set(
     [...host.querySelectorAll<HTMLElement>('[data-field]')].map((field) => {
       const style = getComputedStyle(field);
       return `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
     }),
   );
-  await Promise.all([...fonts].map((font) => document.fonts.load(font, 'Абвґєіїй 0123456789')));
-  await document.fonts.ready;
+  await abortable(
+    Promise.all([...fonts].map((font) => document.fonts.load(font, 'Абвґєіїй 0123456789'))),
+    options.signal,
+  );
+  await abortable(document.fonts.ready, options.signal);
+  progress(options, { stage: 'fonts', completed: 1, total: 1 });
 }
 function assertFits(host: HTMLElement) {
   if ([...host.querySelectorAll<HTMLElement>('.tk-label')].some(clippedLabel))
@@ -94,15 +138,20 @@ function filename(date: Date, extension: string) {
 }
 
 /** Browser print uses physical millimetres; studio zoom never reaches this root. */
-export async function printLabels(snapshot: LabelOutputSnapshot): Promise<void> {
+export async function printLabels(
+  snapshot: LabelOutputSnapshot,
+  options: LabelOutputOptions = {},
+): Promise<void> {
+  assertActive(options.signal);
   assertSnapshot(snapshot);
   if (document.querySelector('#printArea'))
     throw new Error('Дочекайтеся завершення попереднього друку.');
   const output = hiddenHost();
   try {
     flushSync(() => output.root.render(<PrintPages {...snapshot} />));
-    await readyFonts(output.host);
+    await readyFonts(output.host, options);
     assertFits(output.host);
+    progress(options, { stage: 'print', completed: 0, total: 1 });
     output.host.id = 'printArea';
     output.host.className = 'tk-label-output';
     let cleaned = false;
@@ -115,7 +164,9 @@ export async function printLabels(snapshot: LabelOutputSnapshot): Promise<void> 
     };
     window.addEventListener('afterprint', cleanup);
     try {
+      assertActive(options.signal);
       window.print();
+      options.onProgress?.({ stage: 'print', completed: 1, total: 1 });
     } catch (error) {
       cleanup();
       throw error;
@@ -279,9 +330,14 @@ function pdfFromJpegs(pages: PdfPage[]): Blob {
 }
 
 /** Raster capture keeps the existing 300 dpi PDF contract and supports every label font. */
-export async function exportPdf(snapshot: LabelOutputSnapshot): Promise<void> {
+export async function exportPdf(
+  snapshot: LabelOutputSnapshot,
+  options: LabelOutputOptions = {},
+): Promise<void> {
+  assertActive(options.signal);
   assertSnapshot(snapshot);
   const output = hiddenHost();
+  let canvas: HTMLCanvasElement | undefined;
   try {
     const unique = [...new Map(snapshot.products.map((product) => [product.id, product])).values()];
     flushSync(() =>
@@ -297,22 +353,43 @@ export async function exportPdf(snapshot: LabelOutputSnapshot): Promise<void> {
         )),
       ),
     );
-    await readyFonts(output.host);
+    await readyFonts(output.host, options);
     assertFits(output.host);
-    const geometry = pageGeometry(snapshot.config),
-      canvas = document.createElement('canvas');
+    const geometry = pageGeometry(snapshot.config);
+    canvas = document.createElement('canvas');
     canvas.width = Math.round(geometry.pageWidth * PX_MM);
     canvas.height = Math.round(geometry.pageHeight * PX_MM);
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Браузер не підтримує створення PDF.');
-    const layouts = new Map(
-      [...output.host.querySelectorAll<HTMLElement>('.tk-label')].map((label) => [
-        label.dataset.product,
-        capture(label, context),
-      ]),
-    );
+    const labels = [...output.host.querySelectorAll<HTMLElement>('.tk-label')];
+    const layouts = new Map<string | undefined, CapturedLabel>();
+    progress(options, { stage: 'capture', completed: 0, total: labels.length });
+    let captured = 0;
+    while (captured < labels.length) {
+      // Keep the browser responsive for batches of distinct products without changing capture.
+      await abortable(
+        new Promise<void>((resolve) => window.setTimeout(resolve, 0)),
+        options.signal,
+      );
+      const started = performance.now();
+      do {
+        assertActive(options.signal);
+        const label = labels[captured]!;
+        layouts.set(label.dataset.product, capture(label, context));
+        captured++;
+      } while (captured < labels.length && performance.now() - started < 16);
+      progress(options, { stage: 'capture', completed: captured, total: labels.length });
+    }
     const pages: PdfPage[] = [];
+    const total = Math.ceil(snapshot.products.length / geometry.perSheet);
+    progress(options, { stage: 'pages', completed: 0, total });
     for (let start = 0; start < snapshot.products.length; start += geometry.perSheet) {
+      // A task boundary lets the cancel control respond even when encoding finishes quickly.
+      await abortable(
+        new Promise<void>((resolve) => window.setTimeout(resolve, 0)),
+        options.signal,
+      );
+      assertActive(options.signal);
       context.fillStyle = '#fff';
       context.fillRect(0, 0, canvas.width, canvas.height);
       snapshot.products.slice(start, start + geometry.perSheet).forEach((product, index) => {
@@ -326,22 +403,33 @@ export async function exportPdf(snapshot: LabelOutputSnapshot): Promise<void> {
           snapshot.config,
         );
       });
-      const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob(
-          (value) =>
-            value ? resolve(value) : reject(new Error('Не вдалося сформувати сторінку PDF.')),
-          'image/jpeg',
-          0.92,
+      const blob = await abortable(
+        new Promise<Blob>((resolve, reject) =>
+          canvas!.toBlob(
+            (value) =>
+              value ? resolve(value) : reject(new Error('Не вдалося сформувати сторінку PDF.')),
+            'image/jpeg',
+            0.92,
+          ),
         ),
+        options.signal,
       );
       pages.push({
-        bytes: new Uint8Array(await blob.arrayBuffer()),
+        bytes: new Uint8Array(await abortable(blob.arrayBuffer(), options.signal)),
         w: canvas.width,
         h: canvas.height,
       });
+      progress(options, { stage: 'pages', completed: pages.length, total });
     }
-    download(pdfFromJpegs(pages), filename(snapshot.date, 'pdf'));
+    const pdf = pdfFromJpegs(pages);
+    progress(options, { stage: 'download', completed: 0, total: 1 });
+    download(pdf, filename(snapshot.date, 'pdf'));
+    options.onProgress?.({ stage: 'download', completed: 1, total: 1 });
   } finally {
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
     output.remove();
   }
 }

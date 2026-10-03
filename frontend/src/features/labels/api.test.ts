@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { decodeWorkspace, decodeProof } from './api';
+import { describe, expect, it, vi } from 'vitest';
+import { createLabelApi, decodeWorkspace, decodeProof } from './api';
 import { defaultConfig } from './domain';
 import { catalogProducts } from '../catalog/fixtures';
 
@@ -11,6 +11,43 @@ const workspace = () => ({
   csrf: 'isolated-csrf',
 });
 describe('Label network boundary', () => {
+  it('aborts print snapshot preparation without losing the session token', async () => {
+    const controller = new AbortController();
+    const selection = [{ id: catalogProducts[0]!.id, quantity: 22 }];
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(workspace()))
+      .mockImplementationOnce(
+        (_path, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener(
+              'abort',
+              () => reject(new DOMException('Cancelled', 'AbortError')),
+              { once: true },
+            );
+          }),
+      );
+    vi.stubGlobal('fetch', transport);
+    try {
+      const api = createLabelApi();
+      await api.workspace();
+      const request = api.prepare(selection, controller.signal);
+      const rejected = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+      controller.abort();
+      await rejected;
+      expect(transport).toHaveBeenLastCalledWith(
+        '/api/v1/labels/prepare',
+        expect.objectContaining({
+          method: 'POST',
+          signal: controller.signal,
+          body: JSON.stringify({ selection }),
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': 'isolated-csrf' },
+        }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it('migrates legacy point sizes once and warns about future layouts', () => {
     expect(
       decodeWorkspace({ ...workspace(), config: { size: 'm', styles: { price: { size: 22 } } } })

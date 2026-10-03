@@ -115,8 +115,8 @@ export function createLabelApi() {
       csrf = result.csrf;
       return result;
     },
-    prepare(selection: Selection) {
-      return client.mutate('POST', '/api/v1/labels/prepare', { selection }, decodeProof);
+    prepare(selection: Selection, signal?: AbortSignal) {
+      return client.mutate('POST', '/api/v1/labels/prepare', { selection }, decodeProof, signal);
     },
   };
 }

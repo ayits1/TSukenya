@@ -590,3 +590,35 @@ html:has(#react-labels .tk-studio) {
   opacity: 0.6;
   cursor: default;
 }
+
+.tk-studio-output {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  margin-block: 16px;
+  border: 1px solid var(--tk-line);
+  border-radius: var(--tk-radius);
+}
+.tk-studio-output > div {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.tk-studio-output p,
+.tk-studio-output-result {
+  overflow-wrap: anywhere;
+}
+.tk-studio .tk-studio-output p {
+  margin: 0 0 8px;
+}
+.tk-studio-output progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  accent-color: var(--tk-brand);
+}
+.tk-studio-output .tk-button {
+  white-space: normal;
+  scroll-margin-block: 8px;
+}

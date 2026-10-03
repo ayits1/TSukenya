@@ -5,7 +5,8 @@ import { ApiError } from '../../shared/api/client';
 import { emptyFilters } from '../catalog/api';
 import type { CatalogApi, Filters, Product } from '../catalog/api';
 import { StudioView } from './StudioView';
-import type { StudioTab, StudioViewProps } from './StudioView';
+import type { StudioOutputState, StudioTab, StudioViewProps } from './StudioView';
+import type { LabelOutputProgress } from './output';
 import { PrintPages } from './Label';
 import {
   adaptLabelProduct,
@@ -36,6 +37,28 @@ const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Не вдалося виконати дію. Спробуйте ще раз.';
 const proofDate = (proof: Proof) => new Date(proof.date + 'T12:00:00');
 const toLabel = (product: Product) => adaptLabelProduct(product, Number(product.salePrice));
+// Dynamic module loading and injected read services may not themselves honor AbortSignal.
+function outputWait<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    signal.throwIfAborted();
+    const detach = () => signal.removeEventListener('abort', cancel);
+    const cancel = () => {
+      detach();
+      reject(new DOMException('Підготовку скасовано.', 'AbortError'));
+    };
+    signal.addEventListener('abort', cancel, { once: true });
+    work.then(
+      (value) => {
+        detach();
+        resolve(value);
+      },
+      (cause) => {
+        detach();
+        reject(cause);
+      },
+    );
+  });
+}
 
 function ReviewPages({
   proof,
@@ -177,6 +200,8 @@ function StudioWorkspace({
   const [proof, setProof] = useState<Proof | null>(null),
     [preparing, setPreparing] = useState(false),
     [outputBusy, setOutputBusy] = useState(false),
+    [outputState, setOutputState] = useState<StudioOutputState | null>(null),
+    [outputStatus, setOutputStatus] = useState(''),
     [acknowledged, setAcknowledged] = useState(false);
   const [measurement, setMeasurement] = useState<{ snapshot: string; clipped: string[] }>({
       snapshot: '',
@@ -185,7 +210,8 @@ function StudioWorkspace({
     [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
   const sequence = useRef(0),
     busy = useRef(false),
-    alive = useRef(true);
+    alive = useRef(true),
+    outputController = useRef<AbortController | null>(null);
   const dirty = !equal({ config: saved.config, settings: saved.settings }, draft);
   const canEdit = saved.canEdit && !saved.warnings.length;
   useEffect(() => {
@@ -204,11 +230,13 @@ function StudioWorkspace({
   }, [memory, onMemory]);
   useEffect(() => {
     const active = alive,
-      generation = sequence;
+      generation = sequence,
+      controller = outputController;
     active.current = true;
     return () => {
       active.current = false;
       generation.current++;
+      controller.current?.abort();
     };
   }, []);
   useEffect(() => {
@@ -429,15 +457,35 @@ function StudioWorkspace({
         : { snapshot, clipped },
     );
   }, []);
+  const cancelOutput = () => {
+    const controller = outputController.current;
+    if (!controller || controller.signal.aborted) return;
+    controller.abort();
+    setOutputState((current) => (current ? { ...current, cancelling: true } : current));
+  };
   const output = async (kind: 'print' | 'pdf' | 'csv') => {
     if (!proof || !canOutput || busy.current) return;
+    const controller = new AbortController();
+    outputController.current = controller;
     busy.current = true;
     setOutputBusy(true);
+    setOutputState({ kind, stage: 'verify', completed: 0, total: 1, cancelling: false });
+    setOutputStatus('');
     setError('');
     const token = ++sequence.current;
+    const live = () =>
+      alive.current && token === sequence.current && outputController.current === controller;
+    const progress = (value: LabelOutputProgress) => {
+      if (live() && !controller.signal.aborted)
+        setOutputState({ ...value, kind, cancelling: false });
+    };
     try {
-      const current = await api.prepare(proof.selection);
-      if (!alive.current || token !== sequence.current) return;
+      const current = await outputWait(
+        api.prepare(proof.selection, controller.signal),
+        controller.signal,
+      );
+      controller.signal.throwIfAborted();
+      if (!live()) return;
       if (current.snapshot !== proof.snapshot) {
         setProof(null);
         setAcknowledged(false);
@@ -446,22 +494,41 @@ function StudioWorkspace({
         );
         return;
       }
-      const module = await import('./output');
-      if (!alive.current || token !== sequence.current) return;
+      setOutputState({ kind, stage: 'module', completed: 0, total: 1, cancelling: false });
+      const module = await outputWait(import('./output'), controller.signal);
+      controller.signal.throwIfAborted();
+      if (!live()) return;
       const snapshot = {
         products: copies,
         config: proof.config,
         settings: proof.settings,
         date: proofDate(proof),
       };
-      if (kind === 'pdf') await module.exportPdf(snapshot);
-      else if (kind === 'print') await module.printLabels(snapshot);
+      const options = { signal: controller.signal, onProgress: progress };
+      if (kind === 'pdf') await module.exportPdf(snapshot, options);
+      else if (kind === 'print') await module.printLabels(snapshot, options);
       else module.downloadCsv(proof.products.map(toLabel));
+      if (live())
+        setOutputStatus(
+          kind === 'print'
+            ? 'Цінники передано системному діалогу друку.'
+            : `${kind === 'pdf' ? 'PDF' : 'CSV'} сформовано. Перевірте завантаження браузера.`,
+        );
     } catch (cause) {
-      if (alive.current) setError(message(cause));
+      if (live()) {
+        if (controller.signal.aborted)
+          setOutputStatus('Підготовку скасовано. Товари й кількість копій збережені.');
+        else setError(message(cause));
+      }
     } finally {
-      busy.current = false;
-      if (alive.current) setOutputBusy(false);
+      if (outputController.current === controller) {
+        outputController.current = null;
+        busy.current = false;
+        if (alive.current) {
+          setOutputBusy(false);
+          setOutputState(null);
+        }
+      }
     }
   };
   // Preview is deliberately separate from committed selection and always has explicit clear.
@@ -627,6 +694,9 @@ function StudioWorkspace({
       onReview={() => void review()}
       preparing={preparing}
       outputBusy={outputBusy}
+      outputState={outputState}
+      outputStatus={outputStatus}
+      onCancelOutput={cancelOutput}
       canOutput={canOutput}
       onPrint={() => void output('print')}
       onExport={() => void output('pdf')}

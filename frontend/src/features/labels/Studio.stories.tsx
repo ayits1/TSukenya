@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { StudioView } from './StudioView';
-import type { StudioTab, StudioFilters, StudioViewProps } from './StudioView';
+import type { StudioOutputState, StudioTab, StudioFilters, StudioViewProps } from './StudioView';
 import { defaultConfig } from './domain';
 import type { LabelField, LabelConfig } from './domain';
 import { studioProducts, studioConfig, studioSettings } from './fixtures';
@@ -15,6 +15,7 @@ function Demo({
   twoStores = false,
   promotion = false,
   loading = false,
+  outputDemo = false,
 }: {
   initialTab?: StudioTab;
   empty?: boolean;
@@ -23,6 +24,7 @@ function Demo({
   twoStores?: boolean;
   promotion?: boolean;
   loading?: boolean;
+  outputDemo?: boolean;
 }) {
   const [config, setConfig] = useState<LabelConfig>({
     ...studioConfig,
@@ -37,7 +39,11 @@ function Demo({
   const [previewId, setPreviewId] = useState<string | null>(
     empty ? null : studioProducts[promotion ? 1 : 0]!.id,
   );
-  const [selection, setSelection] = useState<Record<string, number>>({});
+  const [selection, setSelection] = useState<Record<string, number>>(
+    outputDemo ? { [studioProducts[0]!.id]: 22 } : {},
+  );
+  const [outputState, setOutputState] = useState<StudioOutputState | null>(null);
+  const [outputStatus, setOutputStatus] = useState('');
   const [filters, setFilters] = useState<StudioFilters>({
     q: '',
     type: '',
@@ -120,10 +126,28 @@ function Demo({
       }
       onReview={() => setTab('review')}
       preparing={false}
-      outputBusy={false}
+      outputBusy={outputState !== null}
+      outputState={outputState}
+      outputStatus={outputStatus}
+      onCancelOutput={() => {
+        setOutputState(null);
+        setOutputStatus('Підготовку скасовано. Товари й кількість копій збережені.');
+      }}
       canOutput={selected.length > 0 && selected.every((product) => product.salePrice > 0)}
       onPrint={() => {}}
-      onExport={() => {}}
+      onExport={() => {
+        // Synthetic progress for visual/keyboard review; actual generation has separate stories.
+        if (outputDemo) {
+          setOutputStatus('');
+          setOutputState({
+            kind: 'pdf',
+            stage: 'pages',
+            completed: 1,
+            total: 2,
+            cancelling: false,
+          });
+        }
+      }}
       review={
         <div className="tk-studio-empty">
           Аркуші друку з’являться після підготовки вибраних товарів.
@@ -168,6 +192,41 @@ export const Empty: Story = { args: { empty: true } };
 export const ReadOnly: Story = { args: { readOnly: true } };
 export const Conflict: Story = { args: { conflict: true } };
 export const Products: Story = { args: { initialTab: 'products' } };
+export const OutputProgressAndKeyboardCancel: Story = {
+  args: { initialTab: 'review', outputDemo: true },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 320, maxWidth: '100%' }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const exportButton = canvas.getByRole('button', { name: 'Завантажити PDF' });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await userEvent.click(exportButton);
+      const cancel = canvas.getByRole('button', { name: 'Скасувати підготовку' });
+      await expect(cancel).toHaveFocus();
+      await expect(exportButton).toBeDisabled();
+      await expect(canvas.getByRole('progressbar', { name: 'Підготовка PDF' })).toHaveAttribute(
+        'value',
+        '1',
+      );
+      await expect(canvas.getByText('PDF: сторінок готово 1 з 2.')).toBeVisible();
+      const area = canvasElement.querySelector('.tk-studio-output')!;
+      await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+      await expect(cancel.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      await userEvent.keyboard('{Enter}');
+      await expect(exportButton).toBeEnabled();
+      await expect(exportButton).toHaveFocus();
+      await expect(
+        canvas.getByText('Підготовку скасовано. Товари й кількість копій збережені.'),
+      ).toBeVisible();
+      await expect(canvas.queryByRole('progressbar')).not.toBeInTheDocument();
+    }
+  },
+};
 export const LoadingProducts: Story = {
   args: { initialTab: 'products', loading: true },
   play: async ({ canvasElement }) => {

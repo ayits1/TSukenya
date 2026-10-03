@@ -131,3 +131,14 @@ Legacy report.debts збережено для сумісності; він ще 
 - Справжні users409/403/create/edit/session revocation, period400/close/reopen, fiscal required/optional та detail503 після запису/першого відкриття — [ERP-SETTINGS-RECOVERY-QA.md](ERP-SETTINGS-RECOVERY-QA.md). Detail retry робить GET і лишає список; stale error не змінює новий маршрут/форму; помилка видима на320 і фактичних200%. Таблиця семи колонок тепер переходить у читабельні картки за реальною шириною контейнера≤900px; перевірено1440/1024/sidebar/768/720/320 та actual200%, дату, native headers, 44px/фокус і Enter/Escape.
 
 Це додаткові конкретні стани до основного проходу, не оголошення універсального покриття всіх браузерів/пристроїв. Загальні межі вище збережені.
+
+
+## Підготовка великих PDF і скасування · 03.10.2026
+
+Підтверджено відсутність прогресу/скасування та продовження PDF-циклу після unmount. Виправлено stages/progress, AbortSignal, task boundaries, cleanup, focus return і збереження вибору після скасування. Повторна перевірка серверного знімка збережена: зміна ціни блокує вивід. Повний опис API, бізнес-меж і доказів — [LABEL-STUDIO.md](LABEL-STUDIO.md), B32 у [BUSINESS-IMPROVEMENTS.md](BUSINESS-IMPROVEMENTS.md).
+
+Ізольований інтеграційний прохід перевірив prepare/encoder/font cancellation, late callbacks, route cleanup, actual200%, 1440/390/320 та keyboard retry. Нові модульні 5 stories і вузька Studio story пройшли; API3, lint/type/build — PASS. Максимальні 1000 копій / 250 A4: 50 МБ / 10.4 с на конкретному Chrome/macOS, не гарантія телефону. Дві сторінки фізичного PDF після повтору перевірено вбудованими JPEG, pixel comparison і Poppler; переглянутоPNG 320 та обидві PDF-сторінки. Неправильний multi-image preview інструмента спочатку приховав верх другої PNG; single view з detail original і незалежне pixel comparison показали повний цінник без різниці. Код рендеру з цього приводу не змінювали.
+
+Це конкретне покриття зміненого виводу, не підтвердження всіх браузерів, screen readers, реальних принтерів і mobile native memory. Повна регресія не запускалась. Бюджет повторно підтверджено read-only на живому сайті 1440/768/390/320 після скриншота: назва/сума розділені, статті незмінні.
+
+Після публікації фінальної CSS-правки: exact SHA256 трьох compiled assets (labels JS/CSS, lazy output JS), реальний preview і1440/390/320 — PASS; без API-записів, окрім входу, digest незмінний. Focus на200% виправлено scroll-margin8 і підтверджено окремим zoom gate з повною рамкою між вкладками та нижньою межею. Обидва власні контейнери healthy, сусідній сайт200. Доказ live generation не припускається: він ізольований і прив’язаний до тієї самої опублікованої збірки.

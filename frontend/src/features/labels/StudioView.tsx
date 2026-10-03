@@ -18,9 +18,18 @@ import { TextField } from '../../shared/ui/TextField';
 import { Label } from './Label';
 import { fieldStyle, fieldVisible, LABEL_FIELDS, LABEL_SIZES, formatLabelMoney } from './domain';
 import type { LabelConfig, LabelField, LabelProduct, LabelSettings, LabelStyle } from './domain';
+import type { LabelOutputProgress } from './output';
+import { pageGeometry } from './domain';
 import './studio.css';
 
 export type StudioTab = 'design' | 'products' | 'review';
+export type StudioOutputState = {
+  kind: 'pdf' | 'print' | 'csv';
+  stage: 'verify' | 'module' | LabelOutputProgress['stage'];
+  completed: number;
+  total: number;
+  cancelling: boolean;
+};
 export type StudioFilters = {
   q: string;
   type: string;
@@ -74,6 +83,9 @@ export type StudioViewProps = {
   onReview: () => void;
   preparing: boolean;
   outputBusy: boolean;
+  outputState?: StudioOutputState | null;
+  outputStatus?: string;
+  onCancelOutput?: () => void;
   canOutput: boolean;
   onPrint: () => void;
   onExport: () => void;
@@ -83,6 +95,16 @@ export type StudioViewProps = {
   staleAcknowledged: boolean;
   onStaleAcknowledged: (acknowledged: boolean) => void;
 };
+function outputMessage(state: StudioOutputState): string {
+  if (state.cancelling) return 'Скасовуємо підготовку…';
+  if (state.stage === 'verify') return 'Звіряємо актуальні ціни й макет…';
+  if (state.stage === 'module') return 'Завантажуємо модуль підготовки файлу…';
+  if (state.stage === 'fonts') return 'Готуємо шрифти цінників…';
+  if (state.stage === 'pages') return `PDF: сторінок готово ${state.completed} з ${state.total}.`;
+  if (state.stage === 'download') return 'Формуємо файл для завантаження…';
+  if (state.stage === 'print') return 'Відкриваємо системний діалог друку…';
+  return `Готуємо цінники: ${state.completed} з ${state.total}.`;
+}
 const fieldName = (key: LabelField) => LABEL_FIELDS.find(([field]) => field === key)?.[1] ?? key;
 const choices = (values: string[], all: string) => [
   { id: '*', label: all },
@@ -194,6 +216,25 @@ function Canvas({
 export function StudioView(props: StudioViewProps) {
   const { config, settings, selectedField, canEdit, saveStatus, selectedTab } = props;
   const tabsRef = useRef<HTMLDivElement>(null);
+  const cancelOutputRef = useRef<HTMLButtonElement>(null);
+  const pdfRef = useRef<HTMLButtonElement>(null);
+  const printRef = useRef<HTMLButtonElement>(null);
+  const csvRef = useRef<HTMLButtonElement>(null);
+  const reviewRef = useRef<HTMLButtonElement>(null);
+  const previousOutput = useRef<StudioOutputState['kind'] | null>(null);
+  const outputKind = props.outputState?.kind;
+  useLayoutEffect(() => {
+    if (props.outputBusy && outputKind && !previousOutput.current) {
+      previousOutput.current = outputKind;
+      cancelOutputRef.current?.focus({ preventScroll: true });
+      cancelOutputRef.current?.scrollIntoView({ block: 'nearest' });
+    } else if (!props.outputBusy && previousOutput.current) {
+      const origin = { pdf: pdfRef, print: printRef, csv: csvRef }[previousOutput.current].current;
+      previousOutput.current = null;
+      const target = origin && !origin.disabled ? origin : reviewRef.current;
+      target?.focus({ preventScroll: true });
+    }
+  }, [props.outputBusy, outputKind]);
   const previousTab = useRef(selectedTab);
   useLayoutEffect(() => {
     if (previousTab.current === selectedTab) return;
@@ -221,11 +262,7 @@ export function StudioView(props: StudioViewProps) {
     ...props.previewProducts,
   ].map((product) => ({ id: product.id, label: product.name }));
   return (
-    <section
-      className="tk-root tk-studio"
-      aria-label="Студія цінників"
-      aria-busy={props.outputBusy}
-    >
+    <section className="tk-root tk-studio" aria-label="Студія цінників">
       <Tabs
         ref={tabsRef}
         selectedKey={selectedTab}
@@ -806,24 +843,40 @@ export function StudioView(props: StudioViewProps) {
             <div className="tk-studio-review-top">
               <div>
                 <h3>Переддруковий перегляд</h3>
-                <p>{copies} цінників · A4 · поля 8 мм · масштаб друку 100%</p>
+                <p>
+                  Цінників: {copies} · аркушів: {Math.ceil(copies / pageGeometry(config).perSheet)}{' '}
+                  · A4 · поля 8 мм · масштаб друку 100%
+                </p>
               </div>
-              <div className="tk-studio-review-actions">
-                <Button onPress={props.onReview} isDisabled={props.preparing || props.outputBusy}>
+              <div className="tk-studio-review-actions" aria-busy={props.outputBusy}>
+                <Button
+                  ref={reviewRef}
+                  onPress={props.onReview}
+                  isDisabled={props.preparing || props.outputBusy}
+                >
                   Оновити перевірку
                 </Button>
                 <Button onPress={() => props.onTabChange('products')} isDisabled={props.outputBusy}>
                   Змінити товари
                 </Button>
                 {props.onCsv ? (
-                  <Button onPress={props.onCsv} isDisabled={!props.canOutput || props.outputBusy}>
+                  <Button
+                    ref={csvRef}
+                    onPress={props.onCsv}
+                    isDisabled={!props.canOutput || props.outputBusy}
+                  >
                     Експорт CSV
                   </Button>
                 ) : null}
-                <Button onPress={props.onExport} isDisabled={!props.canOutput || props.outputBusy}>
-                  {props.outputBusy ? 'Готуємо файл…' : 'Завантажити PDF'}
+                <Button
+                  ref={pdfRef}
+                  onPress={props.onExport}
+                  isDisabled={!props.canOutput || props.outputBusy}
+                >
+                  Завантажити PDF
                 </Button>
                 <Button
+                  ref={printRef}
                   variant="primary"
                   onPress={props.onPrint}
                   isDisabled={!props.canOutput || props.outputBusy}
@@ -832,6 +885,43 @@ export function StudioView(props: StudioViewProps) {
                 </Button>
               </div>
             </div>
+            {props.outputBusy && props.outputState ? (
+              <div className="tk-studio-output" aria-label="Підготовка виводу">
+                <div>
+                  <p role="status" aria-live="polite" aria-atomic="true">
+                    {outputMessage(props.outputState)}
+                  </p>
+                  <progress
+                    aria-label={
+                      { pdf: 'Підготовка PDF', print: 'Підготовка друку', csv: 'Підготовка CSV' }[
+                        props.outputState.kind
+                      ]
+                    }
+                    max={Math.max(1, props.outputState.total)}
+                    {...(['verify', 'module'].includes(props.outputState.stage)
+                      ? {}
+                      : { value: props.outputState.completed })}
+                  />
+                </div>
+                {props.onCancelOutput ? (
+                  <Button
+                    ref={cancelOutputRef}
+                    onPress={props.onCancelOutput}
+                    isDisabled={
+                      props.outputState.cancelling ||
+                      ['download', 'print'].includes(props.outputState.stage)
+                    }
+                  >
+                    Скасувати підготовку
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {props.outputStatus ? (
+              <p role="status" className="tk-studio-output-result">
+                {props.outputStatus}
+              </p>
+            ) : null}
             {props.validationErrors.length ? (
               <div role="alert" className="tk-studio-alert">
                 <strong>Перед друком потрібно виправити</strong>
