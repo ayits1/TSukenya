@@ -195,15 +195,16 @@ def check_reversals():
 
 def check_allocations():
     from .settlements import SOURCE_KINDS, allocation_active, advance_balances
-    from .services import obligation
+    from .services import obligation, BusinessError
     out=[];by_event=defaultdict(lambda:ZERO)
-    rows=list(PaymentAllocation.objects.select_related('settlement','payment','source'))
+    rows=list(PaymentAllocation.objects.select_related('settlement','payment','source','source__party'))
     for row in rows:
         event,payment,source=row.settlement,row.payment,row.source
         by_event[event.pk]+=row.amount
         valid=(event.kind in {'payment','advance_allocation'} and payment.kind=='payment' and source.kind in SOURCE_KINDS and row.amount>0
                and event.party_id==payment.party_id==source.party_id and event.store_id==payment.store_id==source.store_id
                and source.date<=event.date and payment.date<=event.date
+               and (source.kind=='debt_opening' or source.party is not None and source.kind==('sale' if source.party.kind=='customer' else 'receipt'))
                and (event.pk==payment.pk if event.kind=='payment' else event.reference_id==payment.pk))
         if not valid:out.append(issue('allocations',f'allocation/{row.pk}','Некоректні джерело, напрям, дата або сума розподілу.'))
         if event.status=='posted' and not allocation_active(row):out.append(issue('allocations',f'allocation/{row.pk}','Активний розподіл посилається на непроведений платіж або джерело.'))
@@ -218,7 +219,11 @@ def check_allocations():
         if v.kind=='advance_allocation' and by_event[v.pk]!=v.total:out.append(issue('allocations',f'voucher/{v.pk}','Сума використання авансу не дорівнює розподілам.',v.total,by_event[v.pk]))
     from .browsing import with_settlements
     for source in with_settlements(Voucher.objects.filter(kind__in=SOURCE_KINDS,status='posted')):
-        amount=obligation(source,settlements=source.browse_settlements,allocations=source.browse_allocations)
+        try:
+            amount=obligation(source,settlements=source.browse_settlements,allocations=source.browse_allocations)
+        except (BusinessError, KeyError, TypeError, AttributeError, InvalidOperation):
+            out.append(issue('allocations',f'voucher/{source.pk}','Некоректні реквізити боргу або повернень: залишок неможливо обчислити.'))
+            continue
         if amount<0:out.append(issue('allocations',f'voucher/{source.pk}','Розподіли перевищують борг документа.',0,amount))
     return out
 

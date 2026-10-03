@@ -133,6 +133,13 @@ class PaymentAllocationTests(AccountingFixture):
         self.assertEqual(payment.allocation_entries.count(),65)
         self.assertEqual(reconcile()['issues'],0)
 
+    def test_reconciliation_rejects_wrong_source_direction(self):
+        self.cash_start();source=self.v('receipt',10,5)
+        payment=self.payment('20',[{'source':source.pk,'amount':'20'}])
+        Voucher.objects.filter(pk=source.pk).update(kind='sale')
+        allocation=payment.allocation_entries.get()
+        self.assertIn(f'allocation/{allocation.pk}', {row['subject'] for row in reconcile()['checks']['allocations']['issues']})
+
     def test_refund_date_closed_period_and_corrupted_refund_are_guarded(self):
         self.cash_start();p=self.payment('100')
         yesterday=(timezone.localdate()-timedelta(days=1)).isoformat()
