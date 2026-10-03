@@ -27,7 +27,7 @@ Workflow `Deploy to VPS` (`.github/workflows/deploy.yml`) запускаєтьс
 SSH-ключ деплою на VPS обмежений примусовою командою `/usr/local/sbin/tsukenya-ci-deploy` (`deploy/ci_deploy.py`, опція `restrict`): без оболонки й переадресацій, лише `status`, `check <sha>`, `release <sha>`, і SHA має збігатися з SHA в отриманому архіві. Журнал викликів: `releases/ci-deploy.log`. Ключ хоста закріплено в секреті `DEPLOY_KNOWN_HOSTS`.
 
 Одноразове налаштування (власник репозиторію й root на VPS):
-1. На VPS: `curl -fsSL https://raw.githubusercontent.com/ayits1/TSukenya/main/deploy/setup_ci_deploy.sh | sh`. Скрипт друкує два значення.
+1. На VPS від root: вставити в SSH-сесію весь вміст `deploy/setup_ci_deploy.sh` (скрипт самодостатній і не завантажує нічого з GitHub, тож працює з приватним репозиторієм). Скрипт друкує два значення.
 2. GitHub → Settings → Secrets and variables → Actions: секрети `DEPLOY_SSH_KEY` і `DEPLOY_KNOWN_HOSTS` з цими значеннями. Settings → Environments → `production`: за бажанням — обов'язкове підтвердження перед запуском.
 3. Видалити приватний ключ з VPS (`rm /root/.ssh/tsukenya_github_deploy`); відкликати доступ — видалити рядок `tsukenya-github-deploy` з `/root/.ssh/authorized_keys`.
 
