@@ -125,7 +125,11 @@ export function Studio({
   onChanged,
   initialMemory,
   onMemory,
+  priceStore,
+  priceContext,
 }: {
+  priceContext?: { storeId: number | null; storeName: string | null } | undefined;
+  priceStore?: number | null | undefined;
   api: LabelApi;
   catalog: CatalogApi;
   onDirty: (value: boolean) => void;
@@ -159,6 +163,8 @@ export function Studio({
   return (
     <StudioWorkspace
       api={api}
+      priceStore={priceStore}
+      priceContext={priceContext}
       catalog={catalog}
       initial={workspace.data}
       onDirty={onDirty}
@@ -177,7 +183,11 @@ function StudioWorkspace({
   onChanged,
   initialMemory,
   onMemory,
+  priceStore,
+  priceContext,
 }: {
+  priceContext?: { storeId: number | null; storeName: string | null } | undefined;
+  priceStore?: number | null | undefined;
   api: LabelApi;
   catalog: CatalogApi;
   initial: Workspace;
@@ -220,6 +230,7 @@ function StudioWorkspace({
     [outputState, setOutputState] = useState<StudioOutputState | null>(null),
     [outputStatus, setOutputStatus] = useState(''),
     [acknowledged, setAcknowledged] = useState(false);
+  const storeRef = useRef(priceStore);
   const [measurement, setMeasurement] = useState<{ snapshot: string; clipped: string[] }>({
       snapshot: '',
       clipped: [],
@@ -229,6 +240,20 @@ function StudioWorkspace({
     busy = useRef(false),
     alive = useRef(true),
     outputController = useRef<AbortController | null>(null);
+  useLayoutEffect(() => {
+    if (storeRef.current !== priceStore) {
+      storeRef.current = priceStore;
+      sequence.current += 1;
+      outputController.current?.abort();
+      busy.current = false;
+      setPreparing(false);
+      setOutputBusy(false);
+      setProof(null);
+      setAcknowledged(false);
+      setOutputState(null);
+      setOutputStatus('Магазин ціни змінено. Підготуйте новий перегляд друку.');
+    }
+  }, [priceStore]);
   // Every draft replacement increments `edits`; a reload answers only for the draft it replaced.
   const edits = useRef(0),
     reloads = useRef(0),
@@ -273,20 +298,20 @@ function StudioWorkspace({
     return () => clearTimeout(timer);
   }, [previewQuery]);
   const page = useQuery({
-    queryKey: ['label-products', { ...memory.filters, q: query }],
+    queryKey: ['label-products', { ...memory.filters, q: query }, priceStore],
     queryFn: ({ signal }) => catalog.list({ ...memory.filters, q: query }, signal),
     placeholderData: keepPreviousData,
     retry: false,
     staleTime: 15_000,
   });
   const suggestions = useQuery({
-    queryKey: ['label-preview', previewSearch],
+    queryKey: ['label-preview', previewSearch, priceStore],
     queryFn: ({ signal }) => catalog.list({ ...emptyFilters, q: previewSearch, limit: 50 }, signal),
     retry: false,
     staleTime: 15_000,
   });
   const committedPreview = useQuery({
-    queryKey: ['label-preview-detail', memory.preview?.id],
+    queryKey: ['label-preview-detail', memory.preview?.id, priceStore],
     queryFn: async () => toLabel(await catalog.product(memory.preview!.id)),
     enabled: !!memory.preview,
     retry: false,
@@ -508,7 +533,9 @@ function StudioWorkspace({
     setProof(null);
     setMeasurement({ snapshot: '', clipped: [] });
     try {
-      const current = await api.prepare(selection);
+      const requestedStore = priceStore;
+      const current = await api.prepare(selection, undefined, requestedStore);
+      if (storeRef.current !== requestedStore) return;
       if (!alive.current || token !== sequence.current) return;
       if (current.revision !== saved.revision) {
         setSaveState('conflict');
@@ -520,6 +547,7 @@ function StudioWorkspace({
         return;
       }
       setProof(current);
+      setOutputStatus('');
       setMemory((previous) => ({
         ...previous,
         records: {
@@ -611,7 +639,7 @@ function StudioWorkspace({
     };
     try {
       const current = await outputWait(
-        api.prepare(proof.selection, controller.signal),
+        api.prepare(proof.selection, controller.signal, proof.priceContext?.storeId ?? priceStore),
         controller.signal,
       );
       controller.signal.throwIfAborted();
@@ -665,7 +693,7 @@ function StudioWorkspace({
   const previewProduct = memory.preview
     ? committedPreview.error
       ? null
-      : committedPreview.data || memory.preview
+      : committedPreview.data || (priceStore === undefined ? memory.preview : null)
     : null;
   useEffect(() => {
     let active = true;
@@ -713,6 +741,23 @@ function StudioWorkspace({
     <StudioView
       config={draft.config}
       settings={draft.settings}
+      previewSettings={
+        priceContext
+          ? {
+              ...draft.settings,
+              storeNames: priceContext.storeName ? [priceContext.storeName] : [],
+            }
+          : draft.settings
+      }
+      previewConfig={
+        priceContext
+          ? {
+              ...draft.config,
+              storeIdx: 0,
+              ...(priceContext.storeId === null ? { store: false } : {}),
+            }
+          : draft.config
+      }
       selectedField={field}
       onSelectField={setField}
       onConfigChange={(config, mergeKey) => change({ ...draft, config }, mergeKey)}

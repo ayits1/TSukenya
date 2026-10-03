@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Studio, initialStudioMemory } from './features/labels/Studio';
 import type { StudioMemory } from './features/labels/Studio';
 import { createLabelApi } from './features/labels/api';
-import { createCatalogApi } from './features/catalog/api';
+import { PricingContext } from './features/promotions/PricingContext';
 import './shared/ui/controls.css';
 
 declare global {
@@ -17,8 +17,7 @@ declare global {
   }
 }
 const client = new QueryClient(),
-  api = createLabelApi(),
-  catalog = createCatalogApi();
+  api = createLabelApi();
 let root: Root | undefined,
   container: HTMLElement | undefined,
   dirty = false,
@@ -42,14 +41,20 @@ window.ReactLabels = {
     root.render(
       <I18nProvider locale="uk-UA">
         <QueryClientProvider client={client}>
-          <Studio
-            api={api}
-            catalog={catalog}
-            onDirty={onDirty}
-            onChanged={onChanged}
-            initialMemory={memory}
-            onMemory={onMemory}
-          />
+          <PricingContext>
+            {(catalog, store, context) => (
+              <Studio
+                priceStore={store}
+                priceContext={context}
+                api={api}
+                catalog={catalog}
+                onDirty={onDirty}
+                onChanged={onChanged}
+                initialMemory={memory}
+                onMemory={onMemory}
+              />
+            )}
+          </PricingContext>
         </QueryClientProvider>
       </I18nProvider>,
     );
