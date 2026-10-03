@@ -117,14 +117,29 @@ def validate_product(data, path=None, config=None, check_promotion=True):
         require(not path or ingredient.pk!=path,'Готовий товар не може бути власним інгредієнтом.')
         dec(row.get('quantity'),'Кількість інгредієнта',QTY,minimum=QTY)
 
+def legacy_create_fingerprint(value):
+    try:
+        return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest()
+    except ValueError:
+        raise BusinessError('Некоректні числа в запиті створення.')
+
 @transaction.atomic
-def legacy_mutation(request,user,path):
+def legacy_mutation(request,user,path,create_key=None):
     ledger_lock()
     col,_,id=path.partition('/')
     require(col in COLLECTIONS or path in SINGLE_DOCS,'Невідомий тип документа.')
     require(re.fullmatch(r'[A-Za-z0-9_-]{1,120}',id or ''),'Некоректний ID.')
     role=user.profile.role
     require(role=='owner' or col=='products' and role in {'manager','warehouse'} or col=='tasks' and role=='manager','Недостатньо прав для редагування.')
+    receipt=None
+    if create_key is not None:
+        require(re.fullmatch(r'[A-Za-z0-9_-]{16,80}',create_key or ''),'Некоректний ключ створення.')
+        receipt=LegacyCreateReceipt.objects.filter(pk=create_key).first()
+        if receipt:
+            if receipt.author_id!=user.pk or receipt.collection!=col:
+                return response({'error':'Ключ створення вже використано іншим запитом.','code':'create_key_conflict'},409)
+            path=receipt.document_path
+            col,_,id=path.partition('/')
     d=Document.objects.filter(pk=path).first()
     if col=='tasks' and d is not None:
         from .task_scope import authorize_task
@@ -147,9 +162,28 @@ def legacy_mutation(request,user,path):
         require(col!='products' or not VoucherLine.objects.filter(product=d).exists() and not StockLot.objects.filter(product=d).exists(),'Товар уже використовується в обліку. Його не можна видалити.')
         if col=='products':
             require(not any(any(str(r.get('product'))==id for r in p.data.get('recipe',[])) for p in Document.objects.filter(path__startswith='products/')),'Товар використовується у рецептурі.')
+        LegacyCreateReceipt.objects.filter(document_path=path,deleted_at__isnull=True).update(deleted_at=timezone.now())
         d.delete()
     else:
         value=body(request)
+        request_fingerprint=legacy_create_fingerprint(value) if create_key is not None else None
+        if receipt:
+            # Re-check current privileges and the original create scope, even for an exact replay.
+            if col=='tasks':
+                from .task_scope import prepare_task
+                prepare_task(user,path,value)
+            if col=='expenses':
+                from .budget import validate_expense
+                validate_expense(value)
+            if receipt.request_fingerprint!=request_fingerprint:
+                return response({'error':'Зміст цього запиту створення вже інший. Спочатку підтвердьте початкове створення.','code':'create_payload_conflict'},409)
+            if receipt.deleted_at is not None or d is None:
+                return response({'error':'Запис уже було створено та видалено. Повтор не відновлює його. Щоб почати нову чернетку, очистьте поле назви.','code':'create_deleted'},409)
+            if receipt.created_fingerprint!=legacy_create_fingerprint(d.data):
+                return response({'error':'Запис уже створено й змінено. Перегляньте його в списку; повтор не замінює зміни. Щоб почати нову чернетку, очистьте поле назви.','code':'create_changed','id':id},409)
+            return response({'ok':True,'id':id,'replayed':True})
+        if create_key is not None and d is not None:
+            return response({'error':'Запис уже існує. Створення не може його замінити.','code':'create_exists'},409)
         if request.method=='PATCH':
             require(d is not None,'Запис не знайдено.')
             prior=dict(d.data)
@@ -174,7 +208,12 @@ def legacy_mutation(request,user,path):
             old=d.data if d is not None else {}
             value=normalise_legacy(value,old,path)
             if duplicate_name(value,old,path):return response(DUPLICATE_NAME,409)
-        Document.objects.update_or_create(pk=path,defaults={'data':value})
+        if create_key is not None:
+            Document.objects.create(pk=path,data=value)
+            LegacyCreateReceipt.objects.create(key=create_key,author=user,collection=col,document_path=path,
+                request_fingerprint=request_fingerprint,created_fingerprint=legacy_create_fingerprint(value))
+        else:
+            Document.objects.update_or_create(pk=path,defaults={'data':value})
     audit(user,'catalog_changed' if col=='products' else 'legacy_changed',path,{'method':request.method})
     if path=='settings/main':
         # The next save chains from this version, not from a later poll that may carry another session's layout.
@@ -398,7 +437,7 @@ def handle(request):
         return legacy_mutation(request,user,path[len('/api/docs/'):])
     if path.startswith('/api/') and path[5:] in COLLECTIONS and request.method=='POST':
         col=path[5:];id=secrets.token_urlsafe(18).replace('-','_')
-        return legacy_mutation(request,user,col+'/'+id)
+        return legacy_mutation(request,user,col+'/'+id,request.headers.get('Idempotency-Key') if col in {'tasks','ideas','expenses'} else None)
     if path=='/api/erp/alerts' and request.method=='POST':
         require(user.profile.role in {'owner','manager'},'Недостатньо прав.')
         from .alerts import run_alerts

@@ -152,7 +152,7 @@
     if (!db) { toast("Зміни зараз не зберігаються"); return; }
     try { await fn(); if (ok) toast(ok); return true; }
     catch(e){
-      if (e && e.code==="unavailable"){ await new Promise(r=>setTimeout(r,400+Math.random()*600)); try{ await fn(); if(ok) toast(ok); return true; }catch(_){} }
+      if (e && e.code==="unavailable"){ await new Promise(r=>setTimeout(r,400+Math.random()*600)); try{ await fn(); if(ok) toast(ok); return true; }catch(retryError){e=retryError;} }
       // Server reasons (rights, barcode, version conflict) are Ukrainian; transport errors are not shown verbatim.
       toast(e?.serverMessage || (e && e.code==="invalid_argument" ? "Немає прав змінювати дані" : "Не вдалося зберегти, спробуйте ще раз"));return false;
     }
@@ -170,7 +170,35 @@
     if(settings&&S.tagSaving&&typeof result?.revision==='string')S.settingsRevision=result.revision;
   }, ok); }
 
-  const inlineSaves = new Set();
+  const inlineSaves = new Set(), createPending = new Map();
+  // A create intent owns its original payload (including order) until the server confirms it.
+  // Editing the form after an uncertain write never changes that intent or its key.
+  async function stableAdd(key,collection,payload,values=[]){
+    let intent=createPending.get(key);
+    if(!intent){intent={collection,key:crypto.randomUUID(),payload:structuredClone(payload),values:[...values],uncertain:false,terminal:false};createPending.set(key,intent);}
+    let error;
+    const saved=await write(async()=>{try{return await db.collection(intent.collection).add(intent.payload,{createKey:intent.key});}catch(cause){error=cause;if(!(cause?.status>=400&&cause.status<500))intent.uncertain=true;throw cause;}});
+    if(saved)createPending.delete(key);
+    else if(['create_changed','create_deleted'].includes(error?.code)){
+      intent.terminal=true;
+      // This acknowledgement is read-only: the user's form and the saved record stay untouched.
+      await window.TSUKENYA_REFRESH?.().catch(()=>{});
+    }else if(error?.status>=400&&error.status<500&&!intent.uncertain&&!error.code?.startsWith('create_'))createPending.delete(key);
+    else intent.uncertain=true;
+    return {saved,intent};
+  }
+  async function createIdeaTask(idea,button){
+    const key=`ideaTask:${idea.id}`;
+    if(inlineSaves.has(key))return;
+    const prior=createPending.get(key);
+    if(prior?.terminal){
+      if(!confirm('Попередній запит уже створив задачу, яку згодом змінили або видалили. Перевірте список задач. Почати окреме нове створення?'))return;
+      createPending.delete(key);
+    }
+    inlineSaves.add(key);button.disabled=true;
+    try{const {saved,intent}=await stableAdd(key,'tasks',{title:idea.title,scope:'development',ideaId:idea.id,stage:S.project.stage||1,status:'todo',order:Date.now()});if(saved)toast('Задачу створено');else if(intent.terminal&&developmentTasks().some(task=>task.ideaId===idea.id))createPending.delete(key);}
+    finally{inlineSaves.delete(key);button.disabled=false;if(pending)render();}
+  }
   const budgetDrafts = new Map(), budgetSaves = new Set();
   const budgetFields = '[data-exp],#stores';
   const budgetKey = el => el.dataset.exp ? `amount:${el.dataset.exp}` : 'stores';
@@ -244,7 +272,13 @@
     inlineSaves.add(action);const controls=[...fields,...buttons],disabled=controls.map(el=>el.disabled);
     controls.forEach(el=>el.disabled=true);
     try{
-      if(await add(collection,payload,ok))fields.forEach(el=>{if(el.tagName==='INPUT')el.value='';});
+      const key=action==='addExp'?`${action}:${payload.group}`:action;
+      const {saved,intent}=await stableAdd(key,collection,payload,fields.map(el=>el.value));
+      if(saved){
+        const unchanged=fields.every((el,i)=>el.value===intent.values[i]);
+        if(unchanged){fields.forEach(el=>{if(el.tagName==='INPUT')el.value='';});toast(ok);}
+        else toast('Початковий запис створено. Нове введення залишено; додайте його окремим натисканням.');
+      }
     }finally{
       controls.forEach((el,i)=>el.disabled=disabled[i]);inlineSaves.delete(action);
       if(pending)render();
@@ -376,12 +410,18 @@
     const next=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     if(next!==tab && (window.CatalogImport?.pending()||window.CatalogPricing?.pending())){toast("Дочекайтеся завершення збереження.");history.replaceState(null,"","#"+SECTIONS[tab][0]+"/"+tab);return;}
     if(next!==tab && budgetSaves.size){toast('Дочекайтеся збереження бюджету.');history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
-    if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size || (hasInlineDraft() && !confirm('Відкинути незбережену назву задачі, ідеї або статті витрат?')))){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+    const draftKeys={work:['addWork'],tasks:['addTask'],ideas:['addIdea',...[...createPending.keys()].filter(key=>key.startsWith('ideaTask:'))],expenses:['addExp:fixed','addExp:variable']}[tab]||[];
+    if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size)){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+    if(next!==tab && (hasInlineDraft()||draftKeys.some(key=>createPending.has(key)))){
+      const uncertain=draftKeys.some(key=>createPending.has(key));
+      if(!confirm(uncertain?'Відкинути чернетку? Попередній запит міг уже створити запис. Перевірте список перед новим створенням.':'Відкинути незбережену назву задачі, ідеї або статті витрат?')){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+    }
     if(next!==tab && budgetDrafts.size){
       if(!confirm('Відкинути незбережені зміни бюджету?')){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
       budgetDrafts.clear();
     }
     const changed=next!==tab;
+    if(changed)draftKeys.forEach(key=>createPending.delete(key));
     tab=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     workspace=SECTIONS[tab][0];
     document.querySelectorAll('[data-workspace]').forEach(x=>x.setAttribute('aria-current',x.dataset.workspace===workspace?'page':'false'));
@@ -401,7 +441,7 @@
   window.addEventListener('tsukenya:catalog-ready',()=>{if(tab==='products')render(true);});
   window.addEventListener('tsukenya:labels-ready',()=>{if(tab==='tags')render(true);});
   window.addEventListener('hashchange',route);
-  window.addEventListener('beforeunload',event=>{if(hasInlineDraft()||inlineSaves.size||budgetDrafts.size||budgetSaves.size){event.preventDefault();event.returnValue='';}});
+  window.addEventListener('beforeunload',event=>{if(hasInlineDraft()||createPending.size||inlineSaves.size||budgetDrafts.size||budgetSaves.size){event.preventDefault();event.returnValue='';}});
 
   /* ---------- totals ---------- */
   function totals(){
@@ -1450,7 +1490,7 @@
     if(t.dataset.page){S.catalogPage=Number(t.dataset.page);refreshFilters();$("#prodList").scrollIntoView({block:"start"});return;}
     if(t.dataset.editField){selectField(t.dataset.editField);return;}
     if(t.dataset.editProduct){openProduct(t.dataset.editProduct);return;}
-    if(t.dataset.ideaTask){const idea=S.ideas.find(i=>i.id===t.dataset.ideaTask);if(idea&&!developmentTasks().some(x=>x.ideaId===idea.id)){t.disabled=true;add('tasks',{title:idea.title,scope:'development',ideaId:idea.id,stage:S.project.stage||1,status:'todo',order:Date.now()},'Задачу створено');}return;}
+    if(t.dataset.ideaTask){const idea=S.ideas.find(i=>i.id===t.dataset.ideaTask);if(idea&&!developmentTasks().some(x=>x.ideaId===idea.id)){void createIdeaTask(idea,t);}return;}
     if (t.dataset.go){ navigate(t.dataset.go); return; }
     if (t.dataset.gsid){ gsPick(t.dataset.gsid, t.dataset.gst, t.dataset.gsu); return; }
     if (t.dataset.ddtoggle!==undefined){ const k = t.dataset.ddtoggle; S.openF = S.openF===k ? null : k; refreshFilters({t:k}); return; }
@@ -1562,7 +1602,12 @@
   window.addEventListener('beforeunload',e=>{if(S.editDirty||S.tagSaving||S.tagSaveFailed||window.CatalogImport?.dirty()||window.CatalogPricing?.dirty()){e.preventDefault();e.returnValue='';}});
   document.addEventListener("input", e=>{
     if(e.target.matches(budgetFields)){trackBudget(e.target);return;}
-    if(e.target.matches(inlineFields))e.target.setCustomValidity?.('');
+    if(e.target.matches(inlineFields)){
+      e.target.setCustomValidity?.('');
+      const actions={newWork:'addWork',newTask:'addTask',newIdea:'addIdea'},key=actions[e.target.id]||(e.target.dataset.newexp?`addExp:${e.target.dataset.newexp}`:null);
+      // Clearing a confirmed changed/deleted create explicitly starts a new draft.
+      if(key&&!e.target.value.trim()&&createPending.get(key)?.terminal)createPending.delete(key);
+    }
     if(e.target.closest('#productForm')){S.editDirty=true;return;}
     if(e.target.dataset.style){const el=e.target;if(el.dataset.prop==='size'&&!el.value)return;const styles={...(tagCfg().styles||{}),[el.dataset.style]:{...((tagCfg().styles||{})[el.dataset.style]||{}),[el.dataset.prop]:el.dataset.prop==='size'?clamp(el.value,5,72):el.value}};S.settings.tag={...tagCfg(),styles};renderPreview();return;}
     if (e.target.id==="tcCustom"){ S.settings.tag = Object.assign(tagCfg(), {custom:e.target.value}); renderPreview(); return; }
