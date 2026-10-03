@@ -62,6 +62,30 @@ const text=locator=>locator.innerText().then(value=>value.replace(/\s+/g,' ').tr
  await page.goto(base+'/#trade/stock',{waitUntil:'domcontentloaded'});await page.goto(base+'/#trade/purchases',{waitUntil:'domcontentloaded'});
  await wait(async()=>(await rows.count())===1&&/Пряник медовий/.test(await text(rows.first())),'ordered product leaves the suggestions');
  assert.match(await text(panel),/1 товарів нижче мінімуму вже покриті проведеними замовленнями/);
+ // Warehouse assortment (B13): the gingerbread is not sold in this warehouse, so it leaves the suggestions; keyboard only.
+ await page.goto(base+'/#trade/stock',{waitUntil:'domcontentloaded'});
+ const assortment=page.locator('#main section.panel',{has:page.getByRole('heading',{name:'Асортимент складу'})});
+ await assortment.waitFor();await assortment.getByText('Що продається на складі та мінімальні залишки').click();
+ const sold=assortment.getByRole('checkbox',{name:/Продається тут: Пряник медовий/});
+ assert.equal(await sold.isChecked(),true,'without a row the product is sold everywhere');
+ assert.equal(await assortment.getByRole('spinbutton',{name:/Мінімум на складі: Пряник медовий/}).getAttribute('placeholder'),'3');
+ await sold.focus();await page.keyboard.press('Space');assert.equal(await sold.isChecked(),false);
+ await page.keyboard.press('Tab');await page.keyboard.press('Tab');
+ assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Зберегти асортимент: Пряник медовий');
+ await page.keyboard.press('Enter');
+ await wait(async()=>/Збережено: Пряник медовий\. Не продається на цьому складі/.test(await text(assortment.locator('#tradeAssortmentStatus'))),'assortment row saved');
+ assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Зберегти асортимент: Пряник медовий','focus returns to the saved row');
+ assert.equal(await assortment.getByRole('checkbox',{name:/Продається тут: Пряник медовий/}).isChecked(),false);
+ // A second form that opened before this save carries an old version and is refused.
+ const stale=await page.evaluate(async()=>{const csrf=(await(await fetch('/api/state')).json()).csrf,wh=(await(await fetch('/api/erp/state')).json()).warehouses[0].id;const r=await fetch('/api/erp/assortment',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({warehouse:wh,product:'ginger',sold:true,min_stock:null})});return [r.status,(await r.json()).code];});
+ assert.deepEqual(stale,[409,'revision_conflict']);
+ for(const width of [390,320]){
+  await page.setViewportSize({width,height:900});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`no assortment overflow at ${width}`);
+ }
+ await page.setViewportSize({width:1440,height:1000});
+ await page.goto(base+'/#trade/purchases',{waitUntil:'domcontentloaded'});
+ await wait(async()=>(await rows.count())===0&&/Усі товари вище мінімального залишку/.test(await text(panel)),'not sold product leaves the suggestions');
  assert.deepEqual(errors,[]);
- console.log('PASS: purchases replenishment — minimum minus available and open orders, last supplier and price, prefilled purchase order, covered after posting, 1440/390/320 layout; isolated data only.');
+ console.log('PASS: purchases replenishment — minimum minus available and open orders, last supplier and price, prefilled purchase order, covered after posting, warehouse assortment by keyboard removes a not sold product, stale assortment version 409, 1440/390/320 layout; isolated data only.');
 }catch(e){console.error(e);process.exitCode=1;}finally{await browser?.close();server.kill();}})();

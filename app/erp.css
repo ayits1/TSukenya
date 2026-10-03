@@ -49,3 +49,4 @@
   .trade-table td[data-label="Сума"]{grid-column:1/-1}
 }
 }
+@layer legacy { .trade-assortment-sold{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}.trade-assortment-sold input{width:20px;height:20px;margin:0}.trade-assortment-min input{width:min(140px,100%);min-height:44px} }
