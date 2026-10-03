@@ -136,6 +136,19 @@ class MultilotTests(AccountingFixture):
         post_voucher(self.u,returned.pk)
         self.assertEqual(returned.stock_entries.get().lot.code,row['lot'])
 
+    def test_current_production_and_reversal_keep_output_line_and_null_component(self):
+        self.v('receipt',10,2)
+        output=Document.objects.create(path='products/output',data={'name':'Output','unit':'шт','recipe':[{'product':'p','quantity':'2'}]})
+        produced=self.save('production',[{'product':'output','quantity':2,'price':0}],party=None)
+        post_voucher(self.u,produced.pk)
+        line=produced.lines.get()
+        self.assertEqual(produced.stock_entries.get(quantity__gt=0,is_reversal=False).line_id,line.pk)
+        self.assertIsNone(produced.stock_entries.get(quantity__lt=0,is_reversal=False).line_id)
+        reverse_voucher(self.u,produced.pk,'lineage QA')
+        self.assertEqual(produced.stock_entries.get(quantity__lt=0,is_reversal=True).line_id,line.pk)
+        self.assertIsNone(produced.stock_entries.get(quantity__gt=0,is_reversal=True).line_id)
+        self.assertEqual(reconcile()['issues'],0)
+
 
 class MultilotConcurrencyTests(TransactionTestCase):
     setUp = AccountingFixture.setUp
@@ -210,16 +223,22 @@ class MultilotMigrationTests(TransactionTestCase):
             source=Entry.objects.create(voucher=r,lot=lot,quantity=2,value=10)
             reversal=Entry.objects.create(voucher=r,lot=lot,quantity=-2,value=-10,is_reversal=True)
             produced=Entry.objects.create(voucher=prod,lot=lot,quantity=1,value=1)
+            output_reversal=Entry.objects.create(voucher=prod,lot=lot,quantity=-1,value=-1,is_reversal=True)
             consumed=Entry.objects.create(voucher=prod,lot=component,quantity=-1,value=-1)
+            component_reversal=Entry.objects.create(voucher=prod,lot=component,quantity=1,value=1,is_reversal=True)
             # Self-SKU component is also kept unknown; never invent a link to output just by SKU.
             self_consumed=Entry.objects.create(voucher=prod,lot=lot,quantity=-1,value=-1)
+            self_component_reversal=Entry.objects.create(voucher=prod,lot=lot,quantity=1,value=1,is_reversal=True)
             executor=MigrationExecutor(connection);executor.migrate([('erp','0007_multilot_lines')])
             self.assertEqual(VoucherLine.objects.get(pk=ret.pk).reference_line_id,line.pk)
             self.assertEqual(StockEntry.objects.get(pk=source.pk).line_id,line.pk)
             self.assertEqual(StockEntry.objects.get(pk=reversal.pk).line_id,line.pk)
             self.assertEqual(StockEntry.objects.get(pk=produced.pk).line_id,output.pk)
+            self.assertEqual(StockEntry.objects.get(pk=output_reversal.pk).line_id,output.pk)
             self.assertIsNone(StockEntry.objects.get(pk=consumed.pk).line_id)
             self.assertIsNone(StockEntry.objects.get(pk=self_consumed.pk).line_id)
+            self.assertIsNone(StockEntry.objects.get(pk=component_reversal.pk).line_id)
+            self.assertIsNone(StockEntry.objects.get(pk=self_component_reversal.pk).line_id)
             self.assertEqual(len(set(VoucherLine.objects.values_list('line_key',flat=True))),3)
         finally:
             MigrationExecutor(connection).migrate([('erp','0007_multilot_lines')])

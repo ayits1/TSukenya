@@ -21,7 +21,8 @@ def backfill(apps, schema_editor):
     pending = []
     # Production consumes recipe components, including possible self-SKU components, not output rows.
     for entry in Entry.objects.using(alias).select_related('lot', 'voucher').all().iterator():
-        if entry.voucher.kind == 'production' and entry.quantity < 0:
+        component = (not entry.is_reversal and entry.quantity < 0) or (entry.is_reversal and entry.quantity > 0)
+        if entry.voucher.kind == 'production' and component:
             continue
         origin = origins.get((entry.voucher_id, entry.lot.product_id))
         if origin is not None:
