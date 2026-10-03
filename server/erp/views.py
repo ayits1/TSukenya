@@ -227,6 +227,8 @@ def shift_action(user,value):
         s.counted_cash=dec(value.get('counted'),'Фактична готівка')
         s.closed_at=timezone.now();s.note=str(value.get('note',''))[:4000];s.save()
         audit(user,'shift_closed',f'shift/{s.pk}',{'expected':str(s.expected_cash),'counted':str(s.counted_cash),'difference':str(s.counted_cash-s.expected_cash)})
+        # The difference is posted, so the next shift opens with the counted cash and does not inherit it.
+        post_cash_difference(user,s,s.note)
     else:
         a=get(CashAccount,value.get('account'),'Каса');scope(user,a.store)
         require(a.kind=='cash','Касову зміну можна відкрити лише для готівкового рахунку.')

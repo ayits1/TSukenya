@@ -94,6 +94,26 @@ def stock(user):
         totals.append({k:str(v) if isinstance(v,Decimal) else v for k,v in g.items()})
     return {'lots':result,'totals':totals}
 
+def cashier_differences(user, start, end, store=None):
+    """Closed till shifts of the period by cashier: counted minus expected cash."""
+    from zoneinfo import ZoneInfo
+    from django.db.models.functions import TruncDate
+    shifts=scoped(CashShift.objects.select_related('employee','opened_by'),user).filter(closed_at__isnull=False).annotate(closed_day=TruncDate('closed_at',tzinfo=ZoneInfo('Europe/Kyiv'))).filter(closed_day__gte=start,closed_day__lte=end)
+    if store:shifts=shifts.filter(store_id=store)
+    rows={}
+    for s in shifts.order_by('pk'):
+        key=('employee',s.employee_id) if s.employee_id else ('user',s.opened_by_id)
+        row=rows.setdefault(key,{'employee':s.employee_id,'name':s.employee.name if s.employee_id else s.opened_by.username,'shifts':0,'with_difference':0,'shortage':ZERO,'surplus':ZERO})
+        difference=s.counted_cash-s.expected_cash
+        row['shifts']+=1
+        if difference:row['with_difference']+=1
+        if difference<0:row['shortage']-=difference
+        else:row['surplus']+=difference
+    result=[]
+    for row in sorted(rows.values(),key=lambda r:(-r['shortage'],r['name'])):
+        result.append({**row,'shortage':str(money(row['shortage'])),'surplus':str(money(row['surplus'])),'net':str(money(row['surplus']-row['shortage']))})
+    return result
+
 def report(user, params):
     from .browsing import positive_integer
     today=timezone.localdate()
@@ -114,6 +134,9 @@ def report(user, params):
     inventory=ZERO
     for v in qs.filter(kind='inventory'):
         inventory+=sum((Decimal(x['value']) for x in v.payload.get('differences',[])),ZERO)
+    # Signed: a surplus adds to the result, a shortage reduces it.
+    till=qs.filter(kind='cash_difference')
+    cash_difference=sum((Decimal(v.payload.get('difference','0')) for v in till.only('payload')),ZERO)
     from .financial_browsing import current_debts
     debts,debt_totals=current_debts(user,{'store':params['store']} if params.get('store') else {})
     flow=CashEntry.objects.filter(voucher__date__gte=start,voucher__date__lte=end).exclude(voucher__kind='cash_opening')
@@ -124,4 +147,4 @@ def report(user, params):
         ss=sales.filter(store=s);rr=returns.filter(store=s)
         rev=net_total(ss)-net_total(rr);cost=(ss.aggregate(n=Sum('cost'))['n'] or ZERO)-(rr.aggregate(n=Sum('cost'))['n'] or ZERO)
         by_store.append({'store':s.pk,'name':s.name,'revenue':str(rev),'gross_profit':str(rev-cost)})
-    return {'from':start.isoformat(),'to':end.isoformat(),'revenue':str(money(revenue)),'cogs':str(money(cogs)),'gross_profit':str(money(revenue-cogs)),'expenses':str(money(expenses)),'payroll':str(money(wages)),'writeoffs':str(money(writeoff)),'inventory_adjustment':str(money(inventory)),'supplier_return_variance':str(money(supplier_variance)),'profit':str(money(revenue-cogs-expenses-wages-writeoff+inventory+supplier_variance)),'cash_net':str(money(flow.aggregate(n=Sum('amount'))['n'] or ZERO)),'debts':debts,'debt_count':len(debts),'debt_totals':debt_totals,'by_store':by_store}
+    return {'from':start.isoformat(),'to':end.isoformat(),'revenue':str(money(revenue)),'cogs':str(money(cogs)),'gross_profit':str(money(revenue-cogs)),'expenses':str(money(expenses)),'payroll':str(money(wages)),'writeoffs':str(money(writeoff)),'inventory_adjustment':str(money(inventory)),'supplier_return_variance':str(money(supplier_variance)),'cash_difference':str(money(cash_difference)),'cashiers':cashier_differences(user,start,end,selected_store),'profit':str(money(revenue-cogs-expenses-wages-writeoff+inventory+supplier_variance+cash_difference)),'cash_net':str(money(flow.aggregate(n=Sum('amount'))['n'] or ZERO)),'debts':debts,'debt_count':len(debts),'debt_totals':debt_totals,'by_store':by_store}

@@ -17,8 +17,10 @@ ROLE_KINDS = {
     'owner': set(KINDS), 'manager': set(KINDS)-{'payroll','payroll_payment','cash_opening','debt_opening'},
     'cashier': {'sale','customer_return','customer_order'},
     'warehouse': {'purchase_order','receipt','opening','supplier_return','transfer','writeoff','inventory','production'},
-    'accountant': {'payment','expense','cash_opening','payroll','payroll_payment','debt_opening','cash_transfer'},
+    'accountant': {'payment','expense','cash_opening','payroll','payroll_payment','debt_opening','cash_transfer','cash_difference'},
 }
+# Posted only by the system when a till shift is closed; never entered through the document form.
+SYSTEM_KINDS = {'cash_difference'}
 class BusinessError(ValueError):
     pass
 
@@ -112,6 +114,27 @@ def cash(v, account, amount, cross_store=False):
     require(cash_balance(account) + amount >= 0, f'На рахунку «{account.name}» недостатньо коштів.')
     CashEntry.objects.create(voucher=v, account=account, amount=amount)
 
+def post_cash_difference(user, shift, note=''):
+    """Post counted minus expected cash of a closed till so the next shift starts from the counted amount."""
+    difference = shift.counted_cash - shift.expected_cash
+    if not difference:
+        return None
+    lock = LedgerLock.objects.get(pk=1)
+    today = timezone.localdate()
+    require(not lock.closed_through or today > lock.closed_through, 'Обліковий період закритий. Розходження каси провести не можна.')
+    shortage = difference < 0
+    reason = f'{"Нестача" if shortage else "Надлишок"} каси за зміною № {shift.pk}: очікувано {shift.expected_cash} грн, пораховано {shift.counted_cash} грн.'
+    v = Voucher.objects.create(
+        kind='cash_difference', date=today, store=shift.store, account=shift.account, shift=shift, employee=shift.employee,
+        total=abs(difference), created_by=user, idempotency_key=f'cash-difference/{shift.pk}', note=(reason + (' ' + note if note else ''))[:4000],
+        payload={'category': 'Нестача каси' if shortage else 'Надлишок каси', 'direction': 'shortage' if shortage else 'surplus',
+                 'difference': str(difference), 'expected': str(shift.expected_cash), 'counted': str(shift.counted_cash), 'reason': reason})
+    cash(v, shift.account, difference)
+    v.status, v.posted_at = 'posted', timezone.now()
+    v.save(update_fields=['status','posted_at'])
+    audit(user,'posted',f'voucher/{v.pk}',{'total':str(v.total),'kind':v.kind,'difference':str(difference)})
+    return v
+
 def net_total(qs):
     return money(qs.aggregate(n=Sum('total'))['n'] or ZERO)
 
@@ -141,6 +164,7 @@ def save_voucher(user, body, pk=None):
     lock = ledger_lock()
     kind = body.get('kind')
     require(isinstance(kind, str), 'Некоректний тип документа.')
+    require(kind not in SYSTEM_KINDS, 'Касове розходження проводиться автоматично під час закриття касової зміни.')
     permission(user, kind)
     store = get(Store, body.get('store'), 'Магазин')
     scope(user, store)
