@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import os
 from decimal import Decimal, ROUND_CEILING
 import re
@@ -12,6 +13,7 @@ from django.http import HttpResponse, JsonResponse
 from django.db import transaction, IntegrityError
 from django.db.models import Sum, F
 from django.utils import timezone
+from django.core import signing
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import check_password, make_password
 from server.auth import LOGIN_HTML, ACCOUNT_HTML, FAVICON, hash_password, valid_password
@@ -23,6 +25,7 @@ COLLECTIONS={'tasks','ideas','products','expenses'}
 SINGLE_DOCS={'settings/main','project/state'}
 ROOT=settings.BASE_DIR
 OWNER=os.environ.get('OWNER_USERNAME','pavlo')
+DEVICE_COOKIE,DEVICE_SALT,DEVICE_AGE='ts_device','tsukenya.login-device',180*86400
 
 
 def response(value, status=200):
@@ -42,6 +45,11 @@ def user_valid(user,password):
         stored=Setting.objects.filter(key='owner_password').first()
         if stored:return valid_password(password,stored.value)
     return check_password(password,user.password)
+
+def trusted_device(request,username):
+    # OWASP device cookie: signed on a successful login, it names the user this browser already proved.
+    try:return signing.loads(request.COOKIES.get(DEVICE_COOKIE,''),salt=DEVICE_SALT,max_age=DEVICE_AGE)==username
+    except signing.BadSignature:return False
 
 def auth(request):
     require(request.portal_user is not None,'Сеанс завершився. Увійдіть знову.')
@@ -250,6 +258,8 @@ def work_shift_save(user,value):
         closed=timezone.localtime(s.cash_shift.closed_at).date() if s.cash_shift.closed_at else timezone.localdate()
         require(opened<=d<=closed,'Дата табеля не відповідає касовій зміні.')
     require(s.bonus_percent==0 or s.cash_shift is not None,'Для відсотка від виторгу виберіть касову зміну.')
+    counted=WorkShift.objects.filter(employee=e,cash_shift=s.cash_shift,bonus_percent__gt=0).exclude(pk=s.pk).first() if s.cash_shift and s.bonus_percent>0 else None
+    require(counted is None,f'Відсоток від виторгу касової зміни № {s.cash_shift_id} уже враховано в табелі за {counted.date.isoformat()}. Для цього дня залиште лише ставку (відсоток 0).' if counted else '')
     s.note=str(value.get('note',''))[:2000];s.full_clean();s.save()
     audit(user,'work_shift_saved',f'work_shift/{s.pk}',{'rate':str(s.shift_rate),'percent':str(s.bonus_percent),'basis':s.bonus_basis})
     return response({'id':s.pk})
@@ -265,6 +275,9 @@ def portal(request):
         return response({'error':' '.join(exc.messages)},400)
     except IntegrityError:
         return response({'error':'Запис уже існує або використовується в обліку.'},409)
+    except (TypeError,ValueError):
+        logging.getLogger(__name__).warning('Malformed request data: %s %s',request.method,request.path,exc_info=True)
+        return response({'error':'Некоректні дані запиту.'},400)
 
 def handle(request):
     path=request.path
@@ -282,13 +295,16 @@ def handle(request):
         forwarded=request.headers.get('X-Forwarded-For','').split(',')[0].strip()
         if request.META.get('HTTP_X_FORWARDED_PROTO'):remote=forwarded or remote
         bucket_keys=[hashlib.sha256(('user:'+username).encode()).hexdigest(),hashlib.sha256(('ip:'+remote).encode()).hexdigest()]
+        # A browser that already signed in as this user skips the username-wide lockout; the IP bucket still applies.
+        trusted=trusted_device(request,username)
         now=int(time.time())
         with transaction.atomic():
-            for key in bucket_keys:
+            for key in bucket_keys[1:] if trusted else bucket_keys:
                 throttle,_=LoginThrottle.objects.get_or_create(pk=key,defaults={'until':now+900})
                 throttle=LoginThrottle.objects.select_for_update().get(pk=key)
                 if throttle.until<=now:throttle.attempts=0;throttle.until=now+900
                 if throttle.attempts>=15:return response({'error':'Забагато спроб входу. Повторіть через 15 хвилин.'},429)
+                # Reserved under the row lock for concurrent attempts; refunded below on success, so only failures count.
                 if key==bucket_keys[0]:throttle.attempts+=1
                 throttle.save()
         u=User.objects.filter(username=username,is_active=True).first()
@@ -296,13 +312,14 @@ def handle(request):
             LoginThrottle.objects.filter(pk=bucket_keys[1]).update(attempts=F('attempts')+1)
             time.sleep(.3)
             return response({'error':'Невірний логін або пароль'},401)
-        LoginThrottle.objects.filter(pk=bucket_keys[0]).delete()
+        if not trusted:LoginThrottle.objects.filter(pk=bucket_keys[0],attempts__gt=0).update(attempts=F('attempts')-1)
         LoginThrottle.objects.filter(until__lt=int(time.time())).delete()
         token,csrf=secrets.token_urlsafe(32),secrets.token_urlsafe(32)
         PortalSession.objects.filter(expires__lt=int(time.time())).delete()
         PortalSession.objects.create(user=u,token_hash=hashlib.sha256(token.encode()).hexdigest(),csrf=csrf,expires=int(time.time())+7*86400)
         result=response({'ok':True})
         result.set_cookie('ts_session',token,max_age=7*86400,httponly=True,secure=request.is_secure(),samesite='Strict')
+        result.set_cookie(DEVICE_COOKIE,signing.dumps(u.username,salt=DEVICE_SALT),max_age=DEVICE_AGE,httponly=True,secure=request.is_secure(),samesite='Strict')
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)

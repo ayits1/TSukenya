@@ -147,6 +147,16 @@ class BrowsingTests(TestCase):
         self.assertEqual(self.sources('payment', store=str(self.other_store.pk))['items'], [])
         self.assertEqual(self.sources('payment', id=str(payment.pk))['items'], [])
 
+    def test_retail_sales_are_not_loaded_as_payment_sources(self):
+        # Posting requires a retail sale (no customer) to be paid in full, so the
+        # query skips it before obligations are computed in Python.
+        retail = self.voucher('sale')
+        Voucher.objects.filter(pk=retail.pk).update(party=None)
+        credit = self.voucher('sale', party=self.customer)
+        found = self.sources('payment')
+        self.assertEqual([x['id'] for x in found['items']], [credit.pk])
+        self.assertEqual(self.sources('payment', id=str(retail.pk))['items'], [])
+
     def test_bad_query_values_are_user_errors(self):
         for query in ['purpose=bogus', 'purpose=receipt&page=0', 'purpose=receipt&page=-1',
                       'purpose=receipt&page=1.5', 'purpose=receipt&page=²',

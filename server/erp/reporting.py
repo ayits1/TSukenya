@@ -39,7 +39,7 @@ def scoped(qs, user, field='store_id'):
     return qs
 
 def state(user):
-    from .shift_browsing import cash_shift_json, WORK_FIELDS
+    from .shift_browsing import cash_shift_json, CASH_SHIFT_ROLES, WORK_FIELDS
     salary = user.profile.role in {'owner','accountant'}
     entities = {}
     for name,model,fields in [('stores',Store,['id','name','active']),('warehouses',Warehouse,['id','store_id','name']),('parties',Counterparty,['id','name','kind','phone','email','notes','active']),('accounts',CashAccount,['id','store_id','name','kind']),('employees',Employee,['id','name','store_id','active']+(['shift_rate','bonus_percent','bonus_basis'] if salary else []))]:
@@ -53,6 +53,8 @@ def state(user):
         for a in entities['accounts']:
             a['balance']=str(cash_balance(CashAccount(pk=a['id'])))
     shifts=scoped(CashShift.objects.select_related('opened_by'),user).order_by('-pk')
+    if user.profile.role not in CASH_SHIFT_ROLES:
+        shifts=shifts.none()
     entities['shifts']=[cash_shift_json(s) for s in shifts[:100]]
     entities['shifts_total']=shifts.count()
     entities['active_shifts']=[cash_shift_json(s) for s in shifts.filter(closed_at__isnull=True)]

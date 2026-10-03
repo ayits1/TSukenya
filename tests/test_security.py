@@ -38,3 +38,49 @@ class SecurityTests(TestCase):
         with patch('server.erp.views.time.sleep'):
             for _ in range(15):self.assertEqual(self.login('unknown','bad').status_code,401)
             self.assertEqual(self.login('unknown','bad').status_code,429)
+    def attempt(self,password,ip,device=None,username=None):
+        self.client.cookies.clear()
+        if device:self.client.cookies['ts_device']=device
+        return self.client.post('/api/login',{'username':username or self.u.username,'password':password},content_type='application/json',HTTP_ORIGIN='http://testserver',REMOTE_ADDR=ip)
+    def test_device_cookie_keeps_owner_login_during_username_lockout(self):
+        import hashlib
+        from unittest.mock import patch
+        from django.core import signing
+        with patch('server.erp.views.time.sleep'):
+            first=self.attempt('isolated-owner-password','198.51.100.7')
+            self.assertEqual(first.status_code,200)
+            device=first.cookies['ts_device']
+            self.assertEqual((device['httponly'],device['samesite'],device['max-age']),(True,'Strict',180*86400))
+            for i in range(14):self.assertEqual(self.attempt('wrong',f'203.0.113.{i}').status_code,401)
+            # A success is not counted and does not erase other clients' failures.
+            self.assertEqual(self.attempt('isolated-owner-password','198.51.100.9').status_code,200)
+            self.assertEqual(LoginThrottle.objects.get(pk=hashlib.sha256(('user:'+self.u.username).encode()).hexdigest()).attempts,14)
+            self.assertEqual(self.attempt('wrong','203.0.113.99').status_code,401)
+            self.assertEqual(self.attempt('isolated-owner-password','198.51.100.7').status_code,429)
+            forged=device.value[:-1]+('A' if device.value[-1]!='A' else 'B')
+            for cookie in [forged,signing.dumps('someone-else',salt='tsukenya.login-device'),signing.dumps(self.u.username)]:
+                self.assertEqual(self.attempt('isolated-owner-password','198.51.100.7',cookie).status_code,429)
+            self.assertEqual(self.attempt('isolated-owner-password','198.51.100.7',device.value).status_code,200)
+    def test_device_cookie_does_not_lift_the_ip_limit(self):
+        from unittest.mock import patch
+        with patch('server.erp.views.time.sleep'):
+            device=self.attempt('isolated-owner-password','198.51.100.7').cookies['ts_device'].value
+            for _ in range(15):self.assertEqual(self.attempt('wrong','198.51.100.7',device).status_code,401)
+            self.assertEqual(self.attempt('isolated-owner-password','198.51.100.7',device).status_code,429)
+            self.assertEqual(self.attempt('isolated-owner-password','198.51.100.8',device).status_code,200)
+    def test_malformed_request_values_are_client_errors(self):
+        self.client.raise_request_exception=False
+        with self.assertLogs('server.erp.views','WARNING'):
+            lone=self.client.post('/api/login','{"username":"\\ud800","password":"x"}',content_type='application/json',HTTP_ORIGIN='http://testserver')
+        self.assertIn(lone.status_code,{400,401})
+        self.login(self.u.username,'isolated-owner-password');csrf=self.client.get('/api/state').json()['csrf']
+        post=lambda path,value:self.client.post(path,value,content_type='application/json',HTTP_ORIGIN='http://testserver',HTTP_X_CSRF_TOKEN=csrf)
+        today=timezone.localdate().isoformat()
+        self.assertEqual(post('/api/erp/vouchers',{'kind':['sale'],'store':self.s.pk}).status_code,400)
+        supplier=Counterparty.objects.create(name='Supplier',kind='supplier');warehouse=Warehouse.objects.create(store=self.s,name='Stock')
+        self.assertEqual(post('/api/erp/vouchers',{'kind':'receipt','store':self.s.pk,'warehouse':warehouse.pk,'party':supplier.pk,'date':today,'lines':['x']}).status_code,400)
+        for ids in (['x'],[{}],[True],[0]):
+            draft=post('/api/erp/vouchers',{'kind':'payroll','store':self.s.pk,'date':today,'employee':self.employee.pk,'payload':{'shift_ids':ids}})
+            self.assertEqual(draft.status_code,201,draft.content)
+            result=post(f"/api/erp/vouchers/{draft.json()['id']}/post",{})
+            self.assertEqual((result.status_code,result.json()['error']),(400,'Некоректний перелік відпрацьованих змін.'))
