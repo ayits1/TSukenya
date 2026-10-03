@@ -204,8 +204,10 @@ def require_active(obj, what):
 def require_active_participants(v):
     if v.kind in ACTIVE_PARTY_KINDS and v.party:
         require_active(v.party, 'Постачальник' if v.party.kind == 'supplier' else 'Покупець')
-    if v.kind in ACTIVE_EMPLOYEE_KINDS and v.employee:
+    if v.kind in ACTIVE_EMPLOYEE_KINDS:
         require_active(v.employee, 'Працівник')
+        if v.shift:
+            require_active(v.shift.employee, 'Працівник касової зміни')
 
 @transaction.atomic
 def save_voucher(user, body, pk=None):

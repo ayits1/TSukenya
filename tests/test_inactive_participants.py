@@ -67,6 +67,22 @@ class InactiveParticipantTests(AccountingFixture):
         self.assertEqual(CashShift.objects.filter(closed_at__isnull=True).count(), 0)
         shift_action(self.u, {'action': 'open', 'account': self.cash.pk})  # no named employee: unchanged
 
+    def test_sale_cannot_omit_or_replace_inactive_cash_shift_employee(self):
+        self.v('receipt', 10, 5)
+        opened = json.loads(shift_action(self.u, {'account': self.cash.pk, 'employee': self.worker.pk}).content)['id']
+        substitute = Employee.objects.create(name='Інший', store=self.store, shift_rate=100)
+        payload = {'payments': [{'account': self.cash.pk, 'amount': '10.00'}]}
+        drafts = [self.draft('sale', shift=opened, employee=employee, payload=payload)
+                  for employee in [None, substitute.pk]]
+        self.off(self.worker)
+        for draft in drafts:
+            self.refuses(lambda: post_voucher(self.u, draft.pk), 'Працівник касової зміни «Іван» неактивний')
+        self.refuses(lambda: self.draft('sale', shift=opened, payload=payload), 'Іван')
+        self.assertEqual(StockLot.objects.get().quantity, 10)
+        self.worker.active = True
+        self.worker.save(update_fields=['active'])
+        self.assertEqual(post_voucher(self.u, drafts[0].pk).status, 'posted')
+
     def test_new_timesheet_row_needs_active_employee_but_accrual_and_payout_do_not(self):
         worked = WorkShift.objects.create(employee=self.worker, store=self.store, date=self.today, shift_rate=100, bonus_percent=0, bonus_basis='store')
         self.off(self.worker)
