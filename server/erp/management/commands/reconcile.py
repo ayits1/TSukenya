@@ -8,8 +8,10 @@ class Command(BaseCommand):
     def handle(self,*args,**options):
         # Reads only; the rollback is a safeguard so that nothing can be saved even by mistake.
         # PostgreSQL: one REPEATABLE READ snapshot for all checks, and READ ONLY makes the database itself refuse writes. SQLite: one transaction is already a consistent snapshot.
+        # SET TRANSACTION is only legal as the first statement of the outermost transaction; inside a caller's transaction (tests, call_command in atomic) the caller's snapshot is used and the rollback savepoint still protects the data.
+        outermost=not connection.in_atomic_block
         with transaction.atomic():
-            if connection.vendor=='postgresql':
+            if outermost and connection.vendor=='postgresql':
                 with connection.cursor() as cursor:cursor.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
             report=reconcile();transaction.set_rollback(True)
         if options['json']:self.stdout.write(json.dumps(report,ensure_ascii=False,indent=2))

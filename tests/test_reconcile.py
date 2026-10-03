@@ -105,9 +105,12 @@ class ReconcileTests(AccountingFixture):
             def __enter__(s): return s
             def __exit__(s, *a): return False
             def execute(s, sql): calls.append(sql)
-        fake = mock.Mock(vendor='postgresql', cursor=lambda: Cursor())
+        fake = mock.Mock(vendor='postgresql', in_atomic_block=False, cursor=lambda: Cursor())
         with mock.patch('server.erp.management.commands.reconcile.connection', fake): self.run_command()
         self.assertEqual(calls, ['SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY'])
+        calls.clear(); fake.in_atomic_block = True  # already inside a caller's transaction: SET would fail on PostgreSQL, so it is skipped
+        with mock.patch('server.erp.management.commands.reconcile.connection', fake): self.run_command()
+        self.assertEqual(calls, [])
         calls.clear(); self.run_command(); self.assertEqual(calls, [])
 
     def test_double_posting_of_stock_and_cash_is_found(self):
