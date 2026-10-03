@@ -58,6 +58,17 @@ scenario("знімок бази, поки людина вводить текст
   assert.equal(await page.inputValue("#newTask"), "");
 });
 
+scenario("«Скинути» очищує пошук, а чернетка нового товару переживає оновлення даних", async page => {
+  await page.click('[data-tab="products"]');
+  await page.fill("#npName", "Халва 250 г");
+  await page.fill("#q", "зеф"); await page.waitForTimeout(300);
+  await page.click('[data-act="fReset"]'); await page.waitForTimeout(100);
+  assert.equal(await page.inputValue("#q"), "");
+  assert.equal(await page.inputValue("#npName"), "Халва 250 г");
+  await page.evaluate(() => window.__fdb.collection("products").doc("p1").update({price:37})); await page.waitForTimeout(200);
+  assert.equal(await page.inputValue("#npName"), "Халва 250 г");
+});
+
 scenario("клік по товару при відкритому фільтрі вибирає товар", async page => {
   await page.click('[data-tab="tags"]');
   await page.click('[data-ddtoggle="types"]');

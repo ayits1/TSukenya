@@ -477,7 +477,8 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     pending = false;
     renderPath();
     const m = $("#main");
-    const keep = [...m.querySelectorAll("input[id]:not([type=checkbox]):not([type=file]), select[id], input[data-newexp]")].filter(edited).map(el=>[formKey(el), el.value]);
+    // #q не зберігаємо: пошук і так у стані фільтра, а «Скинути» має його очистити
+    const keep = [...m.querySelectorAll("input[id]:not([type=checkbox]):not([type=file]):not(#q), select[id], input[data-newexp]")].filter(edited).map(el=>[formKey(el), el.value]);
     m.innerHTML = ({overview, tasks, ideas, products, tags, expenses})[tab]();
     keep.forEach(([k, v])=>{ const el = k && m.querySelector(k); if (el) el.value = v; });
     if (tab==="tags") renderPreview();
