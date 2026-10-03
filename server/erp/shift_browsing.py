@@ -82,6 +82,14 @@ def work_shifts(user, params):
         require(len(values) <= 1000, 'Завеликий перелік змін.')
         identifiers = {positive_integer(value, 'ID зміни') for value in values}
         query = query.filter(pk__in=identifiers)
+    # Timesheet hint (B04): other employees' percent rows of one cash shift.
+    if params.get('cash_shift'):
+        query = query.filter(cash_shift_id=positive_integer(params['cash_shift'], 'ID касової зміни'))
+    require(params.get('percent', '') in {'', '1'}, 'Невідомий режим відбору відсотків табеля.')
+    if params.get('percent') == '1':
+        query = query.filter(bonus_percent__gt=0)
+    if params.get('exclude_employee'):
+        query = query.exclude(employee_id=positive_integer(params['exclude_employee'], 'ID виключеного працівника'))
     eligible = params.get('eligible', '')
     require(eligible in {'', 'payroll'}, 'Невідомий режим вибору табеля.')
     if eligible:
