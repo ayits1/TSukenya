@@ -444,6 +444,9 @@ def handle(request):
     if path=='/api/erp/replenishment' and request.method=='GET':
         from .replenishment import replenishment
         return response(replenishment(user))
+    if path=='/api/erp/assortment' and request.method in {'GET','POST'}:
+        from .assortment import assortment, save_assortment
+        return response(assortment(user,request.GET) if request.method=='GET' else save_assortment(user,body(request)))
     if path=='/api/erp/stock' and request.method=='GET':
         require(user.profile.role in {'owner','manager','warehouse','accountant','cashier'},'Недостатньо прав.')
         result=stock(user)
