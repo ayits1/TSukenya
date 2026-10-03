@@ -188,3 +188,11 @@ class CiDeployTests(ReleaseSandbox):
         status = self.ci('status')
         self.assertIn(SHA, status.stdout.decode())
         self.assertIn(f'release {SHA} exit=0', self.text('releases/ci-deploy.log'))
+
+
+class SetupScriptTests(TestCase):
+    def test_setup_embeds_the_current_forced_command(self):
+        setup = (CI.parent / 'setup_ci_deploy.sh').read_text()
+        embedded = setup.split("<<'CI_DEPLOY_EOF'\n", 1)[1].split('CI_DEPLOY_EOF\n', 1)[0]
+        self.assertEqual(embedded, CI.read_text(), 'run: regenerate the heredoc in deploy/setup_ci_deploy.sh')
+        self.assertNotIn('raw.githubusercontent.com', setup, 'setup must work with a private repository')
