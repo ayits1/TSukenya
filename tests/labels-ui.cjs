@@ -17,6 +17,7 @@ const env = { ...process.env, DATA_DIR: data, ERP_DB_PATH: path.join(data, 'crm.
 for (const key of ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']) delete env[key];
 const log = fs.openSync(path.join(data, 'server.log'), 'a');
 const server = spawn(python, ['-m', 'server.main'], { cwd: root, env, stdio: ['ignore', log, log] });
+const fixture = source => execFileSync(python, ['-c', `import os\nos.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings')\nimport django;django.setup()\n${source}`], { cwd: root, env, encoding: 'utf8' });
 fs.closeSync(log);
 const output = process.env.QA_OUTPUT_DIR || os.tmpdir();
 fs.mkdirSync(output, { recursive: true });
@@ -35,7 +36,10 @@ async function until(condition, label) {
 async function request(method, endpoint, value) {
   return page.evaluate(async ({ method, endpoint, value }) => {
     const session = await (await fetch('/api/v1/session')).json();
-    const response = await fetch(endpoint, { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf }, ...(value === undefined ? {} : { body: JSON.stringify(value) }) });
+    // Existing products are versioned like the browser runtime: send the current revision.
+    const product = method !== 'PUT' && endpoint.match(/^\/api\/docs\/products\/([A-Za-z0-9_-]+)$/)?.[1];
+    const revision = product ? (await (await fetch('/api/v1/catalog/products/' + product)).json()).revision : undefined;
+    const response = await fetch(endpoint, { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf, ...(revision ? { 'If-Match': revision } : {}) }, ...(value === undefined ? {} : { body: JSON.stringify(value) }) });
     const body = await response.json();
     if (!response.ok) throw new Error(`Isolated ${method} ${endpoint}: ${response.status} ${JSON.stringify(body)}`);
     return body;
@@ -47,11 +51,15 @@ async function seed() {
   const products = [
     ['studio_current', { name: 'Контрольна кава', promotion: true, price: 60, promotionPrice: 45, priceAt: currentDate }],
     ['studio_other', { name: 'Контрольний чай', promotion: false, price: 25, priceAt: currentDate }],
-    ['studio_missing', { name: 'Контрольний без ціни', promotion: false, price: 0, priceAt: currentDate }],
-    ['studio_stale', { name: 'Контрольний застарілий', promotion: false, price: 30, priceAt: '2001-01-01' }],
-    ['studio_badge', { name: 'Контрольна акція без суми', promotion: true, price: 30, priceAt: currentDate }],
+    // No cost and no manual price: a valid record whose missing price stays visible.
+    ['studio_missing', { name: 'Контрольний без ціни', promotion: false, manualPrice: false, price: null, priceAt: currentDate }],
+    ['studio_stale', { name: 'Контрольний застарілий', promotion: false, price: 30, priceAt: currentDate }],
   ];
-  for (const [id, product] of products) await request('PUT', `/api/docs/products/${id}`, { ...product, type: 'Напої', category: 'Контроль', pack: 'Штучно', unit: 'шт', cost: 0, markup: 30, manualPrice: true });
+  for (const [id, product] of products) await request('PUT', `/api/docs/products/${id}`, { type: 'Напої', category: 'Контроль', pack: 'Штучно', unit: 'шт', cost: 0, markup: 30, manualPrice: true, ...product });
+  // A new price is reviewed today; an old review date is a separate, metadata-only edit.
+  await request('PATCH', '/api/docs/products/studio_stale', { priceAt: '2001-01-01' });
+  // The API no longer creates badge-only promotions, so this historical record is stored directly.
+  fixture(`from server.erp.models import Document\nDocument.objects.create(path='products/studio_badge',data={'name':'Контрольна акція без суми','type':'Напої','category':'Контроль','pack':'Штучно','unit':'шт','cost':0,'markup':30,'manualPrice':True,'price':30,'promotion':True,'priceAt':'${currentDate}'})`);
   await request('PATCH', '/api/docs/settings/main', {
     chainName: 'Контрольна мережа', storeNames: ['Контрольний магазин'], staleDays: 30,
     tag: { styleVersion: 2, size: 's', border: 'dash', chain: false, store: false, storeIdx: 0, name: true, nameBig: false, pack: false, psize: false, price: true, kop: false, unit: true, per100: false, category: false, date: false, custom: '', customEnabled: false, promo: true, styles: { price: { size: 22, font: 'rubik', color: '#1c1c1c', weight: '700', align: 'left' } } },

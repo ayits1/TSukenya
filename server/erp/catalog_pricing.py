@@ -5,7 +5,7 @@ import re
 from decimal import Decimal
 from django.core.exceptions import RequestDataTooBig
 from django.db import transaction
-from .catalog import defaults, normalise_product, revision, serialize
+from .catalog import defaults, normalise_product, plain, revision, serialize
 from .catalog_import import MAX_ENTRIES, UUID_PATTERN, canonical, snapshot
 from .models import Document
 from .services import BusinessError, audit, dec, ledger_lock, require
@@ -52,7 +52,7 @@ def price_pair(document, user, config):
 
 
 def settings_pair(config):
-    return {'defaultMarkup': format(config['markup'], 'f'), 'rounding': format(config['rounding'], 'f')}
+    return {'defaultMarkup': plain(config['markup']), 'rounding': plain(config['rounding'])}
 
 
 def plan(payload, user):
@@ -100,6 +100,7 @@ def plan(payload, user):
             entry['after'] = price_pair(Document(path=document.path, data={**old, **values}), user, after_config)
             data = normalise_product(values, old, document.path, validate_references=False, config=after_config)
             entry['after'] = price_pair(Document(path=document.path, data=data), user, after_config)
+            # Only stored changes are written and audited; equal numbers compare alike (30 == 30.0).
             record_changed = data != old
             price_changed = before != entry['after']
             changed_records += record_changed
@@ -146,7 +147,7 @@ def commit_pricing(request, user):
     if not result['valid']:
         return response({**result, 'error': 'Зміна цін містить помилки. Жодного товару чи налаштування не збережено.', 'code': 'invalid_pricing'}, 400)
     settings = result['settings']
-    if settings['before'] != settings['after']:
+    if config != defaults():  # Decimal values: '30' and 30 are the same setting.
         document, _ = Document.objects.get_or_create(pk='settings/main', defaults={'data': {}})
         document.data = {**document.data, 'defaultMarkup': float(config['markup']), 'rounding': float(config['rounding'])}
         document.save()

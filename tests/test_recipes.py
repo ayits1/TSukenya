@@ -132,6 +132,18 @@ class RecipeEndpointTests(TestCase):
                 self.assertEqual(self.product.data, expected)
                 self.assertFalse(AuditEvent.objects.exists())
 
+    def test_older_discount_above_regular_price_does_not_block_recipe(self):
+        # A later default markup drop left this discount at or above the regular price.
+        self.product.data.update(promotion=True, promotionPrice=12.5)
+        self.product.data.pop('markup')
+        self.product.save(update_fields=['data'])
+        Document.objects.filter(pk='settings/main').update(data={'defaultMarkup': 20, 'rounding': .5})
+        response = self.save_recipe([{'product': 'milk', 'quantity': '1'}])
+        self.assertEqual(response.status_code, 200)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.data['recipe'], [{'product': 'milk', 'quantity': '1'}])
+        self.assertEqual(self.product.data['promotionPrice'], 12.5)
+
     def test_invalid_quantities_fail_atomically(self):
         for quantity in ('0', '-1', '0.0001', '0.0011', '1.2345', 'NaN', 'Infinity', 'abc', None):
             with self.subTest(quantity=quantity):

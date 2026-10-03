@@ -38,6 +38,23 @@ describe('API boundary', () => {
       { status, message: 'Недоступно' },
     );
   });
+  it('keeps the server error code so a duplicate name is not shown as a version conflict', async () => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json(
+          { error: 'Товар із такою назвою вже є.', code: 'duplicate_name' },
+          { status: 409 },
+        ),
+      );
+    await expect(createApiClient({ transport }).get('/health', decodeHealth)).rejects.toMatchObject(
+      { status: 409, code: 'duplicate_name', message: 'Товар із такою назвою вже є.' },
+    );
+    transport.mockResolvedValue(Response.json({ error: 'Недоступно', code: 7 }, { status: 409 }));
+    await expect(createApiClient({ transport }).get('/health', decodeHealth)).rejects.toMatchObject(
+      { status: 409, code: undefined },
+    );
+  });
   it('blocks mutations without CSRF before making a request', () => {
     const transport = vi.fn<typeof fetch>();
     expect(() =>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { StudioView } from './StudioView';
 import type { StudioOutputState, StudioTab, StudioFilters, StudioViewProps } from './StudioView';
 import { defaultConfig } from './domain';
@@ -16,6 +16,8 @@ function Demo({
   promotion = false,
   loading = false,
   outputDemo = false,
+  initialFilters = {},
+  onPreset,
 }: {
   initialTab?: StudioTab;
   empty?: boolean;
@@ -25,6 +27,8 @@ function Demo({
   promotion?: boolean;
   loading?: boolean;
   outputDemo?: boolean;
+  initialFilters?: Partial<StudioFilters>;
+  onPreset?: (preset: string) => void;
 }) {
   const [config, setConfig] = useState<LabelConfig>({
     ...studioConfig,
@@ -50,7 +54,9 @@ function Demo({
     category: '',
     pack: '',
     promotion: '',
+    ...initialFilters,
   });
+  const [previewQuery, setPreviewQuery] = useState('');
   const [status, setStatus] = useState<StudioViewProps['saveStatus']>(
     conflict ? 'conflict' : 'saved',
   );
@@ -69,6 +75,14 @@ function Demo({
           (!filters.promotion || product.promotion === (filters.promotion === 'yes')),
       );
   const selected = studioProducts.filter((product) => (selection[product.id] ?? 0) > 0);
+  const previewProduct = studioProducts.find((product) => product.id === previewId) ?? null;
+  // Synthetic server search: every typed word may appear anywhere in the name.
+  const previewWords = previewQuery.toLocaleLowerCase('uk-UA').split(/\s+/).filter(Boolean);
+  const previewProducts = empty
+    ? []
+    : studioProducts.filter((product) =>
+        previewWords.every((word) => product.name.toLocaleLowerCase('uk-UA').includes(word)),
+      );
   return (
     <StudioView
       config={config}
@@ -83,7 +97,10 @@ function Demo({
       }}
       onResetField={() => change({ ...config, styles: { ...config.styles, [field]: {} } })}
       onResetTemplate={() => change(defaultConfig())}
-      onApplyPreset={() => change(studioConfig)}
+      onApplyPreset={(preset) => {
+        onPreset?.(preset);
+        change(studioConfig);
+      }}
       saveStatus={status}
       onSave={() => setStatus('saved')}
       onReload={() => {
@@ -93,10 +110,13 @@ function Demo({
       canEdit={!readOnly}
       selectedTab={tab}
       onTabChange={setTab}
-      previewProduct={studioProducts.find((product) => product.id === previewId) ?? null}
-      previewProducts={empty ? [] : studioProducts}
-      onPreviewProductChange={setPreviewId}
-      onPreviewQueryChange={() => {}}
+      previewProduct={previewProduct}
+      previewProducts={previewProducts}
+      onPreviewProductChange={(id) => {
+        setPreviewId(id);
+        setPreviewQuery('');
+      }}
+      onPreviewQueryChange={(value) => setPreviewQuery(value === previewProduct?.name ? '' : value)}
       products={products}
       selectedProducts={selected}
       selection={selection}
@@ -268,6 +288,62 @@ export const Selection: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Перевірити 3 цінників →' }));
     await expect(canvas.getByRole('heading', { name: 'Переддруковий перегляд' })).toBeVisible();
     await expect(canvas.getByRole('button', { name: 'Друкувати' })).toBeEnabled();
+  },
+};
+export const PreviewServerSearch: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(document.body);
+    const chocolate = studioProducts[1]!.name;
+    const input = canvas.getByRole('combobox', { name: 'Товар для перегляду' });
+    await userEvent.click(input);
+    await userEvent.clear(input);
+    // The words are not contiguous in the name; the server's match is shown as returned.
+    await userEvent.type(input, 'шоколад горіхами');
+    await waitFor(() =>
+      expect(page.queryAllByRole('option').map((option) => option.textContent)).toEqual([
+        chocolate,
+      ]),
+    );
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect(input).toHaveValue(chocolate);
+    await expect(
+      canvasElement.querySelector('.tk-studio-canvas [data-field=name]'),
+    ).toHaveTextContent(chocolate);
+  },
+};
+export const FiltersOutsideCurrentFacets: Story = {
+  args: { initialTab: 'products', initialFilters: { type: 'Морозиво', category: 'Пломбір' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('heading', { name: 'Товарів не знайдено' })).toBeVisible();
+    // The active filters remain visible although the facets no longer list them.
+    await expect(canvas.getByRole('combobox', { name: 'Група' })).toHaveValue('Морозиво');
+    await expect(canvas.getByRole('combobox', { name: 'Категорія' })).toHaveValue('Пломбір');
+  },
+};
+export const PresetCanBeReapplied: Story = {
+  args: { onPreset: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const page = within(document.body);
+    await userEvent.click(canvas.getByText('Параметри шаблону та магазину'));
+    const trigger = canvas.getByRole('button', { name: /Готове оформлення/ });
+    for (const attempt of [1, 2]) {
+      await userEvent.click(trigger);
+      await userEvent.click(await page.findByRole('option', { name: 'Стандартне' }));
+      await expect(args.onPreset).toHaveBeenCalledTimes(attempt);
+      await expect(args.onPreset).toHaveBeenLastCalledWith('standard');
+      // The choice is an action: nothing stays selected, so the same preset can be chosen again.
+      await expect(trigger).toHaveTextContent('Оберіть варіант');
+    }
+    await expect(trigger).toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}');
+    await expect(await page.findByRole('option', { name: 'Стандартне' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect(args.onPreset).toHaveBeenLastCalledWith('promotion');
+    await expect(trigger).toHaveFocus();
+    await expect(trigger).toHaveTextContent('Оберіть варіант');
   },
 };
 

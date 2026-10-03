@@ -8,8 +8,11 @@ const currency = (value: string | null) =>
   value === null
     ? '—'
     : Number(value).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const choices = (values: string[], all: string) => [
+// An active filter stays visible even when the current facets no longer contain its value;
+// otherwise the field looks empty while it still narrows the list.
+const choices = (values: string[], all: string, selected: string) => [
   { id: '*', label: all },
+  ...(selected && !values.includes(selected) ? [{ id: selected, label: selected }] : []),
   ...values.map((value) => ({ id: value, label: value })),
 ];
 export function CatalogView({
@@ -54,7 +57,7 @@ export function CatalogView({
         />
         <ComboBox
           label="Група"
-          options={choices(data.facets.type, 'Усі групи')}
+          options={choices(data.facets.type, 'Усі групи', filters.type)}
           selectedKey={filters.type || '*'}
           onSelectionChange={(key) =>
             change({ type: key === '*' ? '' : String(key), category: '', pack: '' })
@@ -63,7 +66,7 @@ export function CatalogView({
         <ComboBox
           label="Категорія"
           isDisabled={busy}
-          options={choices(data.facets.category, 'Усі категорії')}
+          options={choices(data.facets.category, 'Усі категорії', filters.category)}
           selectedKey={filters.category || '*'}
           onSelectionChange={(key) =>
             change({ category: key === '*' ? '' : String(key), pack: '' })
@@ -72,7 +75,7 @@ export function CatalogView({
         <ComboBox
           label="Пакування"
           isDisabled={busy}
-          options={choices(data.facets.pack, 'Усе пакування')}
+          options={choices(data.facets.pack, 'Усе пакування', filters.pack)}
           selectedKey={filters.pack || '*'}
           onSelectionChange={(key) => change({ pack: key === '*' ? '' : String(key) })}
         />
@@ -185,11 +188,15 @@ export function CatalogView({
                 </td>
                 <td data-label="Акція">
                   {data.canEdit ? (
+                    // The accessible name starts with the visible text. Only an active promotion
+                    // is a toggle (pressing ends it); enabling opens the editor for its price.
                     <button
                       type="button"
                       className="tk-promotion"
-                      aria-label={`Акція для ${product.name}`}
-                      aria-pressed={product.promotion}
+                      aria-label={`${product.promotion ? 'Акція' : 'Без акції'}: ${product.name}`}
+                      {...(product.promotion
+                        ? { 'aria-pressed': true }
+                        : { 'aria-haspopup': 'dialog' as const })}
                       disabled={busy}
                       onClick={() => onPromotion(product)}
                     >

@@ -143,6 +143,12 @@ class ShiftBrowsingTests(TestCase):
             self.assertNotIn('work_shifts_total', state)
             self.assertEqual([x['id'] for x in state['active_shifts']], [self.cash[0].pk])
 
+    def test_warehouse_role_sees_no_till_counts(self):
+        self.sign_in(self.user('warehouse', 'warehouse', self.store))
+        self.assertEqual(self.client.get('/api/erp/shifts').status_code, 403)
+        state = self.get('state')
+        self.assertEqual((state['shifts'], state['shifts_total'], state['active_shifts']), ([], 0, []))
+
     def test_validation_and_empty_page_clamp(self):
         for resource, params in [
             ('shifts', {'page': '²'}), ('shifts', {'page': '0'}), ('shifts', {'store': 'abc'}),

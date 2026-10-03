@@ -159,6 +159,26 @@ class FinancialBrowsingTests(TestCase):
             self.assertEqual(self.get('debts', store=str(self.other_store.pk))['total'], 0)
             self.assertEqual(self.get('debts', party=str(self.customer.pk))['total'], 0)
 
+    def test_debt_summary_overdue_both_ways_and_supplier_calendar(self):
+        due = lambda days: {'due_date': (self.today + timedelta(days=days)).isoformat()}
+        soon = self.voucher('receipt', party=self.party, payload=due(3))
+        now = self.voucher('receipt', party=self.party, payload=due(0))
+        self.voucher('receipt', party=self.party, payload=due(20))
+        self.voucher('sale', party=self.customer, payload={'payments': [{'account': self.account.pk, 'amount': '40'}], **due(-2)})
+        self.voucher('receipt', store=self.other_store, party=self.party, payload=due(1))
+        summary = self.get('debts/summary')
+        self.assertEqual(summary['overdue'], {'to_us': {'amount': '60.00', 'count': 1}, 'by_us': {'amount': '6500.00', 'count': 65}})
+        self.assertEqual([(x['voucher'], x['due_date'], x['amount']) for x in summary['payments']][:2],
+            [(now.pk, self.today.isoformat(), '100.00'), (summary['payments'][1]['voucher'], (self.today + timedelta(days=1)).isoformat(), '100.00')])
+        self.assertEqual([x['voucher'] for x in summary['payments']][-1], soon.pk)
+        self.assertEqual((summary['payments_total'], summary['days']), ('300.00', 14))
+        self.sign_in(self.manager)
+        scoped = self.get('debts/summary')
+        self.assertEqual([x['voucher'] for x in scoped['payments']], [now.pk, soon.pk])
+        self.assertEqual(scoped['payments_total'], '200.00')
+        self.sign_in(self.cashier)
+        self.assertEqual(self.client.get('/api/erp/debts/summary').status_code, 403)
+
     def test_invalid_filters_return_user_errors_and_empty_page_clamps(self):
         for resource, params in [
             ('ledger', {'page': '0'}), ('ledger', {'account': '²'}), ('ledger', {'store': '-1'}),

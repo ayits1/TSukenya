@@ -10,7 +10,8 @@
     const hasPercent = raw.endsWith('%');
     if (percent && hasPercent) raw = raw.slice(0, -1);
     if (!/^\d+(?:\.\d+)?$/.test(raw) || !Number.isFinite(Number(raw))) throw Error(`${label}: некоректне число.`);
-    if (percent && !hasPercent && Number(raw) > 0 && Number(raw) < 1) raw = String(Number(raw) * 100);
+    // Excel stores 7 % as 0.07: move the decimal point in the text (0.07 → 7), never multiply a binary float.
+    if (percent && !hasPercent && Number(raw) > 0 && Number(raw) < 1) { const [whole, fraction = ''] = raw.split('.'), shifted = whole + fraction.padEnd(2, '0'), point = whole.length + 2; raw = [shifted.slice(0, point).replace(/^0+(?=\d)/, ''), shifted.slice(point).replace(/0+$/, '')].filter(Boolean).join('.'); }
     const fraction = (raw.split('.')[1] || '').replace(/0+$/, '');
     if (fraction.length > precision || Number(raw) > 99999999.99) throw Error(`${label}: максимум ${precision} знаки після коми та 99 999 999,99.`);
     return raw;

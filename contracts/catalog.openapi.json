@@ -231,7 +231,7 @@
             }
           }
         },
-        "description": "Create a product. Nonempty dictionary fields must exist in references; category must belong to type. Legacy imports retain their text compatibility."
+        "description": "Create a product. Nonempty dictionary fields must exist in references; category must belong to type. Legacy imports retain their text compatibility. 409 `duplicate_name` when another product has the same name after trimming, collapsing spaces and ignoring case (the import matching key)."
       }
     },
     "/api/v1/catalog/products/{id}": {
@@ -360,6 +360,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -372,7 +382,7 @@
             }
           }
         },
-        "description": "Changed dictionary fields must exist in references; changing type also validates category. Unchanged historical values are preserved."
+        "description": "Changed dictionary fields must exist in references; changing type also validates category. Unchanged historical values are preserved. 409 `revision_conflict` for a stale revision; `duplicate_name` when a renamed product matches another product name after trimming, collapsing spaces and ignoring case. Existing duplicates stay editable without a rename."
       },
       "delete": {
         "requestBody": {
@@ -404,10 +414,58 @@
               }
             }
           },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
-            "description": "Revision conflict"
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        }
+        },
+        "description": "Delete an unused product. 400 when it is used in accounting or a recipe, 403 for roles without catalogue editing, 409 `revision_conflict` for a stale revision."
       }
     },
     "/api/v1/labels/workspace": {
@@ -1035,7 +1093,9 @@
             "type": "string"
           },
           "priceAt": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2})?$",
+            "description": "Price review date YYYY-MM-DD, separate from purchase document dates; empty when the price was never reviewed."
           },
           "cost": {
             "oneOf": [
@@ -1208,17 +1268,17 @@
           },
           "cost": {
             "type": "string",
-            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
           },
           "markup": {
             "type": "string",
-            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
           },
           "price": {
             "oneOf": [
               {
                 "type": "string",
-                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                "pattern": "^[0-9]+(\\.[0-9]+)?$"
               },
               {
                 "type": "null"
@@ -1232,20 +1292,22 @@
             "type": "boolean"
           },
           "priceAt": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2})?$",
+            "description": "Price review date YYYY-MM-DD, separate from purchase document dates; empty when the price was never reviewed."
           },
           "priceReviewed": {
             "type": "boolean"
           },
           "minStock": {
             "type": "string",
-            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
           },
           "promotionPrice": {
             "oneOf": [
               {
                 "type": "string",
-                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                "pattern": "^[0-9]+(\\.[0-9]+)?$"
               },
               {
                 "type": "null"
@@ -1288,17 +1350,17 @@
           },
           "cost": {
             "type": "string",
-            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
           },
           "markup": {
             "type": "string",
-            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
           },
           "price": {
             "oneOf": [
               {
                 "type": "string",
-                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                "pattern": "^[0-9]+(\\.[0-9]+)?$"
               },
               {
                 "type": "null"
@@ -1312,20 +1374,22 @@
             "type": "boolean"
           },
           "priceAt": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2})?$",
+            "description": "Price review date YYYY-MM-DD, separate from purchase document dates; empty when the price was never reviewed."
           },
           "priceReviewed": {
             "type": "boolean"
           },
           "minStock": {
             "type": "string",
-            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
           },
           "promotionPrice": {
             "oneOf": [
               {
                 "type": "string",
-                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                "pattern": "^[0-9]+(\\.[0-9]+)?$"
               },
               {
                 "type": "null"

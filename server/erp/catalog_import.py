@@ -9,8 +9,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
 from django.core.exceptions import RequestDataTooBig
-from .catalog import EDIT_ROLES, TEXT_FIELDS, defaults, normalise_product, revision, serialize
-from .catalog_references import clean
+from .catalog import EDIT_ROLES, TEXT_FIELDS, defaults, name_key, normalise_product, plain, revision, serialize
 from .models import Document
 from .services import BusinessError, audit, dec, ledger_lock, require
 
@@ -27,7 +26,7 @@ def canonical(value):
 
 def snapshot(documents, config):
     material = {'products': [(doc.path, revision(doc, config)) for doc in documents],
-                'pricing': {key: str(value) for key, value in config.items()}}
+                'pricing': {key: plain(value) for key, value in config.items()}}
     return hmac.new(settings.SECRET_KEY.encode(), canonical(material).encode(), hashlib.sha256).hexdigest()
 
 
@@ -54,10 +53,11 @@ def plan(payload, user):
     by_id = {doc.path.split('/', 1)[1]: doc for doc in documents}
     by_name = defaultdict(list)
     for doc in documents:
-        name = doc.data.get('name')
-        if isinstance(name, str) and clean(name):
-            by_name[clean(name).casefold()].append(doc)
-    names = Counter(clean(row['values']['name']).casefold() for row in entries
+        # The editor rejects new names that collide under this same key.
+        key = name_key(doc.data.get('name'))
+        if key:
+            by_name[key].append(doc)
+    names = Counter(name_key(row['values']['name']) for row in entries
                     if isinstance(row, dict) and isinstance(row.get('values'), dict) and isinstance(row['values'].get('name'), str))
     lines = Counter(row.get('line') for row in entries if isinstance(row, dict) and type(row.get('line')) is int)
     result = []
@@ -71,8 +71,8 @@ def plan(payload, user):
             value = row.get('values')
             require(isinstance(value, dict), 'Відсутні значення товару.')
             name = value.get('name')
-            require(isinstance(name, str) and bool(clean(name)), 'Вкажіть назву товару.')
-            key = clean(name).casefold()
+            require(isinstance(name, str) and bool(name_key(name)), 'Вкажіть назву товару.')
+            key = name_key(name)
             require(names[key] == 1, 'Назва повторюється у файлі. Залиште один рядок товару.')
             matches = by_name.get(key, [])
             require(len(matches) <= 1, 'У каталозі кілька товарів із цією назвою. Спочатку усуньте неоднозначність.')
