@@ -6,6 +6,7 @@ const data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-budget-fact-db-'));
 const hash=execFileSync(python,['-c',`from server.auth import hash_password;print(hash_password('${password}'))`],{cwd:root,encoding:'utf8'}).trim();
 const env={...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};
 for(const key of Object.keys(env))if(/^DB_|^PG/.test(key)||['DATABASE_URL','POSTGRES_URL'].includes(key))delete env[key];
+delete env.TSUKENYA_REQUIRE_POSTGRES;
 const log=fs.openSync(path.join(data,'server.log'),'a'),server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:['ignore',log,log]});fs.closeSync(log);let browser;
 const wait=async(fn,label)=>{for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw Error(label);};
 // Plan: rent 10 000 (category guessed from the name), sales staff 20 000 (guessed as payroll), delivery 3 000 (guessed as logistics).
@@ -34,6 +35,7 @@ const text=locator=>locator.innerText().then(value=>value.replace(/\s+/g,' ').tr
  await page.route('**/api/erp/budget-fact',route=>fail?route.fulfill({status:500,contentType:'application/json',body:'{"error":"Ізольований збій"}'}):route.continue());
  await require('./browser-login.cjs')(page,base,password);
  await page.goto(base+'/#operations/expenses',{waitUntil:'domcontentloaded'});
+ await page.locator('[data-budget-mode=catalog]').click();
  const card=page.locator('.budget-fact');await card.waitFor();
  await wait(async()=>/Не вдалося завантажити фактичні витрати/.test(await text(card)),'failure is explained');
  fail=false;await card.getByRole('button',{name:'Повторити'}).click();

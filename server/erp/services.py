@@ -377,7 +377,11 @@ def save_voucher(user, body, pk=None):
     expense_scope = payload.get('expense_scope', old_expense_scope or 'store')
     require(expense_scope in {'store', 'network'}, 'Некоректна належність витрати.')
     require(expense_scope == 'store' or kind == 'expense' and user.profile.role in {'owner', 'accountant'}, 'Мережеві витрати доступні лише власнику або бухгалтеру.')
+    previous_payload=dict(v.payload)
     v.payload = {'payments': payload.get('payments', []), 'fiscal_ref': str(payload.get('fiscal_ref',''))[:160], 'category': str(payload.get('category','Інше'))[:100], 'shift_ids': payload.get('shift_ids', []), 'due_date': str(payload.get('due_date','')), 'additional_cost': str(dec(payload.get('additional_cost', 0))), 'recipe': payload.get('recipe', []), 'target_account': payload.get('target_account'), 'discount_reason': str(payload.get('discount_reason','')).strip()[:300], **({'expense_scope': expense_scope} if kind == 'expense' else {})}
+    if kind=='expense':
+        from .monthly_budgets import bind_expense
+        v.payload.update(bind_expense(payload,previous_payload))
     if v.payload['due_date']:
         day(v.payload['due_date'])
     require(isinstance(v.payload['payments'], list) and len(v.payload['payments']) <= 10, 'Некоректні способи оплати.')

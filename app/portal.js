@@ -355,7 +355,7 @@
     m.innerHTML = ({overview, devOverview, work, tasks, ideas, products, tags, expenses})[tab]();
     if(tab==='expenses'){
       m.querySelectorAll(budgetFields).forEach(el=>{const draft=budgetDrafts.get(budgetKey(el));if(draft)el.value=draft.value;});
-      budgetStatus();
+      budgetStatus();window.MonthlyBudgets?.mount(m.querySelector('#monthlyBudget'));
     }
     for(const [key,value] of drafts){const el=[...m.querySelectorAll(inlineFields)].find(el=>fieldKey(el)===key);if(el)el.value=value;}
     for(const key of openPanels)m.querySelector(`[data-disclosure="${key}"]`)?.setAttribute("open","");
@@ -389,7 +389,7 @@
     products:['operations','Товари й ціни','Каталог товарів, закупівельні ціни та націнка.'],
     tags:['operations','Цінники','Виберіть товари, налаштуйте макет і перевірте аркуші перед друком.'],
     work:['operations','Поточні задачі','Щоденні справи магазину з термінами виконання.'],
-    expenses:['operations','Бюджет витрат','Планові місячні витрати й точка беззбитковості. Фактичні платежі — у розділі «Фінанси» обліку торгівлі.'],
+    expenses:['operations','Бюджет витрат','Збережені бюджети за місяцем і магазином. Факт — витрати й нарахована зарплата; орієнтир за каталогом — окремо.'],
     devOverview:['development','Розвиток бізнесу','Рішення, які варто перевірити, та робота над їх реалізацією.'],
     ideas:['development','Ідеї та можливості','Зберігайте пропозиції, обирайте пріоритети й переводьте їх у план.'],
     tasks:['development','План реалізації','Задачі розвитку бізнесу та впровадження інструментів.']
@@ -409,6 +409,7 @@
 
     const next=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     if(next!==tab && (window.CatalogImport?.pending()||window.CatalogPricing?.pending())){toast("Дочекайтеся завершення збереження.");history.replaceState(null,"","#"+SECTIONS[tab][0]+"/"+tab);return;}
+    if(next!==tab && tab==='expenses' && window.MonthlyBudgets && !window.MonthlyBudgets.canLeave()){history.replaceState(null,'','#operations/expenses');return;}
     if(next!==tab && budgetSaves.size){toast('Дочекайтеся збереження бюджету.');history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     const draftKeys={work:['addWork'],tasks:['addTask'],ideas:['addIdea',...[...createPending.keys()].filter(key=>key.startsWith('ideaTask:'))],expenses:['addExp:fixed','addExp:variable']}[tab]||[];
     if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size)){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
@@ -1428,7 +1429,7 @@
   function budgetFactHtml(){
     if(!window.TSUKENYA_SERVER)return "";
     loadBudgetFact();
-    const f=S.budgetFact, head='<h3>План проти факту за поточний місяць</h3>';
+    const f=S.budgetFact, head='<h3>Поточний орієнтир і факт місяця</h3><p class="muted">План — поточні налаштування орієнтира за каталогом, без історії місяців. Категорії визначаються старим текстовим довідником. Для збереженого плану за місяцем і ERP-магазином відкрийте «Бюджет місяця».</p>';
     if(!f||f.state==="loading")return `<section class="panel budget-fact">${head}<p class="muted" role="status">Завантажуємо фактичні витрати…</p></section>`;
     if(f.state==="error")return `<section class="panel budget-fact">${head}<p class="muted">Не вдалося завантажити фактичні витрати.</p><button class="btn soft" type="button" data-act="reloadBudgetFact">Повторити</button></section>`;
     const plan=Object.fromEntries(f.categories.map(c=>[c,0]));S.expenses.forEach(e=>{plan[budgetCategory(e)]+=num(e.amount);});
@@ -1449,7 +1450,7 @@
       ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
       <div class="expense-add"><input type="text" placeholder="Нова стаття" maxlength="250" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
       <div class="total"><span>Разом на місяць</span><span class="num">${money(sum)} грн</span></div></div>`;
-    return `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Витрати мережі на місяць</h2>
+    const legacy = `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Орієнтир за каталогом</h2>
       <label class="inl budget-store-count">Планова кількість магазинів <input id="stores" type="number" inputmode="numeric" required min="1" max="1000" step="1" value="${stores}" aria-describedby="budgetSaveError"></label></div>
       <p class="muted gap-lg">Впишіть суми за місяць на всю мережу. Зміни зберігаються, щойно ви перейдете до іншого поля.</p>
       <div class="budget-save-state"><p id="budgetSaveStatus" class="muted" role="status" aria-live="polite"></p><p id="budgetSaveError" class="form-error" role="alert"></p><div id="budgetOrphans"></div><button class="btn soft" data-act="retry-budget" hidden>Повторити збереження</button></div>
@@ -1464,6 +1465,7 @@
         : !t.coverage ? '<div>Недостатньо даних для розрахунку. Потрібен хоча б один товар із закупівельною ціною та ціною продажу.</div>'
         : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}${salesFactsHtml(t)}${examplesNotice(t)}</div>
     </section>${budgetFactHtml()}`;
+    return window.MonthlyBudgets?.shell(legacy)||legacy;
   }
 
   window.addEventListener('tsukenya:refresh-failed',()=>{
