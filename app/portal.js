@@ -161,7 +161,14 @@
   const upd = (col,id,data,ok) => write(()=>db.collection(col).doc(id).update(data), ok).then(r=>{ gsSoon(col); return r; });
   const add = (col,data,ok) => write(()=>db.collection(col).add(data), ok).then(r=>{ gsSoon(col); return r; });
   const del = (col,id,ok) => write(()=>db.collection(col).doc(id).delete(), ok).then(r=>{ gsSoon(col); return r; });
-  async function setDoc(path,data,ok){ return write(async()=>{ const ref=db.doc(path); const s=await ref.get(); s.exists ? await ref.update(data) : await ref.set(data); }, ok); }
+  async function setDoc(path,data,ok){ return write(async()=>{
+    const ref=db.doc(path), s=await ref.get(), settings=path==='settings/main';
+    // Settings are saved from the layout version this page shows. During queued layout saves the page keeps
+    // its own layout, so the version chains from its last write and another session's change gives 409.
+    const options=settings&&S.settingsRevision?{revision:S.settingsRevision}:undefined;
+    const result=s.exists ? await ref.update(data,options) : await ref.set(data,options);
+    if(settings&&S.tagSaving&&typeof result?.revision==='string')S.settingsRevision=result.revision;
+  }, ok); }
 
   const inlineSaves = new Set();
   const budgetDrafts = new Map(), budgetSaves = new Set();
@@ -249,7 +256,11 @@
   function tagSaveStatus(){const el=$('#tagSaveStatus');if(el)el.textContent=S.tagSaving?'Збереження…':S.tagSaveFailed?'Не збережено. Натисніть, щоб повторити.':'Макет збережено';}
   function saveTag(patch){
     const c=Object.assign(tagCfg(),patch);S.settings.tag=c;renderPreview();S.tagSaving=(S.tagSaving||0)+1;tagSaveStatus();
-    tagSaveQueue=tagSaveQueue.then(()=>setDoc('settings/main',{tag:c})).then(ok=>{S.tagSaving--;S.tagSaveFailed=!ok;tagSaveStatus();});
+    tagSaveQueue=tagSaveQueue.then(()=>setDoc('settings/main',{tag:c})).then(async ok=>{S.tagSaving--;S.tagSaveFailed=!ok;if(!ok&&!S.tagSaving)await adoptNewerLayout();tagSaveStatus();});
+  }
+  // A refused layout save shows the layout saved by another session; a transport failure keeps the draft for retry.
+  async function adoptNewerLayout(){
+    try{const s=await db.doc('settings/main').get();if(!S.tagSaving&&s.revision&&s.revision!==S.settingsRevision){S.settings=s.exists?s.data():{};S.settingsRevision=s.revision;render();}}catch(_){}
   }
   function saveStores(n, ok){
     const count=budgetStores();S.settings.storeNames = n;S.settings.budgetStores=count;
@@ -1536,7 +1547,7 @@
       S.products = S.allProducts.filter(p=>!p.hidden); S.productsLoaded=true; render(); if(firstProducts) syncSetup();
     }, ()=>{});
     sub("expenses","expenses",byOrder);
-    db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;S.settingsLoaded=true;render();syncSetup(); }, ()=>{});
+    db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};if(!S.tagSaving)S.settingsRevision=s.revision;S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;S.settingsLoaded=true;render();syncSetup(); }, ()=>{});
     db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{});
   }).catch(()=>{ $("#noDb").hidden=false; });
 })();

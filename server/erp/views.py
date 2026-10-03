@@ -171,6 +171,11 @@ def legacy_mutation(request,user,path):
             if duplicate_name(value,old,path):return response(DUPLICATE_NAME,409)
         Document.objects.update_or_create(pk=path,defaults={'data':value})
     audit(user,'catalog_changed' if col=='products' else 'legacy_changed',path,{'method':request.method})
+    if path=='settings/main':
+        # The next save chains from this version, not from a later poll that may carry another session's layout.
+        from .labels import revision as label_revision
+        saved=Document.objects.filter(pk=path).first()
+        return response({'ok':True,'id':id,'revision':label_revision(saved.data if saved else {})})
     return response({'ok':True,'id':id})
 
 @transaction.atomic

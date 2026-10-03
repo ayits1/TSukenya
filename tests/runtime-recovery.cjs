@@ -227,5 +227,24 @@ function cached(db, collection) {
     await db.collection('products').doc('p1').update({ promotion: true });
     assert.equal(r.calls.find(c => c.method === 'PATCH' && c.headers['If-Match'] === 'changed-elsewhere') !== undefined, true, 'immediate actions keep the latest revision');
   }
+  {
+    // A settings write returns its layout version; the next save chains from it even if the read after it fails.
+    const r = runtime(), db = await r.db();
+    r.queue.push(response(200, { ok: true, id: 'main', revision: 'label-after-first' }), response(503, { error: 'down' }));
+    await db.doc('settings/main').update({ tag: { size: 'l' } });
+    assert.equal(r.calls.at(-2).headers['If-Match'], 'label-revision');
+    r.queue.push(response(200, { ok: true, id: 'main', revision: 'label-after-second' }), response(200, payload()));
+    await db.doc('settings/main').update({ chainName: 'Second' });
+    assert.equal(r.calls.at(-2).headers['If-Match'], 'label-after-first', 'second save uses the version returned by the first');
+    // A later poll may carry another session's layout; a save from the shown version still conflicts.
+    const elsewhere = payload(); elsewhere.labelRevision = 'label-changed-elsewhere';
+    r.queue.push(response(200, elsewhere));
+    await r.window.TSUKENYA_REFRESH();
+    r.queue.push(response(409, { error: 'Макет уже змінено. Оновіть дані перед повторним збереженням.', code: 'revision_conflict' }));
+    const conflict = await db.doc('settings/main').update({ tag: { size: 's' } }, { revision: 'label-after-second' }).catch(error => error);
+    assert.equal(r.calls.at(-1).headers['If-Match'], 'label-after-second');
+    assert.equal(conflict.status, 409);
+    assert.equal(conflict.serverMessage, 'Макет уже змінено. Оновіть дані перед повторним збереженням.');
+  }
   console.log('RUNTIME RECOVERY PASS: confirmed writes, read retry, true write errors, cache/role/permissions, malformed reads, coalescing, fresh read after write and after a poll, server reasons, opened revisions');
 })().catch(error => { console.error(error); process.exitCode = 1; });
