@@ -167,6 +167,10 @@ def handle_promotions(request, user):
     if match:
         try: identifier = uuid.UUID(match[1])
         except ValueError: require(False, 'Некоректний ID акції.')
+        if request.method == 'GET':
+            campaign=PromotionCampaign.objects.select_related('author').prefetch_related('stores','prices__product').filter(pk=identifier).first()
+            if campaign is None:return response({'error':'Акцію не знайдено.','code':'not_found'},404)
+            return response(campaign_json(campaign))
         if request.method == 'PATCH': return save_campaign(request, user, identifier)
         if request.method == 'DELETE': return archive_campaign(request, user, identifier)
     return response({'error': 'Метод або маршрут не підтримується.', 'code': 'unsupported_route'}, 405)

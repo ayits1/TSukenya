@@ -2,8 +2,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { I18nProvider } from 'react-aria-components';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Catalog } from './features/catalog/Catalog';
-import { createCatalogApi, emptyFilters, type Filters } from './features/catalog/api';
+import { emptyFilters, type Filters } from './features/catalog/api';
 import './shared/ui/controls.css';
+import { PricingContext } from './features/promotions/PricingContext';
 
 declare global {
   interface Window {
@@ -17,7 +18,6 @@ declare global {
   }
 }
 const client = new QueryClient();
-const api = createCatalogApi();
 let root: Root | undefined;
 let container: HTMLElement | undefined;
 let dirty = false;
@@ -41,13 +41,20 @@ window.ReactCatalog = {
     root.render(
       <I18nProvider locale="uk-UA">
         <QueryClientProvider client={client}>
-          <Catalog
-            api={api}
-            onChanged={onChanged}
-            onDirty={onDirty}
-            initialFilters={filters}
-            onFiltersChanged={onFiltersChanged}
-          />
+          <PricingContext>
+            {(api, store, context, promotions) => (
+              <Catalog
+                api={api}
+                priceStore={store}
+                priceContext={context}
+                promotions={promotions}
+                onChanged={onChanged}
+                onDirty={onDirty}
+                initialFilters={filters}
+                onFiltersChanged={onFiltersChanged}
+              />
+            )}
+          </PricingContext>
         </QueryClientProvider>
       </I18nProvider>,
     );

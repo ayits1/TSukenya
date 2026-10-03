@@ -1,3 +1,4 @@
+import { validateEffectivePricing, type EffectivePricing } from './effectivePricing';
 import type { components } from './generated';
 
 export type ProductPricePreviewRequest = components['schemas']['ProductPricePreviewRequest'];
@@ -84,10 +85,14 @@ export function createApiClient({
       return request(path, decode, { method: 'GET', ...(signal ? { signal } : {}) });
     },
     mutate,
-    previewProductPrice(value: ProductPricePreviewRequest, signal?: AbortSignal) {
+    previewProductPrice(
+      value: ProductPricePreviewRequest,
+      signal?: AbortSignal,
+      store?: number | null,
+    ) {
       return mutate(
         'POST',
-        '/api/v1/catalog/products/price-preview',
+        '/api/v1/catalog/products/price-preview' + (store == null ? '' : `?store=${store}`),
         value,
         decodeProductPricePreview,
         signal,
@@ -115,7 +120,7 @@ export function decodeHealth(value: unknown): Health {
 const nonnegativeDecimal = (value: unknown): value is string =>
   typeof value === 'string' && /^[0-9]+(\.[0-9]+)?$/.test(value) && Number.isFinite(Number(value));
 
-export function decodeProductPricePreview(value: unknown): ProductPricePreview {
+export function decodeProductPricePreview(value: unknown): ProductPricePreview & EffectivePricing {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -129,6 +134,10 @@ export function decodeProductPricePreview(value: unknown): ProductPricePreview {
           'pricingRevision',
           'warnings',
           'promotionValid',
+          'effectivePromotion',
+          'effectiveDay',
+          'effectivePriceRevision',
+          'priceContext',
         ].includes(key),
     ) ||
     !('regularPrice' in value) ||
@@ -154,7 +163,9 @@ export function decodeProductPricePreview(value: unknown): ProductPricePreview {
     !nonnegativeDecimal(value.config.rounding)
   )
     throw new Error('Invalid product price preview');
+  validateEffectivePricing(value as Record<string, unknown>);
   return {
+    ...(value as EffectivePricing),
     regularPrice: value.regularPrice,
     salePrice: value.salePrice,
     pricingRevision: value.pricingRevision,
