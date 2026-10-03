@@ -96,3 +96,12 @@
 #bulkBox button { white-space:normal;min-height:44px; }
 .pricing-actions { flex-wrap:wrap; }
 @media(max-width:1000px){.pricing-sections{grid-template-columns:minmax(0,1fr);}}
+
+.exp-cat { display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;font-size:13px;color:var(--muted); }
+.exp-cat select { min-height:36px;max-width:100%; }
+.budget-fact-wrap { overflow-x:auto; }
+.budget-fact-table { width:100%;min-width:0;border-collapse:collapse; }
+.budget-fact-table th,.budget-fact-table td { padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top; }
+.budget-fact-table .num { text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums; }
+.budget-fact-table tfoot th,.budget-fact-table tfoot td { font-weight:600;border-bottom:0; }
+@media(max-width:600px){.budget-fact-table thead{display:none}.budget-fact-table,.budget-fact-table tbody,.budget-fact-table tfoot,.budget-fact-table tr{display:block;width:100%}.budget-fact-table tr{padding:10px 0;border-bottom:1px solid var(--line)}.budget-fact-table th,.budget-fact-table td{display:flex;justify-content:space-between;gap:12px;border:0;padding:2px 0}.budget-fact-table td:empty{display:none}.budget-fact-table td[data-col]::before{content:attr(data-col);color:var(--muted)}.budget-fact-table .num{text-align:right}}

@@ -330,7 +330,7 @@
     if (tab==="tags") renderPreview();
   }
   // Re-rendering #main replaces its controls; keyboard focus returns to the same control (same action and record).
-  const FOCUS_ATTRS = ['id','name','href','data-act','data-cycle','data-del-task','data-react','data-v','data-idea-task','data-exp','data-del-exp','data-g','data-newexp','data-budget-discard','data-edit-product','data-promotion','data-page','data-f','data-fclear','data-ddtoggle','data-tag','data-qty','data-store','data-style','data-prop','data-field','data-field-visible','data-edit-field','data-go','data-pf','data-id'];
+  const FOCUS_ATTRS = ['id','name','href','data-act','data-cycle','data-del-task','data-react','data-v','data-idea-task','data-exp','data-exp-cat','data-del-exp','data-g','data-newexp','data-budget-discard','data-edit-product','data-promotion','data-page','data-f','data-fclear','data-ddtoggle','data-tag','data-qty','data-store','data-style','data-prop','data-field','data-field-visible','data-edit-field','data-go','data-pf','data-id'];
   function focusKey(el){
     const own=FOCUS_ATTRS.filter(name=>el.hasAttribute(name)).map(name=>[name,el.getAttribute(name)]),box=el.closest('[data-disclosure]')?.dataset.disclosure;
     return own.length||el.tagName==='SUMMARY'&&box ? {tag:el.tagName,own,box,selection:el.tagName==='INPUT'||el.tagName==='TEXTAREA'?[el.selectionStart,el.selectionEnd]:null} : null;
@@ -1372,8 +1372,34 @@
     const need=plan/margin/FACT_DAYS, gap=need-daily;
     return `<div class="be-fact">${head}<p>Щоб покрити план витрат за такої маржі, потрібно ≈ <b class="num">${money0(need)} грн</b> на день.</p><p class="${gap>0?"be-gap":"be-ok"}">${gap>0?`Не вистачає ≈ ${money0(gap)} грн виторгу на день.`:`План покривається: запас ≈ ${money0(-gap)} грн на день.`}</p></div>`;
   }
+  // Accounting category of a budget line: chosen explicitly, otherwise guessed from its name.
+  const BUDGET_CATEGORIES=['Оренда','Комунальні','Логістика','Обслуговування','Маркетинг','Податки','Зарплата','Інше'];
+  const CATEGORY_HINTS=[['Зарплата',/зарплат|оплата праці|заробітн/],['Оренда',/оренд/],['Комунальні',/комунал|електро|світло|вода|опален|газ/],['Логістика',/логіст|доставк|перевез|пальн|бензин/],['Обслуговування',/обслуг|ремонт|сервіс|прибиран/],['Маркетинг',/маркет|реклам|просуван/],['Податки',/подат|єсв|збір/]];
+  const budgetCategory=e=>BUDGET_CATEGORIES.includes(e.category)?e.category:(CATEGORY_HINTS.find(([,re])=>re.test(String(e.name||'').toLocaleLowerCase('uk')))?.[0]||'Інше');
+  function loadBudgetFact(){
+    if(!window.TSUKENYA_SERVER||window.TSUKENYA_ROLE!=="owner"||S.budgetFact?.state==="loading"||S.budgetFact&&Date.now()-S.budgetFact.at<300000)return;
+    S.budgetFact={state:"loading",at:Date.now()};
+    fetch("/api/erp/budget-fact",{credentials:"same-origin"})
+      .then(r=>r.ok?r.json():Promise.reject(Error("budget "+r.status)))
+      .then(d=>{S.budgetFact={...d,state:"ready",at:Date.now()};})
+      .catch(()=>{S.budgetFact={state:"error",at:Date.now()};})
+      .finally(()=>{if(tab==="expenses")render();});
+  }
+  function budgetFactHtml(){
+    if(!window.TSUKENYA_SERVER)return "";
+    loadBudgetFact();
+    const f=S.budgetFact, head='<h3>План проти факту за поточний місяць</h3>';
+    if(!f||f.state==="loading")return `<section class="panel budget-fact">${head}<p class="muted" role="status">Завантажуємо фактичні витрати…</p></section>`;
+    if(f.state==="error")return `<section class="panel budget-fact">${head}<p class="muted">Не вдалося завантажити фактичні витрати.</p><button class="btn soft" type="button" data-act="reloadBudgetFact">Повторити</button></section>`;
+    const plan=Object.fromEntries(f.categories.map(c=>[c,0]));S.expenses.forEach(e=>{plan[budgetCategory(e)]+=num(e.amount);});
+    const share=f.days_passed/f.days_total, rows=f.categories.filter(c=>plan[c]||num(f.facts[c])).map(c=>{const p=plan[c],a=num(f.facts[c]),used=p?a/p:null,over=p?a>p:a>0,ahead=!over&&p&&used>share+0.1;
+      return `<tr><th scope="row">${esc(c)}</th><td class="num" data-col="План">${money(p)} грн</td><td class="num" data-col="Факт">${money(a)} грн</td><td class="num" data-col="Використано">${used===null?'—':Math.round(used*100)+'%'}</td><td data-col="Стан">${over?'<span class="be-gap">Перевищено на '+money(a-p)+' грн</span>':ahead?'<span class="muted">Витрачається швидше за місяць</span>':'<span class="muted">У межах плану</span>'}</td></tr>`;});
+    const totalPlan=Object.values(plan).reduce((s,v)=>s+v,0), totalFact=f.categories.reduce((s,c)=>s+num(f.facts[c]),0);
+    return `<section class="panel budget-fact">${head}<p class="muted">Минуло ${f.days_passed} із ${f.days_total} днів (${Math.round(share*100)}% місяця). Факт — проведені документи «Витрата» за їх категорією та нарахування зарплати. Категорію статті бюджету можна змінити в її рядку.</p>${rows.length?`<div class="budget-fact-wrap"><table class="budget-fact-table"><thead><tr><th scope="col">Категорія</th><th scope="col">План</th><th scope="col">Факт</th><th scope="col">Використано</th><th scope="col">Стан</th></tr></thead><tbody>${rows.join('')}</tbody><tfoot><tr><th scope="row">Разом</th><td class="num" data-col="План">${money(totalPlan)} грн</td><td class="num" data-col="Факт">${money(totalFact)} грн</td><td class="num" data-col="Використано">${totalPlan?Math.round(totalFact/totalPlan*100)+'%':'—'}</td><td></td></tr></tfoot></table></div>`:'<p class="muted">Ні плану, ні фактичних витрат за цей місяць немає.</p>'}</section>`;
+  }
   function expRow(e){
-    return `<div class="exp"><span class="n">${esc(e.name)}</span><div class="expense-amount"><input type="number" inputmode="decimal" required min="0" max="99999999.99" step="0.01" value="${num(e.amount)}" data-exp="${esc(e.id)}" aria-label="${esc(e.name)}, грн на місяць" aria-describedby="budgetSaveError"><span class="muted">грн</span></div><button class="x" data-del-exp="${esc(e.id)}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div>`;
+    const category=budgetCategory(e);
+    return `<div class="exp"><span class="n">${esc(e.name)}${window.TSUKENYA_SERVER?`<label class="exp-cat">Категорія обліку <select data-exp-cat="${esc(e.id)}" aria-label="Категорія обліку: ${esc(e.name)}">${BUDGET_CATEGORIES.map(c=>`<option ${c===category?'selected':''}>${c}</option>`).join('')}</select></label>`:''}</span><div class="expense-amount"><input type="number" inputmode="decimal" required min="0" max="99999999.99" step="0.01" value="${num(e.amount)}" data-exp="${esc(e.id)}" aria-label="${esc(e.name)}, грн на місяць" aria-describedby="budgetSaveError"><span class="muted">грн</span></div><button class="x" data-del-exp="${esc(e.id)}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div>`;
   }
   function expenses(){
     if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner')return '<section class="panel"><p role="status">Бюджет витрат доступний власнику мережі.</p><a class="btn soft" href="#operations/overview">До операційного огляду</a></section>';
@@ -1397,7 +1423,7 @@
         : t.fixed+t.variable===0 ? '<div>План витрат дорівнює нулю. Введіть суми, щоб оцінити потрібний виторг.</div>'
         : !t.coverage ? '<div>Недостатньо даних для розрахунку. Потрібен хоча б один товар із закупівельною ціною та ціною продажу.</div>'
         : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}${salesFactsHtml(t)}${examplesNotice(t)}</div>
-    </section>`;
+    </section>${budgetFactHtml()}`;
   }
 
   window.addEventListener('tsukenya:refresh-failed',()=>{
@@ -1446,6 +1472,7 @@
     if(a==='addTask'){const input=$('#newTask');void addInline(a,'tasks',{title:input.value.trim(),scope:'development',stage:+$('#newTaskStage').value,status:'todo',order:Date.now()},[input,$('#newTaskStage')],'Задачу додано');return;}
     if(a==="clearEx"){clearExamples();return;}
     if(a==="reloadFacts"){S.salesFacts=null;render(true);return;}
+    if(a==="reloadBudgetFact"){S.budgetFact=null;render(true);return;}
     if(a==="reloadDebts"){S.debtSummary=null;render(true);return;}
     if(a==='addIdea'){const input=$('#newIdea');void addInline(a,'ideas',{title:input.value.trim(),text:'Ідея власника',reaction:null,order:Date.now(),byOwner:true},[input],'Ідею записано');return;}
     if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? (window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)) : S.products.filter(p=>!c||p.category===c);
@@ -1515,6 +1542,7 @@
       else if (el.dataset.pf==="markup") upd("products",p.id,{markup:v,manualPrice:false,price:null,priceAt:today()});
       else upd("products",p.id,{cost:v,priceAt:today()}); return; }
     if (el.dataset.exp){ void saveBudget(el); return; }
+    if (el.dataset.expCat){ const e=S.expenses.find(x=>x.id===el.dataset.expCat); if(!e) return; e.category=el.value; render(); upd('expenses',e.id,{category:el.value},'Категорію статті збережено'); return; }
     if (el.dataset.qty){ const id = el.dataset.qty, v = Math.round(num(el.value));
       if (v <= 0){ S.tagSel.delete(id); S.tagQty[id] = 1; } else { S.tagQty[id] = Math.min(500, v); S.tagSel.add(id); }
       syncChecks(); renderPreview(); return; }
