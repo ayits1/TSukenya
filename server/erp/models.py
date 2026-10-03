@@ -6,6 +6,17 @@ class Document(models.Model):
     path = models.CharField(max_length=160, primary_key=True)
     data = models.JSONField(default=dict)
 
+class LegacyCreateReceipt(models.Model):
+    """Durable create acknowledgement. Kept after deleting the document to prevent resurrection."""
+    key = models.CharField(max_length=80, primary_key=True)
+    author = models.ForeignKey(User, on_delete=models.PROTECT)
+    collection = models.CharField(max_length=16)
+    document_path = models.CharField(max_length=160, unique=True)
+    request_fingerprint = models.CharField(max_length=64)
+    created_fingerprint = models.CharField(max_length=64)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 class Setting(models.Model):
     key = models.CharField(max_length=80, primary_key=True)
     value = models.TextField()

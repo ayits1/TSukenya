@@ -4,6 +4,7 @@
   let csrf = "";
   let labelRevision = "";
   const listeners = new Map();
+  const createIntents = new WeakMap();
   let loading = null, loadingId = 0, started = 0, polled = 0;
   const roles = new Set(['owner', 'manager', 'cashier', 'warehouse', 'accountant']);
 
@@ -63,7 +64,7 @@
     const response = await fetch(path, {
       method,
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf, ...(version?{"If-Match":version}:{}) },
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf, ...(options?.createKey?{"Idempotency-Key":options.createKey}:{}), ...(version?{"If-Match":version}:{}) },
       body: value === undefined ? undefined : JSON.stringify(value),
     });
     if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
@@ -74,9 +75,12 @@
       // Other failures keep the UI's own text, so English or internal details never reach it.
       if (response.status >= 400 && response.status < 500 && error.message === failure.error) error.serverMessage = failure.error;
       error.status = response.status;
+      if (typeof failure.code === "string") error.code = failure.code;
       throw error;
     }
     const after = started, result = await response.json();
+    if (options?.createKey && (!result || result.ok !== true || typeof result.id !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(result.id)))
+      throw new Error('Unconfirmed create response');
     // The write's own layout version: valid even when the following read fails.
     if (path === '/api/docs/settings/main' && typeof result?.revision === 'string') labelRevision = result.revision;
     // The server already confirmed this write. A failed read is a separate UI
@@ -106,7 +110,24 @@
     collection(name) {
       return {
         doc(id = crypto.randomUUID()) { return doc(`${name}/${id}`); },
-        async add(value) { const result = await mutate("POST", `/api/${name}`, value); return doc(`${name}/${result.id}`); },
+        async add(value, options) {
+          const protectedCreate = ['tasks','ideas','expenses'].includes(name);
+          const intent = protectedCreate ? options?.createKey ? {key:options.createKey,value} :
+            createIntents.get(value) || {key:crypto.randomUUID(),value:structuredClone(value),uncertain:false} : null;
+          if (intent && !options?.createKey) createIntents.set(value,intent);
+          try {
+            const result = await mutate("POST", `/api/${name}`, intent ? intent.value : value,
+              intent ? {createKey:intent.key} : undefined);
+            if (intent && !options?.createKey) createIntents.delete(value);
+            return doc(`${name}/${result.id}`);
+          } catch (error) {
+            if (intent && !options?.createKey) {
+              if (error.status>=400 && error.status<500 && !intent.uncertain && !error.code?.startsWith('create_')) createIntents.delete(value);
+              else intent.uncertain=true;
+            }
+            throw error;
+          }
+        },
         onSnapshot(callback) {
           const set = listeners.get(name) || new Set(); set.add(callback); listeners.set(name, set);
           if (data) callback(snapshot(name));
