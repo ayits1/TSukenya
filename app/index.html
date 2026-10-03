@@ -608,6 +608,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const storeNames = () => Array.isArray(S.settings.storeNames) ? S.settings.storeNames : [];
   const PACK_LBL = {"ПЕТ":"Пляшка ПЕТ", "Скло":"Скляна пляшка", "Ваговий":"На вагу", "Штучно":"Поштучно"};
   const packLabel = v => v ? (PACK_LBL[v] || v) : "";
+  /* SIZE-LABEL-START */
   function sizeLabel(p){
     let v = String(p.size||"").trim(); if (!v) return "";
     if (/^\d+([.,]\d+)?$/.test(v)){ // число без одиниць: здогадуємось за пакуванням
@@ -618,6 +619,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     if (/\d\s*(г|кг|g|kg)(?![a-zа-яіїєґ])/i.test(v)) return "вага " + v;
     return (p.pack==="Стакан" ? "розмір " : "") + v;
   }
+  /* SIZE-LABEL-END */
   function tagParts(p, c){
     const pr = priceOf(p), kg = p.unit==="кг", st = storeNames()[c.storeIdx] || "";
     const priceTxt = c.kop ? money(pr) : (Math.abs(pr-Math.round(pr))<0.005 ? money0(pr) : money(pr));
@@ -903,6 +905,8 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     s.onerror = () => { xlsxP = null; rej(new Error("load")); };
     document.head.appendChild(s);
   }));
+  /* IMPORT-START */
+  // Розпізнавання таблиць і план імпорту. Залежать від S, allTypes, allPacks, defMarkup, today — їх перевіряє tests/import.test.js.
   const norm = v => String(v ?? "").toLowerCase().replace(/[.,:;()№]/g, " ").replace(/\s+/g, " ").trim();
   function parseNum(v){
     if (typeof v === "number") return isFinite(v) ? v : 0;
@@ -946,7 +950,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     const take = (key, pred) => { const i = hdr.findIndex((h,i)=>h && !used.has(i) && pred(h)); if (i>=0){ used.add(i); col[key]=i; } };
     take("name", isName);
     take("price", h=>h.includes("ціна продаж") || h.includes("ціна прод") || h.includes("роздр") || h==="продаж" || h==="price");
-    take("cost", h=>h.includes("закупів") || h.includes("закуп") || h.includes("собівартість") || h.includes("вхідн") || h.includes("ціна прихо") || h==="cost");
+    take("cost", h=>h.includes("закупів") || h.includes("закуп") || h.includes("собівартість") || h.includes("вхідн") || h.includes("ціна прих") || h==="cost");
     take("markup", h=>h.includes("націнк") || h==="%" || h==="markup");
     take("type", h=>h==="тип" || h.startsWith("тип ") || h.startsWith("група") || h==="вид");
     take("category", h=>h.includes("категор"));
@@ -977,15 +981,19 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       seen.add(k);
       const ex = byName.get(k), data = {name:r.name, unit:r.unit || ex?.unit || "шт"};
       if (cost>0){ data.cost = cost; data.costAt = today(); } else if (!ex) data.cost = 0;
+      // ручну ціну наявного товару не чіпаємо, якщо у файлі для нього немає ні ціни продажу, ні націнки (накладна лише з закупівлею)
+      const keepManual = !!ex && !!ex.manualPrice && parseNum(ex.price)>0 && !(price>0) && !(r.markup>0);
       if (price>0){ data.price = price; data.manualPrice = true; }
-      else { if (r.markup>0) data.markup = r.markup; else if (!sync || !ex) data.markup = imp.markup; data.manualPrice = false; data.price = null; }
+      else if (!keepManual){ if (r.markup>0) data.markup = r.markup; else if (!sync || !ex) data.markup = imp.markup; data.manualPrice = false; data.price = null; }
       if (r.category) data.category = r.category; else if (!ex) data.category = "";
-      if (r.pack) data.pack = r.pack; if (r.size) data.size = r.size; data.priceAt = today();
+      if (r.pack) data.pack = r.pack; if (r.size) data.size = r.size;
+      if (!keepManual) data.priceAt = today();
       const t = r.type || ex?.type || imp.defType; if (t) data.type = t;
       items.push({ex, data});
     }
     return {items, skipped, dup, nNew: items.filter(i=>!i.ex).length, nUpd: items.filter(i=>i.ex).length};
   }
+  /* IMPORT-END */
   function importInner(){
     const imp = S.imp, head = `<h3>Завантажити товари з Excel</h3>`;
     if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Група, Категорія, Пакування, Об’єм / вага, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>

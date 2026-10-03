@@ -1,4 +1,4 @@
-// Дістає з app/index.html код між маркерами SYNC-ENGINE-* (planSync) і SYNC-RUNNER-* (gsSync) і запускає його в Node.
+// Дістає з app/index.html блоки між маркерами *-START / *-END (синхронізація, розрахунки, імпорт) і запускає їх у Node.
 const fs = require("fs");
 const html = fs.readFileSync(process.env.APP_HTML || __dirname + "/../app/index.html", "utf8");
 const region = name => {
@@ -6,15 +6,23 @@ const region = name => {
   if (!m) throw new Error(`У app/index.html немає маркерів ${name}-START / ${name}-END`);
   return m[0];
 };
-const ENGINE = region("SYNC-ENGINE"), RUNNER = region("SYNC-RUNNER"), CALC = region("CALC");
+const ENGINE = region("SYNC-ENGINE"), RUNNER = region("SYNC-RUNNER"), CALC = region("CALC"), IMPORT = region("IMPORT");
 
-// Допоміжні функції застосунку (спрощені копії)
-const norm = v => String(v ?? "").toLowerCase().replace(/[.,:;()№]/g, " ").replace(/\s+/g, " ").trim();
-const num = v => { const x = parseFloat(String(v).replace(",", ".")); return isFinite(x) ? x : 0; };
-function parseNum(v){ if (typeof v === "number") return isFinite(v) ? v : 0; const x = parseFloat(String(v ?? "").replace(/[\s ]/g, "").replace(/грн|₴|uah/gi, "").replace(",", ".")); return isFinite(x) ? x : 0; }
-function unitNorm(v){ const s = norm(v); if (!s) return ""; if (s === "кг") return "кг"; if (s === "100 г") return "100 г"; if (["уп","упаковка"].includes(s)) return "уп"; return "шт"; }
+const num = v => { const x = parseFloat(String(v).replace(",", ".")); return isFinite(x) ? x : 0; }; // як у застосунку
+// Списки груп і пакувань — як allTypes/allPacks у застосунку: стандартні плюс ті, що трапляються в товарах
+const TYPES = ["Напої","Цукерки","Печиво і вафлі","Торти і десерти","Інше"];
 const PACKS = ["Банка","ПЕТ","Скло","Стакан","Коробка","Пакет","Упаковка","Ваговий","Штучно"];
-const packNorm = v => { const t = norm(v); if (!t) return ""; return PACKS.find(x => norm(x) === t) || String(v).trim(); };
+// Блок імпорту застосунку (IMPORT) над товарами products; settings — як S.settings
+function importer(products = [], settings = {defaultMarkup:30}, today = "2026-10-03"){
+  const S = {products, settings};
+  const allTypes = () => [...TYPES, ...new Set(products.map(p => p.type).filter(t => t && !TYPES.includes(t)))];
+  const allPacks = () => [...PACKS, ...new Set(products.map(p => p.pack).filter(x => x && !PACKS.includes(x)))];
+  return new Function("S", "allTypes", "allPacks", "defMarkup", "today",
+    IMPORT + "; return {norm, parseNum, unitNorm, packNorm, typeNorm, parseSheet, buildPlan, packFromName, sizeFromName};")(
+    S, allTypes, allPacks, () => settings.defaultMarkup ?? 30, () => today);
+}
+const {norm, parseNum, unitNorm, packNorm} = importer();
+const sizeLabel = new Function(region("SIZE-LABEL") + "; return sizeLabel;")();
 // Блок розрахунків застосунку (CALC) з налаштуваннями settings; за замовчуванням — округлення 0,5 грн і націнка 30 %
 function calc(settings = {rounding:0.5, defaultMarkup:30}){
   return new Function("S", "num", CALC + "; return {priceOf, marginOf, roundPrice, priceState, checkedAt, breakEven, staleDays, backupDue};")({settings}, num);
@@ -40,4 +48,4 @@ function device({db, mcp, today = "2026-10-03"}){
   return {S, gsSync, timers};
 }
 
-module.exports = {planSync, GS_COLS, makeEnv, device, calc, priceOf, norm, region, html};
+module.exports = {planSync, GS_COLS, makeEnv, device, calc, importer, sizeLabel, priceOf, norm, region, html};
