@@ -152,8 +152,8 @@ const STYLE_DEFAULTS: Record<
   readonly [number, string, LabelStyle['weight'], LabelStyle['align']]
 > = {
   promo: [8, '#9A3412', '700', 'left'],
-  chain: [7, '#777777', '400', 'left'],
-  store: [7, '#777777', '400', 'right'],
+  chain: [7, '#707070', '400', 'left'],
+  store: [7, '#707070', '400', 'right'],
   custom: [8, '#c2185b', '700', 'left'],
   name: [10, '#1c1c1c', '600', 'left'],
   pack: [7.5, '#555555', '400', 'left'],
@@ -162,8 +162,8 @@ const STYLE_DEFAULTS: Record<
   oldPrice: [8, '#707070', '400', 'right'],
   unit: [8, '#444444', '400', 'left'],
   per100: [8, '#444444', '400', 'left'],
-  category: [7, '#777777', '400', 'left'],
-  date: [7, '#777777', '400', 'right'],
+  category: [7, '#707070', '400', 'left'],
+  date: [7, '#707070', '400', 'right'],
 };
 const record = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -260,7 +260,7 @@ export function adaptLabelProduct(value: unknown, salePrice?: number): LabelProd
     salePrice: numeric(salePrice ?? raw.salePrice),
     regularPrice: numeric(raw.regularPrice, numeric(salePrice ?? raw.salePrice)),
     priceAt: text(raw.priceAt),
-    promotion: raw.promotion === true,
+    promotion: raw.effectivePromotion != null || raw.promotion === true,
   };
 }
 export function adaptLabelSettings(value: unknown): LabelSettings {

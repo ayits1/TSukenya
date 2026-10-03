@@ -19,6 +19,14 @@ class CampaignTests(ApiFixture):
         return {'idempotencyKey':str(uuid.uuid4()),'name':'Тиждень кави','startsOn':self.today,'endsOn':self.today,'active':True,'scope':'network','stores':[],'prices':[{'product':'p','price':'25.00'}],'reason':'Сезонна пропозиція',**extra}
     def create(self,**extra):
         r=self.call('post','/api/v1/promotions/campaigns',self.payload(**extra));self.assertEqual(r.status_code,200,r.content);return r.json()
+    def test_resolver_fetches_only_requested_products_in_one_query(self):
+        other = Document.objects.create(path='products/another',data={**self.p.data,'name':'Інший товар'})
+        self.create(prices=[{'product':'p','price':'20.00'},{'product':'another','price':'21.00'}])
+        with self.assertNumQueries(1):
+            resolver = PriceResolver(config={'markup':0,'rounding':0},product_paths=[self.p.path])
+        self.assertEqual(set(resolver.candidates),{self.p.path})
+        self.assertEqual(resolver.resolve(self.p)['salePrice'],'20.00')
+        self.assertEqual(resolver.resolve(other)['salePrice'],'30.00')
     def test_overlap_scope_tie_and_legacy_fallback(self):
         a=self.create(scope='stores',stores=[self.store.pk],prices=[{'product':'p','price':'20.00'}])
         b=self.create(prices=[{'product':'p','price':'22.00'}])
@@ -50,6 +58,7 @@ class CampaignTests(ApiFixture):
         changed={k:v for k,v in payload.items() if k!='idempotencyKey'};changed.update(revision=a['revision'],prices=[{'product':'p','price':'24.00'}])
         url='/api/v1/promotions/campaigns/'+a['id'];self.assertEqual(self.call('patch',url,changed).status_code,200)
         self.assertEqual(self.call('patch',url,changed).status_code,409)
+        detail=self.client.get(url);self.assertEqual(detail.status_code,200);self.assertEqual(detail.json()['revision'],2)
         self.assertEqual(self.call('post','/api/v1/promotions/campaigns',payload).json()['code'],'create_changed')
         archived=self.call('delete',url,{'revision':2,'reason':'Пропозицію завершено'});self.assertEqual(archived.status_code,200)
         self.assertEqual(self.product()['salePrice'],'30.00');self.assertEqual(PromotionPrice.objects.count(),1)

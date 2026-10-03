@@ -546,6 +546,15 @@ export function ProductEditor({
                     <p>
                       Ціна продажу: <strong>{money(activePreview.salePrice)} грн</strong>
                     </p>
+                    {activePreview.effectivePromotion?.source === 'campaign' ? (
+                      <p className="tk-help">
+                        Кампанія «{activePreview.effectivePromotion.name}» діє{' '}
+                        {activePreview.effectivePromotion.startsOn} —{' '}
+                        {activePreview.effectivePromotion.endsOn}, для{' '}
+                        {activePreview.priceContext?.storeName || 'мережі'}. Її умови змінюються в
+                        розділі акцій; збереження товару не переносить їх у його власну акцію.
+                      </p>
+                    ) : null}
                     <p className="tk-help">
                       {draft.manualPrice
                         ? 'Ручна ціна — без округлення до кроку.'

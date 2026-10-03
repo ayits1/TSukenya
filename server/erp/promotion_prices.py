@@ -25,7 +25,7 @@ def context_store(user, value=None):
 
 
 class PriceResolver:
-    def __init__(self, config=None, store=None, effective_day=None):
+    def __init__(self, config=None, store=None, effective_day=None, *, product_paths=None):
         from .catalog import defaults
         self.config = defaults() if config is None else config
         self.store = store
@@ -37,6 +37,8 @@ class PriceResolver:
         # One SQL statement reads campaign terms and amounts together: no header/price prefetch race.
         prices = PromotionPrice.objects.filter(area, campaign__active=True, campaign__archived=False,
             campaign__starts_on__lte=self.day, campaign__ends_on__gte=self.day).select_related('campaign').distinct()
+        if product_paths is not None:
+            prices = prices.filter(product_id__in=set(product_paths))
         self.candidates = {}
         for item in prices:
             campaign = item.campaign

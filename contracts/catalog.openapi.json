@@ -1779,6 +1779,32 @@
             }
           }
         ]
+      },
+      "get": {
+        "operationId": "getPromotionCampaign",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh campaign terms for explicit conflict recovery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -3519,7 +3545,11 @@
           "config",
           "pricingRevision",
           "warnings",
-          "promotionValid"
+          "promotionValid",
+          "effectivePriceRevision",
+          "priceContext",
+          "effectivePromotion",
+          "effectiveDay"
         ],
         "additionalProperties": false,
         "properties": {

@@ -1265,7 +1265,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    get: operations['getPromotionCampaign'];
     put?: never;
     post?: never;
     delete: operations['archiveCampaign'];
@@ -1712,11 +1712,11 @@ export interface components {
       warnings: string[];
       /** @description True only for an enabled, valid explicit promotion below regularPrice. False for no promotion and grandfathered legacy badge-only/invalid promotions. */
       promotionValid: boolean;
-      readonly effectivePromotion?: components['schemas']['EffectivePromotion'];
+      readonly effectivePromotion: components['schemas']['EffectivePromotion'];
       /** Format: date */
-      readonly effectiveDay?: string;
-      readonly effectivePriceRevision?: string;
-      readonly priceContext?: components['schemas']['PriceContext'];
+      readonly effectiveDay: string;
+      readonly effectivePriceRevision: string;
+      readonly priceContext: components['schemas']['PriceContext'];
     };
     ReferenceManagedItem: {
       id: string;
@@ -2362,6 +2362,28 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  getPromotionCampaign: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fresh campaign terms for explicit conflict recovery */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Campaign'];
         };
       };
     };

@@ -1,0 +1,87 @@
+.tk-pricing-context,
+.tk-promotions {
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+  background: var(--tk-paper);
+  min-width: 0;
+}
+.tk-pricing-context .tk-field {
+  max-width: 440px;
+}
+.tk-promotion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.tk-promotion-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.tk-promotion-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 240px) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--tk-line);
+}
+.tk-promotion-row > strong {
+  overflow-wrap: anywhere;
+}
+.tk-promotions h2 {
+  font-size: 1.2rem;
+  margin: 0 0 12px;
+}
+.tk-promotions h3 {
+  font-size: 1rem;
+}
+.tk-promotions input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.tk-promotion-check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+}
+.tk-price-history {
+  padding: 0;
+  list-style: none;
+}
+.tk-price-history li {
+  border-top: 1px solid var(--tk-line);
+  padding: 12px 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .tk-promotion-grid,
+  .tk-promotion-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tk-pricing-context,
+  .tk-promotions {
+    padding: 12px;
+  }
+  .tk-promotion-row .tk-money {
+    max-width: 100%;
+  }
+}
+
+.tk-promotions fieldset {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--tk-line);
+  border-radius: 6px;
+}
+.tk-promotion-check {
+  overflow-wrap: anywhere;
+}

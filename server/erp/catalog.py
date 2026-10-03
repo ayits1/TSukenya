@@ -132,7 +132,7 @@ def sale_price(data, config=None):
 
 def serialize(document, user, config, resolver=None):
     from .promotion_prices import PriceResolver, context_store
-    resolver = resolver or PriceResolver(config, context_store(user))
+    resolver = resolver or PriceResolver(config, context_store(user), product_paths=[document.path])
     resolved = resolver.resolve(document)
     data = document.data
     cost = decimal(data.get('cost'))
@@ -188,7 +188,8 @@ def list_products(request, user):
     require(promotion in {'', 'yes', 'no'}, 'Некоректний фільтр акції.')
     from .promotion_prices import PriceResolver, context_store
     config = defaults()
-    resolver = PriceResolver(config, context_store(user, request.GET.get('store')))
+    store = context_store(user, request.GET.get('store'))
+    resolver = PriceResolver(config, store) if promotion else None
     if promotion:
         matched = [d.pk for d in query if bool(resolver.resolve(d)['effectivePromotion']) == (promotion == 'yes')]
         query = query.filter(pk__in=matched)
@@ -204,7 +205,8 @@ def list_products(request, user):
     pages = max(1, (count + limit - 1) // limit)
     page = min(page, pages)
     documents = query.order_by('data__type', 'data__category', 'data__name', 'path')[(page - 1) * limit:page * limit]
-    config = defaults()
+    documents = list(documents)
+    resolver = resolver or PriceResolver(config, store, product_paths=[d.path for d in documents])
     return response({'items': [serialize(document, user, config, resolver=resolver) for document in documents],
         'total': count, 'page': page, 'pages': pages, 'limit': limit, 'facets': facets,
         'canEdit': user.profile.role in EDIT_ROLES, 'defaultMarkup': format(config['markup'], 'f')})
@@ -248,7 +250,7 @@ def save_product(request, user, identifier=None):
     observe_prices(user,[document],'catalog','Редагування товару')
     audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1', **audit_change(before, audit_snapshot('product', data), observed=value.get('revision'))})
     from .promotion_prices import PriceResolver, context_store
-    return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')))), 200 if old.get('name') else 201)
+    return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')), product_paths=[document.path])), 200 if old.get('name') else 201)
 
 
 def unit_in_use(path, data):
@@ -371,6 +373,6 @@ def handle_catalog(request, user):
             if not document: return response({'error': 'Товар не знайдено.', 'code': 'not_found'}, 404)
             from .promotion_prices import PriceResolver, context_store
             config=defaults()
-            return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')))))
+            return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')), product_paths=[document.path])))
         if request.method in {'PATCH', 'DELETE'}: return save_product(request, user, match[1])
     return response({'error': 'Метод або маршрут не підтримується.', 'code': 'unsupported_route'}, 405)

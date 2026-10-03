@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'..');
 const portal=fs.readFileSync(path.join(root,'app/portal.js'),'utf8');
 const erp=fs.readFileSync(path.join(root,'app/erp.js'),'utf8');
 const h=require('./sync-harness.js');
-const ctx={S:{settings:{rounding:.5,defaultMarkup:30}},num:h.env.parseNum,C:{rounding:.5,defaultMarkup:30}};
+const ctx={dialog:null,editing:null,S:{settings:{rounding:.5,defaultMarkup:30}},num:h.env.parseNum,C:{rounding:.5,defaultMarkup:30}};
 vm.createContext(ctx);
 vm.runInContext(portal.slice(portal.indexOf('  const defMarkup ='),portal.indexOf('  const marginOf ='))+'\n'+erp.match(/function retailPrice\(p\)\{[^\n]+/)[0],ctx);
 for(const [p,want] of [
@@ -15,6 +15,14 @@ for(const [p,want] of [
  [{regularPrice:21.99,manualPrice:true,price:21.99,promotion:true,promotionPrice:19.99},19.99],
  [{regularPrice:21.99,promotion:true,promotionPrice:'19.995'},21.99],
 ]){assert.equal(ctx.priceOf(p),want);assert.equal(ctx.retailPrice(p),want.toFixed(2),'sale editor gets two decimals');}
+// The isolated VM binds the actual editor context explicitly; store price beats raw legacy promotion.
+const contextual={manualPrice:true,price:20,regularPrice:'20.00',promotion:true,promotionPrice:'9.00',salePrice:'15.00',storeSalePrices:{'2':'12.30','3':'13.40'}};
+assert.equal(ctx.retailPrice(contextual),'15.00','network authoritative price');
+ctx.dialog={querySelector:()=>({value:'2'})};
+assert.equal(ctx.retailPrice(contextual),'12.30','selected store wins over network and legacy inputs');
+ctx.dialog=null;ctx.editing={store:3};
+assert.equal(ctx.retailPrice(contextual),'13.40','saved editor store context');
+ctx.editing=null;
 // Money is counted in kopecks: no 0.30000000000000004 for roles that see cost, at every rounding step.
 for(const rounding of [.01,.1,.5,1]){ctx.S.settings.rounding=ctx.C.rounding=rounding;const p={cost:0.1,markup:200};assert.equal(ctx.priceOf(p),rounding===1?1:rounding===.5?0.5:0.3);assert.equal(ctx.retailPrice(p),rounding===1?'1.00':rounding===.5?'0.50':'0.30');assert.equal(ctx.retailPrice({...p,regularPrice:0.3}),'0.30');}
 ctx.S.settings.rounding=ctx.C.rounding=.5;

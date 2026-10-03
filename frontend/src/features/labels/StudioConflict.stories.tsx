@@ -96,6 +96,10 @@ function ConflictScenario({ mode = 'merge' }: { mode?: Mode }) {
           pricingRevision: 'synthetic-pricing',
           warnings: [],
           promotionValid: true,
+          effectivePromotion: null,
+          effectiveDay: '2026-10-04',
+          effectivePriceRevision: 'f'.repeat(64),
+          priceContext: { storeId: null, storeName: null },
         }),
       },
     };

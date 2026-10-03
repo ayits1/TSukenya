@@ -2,19 +2,27 @@ import { createApiClient } from '../../shared/api/client';
 import type { components } from '../../shared/api/generated';
 
 export type ProductPricePreviewRequest = components['schemas']['ProductPricePreviewRequest'];
-export type ProductPricePreview = components['schemas']['ProductPricePreview'];
+export type {
+  PriceContext,
+  EffectivePromotion,
+  EffectivePricing,
+} from '../../shared/api/effectivePricing';
+import { validateEffectivePricing, type EffectivePricing } from '../../shared/api/effectivePricing';
+export type ProductPricePreview = components['schemas']['ProductPricePreview'] & EffectivePricing;
 export type PricePreviewRequest = ProductPricePreviewRequest;
 export type PricePreview = ProductPricePreview;
-export type Product = components['schemas']['Product'];
+export type Product = components['schemas']['Product'] & EffectivePricing;
 export function hasEffectivePromotion(product: Product): boolean {
   return (
-    product.promotion &&
-    product.promotionPrice !== null &&
+    (product.effectivePromotion != null || product.promotion) &&
+    (product.effectivePromotion != null || product.promotionPrice !== null) &&
     Number(product.salePrice) > 0 &&
     Number(product.salePrice) < Number(product.regularPrice)
   );
 }
-export type ProductPage = components['schemas']['ProductPage'];
+export type ProductPage = Omit<components['schemas']['ProductPage'], 'items'> & {
+  items: Product[];
+};
 export type ProductCreate = components['schemas']['ProductCreate'];
 export type ProductPatch = components['schemas']['ProductPatch'];
 export type Session = components['schemas']['Session'];
@@ -89,6 +97,7 @@ export function decodeProduct(value: unknown): Product {
         throw new Error('Invalid referenceIds');
     }
   }
+  validateEffectivePricing(item);
   return item as Product;
 }
 export function decodePage(value: unknown): ProductPage {
@@ -154,8 +163,11 @@ export function decodeReferences(value: unknown): ReferenceData {
     throw new Error('Duplicate reference ids');
   return { items, canEdit: data.canEdit, ...(archivedItems ? { archivedItems } : {}) };
 }
-export function createCatalogApi() {
-  let csrf: string | undefined;
+export function createCatalogApi(store?: number | null, csrfToken?: string) {
+  const context = store == null ? '' : `store=${store}`;
+  const contextual = (path: string) =>
+    context ? `${path}${path.includes('?') ? '&' : '?'}${context}` : path;
+  let csrf: string | undefined = csrfToken;
   const client = createApiClient({ getCsrf: () => csrf });
   return {
     async session(signal?: AbortSignal) {
@@ -167,10 +179,13 @@ export function createCatalogApi() {
       const params = new URLSearchParams(
         Object.entries(filters).map(([key, value]) => [key, String(value)]),
       );
-      return client.get(`/api/v1/catalog/products?${params}`, decodePage, signal);
+      return client.get(contextual(`/api/v1/catalog/products?${params}`), decodePage, signal);
     },
     product(id: string) {
-      return client.get(`/api/v1/catalog/products/${encodeURIComponent(id)}`, decodeProduct);
+      return client.get(
+        contextual(`/api/v1/catalog/products/${encodeURIComponent(id)}`),
+        decodeProduct,
+      );
     },
     references(signal?: AbortSignal) {
       return client.get('/api/v1/catalog/references', decodeReferences, signal);
@@ -190,12 +205,12 @@ export function createCatalogApi() {
       );
     },
     previewPrice(input: ProductPricePreviewRequest, signal?: AbortSignal) {
-      return client.previewProductPrice(input, signal);
+      return client.previewProductPrice(input, signal, store);
     },
     save(product: ProductCreate | ProductPatch, id?: string) {
       return client.mutate(
         id ? 'PATCH' : 'POST',
-        `/api/v1/catalog/products${id ? '/' + encodeURIComponent(id) : ''}`,
+        contextual(`/api/v1/catalog/products${id ? '/' + encodeURIComponent(id) : ''}`),
         product,
         decodeProduct,
       );
