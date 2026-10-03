@@ -1,0 +1,11 @@
+{
+  "name": "tsukenya",
+  "private": true,
+  "description": "Цукерня — панель власника мережі магазинів солодощів",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

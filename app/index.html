@@ -399,7 +399,11 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const gsSoon = col => { if (col==="products" && S.settings.gsId){ clearTimeout(S.gsSoonT); S.gsSoonT = setTimeout(()=>gsSync(), 2500); } };
   const upd = (col,id,data,ok) => write(()=>db.collection(col).doc(id).update(data), ok).then(r=>{ gsSoon(col); return r; });
   const add = (col,data,ok) => write(()=>db.collection(col).add(data), ok).then(r=>{ gsSoon(col); return r; });
-  const del = (col,id,ok) => write(()=>db.collection(col).doc(id).delete(), ok).then(r=>{ gsSoon(col); return r; });
+  const del = (col,id,ok) => write(async()=>{
+    // «надгробок» видаленого товару: лише за ним синхронізація очищує рядок у таблиці, а незнайомий ID не чіпає
+    if (col==="products") await db.collection("deletedProducts").doc(id).set({at:today()});
+    await db.collection(col).doc(id).delete();
+  }, ok).then(r=>{ gsSoon(col); return r; });
   async function setDoc(path,data,ok){ await write(async()=>{ const ref=db.doc(path); const s=await ref.get(); s.exists ? await ref.update(data) : await ref.set(data); }, ok); }
 
   function saveTag(patch){
@@ -902,7 +906,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       return {name:nm, cost:parseNum(c(r,"cost")), price:parseNum(c(r,"price")), generic:parseNum(c(r,"generic")),
         markup:mk, category:String(c(r,"category")).trim(), type:typeNorm(c(r,"type")), unit:unitNorm(c(r,"unit")), pack:packNorm(c(r,"pack")) || packFromName(nm), size:String(c(r,"size")).trim() || sizeFromName(nm)};
     }).filter(r=>r.name && !/^(разом|всього|итого|підсумок)/i.test(r.name));
-    const labels = {name:"Назва", price:"Ціна продажу", cost:"Закупівля", generic:"Ціна", markup:"Націнка", type:"Тип", category:"Категорія", pack:"Пакування", size:"Розмір", unit:"Од."};
+    const labels = {name:"Назва", price:"Ціна продажу", cost:"Закупівля", generic:"Ціна", markup:"Націнка", type:"Група", category:"Категорія", pack:"Пакування", size:"Об’єм / вага", unit:"Од."};
     const mapping = Object.keys(col).map(k=>`${labels[k]} ← «${String(aoa[hi][col[k]]).trim()}»`);
     return {fileName, rows, mapping, hasGeneric: col.generic!==undefined, genericAs:"cost", markup:defMarkup(), defType:""};
   }
@@ -929,7 +933,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
   function importInner(){
     const imp = S.imp, head = `<h3>Завантажити товари з Excel</h3>`;
-    if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Тип, Категорія, Пакування, Розмір, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
+    if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Група, Категорія, Пакування, Об’єм / вага, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
       <div class="row"><button class="btn rasp" data-act="pickFile">Обрати файл</button><button class="btn soft" data-act="gsOpen" ${mcp?"":"disabled"} title="${mcp?"":"Google Drive тут ще не підключений"}">З Google Таблиці</button><button class="btn soft" data-act="tplXlsx" ${downloads?"":"disabled"}>Завантажити шаблон</button></div>${gsPanel("import")}
       <p class="muted" style="margin-top:10px">Файл не відкривається? Надішліть його в чат Claude, і я внесу товари сам.</p>`;
     if (imp.error) return `${head}<div class="warn" style="margin:10px 0 14px">${esc(imp.error)}</div>
@@ -992,7 +996,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     try{
       const X = await loadXlsx();
       const ws = X.utils.aoa_to_sheet([
-        ["Назва","Тип","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн"],
+        GS_COLS.filter(c=>!c.calc).map(c=>c.h),
         ["Цукерки шоколадні вагові","Цукерки","Цукерки","Ваговий","","кг",210,30,""],
         ["Печиво вівсяне 300 г","Печиво і вафлі","Печиво","Упаковка","300 г","шт",32,35,""],
         ["Coca-Cola 0,5 л","Напої","Готові напої","ПЕТ","0,5 л","шт",24,30,""],
@@ -1085,9 +1089,12 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   /* ---------- Google Таблиця як джерело: автосинхронізація ---------- */
   function baseCsv(list){
     const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
-    const rows = [["Назва","Група","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн","Ціна на цінник, грн"]].concat(list.map(p=>{
+    const rows = [GS_COLS.map(c=>c.h)].concat(list.map(p=>{ // стовпці й порядок — як у синхронізації (GS_COLS)
       const pr = priceOf(p), c = num(p.cost), man = p.manualPrice && p.price!=null;
-      return [p.name, typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.unit||"шт", c>0 ? dec(c) : "", man ? "" : dec(num(p.markup ?? defMarkup())), man ? dec(num(p.price)) : "", pr>0 ? dec(pr) : ""];
+      const v = {name:p.name, type:typeOf(p)===NOTYPE ? "" : typeOf(p), category:p.category||"", pack:p.pack||"", size:p.size||"", unit:p.unit||"шт",
+        cost:c>0 ? dec(c) : "", markup:man ? "" : dec(num(p.markup ?? defMarkup())), price:man ? dec(num(p.price)) : "",
+        per100:p.unit==="кг" && pr>0 ? dec(pr/10) : "", priceAt:p.priceAt||"", tagPrice:pr>0 ? dec(pr) : "", id:p.id};
+      return GS_COLS.map(c=>v[c.k]);
     }));
     return rows.map(r=>r.map(q).join(",")).join("\r\n");
   }
@@ -1095,6 +1102,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   function syncText(){
     const y = S.sync || {};
     if (y.busy) return "Синхронізую…";
+    if (y.waiting) return "Зараз синхронізує інша вкладка чи пристрій. Повторю за кілька секунд.";
     const ok = y.at ? `Синхронізовано о ${timeText(y.at)}: у таблиці ${y.n} позицій${y.added ? `, нових ${y.added}` : ""}${y.upd ? `, з таблиці оновлено ${y.upd}` : ""}${y.pushed ? `, у таблицю записано ${y.pushed}` : ""}.` : "Ще не синхронізовано.";
     return y.error ? `${y.at ? ok+" " : ""}Помилка: ${y.error}` : ok;
   }
@@ -1155,7 +1163,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   const n2 = x => { const v = Math.round((+x || 0)*100)/100; return String(v); };
   function colLetter(i){ let s = ""; i++; while (i > 0){ const m = (i-1) % 26; s = String.fromCharCode(65+m) + s; i = Math.floor((i-1)/26); } return s; }
   function planSync(values, all, env){
-    // env: {defMarkup, priceOf(p), norm, parseNum, unitNorm, packNorm, today, newId()}
+    // env: {defMarkup, priceOf(p), norm, parseNum, unitNorm, packNorm, today, newId(), deleted: Set ID товарів, видалених у застосунку}
     const rows = Array.isArray(values) ? values : [];
     const hdrRaw = (rows[0] || []).map(v=>String(v ?? "").trim());
     if (!hdrRaw.length) return {error:"У першому рядку таблиці немає заголовків."};
@@ -1227,8 +1235,8 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       plan.n++;
       const id = cell(r,"id").replace(/^'/,"");
       if (id && byId.has(id) && !claimed.has(id)){ claimed.add(id); handle(r, i, byId.get(id)); return; }
-      if (id && !byId.has(id)){ plan.clears.push(i+1); plan.n--; return; } // товар видалили в застосунку
-      pending.push([r, i]);
+      if (id && !byId.has(id) && env.deleted && env.deleted.has(id)){ plan.clears.push(i+1); plan.n--; return; } // товар видалили в застосунку
+      pending.push([r, i]); // без ID або з незнайомим ID (рядок зі старої копії, зіпсований ID): шукаємо за назвою або додаємо як новий
     });
     const byName = new Map(); all.forEach(p=>{ if (!claimed.has(p.id) && !p.hidden){ const k = env.norm(p.name); if (!byName.has(k)) byName.set(k, p); } });
     for (const [r, i] of pending){
@@ -1251,6 +1259,7 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
   }
   /* SYNC-ENGINE-END */
 
+  /* SYNC-RUNNER-START */
   const SHEETS = "Google Sheets";
   const sheets = (tool, input) => mcp.callTool(SHEETS, tool, input, {cache:false}).then(pj);
   function sheetsErr(e){
@@ -1263,21 +1272,51 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
     return "Не вдалося зв’язатися з Google Sheets. Спробую ще раз за хвилину.";
   }
   const clean = o => JSON.parse(JSON.stringify(o));
+  // Замок у базі: синхронізує лише одна вкладка чи пристрій водночас, інакше новий рядок таблиці стає двома товарами.
+  const SYNC_HOLDER = Math.random().toString(36).slice(2) + Date.now().toString(36), SYNC_TTL = 60000;
+  async function syncLease(ttlMs){
+    const ref = db.doc("sync/lock");
+    if (typeof ref.acquire !== "function") return {acquired:true}; // середовище без замків — як раніше
+    try{ return await ref.acquire({holder:SYNC_HOLDER, ttlMs}); }
+    catch(e){
+      if (e && (e.code==="capability_removed" || e.code==="capability_disabled")) return {acquired:true};
+      if (e && e.code==="invalid_argument") throw {sheetErr:"Немає прав змінювати дані, тому синхронізацію з таблицею тут не запускаю."};
+      throw {sheetErr:"Не вдалося перевірити, чи не синхронізує зараз інший пристрій. Спробую ще раз за хвилину."};
+    }
+  }
   async function gsSync(){
     const id = S.settings.gsId; if (!id || !mcp || !db) return;
     const y = S.sync || (S.sync = {});
     if (y.busy){ y.again = true; return; }
-    y.busy = true; y.error = null; updateSyncUi();
+    y.busy = true; y.error = null; y.waiting = false; updateSyncUi();
+    let held = false;
     try{
+      const lease = await syncLease(SYNC_TTL);
+      if (!lease.acquired){ // синхронізує інша вкладка чи пристрій — повторимо, щойно звільнить
+        y.waiting = true; y.again = false;
+        const wait = Math.min(65000, Math.max(2000, (Date.parse(lease.expiresAt) || 0) - Date.now() + 500));
+        clearTimeout(S.syncRetryT); S.syncRetryT = setTimeout(gsSync, wait + Math.random()*1500);
+        return;
+      }
+      held = true; let leaseAt = Date.now();
+      const keep = async () => { // подовжуємо замок на довгих синхронізаціях
+        if (Date.now() - leaseAt < SYNC_TTL/3) return;
+        if (!(await syncLease(SYNC_TTL)).acquired) throw {sheetErr:"Синхронізацію перехопив інший пристрій. Спробую ще раз за хвилину."};
+        leaseAt = Date.now();
+      };
       const d = await sheets("get_values", {spreadsheetId:id, range:"A:Z"});
-      const plan = planSync(d && Array.isArray(d.values) ? d.values : [], S.allProducts, {
-        defMarkup:defMarkup(), priceOf, norm, parseNum, unitNorm, packNorm, today:today(),
+      // Товари читаємо з бази заново, а не з S.allProducts: знімок може ще не мати товарів, які щойно додав інший пристрій
+      const all = (await db.collection("products").get()).docs.map(x=>({id:x.id, ...x.data()}));
+      const deleted = new Set((await db.collection("deletedProducts").get()).docs.map(x=>x.id));
+      const plan = planSync(d && Array.isArray(d.values) ? d.values : [], all, {
+        defMarkup:defMarkup(), priceOf, norm, parseNum, unitNorm, packNorm, today:today(), deleted,
         newId:()=>db.collection("products").doc().id || ("g"+Date.now().toString(36)+Math.random().toString(36).slice(2,7))});
       if (plan.error) throw {sheetErr:plan.error};
       const L = plan.last;
       // 1) нові товари з таблиці — у застосунок (щоб їхні ID вже існували)
-      for (const a of plan.dbAdds) await db.collection("products").doc(a.id).set(clean(a.data));
+      for (const a of plan.dbAdds){ await keep(); await db.collection("products").doc(a.id).set(clean(a.data)); }
       // 2) записи в таблицю
+      await keep();
       if (plan.header) await sheets("update_values", {spreadsheetId:id, range:`A1:${L}1`, values:[plan.header]});
       if (plan.rowWrites.length){ // один запит на всі змінені рядки: незмінені рядки — null (Google їх пропускає)
         const lo = Math.min(...plan.rowWrites.map(w=>w.row)), hi = Math.max(...plan.rowWrites.map(w=>w.row));
@@ -1291,12 +1330,16 @@ tr.grp th{background:var(--bg);color:var(--ink);font-size:.95rem;padding:10px 8p
       }
       if (plan.clears.length) await sheets("batch_clear_values", {spreadsheetId:id, ranges:plan.clears.map(r=>`A${r}:${L}${r}`)});
       // 3) зміни з таблиці — у застосунок
-      for (const u of plan.dbUpdates) await db.collection("products").doc(u.id).update(clean(u.patch));
+      for (const u of plan.dbUpdates){ await keep(); await db.collection("products").doc(u.id).update(clean(u.patch)); }
       Object.assign(y, {at:Date.now(), n:plan.n, added:plan.added, upd:plan.changed, pushed:plan.pushed + plan.appends.length});
     }catch(e){ y.error = (e && e.sheetErr) ? e.sheetErr : /quota|rate/i.test(String(e && (e.message||""))) ? "Google тимчасово обмежив кількість запитів. Спробую ще раз за хвилину." : sheetsErr(e); }
-    y.busy = false; updateSyncUi();
-    if (y.again){ y.again = false; setTimeout(gsSync, 3000); }
+    finally{
+      if (held) await syncLease(1000).catch(()=>{}); // звільняємо замок: окремої команди немає, тож коротшаємо строк до 1 с
+      y.busy = false; updateSyncUi();
+      if (y.again){ y.again = false; setTimeout(gsSync, 3000); }
+    }
   }
+  /* SYNC-RUNNER-END */
   function syncSetup(){
     clearInterval(S.syncT);
     if (mcp && db && S.settings.gsId){
