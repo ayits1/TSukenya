@@ -1,4 +1,5 @@
 import { flushSync } from 'react-dom';
+import { csv } from '../../shared/csv';
 import { createRoot } from 'react-dom/client';
 import { Label, PrintPages } from './Label';
 import {
@@ -434,33 +435,42 @@ export async function exportPdf(
   }
 }
 export function downloadCsv(products: LabelProduct[]): void {
-  const quoted = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-  const rows = [
-    [
-      'Назва',
-      'Категорія',
-      'Одиниця',
-      'Звичайна ціна, грн',
-      'Акційна ціна, грн',
-      'Діюча ціна, грн',
-      'Ціна за 100 г, грн',
-      'Акція',
-    ],
-    ...products.map((product) => [
-      product.name,
-      product.category,
-      product.unit,
-      formatLabelMoney(product.regularPrice ?? product.salePrice),
-      hasPromotionPrice(product) ? formatLabelMoney(product.salePrice) : '',
-      formatLabelMoney(product.salePrice),
-      product.unit === 'кг' ? formatLabelMoney(product.salePrice / 10) : '',
-      product.promotion ? 'Так' : 'Ні',
-    ]),
+  const headers = [
+    'Назва',
+    'Категорія',
+    'Одиниця',
+    'Звичайна ціна, грн',
+    'Акційна ціна, грн',
+    'Діюча ціна, грн',
+    'Ціна за 100 г, грн',
+    'Акція',
   ];
+  const rows = products.map((product) => [
+    product.name,
+    product.category,
+    product.unit,
+    formatLabelMoney(product.regularPrice ?? product.salePrice),
+    hasPromotionPrice(product) ? formatLabelMoney(product.salePrice) : '',
+    formatLabelMoney(product.salePrice),
+    product.unit === 'кг' ? formatLabelMoney(product.salePrice / 10) : '',
+    product.promotion ? 'Так' : 'Ні',
+  ]);
   download(
-    new Blob(['\uFEFF' + rows.map((row) => row.map(quoted).join(';')).join('\r\n')], {
-      type: 'text/csv;charset=utf-8',
-    }),
+    new Blob(
+      [
+        csv.serialize(
+          headers.map((label, index) => ({
+            label: String(label),
+            kind: index >= 3 && index <= 6 ? 'number' : 'text',
+          })),
+          rows,
+          { reversible: true },
+        ),
+      ],
+      {
+        type: 'text/csv;charset=utf-8',
+      },
+    ),
     filename(new Date(), 'csv'),
   );
 }

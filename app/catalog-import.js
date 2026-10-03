@@ -16,6 +16,8 @@
     return raw;
   }
   function parseRows(table, fileName) {
+    const csv = typeof module !== 'undefined' && module.exports ? require('./csv.js') : globalThis.TSukenyaCsv;
+    table = csv.decode(table);
     const nameHeader = h => ['назва','товар','name'].includes(h) || /назв|найменув|номенклатур/.test(h);
     const headerIndex = table.slice(0,20).findIndex(row => row.map(normal).some(nameHeader) && row.filter(present).length >= 2);
     if (headerIndex < 0) return {fileName, error:'Не знайдено заголовок «Назва» або «Найменування». Додайте його у перші 20 рядків.'};

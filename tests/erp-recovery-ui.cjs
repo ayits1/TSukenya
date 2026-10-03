@@ -103,9 +103,9 @@ print(json.dumps([v.pk for v in rows]))`).toString());
  if(['all','tail','recipe'].includes(from)){
   await go('stock');await page.locator('[data-trade=recipe]').click();let prompts=0;
   const choose=async(value,accept)=>{const handle=native=>{prompts++;return accept?native.accept():native.dismiss();};page.once('dialog',handle);await dialog().locator('[name=product]').selectOption(value);page.removeListener('dialog',handle);};
-  await dialog().locator('[name=product]').selectOption('recovery_a');assert.equal(prompts,0);await dialog().locator('[data-recipe=quantity]').fill('3');
+  await dialog().locator('[name=product]').selectOption('recovery_a');await wait(async()=>await dialog().locator('[data-recipe=quantity]').count()===1&&await dialog().locator('[data-recipe=quantity]').inputValue()==='1','fresh recipe A');assert.equal(prompts,0);await dialog().locator('[data-recipe=quantity]').fill('3');
   await choose('recovery_b',false);assert.equal(await dialog().locator('[name=product]').inputValue(),'recovery_a');assert.equal(await dialog().locator('[data-recipe=quantity]').inputValue(),'3');
-  await choose('recovery_b',true);assert.equal(await dialog().locator('[data-recipe=quantity]').inputValue(),'2');assert.equal(prompts,2);
+  await choose('recovery_b',true);await wait(async()=>await dialog().locator('[data-recipe=quantity]').count()===1&&await dialog().locator('[data-recipe=quantity]').inputValue()==='2'&&await dialog().locator('[type=submit]').isEnabled(),'fresh recipe B');assert.equal(await dialog().locator('[data-recipe=quantity]').inputValue(),'2');assert.equal(prompts,2);
   assert.equal(await dialog().locator('[data-recipe=product] option[value=recovery_b]').count(),0);
   await dialog().locator('[data-trade=add-recipe]').click();await choose('recovery_a',false);assert.equal(await dialog().locator('.trade-payment-row').count(),2);assert.equal(await dialog().locator('[name=product]').inputValue(),'recovery_b');
   await dialog().locator('[data-trade=remove-recipe]').last().click();

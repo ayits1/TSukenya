@@ -2,8 +2,6 @@ import hashlib
 import hmac
 import json
 import os
-import csv
-import io
 from decimal import Decimal, ROUND_CEILING
 import re
 import secrets
@@ -335,7 +333,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -368,11 +366,11 @@ def handle(request):
         require(user.profile.role in {'owner','manager','warehouse'},'Недостатньо прав.')
         text=str(body(request).get('csv','')).lstrip('\ufeff')
         require(0<len(text)<=200000,'CSV порожній або завеликий.')
-        delimiter=';' if text.splitlines()[0].count(';')>=text.splitlines()[0].count(',') else ','
-        reader=csv.DictReader(io.StringIO(text),delimiter=delimiter)
-        require(reader.fieldnames and {'ID','Кількість','Ціна'}.issubset(reader.fieldnames),'Потрібні колонки ID, Кількість, Ціна. Роздільник — крапка з комою або кома.')
+        from .csv_format import read_rows
+        headers,reader=read_rows(text)
+        require(headers and {'ID','Кількість','Ціна'}.issubset(headers),'Потрібні колонки ID, Кількість, Ціна. Роздільник — крапка з комою або кома.')
         rows=[];seen=set()
-        for index,row in enumerate(reader,2):
+        for index,row in reader:
             if not any(row.values()) or not (row.get('Кількість') or '').strip():continue
             product_id=(row.get('ID') or '').strip();product=get(Document,'products/'+product_id,f'Рядок {index}, товар')
             require(product_id not in seen,f'Рядок {index}: повторний ID товару.');seen.add(product_id)
@@ -383,14 +381,23 @@ def handle(request):
             require(len(rows)<=200,'В одному документі може бути не більше 200 товарів.')
         require(rows,'У CSV немає товарних рядків.')
         return response({'lines':rows})
-    if path=='/api/erp/recipes' and request.method=='POST':
+    if path=='/api/erp/recipes' and request.method in {'GET','POST'}:
         require(user.profile.role in {'owner','manager','warehouse'},'Недостатньо прав для рецептур.')
+        from .catalog import revision
+        if request.method=='GET':
+            product=Document.objects.filter(pk='products/'+str(request.GET.get('product',''))).first()
+            if product is None:return response({'error':'Готовий товар: запис не знайдено.'},404)
+            return response({'product':{'id':product.path.split('/',1)[1],'name':product.data.get('name',''),'unit':product.data.get('unit','шт')},'recipe':product.data.get('recipe',[]),'revision':revision(product)})
         value=body(request)
+        require(isinstance(value.get('revision'),str) and value['revision'],'Оновіть рецептуру перед збереженням: потрібна версія товару.')
         with transaction.atomic():
             ledger_lock();product=get(Document,'products/'+str(value.get('product')),'Готовий товар')
+            if value['revision']!=revision(product):return response({'error':'Товар уже змінено. Оновіть рецептуру перед повторним збереженням.','code':'revision_conflict'},409)
             data={**product.data,'recipe':value.get('recipe',[])};validate_product(data,product.pk)
+            require(len({str(row.get('product')) for row in data['recipe']})==len(data['recipe']),'Інгредієнт не може повторюватись.')
             product.data=data;product.save(update_fields=['data']);audit(user,'recipe_saved',product.pk,{'recipe':data['recipe']})
-        return response({'ok':True})
+            saved_revision=revision(product)
+        return response({'ok':True,'revision':saved_revision})
     if path=='/api/erp/stock' and request.method=='GET':
         require(user.profile.role in {'owner','manager','warehouse','accountant','cashier'},'Недостатньо прав.')
         result=stock(user)

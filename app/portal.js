@@ -760,9 +760,9 @@
     finally{ btn.textContent = label; renderPreview(); }
   }
   function csv(list){
-    const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
-    const rows = [["Назва","Категорія","Одиниця","Звичайна ціна, грн","Акційна ціна, грн","Діюча ціна, грн","Ціна за 100 г, грн","Акція"]].concat(list.map(p=>{const pr=priceOf(p);return [p.name,p.category||"",p.unit||"шт",money(regularPriceOf(p)),hasDiscount(p)?money(pr):"",money(pr),p.unit==="кг"?money(pr/10):"",p.promotion?"Так":"Ні"];}));
-    return "\uFEFF" + rows.map(r=>r.map(q).join(";")).join("\r\n");
+    const labels=["Назва","Категорія","Одиниця","Звичайна ціна, грн","Акційна ціна, грн","Діюча ціна, грн","Ціна за 100 г, грн","Акція"];
+    const rows=list.map(p=>{const pr=priceOf(p);return [p.name,p.category||"",p.unit||"шт",money(regularPriceOf(p)),hasDiscount(p)?money(pr):"",money(pr),p.unit==="кг"?money(pr/10):"",p.promotion?"Так":"Ні"];});
+    return window.TSukenyaCsv.serialize(labels.map((label,index)=>({label,kind:index>=3&&index<=6?'number':'text'})),rows,{reversible:true});
   }
   async function save(filename, data){
     if(!downloads) return;
@@ -967,23 +967,7 @@
       cancelled:"Скасовано."}[e && e.code];
     return m || "Google Drive відповів помилкою. Спробуйте ще раз.";
   }
-  function parseCsv(text){
-    text = String(text).replace(/^﻿/, "");
-    const first = text.split(/\r?\n/, 1)[0] || "";
-    const d = (first.split(";").length > first.split(",").length) ? ";" : ",";
-    const rows = []; let row = [], cur = "", q = false;
-    for (let i=0; i<text.length; i++){
-      const ch = text[i];
-      if (q){ if (ch==='"'){ if (text[i+1]==='"'){ cur += '"'; i++; } else q = false; } else cur += ch; }
-      else if (ch==='"') q = true;
-      else if (ch===d){ row.push(cur); cur = ""; }
-      else if (ch==="\n" || ch==="\r"){ if (ch==="\r" && text[i+1]==="\n") i++; row.push(cur); cur = ""; rows.push(row); row = []; }
-      else cur += ch;
-    }
-    if(q)throw new Error("У CSV не закрито лапки. Перевірте файл і завантажте його знову.");
-    if (cur!=="" || row.length){ row.push(cur); rows.push(row); }
-    return rows;
-  }
+  function parseCsv(text){ return window.TSukenyaCsv.parse(text); }
   const dec = x => String(Math.round(x*100)/100).replace(".", ",");
   function tagsCsv(list){
     const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
@@ -1032,12 +1016,12 @@
 
   /* ---------- Google Таблиця як джерело: автосинхронізація ---------- */
   function baseCsv(list){
-    const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
     const rows = [["Назва","Група","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн","Ціна на цінник, грн","Акція","Акційна ціна, грн"]].concat(list.map(p=>{
       const pr = priceOf(p), c = num(p.cost), man = p.manualPrice && p.price!=null;
       return [p.name, typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.unit||"шт", c>0 ? dec(c) : "", man ? "" : dec(num(p.markup ?? defMarkup())), man ? dec(num(p.price)) : "", pr>0 ? dec(pr) : "", p.promotion ? "Так" : "Ні", num(p.promotionPrice)>0 ? dec(num(p.promotionPrice)) : ""];
     }));
-    return rows.map(r=>r.map(q).join(",")).join("\r\n");
+    const [headers,...values]=rows;
+    return window.TSukenyaCsv.serialize(headers.map((label,index)=>({label,kind:[6,7,8,9,11].includes(index)?'number':'text'})),values,{delimiter:',',reversible:true,bom:false});
   }
   const timeText = t => new Date(t).toLocaleTimeString("uk-UA",{hour:"2-digit",minute:"2-digit"});
   function syncText(){

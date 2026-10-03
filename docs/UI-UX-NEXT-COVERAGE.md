@@ -74,7 +74,7 @@ PNG/JSON лежать у каталозі `os.tmpdir()` поточної маш�
 
 1. **Виконано:** bounded `tests/erp-recovery-ui.cjs` перевіряє змінені сценарії без повторення фінансів/бюджету/історії. Custom voucher write/read та post-voucher recovery теж виконано окремою `documents` групою.
 2. **Виконано наступним isolated проходом:** реальні users conflict409/403, create/edit200 та завершення target session401. Доказ — [ERP-SETTINGS-RECOVERY-QA.md](ERP-SETTINGS-RECOVERY-QA.md).
-3. Рецептура: недоступний/порожній каталог, self/duplicate ingredient, server conflict між двома редакторами. Поточна UI-форма не має revision contract; бізнес-правила рецептури перевіряє окремий серверний аудит.
+3. **Закрито цільовими перевірками 03.10:** рецептура — недоступний/порожній каталог, self/duplicate, два editors409/draft recovery, fresh GET і revision contract, справжня паралельність PostgreSQL. Докази та межі — [RECIPE-RECOVERY-QA.md](RECIPE-RECOVERY-QA.md).
 4. **Виконано наступним isolated проходом:** period draft rejection/rollback, close/reopen/reset; fiscal real save та відповідний required/optional стан свіжої sale-форми. Окремий server/UI date-boundary probe лишається поза цим доказом. Див. [ERP-SETTINGS-RECOVERY-QA.md](ERP-SETTINGS-RECOVERY-QA.md).
 5. **200% негативних users/period/detail виконано** в наступному проході. Screen reader/forced colors для цих негативних станів лишаються неперевіреними. Раніше успішні перевірки інших екранів не є доказом для них.
 

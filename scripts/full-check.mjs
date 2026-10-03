@@ -33,7 +33,7 @@ for (const key of ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD',
   'DATABASE_URL', 'DATA_DIR', 'ERP_DB_PATH', 'OWNER_USERNAME', 'OWNER_PASSWORD_HASH',
   'DJANGO_SETTINGS_MODULE', 'DJANGO_SECRET_KEY', 'QA_BROWSER', 'QA_ZOOM_ONLY', 'QA_LAYOUT_ONLY', 'QA_FILTERS_ONLY',
   'QA_PORT', 'QA_NATIVE_ONLY', 'QA_BROWSE_ONLY', 'QA_SHIFT_BROWSE_ONLY', 'QA_FINANCE_ONLY', 'QA_FINANCE_FROM', 'QA_AUTH_ONLY', 'QA_TRADE_ONLY', 'QA_UX_ONLY',
-  'QA_DOCUMENT_LAYOUT_PORT', 'QA_RUNTIME_FROM', 'QA_PRICING_FROM', 'QA_SETTINGS_FROM', 'QA_SETTINGS_PORT', 'QA_IMPORT_FROM', 'QA_OUTPUT_FROM', 'QA_ROLE', 'QA_NAV_ONLY', 'QA_CONTROLS_ROLES', 'QA_RECOVERY_FROM', 'QA_TRADE_FROM', 'QA_BROWSE_FROM', 'QA_CAPTURE_FROM', 'QA_CAPTURE_RESUME']) {
+  'QA_DOCUMENT_LAYOUT_PORT', 'QA_RUNTIME_FROM', 'QA_PRICING_FROM', 'QA_SETTINGS_FROM', 'QA_SETTINGS_PORT', 'QA_IMPORT_FROM', 'QA_OUTPUT_FROM', 'QA_RECIPES_FROM', 'QA_ROLE', 'QA_NAV_ONLY', 'QA_CONTROLS_ROLES', 'QA_RECOVERY_FROM', 'QA_TRADE_FROM', 'QA_BROWSE_FROM', 'QA_CAPTURE_FROM', 'QA_CAPTURE_RESUME']) {
   delete isolatedEnv[key];
 }
 isolatedEnv.DJANGO_SECRET_KEY = 'isolated-full-check-only-secret-with-more-than-fifty-characters';
@@ -157,6 +157,8 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
   await stage(2, async () => {
     await run('node', ['tests/promotion-legacy.cjs']);
     await run('node', ['tests/catalog-import-parser.cjs']);
+    await run('node', ['tests/csv-format.cjs']);
+    await run('node', ['tests/csv-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-pricing-contract.cjs']);
     await run('node', ['tests/catalog-pricing-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/runtime-recovery.cjs']);
@@ -177,6 +179,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/expenses-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/task-scope-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/erp-recovery-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/recipes-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/erp-settings-ui.cjs'], { env: browserEnv });
   });
   await stage(4, async () => {

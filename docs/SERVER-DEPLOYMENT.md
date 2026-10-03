@@ -209,3 +209,15 @@ Backup: `backups/tsukenya-crm-20261003T013450Z.dump`; checksum і pg_restore --l
 Відкат UI: відновити labels source із pre-label-output-code, видалити доданий LabelOutput.stories.tsx для точного старого дерева, перебудувати й запустити лише web. БД не відновлювати. Нові локальні документи не впливають на runtime; історію релізу залишити в SERVER-DEPLOYMENT.md. Схему БД, PostgreSQL, gateway і сусідній бізнес не змінювали. Повну регресію не запускали.
 
 Жива GET-only перевірка — PASS: labels JS/CSS і lazy PDF asset мають точні SHA256 локальної перевіреної збірки; preview реального товару, 1440/390/320, початковий output state чистий. API-запис був лише входом; legacy digest до/після однаковий, runtime errors відсутні. TSukenya web і PostgreSQL healthy; власний health та сусідній HTTPS відповідають200. Інтеграційні cancel/PDF-сценарії виконували тільки на ізольованій базі, не на робочих документах.
+
+## Реліз CSV і recovery рецептур · 03.10.2026
+
+Впроваджено shared typed CSV serializer, версію1 власних експортів/roundtrip, quote-aware import/серверний preview; рецептури мають fresh GET, required revision/409 і збереження чернетки. Схема БД/правила проведення не змінені. Бюджетний дефект зі скриншота повторно перевірено на поточному сайті1440/768/390/320; назва/сума розділені, групи в межах екрана.
+
+Backup перед публікацією: `backups/tsukenya-crm-20261003T021739Z.dump`, checksum та `pg_restore --list` — PASS. Попередній код: `releases/pre-csv-recipes-20261003T021739Z.tar.gz`; реліз: `releases/csv-recipes-20261003T021739Z.tar.gz`. Передано лише явний перелік code/docs/tests, без приватних файлів/env/даних. Перебудовано тільки web, запущено `up -d --no-deps`; PostgreSQL/gateway та сусідній бізнес не змінювалися.
+
+Відкат коду: відновити старі файли з pre-csv-recipes; вилучити нові `app/csv.js`, `frontend/src/shared/csv.ts`, `server/erp/csv_format.py` після повернення старого index/output/views/Dockerfile; перебудувати тільки web. Нові tests/docs не впливають на старий runtime. БД для відкату цього коду не відновлювати.
+
+Live GET-only proof — PASS: exact SHA256 labels JS/CSS/lazy output, чотирьох JS source-файлів; SSH SHA256 Dockerfile/views/csv_format/adapter/index також збігаються. Синтетичний CSV roundtrip в browser, наявний label preview, fresh recipe GET/revision,1440/390/320 та44px, бюджет320. API writes тільки login; digest бізнес-документів `/api/state` до/після незмінний. Переглянуто live recipe320 PNG. Web/PG healthy, свій health200, сусідній HTTPS200. Реальних recipe POST/імпортів/друку на production не виконували.
+
+Ізольовані докази: [CSV-FORMAT.md](CSV-FORMAT.md), [RECIPE-RECOVERY-QA.md](RECIPE-RECOVERY-QA.md). Рецептури15/15 на PostgreSQL включають справжній одночасний200+409 й одинaudit. Spreadsheet editor opening та screen readers лишаються поза цим доказом. Повної регресії не запускали; загальний аудит залишається активним.

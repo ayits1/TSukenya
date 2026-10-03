@@ -142,3 +142,10 @@ Legacy report.debts збережено для сумісності; він ще 
 Це конкретне покриття зміненого виводу, не підтвердження всіх браузерів, screen readers, реальних принтерів і mobile native memory. Повна регресія не запускалась. Бюджет повторно підтверджено read-only на живому сайті 1440/768/390/320 після скриншота: назва/сума розділені, статті незмінні.
 
 Після публікації фінальної CSS-правки: exact SHA256 трьох compiled assets (labels JS/CSS, lazy output JS), реальний preview і1440/390/320 — PASS; без API-записів, окрім входу, digest незмінний. Focus на200% виправлено scroll-margin8 і підтверджено окремим zoom gate з повною рамкою між вкладками та нижньою межею. Обидва власні контейнери healthy, сусідній сайт200. Доказ live generation не припускається: він ізольований і прив’язаний до тієї самої опублікованої збірки.
+
+
+## CSV і рецептури · 03.10.2026
+
+Спільний CSV serializer усунув raw формульний текст у label/native exports і апостроф перед від’ємними numeric ERP-сумами. Quote-aware parsing, версійний roundtrip та точний preview — [CSV-FORMAT.md](CSV-FORMAT.md); конкретні spreadsheet editors ще не перевірені. Рецептури отримали fresh GET, revision conflict і draft recovery; негативні стани, два редактори, PostgreSQL race й layout200% — [RECIPE-RECOVERY-QA.md](RECIPE-RECOVERY-QA.md). Нова screenshot-перевірка live бюджету1440/768/390/320 знову PASS: назва читається, групи не виходять за екран, бізнес-дані незмінні. Загальний аудит ще активний, full suite не запускалась.
+
+Після публікації цього пакета: exact compiled/source SHA256, actual label preview й fresh recipe GET/revision1440/390/320/44px, synthetic CSV roundtrip та budget320 — PASS. Записів API, крім входу, не було; бізнес-digest незмінний. Переглянуто live recipe320 PNG. Web/PG healthy; свій/сусідній HTTPS200. Backup/rollback — [SERVER-DEPLOYMENT.md](SERVER-DEPLOYMENT.md).
