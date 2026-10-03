@@ -109,7 +109,7 @@
     if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner'){
       const role=window.TSUKENYA_ROLE,editCatalog=['manager','warehouse'].includes(role);
       m.querySelectorAll('[data-pf],[data-promotion],[data-edit-product],[data-act="newProduct"]').forEach(x=>{if(!editCatalog)x.disabled=true;});
-      m.querySelectorAll('[data-disclosure="bulk"],[data-disclosure="sync"],.identity-settings').forEach(x=>x.hidden=true);
+      m.querySelectorAll('[data-disclosure="bulk"],[data-disclosure="sheets"],.identity-settings').forEach(x=>x.hidden=true);
       if(tab==='tags')m.querySelectorAll('[data-style],[data-field-visible],[data-act="resetField"],[id^="tc"]').forEach(x=>x.disabled=true);
       document.querySelector('[data-workspace="development"]').hidden=true;
       document.querySelectorAll('.tab[data-tab="expenses"],.tab[data-tab="devOverview"],.tab[data-tab="ideas"],.tab[data-tab="tasks"]').forEach(x=>x.hidden=true);
@@ -269,6 +269,11 @@
     if(inlineSaves.size||budgetSaves.size){pending=true;return;}
     if (!force && a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
     pending = false;
+    applyPortalRole();
+    if(['tasks','ideas','devOverview'].includes(tab) && window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner'){
+      window.Trade?.leave();window.ReactCatalog?.leave();window.ReactLabels?.leave();
+      $('#main').innerHTML='<section class="panel"><p role="status">План розвитку доступний власнику мережі.</p><a class="btn soft" href="#operations/work">До поточних задач</a></section>';return;
+    }
     if(tab==='products' && window.ReactCatalog){
       window.ReactLabels?.leave();
       window.Trade?.leave();renderPath();
@@ -318,12 +323,19 @@
   };
   const developmentTasks = () => S.tasks.filter(t=>t.scope!=='operations');
   const operationTasks = () => S.tasks.filter(t=>t.scope==='operations');
+  function applyPortalRole(){
+    const restricted=!!window.TSUKENYA_SERVER && window.TSUKENYA_ROLE!=="owner";
+    const nav=document.querySelector("[data-workspace=development]");if(nav)nav.hidden=restricted;
+    document.querySelectorAll(".tab[data-tab=expenses],.tab[data-tab=tasks],.tab[data-tab=ideas],.tab[data-tab=devOverview]").forEach(el=>el.hidden=restricted);
+    $("#developmentPath").hidden=restricted||workspace!=="development"||tab==="ideas";
+  }
   function route(){
     const parts=location.hash.slice(1).split('/'), requested=parts[1];
     if(tab==='products' && requested!=='products' && window.ReactCatalog?.dirty() && !confirm('Відкинути незбережені зміни товару?')){history.replaceState(null,'','#operations/products');return;}
     if(tab==='tags' && requested!=='tags' && window.ReactLabels?.dirty() && !confirm('Відкинути незбережені зміни макета?')){history.replaceState(null,'','#operations/tags');return;}
 
     const next=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
+    if(next!==tab && window.CatalogImport?.pending()){toast("Дочекайтеся результату імпорту.");history.replaceState(null,"","#"+SECTIONS[tab][0]+"/"+tab);return;}
     if(next!==tab && budgetSaves.size){toast('Дочекайтеся збереження бюджету.');history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size || (hasInlineDraft() && !confirm('Відкинути незбережену назву задачі, ідеї або статті витрат?')))){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && budgetDrafts.size){
@@ -335,10 +347,14 @@
     workspace=SECTIONS[tab][0];
     document.querySelectorAll('[data-workspace]').forEach(x=>x.setAttribute('aria-current',x.dataset.workspace===workspace?'page':'false'));
     document.querySelectorAll('.tab').forEach(x=>{x.hidden=false;x.setAttribute('aria-current',x.dataset.tab===tab?'page':'false');});
-    if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner')document.querySelector('.tab[data-tab=expenses]').hidden=true;
+    if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner'){
+      document.querySelector('[data-workspace=development]').hidden=true;
+      document.querySelectorAll('.tab[data-tab=expenses],.tab[data-tab=tasks],.tab[data-tab=ideas],.tab[data-tab=devOverview]').forEach(el=>el.hidden=true);
+    }
     $('#workspaceLabel').textContent=workspace==='operations'?'Операційна робота':workspace==='trade'?'Облік торгівлі':'Розвиток бізнесу';
     $('#pageTitle').textContent=SECTIONS[tab][1]; $('#pageDescription').textContent=SECTIONS[tab][2];
     $('#developmentPath').hidden=workspace!=='development'||tab==='ideas';
+    applyPortalRole();
     document.title=SECTIONS[tab][1]+' · Цукерня'; render(true);
     if(changed){window.scrollTo({top:0,behavior:'instant'});$('#pageTitle').focus({preventScroll:true});}
   }
@@ -377,8 +393,8 @@
     <section class="panel"><div class="row between gap-lg"><h3>Зараз у реалізації</h3><a class="btn soft" href="#development/tasks">План реалізації</a></div>${active.length?active.map(taskRow).join(''):'<div class="empty">Активних задач розвитку поки немає.</div>'}</section>`;
   }
   function work(){
-    const list=operationTasks();
-    return `<section class="panel"><div class="row between gap-lg"><h3>Справи магазину</h3><span class="muted">${list.filter(t=>t.status!=='done').length} незавершених</span></div>${['doing','todo','done'].map(status=>{const group=list.filter(t=>(t.status||'todo')===status);return group.length?`<div class="stage-block"><h3>${ST_LABEL[status]}</h3>${group.map(taskRow).join('')}</div>`:''}).join('')||'<div class="empty">Додайте задачу: перевірити ціни, замовити товар або підготувати цінники.</div>'}</section><section class="panel"><h3 class="gap-lg">Нова поточна задача</h3><div class="row"><label class="form-field grow">Що зробити<input id="newWork" type="text" placeholder="Наприклад, оновити цінники…" autocomplete="off"></label><label class="form-field">Термін<input id="newWorkDue" type="date"></label><button class="btn rasp" data-act="addWork">Додати задачу</button></div></section>`;
+    const list=operationTasks(),canCreate=!window.TSUKENYA_SERVER||['owner','manager'].includes(window.TSUKENYA_ROLE);
+    return `<section class="panel"><div class="row between gap-lg"><h3>Справи магазину</h3><span class="muted">${list.filter(t=>t.status!=='done').length} незавершених</span></div>${['doing','todo','done'].map(status=>{const group=list.filter(t=>(t.status||'todo')===status);return group.length?`<div class="stage-block"><h3>${ST_LABEL[status]}</h3>${group.map(taskRow).join('')}</div>`:''}).join('')||`<div class="empty">${canCreate?'Додайте задачу: перевірити ціни, замовити товар або підготувати цінники.':'Поточних задач поки немає.'}</div>`}</section>${canCreate?'<section class="panel"><h3 class="gap-lg">Нова поточна задача</h3><div class="row"><label class="form-field grow">Що зробити<input id="newWork" type="text" maxlength="250" placeholder="Наприклад, оновити цінники…" autocomplete="off"></label><label class="form-field">Термін<input id="newWorkDue" type="date"></label><button class="btn rasp" data-act="addWork">Додати задачу</button></div></section>':''}`;
   }
 
   /* ---------- tasks ---------- */
@@ -386,8 +402,10 @@
   const ST_NEXT = {todo:"doing", doing:"done", done:"todo"};
   function taskRow(t){
     const s = t.status || "todo";
-    return `<div class="task ${s}"><button class="chip ${s}" data-cycle="${t.id}" aria-label="${esc(t.title)}: ${ST_LABEL[s]}. Змінити на ${ST_LABEL[ST_NEXT[s]]}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>
-      <span class="t">${esc(t.title)}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span><button class="x" data-del-task="${t.id}" aria-label="Видалити задачу: ${esc(t.title)}">×</button></div>`;
+    const canEdit=t.permissions?.canEdit??!window.TSUKENYA_SERVER,canDelete=t.permissions?.canDelete??!window.TSUKENYA_SERVER;
+    const status=canEdit?`<button class="chip ${s}" data-cycle="${esc(t.id)}" aria-label="${esc(t.title)}: ${ST_LABEL[s]}. Змінити на ${ST_LABEL[ST_NEXT[s]]}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>`:`<span class="chip ${s}">${ST_LABEL[s]}</span>`;
+    const context=t._alertKey?'Системне нагадування':t.scope==='operations'&&!t.store?'Задача мережі':'';
+    return `<div class="task ${s}" data-task-id="${esc(t.id)}">${status}<span class="t">${esc(t.title)}${context?`<small class="task-date">${context}${!canEdit?' · лише перегляд':''}</small>`:''}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span>${canDelete?`<button class="x" data-del-task="${esc(t.id)}" aria-label="Видалити задачу: ${esc(t.title)}">×</button>`:''}</div>`;
   }
   function tasks(){
     const opts = STAGES.map(s=>`<option value="${s.n}">${s.n}. ${esc(s.name)}</option>`).join("");
@@ -436,6 +454,7 @@
     return S.products.filter(p=>f.q.trim().toLocaleLowerCase('uk-UA').split(/\s+/).every(word=>String(p.name||'').toLocaleLowerCase('uk-UA').includes(word)||String(p.barcode||'').toLocaleLowerCase('uk-UA').includes(word)) && (!f.type||p.type===f.type) && (!f.category||p.category===f.category) && (!f.pack||p.pack===f.pack) && (!f.promotion||(f.promotion==='yes')===!!p.promotion));
   }
   function productTools(){
+    if(window.TSUKENYA_SERVER && !["owner","manager","warehouse"].includes(window.TSUKENYA_ROLE))return "";
     return `<details class="panel disclosure" data-disclosure="import"><summary>Імпорт товарів із CSV або Excel</summary><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></details>
     <details class="panel disclosure" data-disclosure="sheets"><summary>Спільна Google-таблиця</summary><div id="linkBox">${linkInner()}</div></details>
     <details class="panel disclosure" data-disclosure="bulk"><summary>Масове оновлення націнки та округлення</summary><div class="row"><label class="form-field">Націнка, %<input id="bulkM" type="number" value="${defMarkup()}"></label><label class="form-field">Застосувати до<select id="bulkC"><option value="">Усі товари</option><option value="__f">Показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><button class="btn" data-act="bulk">Оновити ціни</button><label class="form-field">Округлення<select id="rounding">${[[0.01,'До копійки'],[0.1,'До 10 коп.'],[0.5,'До 50 коп.'],[1,'До гривні']].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?'selected':''}>${l}</option>`).join('')}</select></label></div></details>`;
@@ -851,6 +870,7 @@
     return {items, skipped, dup, nNew: items.filter(i=>!i.ex).length, nUpd: items.filter(i=>i.ex).length};
   }
   function importInner(){
+    if(window.TSUKENYA_SERVER && window.CatalogImport)return window.CatalogImport.html({markup:defMarkup()});
     const imp = S.imp, head = `<h3>Завантажити товари з Excel</h3>`;
     if (!imp) return `${head}<p class="muted" style="margin:6px 0 14px">Підійде Google Таблиця або файл .xlsx, .xls, .csv. Потрібні лише назва та ціна (закупівельна або продажу). Стовпці розпізнаю за заголовками: Назва, Тип, Категорія, Акція (Так / Ні), Акційна ціна, Пакування, Розмір, Од., Закупівля, Націнка, Ціна продажу. Якщо пакування й розміру немає, спробую взяти їх із назви (наприклад «0,5 л», «банка»). Товар, який уже є в базі, оновиться.</p>
       <div class="row"><button class="btn rasp" data-act="pickFile">Обрати файл</button><button class="btn soft" data-act="gsOpen" ${mcp?"":"disabled"} title="${mcp?"":"Google Drive тут ще не підключений"}">З Google Таблиці</button><button class="btn soft" data-act="tplXlsx" ${downloads?"":"disabled"}>Завантажити шаблон</button></div>${gsPanel("import")}
@@ -876,6 +896,7 @@
   }
   const renderImport = () => { const b = $("#impBox"); if (b) b.innerHTML = importInner(); };
   async function handleFile(file){
+    if(window.TSUKENYA_SERVER && window.CatalogImport)return window.CatalogImport.read(file,{loadXlsx,parseCsv});
     if (!file) return;
     const box = $("#impBox"); if (box) box.innerHTML = `<p class="muted">Читаю файл…</p>`;
     try{
@@ -889,6 +910,7 @@
     renderImport();
   }
   async function applyImport(btn){
+    if(window.TSUKENYA_SERVER && window.CatalogImport)return window.CatalogImport.commit();
     if (!db) { toast("Зміни зараз не зберігаються"); return; }
     const plan = buildPlan(), total = plan.items.length; if (!total) return;
     btn.disabled = true; let done = 0, fail = 0, stop = "";
@@ -956,6 +978,7 @@
       else if (ch==="\n" || ch==="\r"){ if (ch==="\r" && text[i+1]==="\n") i++; row.push(cur); cur = ""; rows.push(row); row = []; }
       else cur += ch;
     }
+    if(q)throw new Error("У CSV не закрито лапки. Перевірте файл і завантажте його знову.");
     if (cur!=="" || row.length){ row.push(cur); rows.push(row); }
     return rows;
   }
@@ -1346,7 +1369,7 @@
       if (nm && !confirm(`Видалити магазин «${nm}»?`)) return;
       n.splice(i,1); const c = tagCfg(); saveStores(n, "Магазин видалено"); if (c.storeIdx >= n.length) saveTag({storeIdx:Math.max(0,n.length-1)}); }
     if (a==="pickFile"){ $("#impFile").click(); }
-    if (a==="impCancel"){ S.imp = null; renderImport(); }
+    if (a==="impCancel"){ if(window.TSUKENYA_SERVER && window.CatalogImport)window.CatalogImport.reset();else {S.imp = null; renderImport();} }
     if (a==="impGo"){ applyImport(t); }
     if (a==="tplXlsx"){ tplXlsx(); }
     if (a==="gsOpen"){ S.gs = {mode:"import", q:"", files:null}; renderGs(); gsSearch(); }
@@ -1404,7 +1427,7 @@
   });
   $('#productEditor').addEventListener('close',()=>{const live=S.productOpener?.isConnected?S.productOpener:document.querySelector('[data-edit-product="'+S.productEditId+'"]');(live||document.querySelector('[data-act=newProduct]'))?.focus({preventScroll:true});});
   $('#productEditor').addEventListener('cancel',e=>{if(S.editDirty){e.preventDefault();closeProduct();}});
-  window.addEventListener('beforeunload',e=>{if(S.editDirty||S.tagSaving||S.tagSaveFailed){e.preventDefault();e.returnValue='';}});
+  window.addEventListener('beforeunload',e=>{if(S.editDirty||S.tagSaving||S.tagSaveFailed||window.CatalogImport?.dirty()){e.preventDefault();e.returnValue='';}});
   document.addEventListener("input", e=>{
     if(e.target.matches(budgetFields)){trackBudget(e.target);return;}
     if(e.target.matches(inlineFields))e.target.setCustomValidity?.('');
@@ -1434,7 +1457,7 @@
     db = d; clearTimeout(noDbTimer);
     const byOrder = (a,b)=>(a.order??0)-(b.order??0);
     const sub = (col, key, sort) => db.collection(col).onSnapshot(s=>{
-      S[key] = s.docs.map(x=>({id:x.id, ...x.data()})).sort(sort); render();
+      S[key] = s.docs.map(x=>({id:x.id, ...x.data(),...(col==='tasks'?{permissions:x.permissions?.()}: {})})).sort(sort); render();
     }, ()=>{});
     sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
     sub("ideas","ideas",byOrder);

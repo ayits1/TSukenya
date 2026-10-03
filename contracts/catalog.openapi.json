@@ -710,6 +710,140 @@
           }
         }
       }
+    },
+    "/api/v1/catalog/import/preview": {
+      "post": {
+        "description": "Read-only server validation of a parsed import. Owner, manager or warehouse role; standard cookie authentication, Origin and CSRF. Maximum 1000 rows and 1 MiB JSON request. Names use whitespace normalization and Unicode case folding; duplicate file names or ambiguous existing names are row errors. Computes authoritative regular and effective prices with the editor validator.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request; commit row errors include preview entries and no writes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Catalogue snapshot or immutable idempotency key conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/import/commit": {
+      "post": {
+        "description": "Atomically save every validated row under the ERP ledger lock, or save none. Requires the original entries, unchanged preview snapshot and a stable UUID idempotency key. Revalidates prices, barcodes, recipe references and revisions. Concurrent catalogue/pricing changes return 409. Repeating the identical committed request for the same user returns the original result without writes; a changed payload or different user with that key returns 409. No stock or cash postings. Historical free text dictionary values remain compatible.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogImportCommitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Atomic commit or original retry result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request; commit row errors include preview entries and no writes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Catalogue snapshot or immutable idempotency key conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1547,6 +1681,345 @@
           "value"
         ],
         "additionalProperties": false
+      },
+      "CatalogImportValues": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "pack": {
+            "type": "string"
+          },
+          "size": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "barcode": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "markup": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "price": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manualPrice": {
+            "type": "boolean"
+          },
+          "promotion": {
+            "type": "boolean"
+          },
+          "priceAt": {
+            "type": "string"
+          },
+          "priceReviewed": {
+            "type": "boolean"
+          },
+          "minStock": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "promotionPrice": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Parsed CSV/XLSX values. Decimal strings, explicit booleans; omitted fields preserve existing metadata. Historical free text dictionary values are supported without creating references. No accounting or recipe fields."
+      },
+      "CatalogImportEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "line",
+          "values"
+        ],
+        "properties": {
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$",
+            "description": "Optional expected ID. Must agree with the unique normalized product name, including hidden products."
+          },
+          "revision": {
+            "type": "string",
+            "description": "Optional expected product revision; a mismatched revision is a row error."
+          },
+          "values": {
+            "$ref": "#/components/schemas/CatalogImportValues"
+          }
+        }
+      },
+      "CatalogImportRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entries"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/CatalogImportEntry"
+            }
+          },
+          "defaultMarkup": {
+            "type": "string",
+            "pattern": "^[0-9]+(\\.[0-9]{1,4})?$",
+            "description": "Initial markup for newly created products; omitted uses the server default. Does not replace an existing markup."
+          }
+        }
+      },
+      "CatalogImportCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "created",
+          "updated",
+          "errors"
+        ],
+        "properties": {
+          "created": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "errors": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "CatalogImportPreviewEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "line",
+          "action",
+          "id",
+          "revision"
+        ],
+        "properties": {
+          "line": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "error"
+            ]
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "values": {
+            "$ref": "#/components/schemas/CatalogImportValues"
+          },
+          "regularPrice": {
+            "type": "string"
+          },
+          "salePrice": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_import_row"
+            ]
+          }
+        }
+      },
+      "CatalogImportPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "valid",
+          "entries",
+          "counts",
+          "snapshot",
+          "defaultMarkup"
+        ],
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogImportPreviewEntry"
+            }
+          },
+          "counts": {
+            "$ref": "#/components/schemas/CatalogImportCounts"
+          },
+          "snapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Opaque HMAC snapshot of all catalogue documents including hidden products and pricing settings."
+          },
+          "defaultMarkup": {
+            "type": "string"
+          }
+        }
+      },
+      "CatalogImportCommitRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entries",
+          "snapshot",
+          "idempotencyKey"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/CatalogImportEntry"
+            }
+          },
+          "defaultMarkup": {
+            "type": "string",
+            "pattern": "^[0-9]+(\\.[0-9]{1,4})?$",
+            "description": "Initial markup for newly created products; omitted uses the server default. Does not replace an existing markup."
+          },
+          "snapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "description": "Generate once per confirmed preview; reuse unchanged after an ambiguous network failure. Bound to the user and complete immutable payload."
+          }
+        }
+      },
+      "CatalogImportResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "idempotencyKey",
+          "counts",
+          "entries"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/CatalogImportCounts"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "line",
+                "action",
+                "id",
+                "revision"
+              ],
+              "properties": {
+                "line": {
+                  "type": "integer"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "create",
+                    "update"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
       }
     }
   }

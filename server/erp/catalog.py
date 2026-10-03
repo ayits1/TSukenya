@@ -125,7 +125,7 @@ def list_products(request, user):
 
 @transaction.atomic
 def save_product(request, user, identifier=None):
-    from .views import body, response, validate_product
+    from .views import body, response
     require(user.profile.role in EDIT_ROLES, 'Недостатньо прав для редагування товарів.')
     ledger_lock()  # Same serialization boundary as legacy import and ERP posting.
     value = body(request)
@@ -148,12 +148,25 @@ def save_product(request, user, identifier=None):
         subject = document.path; document.delete(); audit(user, 'catalog_changed', subject, {'method': 'DELETE', 'contract': 'v1'})
         return response({'ok': True})
     old = dict(data)
+    data = normalise_product({key: item for key, item in value.items() if key != 'revision'}, old, document.path)
+    document.data = data; document.save()
+    audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1'})
+    return response(serialize(document, user, defaults()), 200 if old.get('name') else 201)
+
+
+def normalise_product(value, old, path, *, validate_references=True):
+    """One strict write validator shared by the editor and atomic legacy imports."""
+    from .views import validate_product
+    allowed = set(TEXT_FIELDS) | PRICE_FIELDS | {'promotion', 'priceAt', 'priceReviewed', 'minStock'}
+    require(isinstance(value, dict) and not (set(value) - allowed), 'Запит містить невідомі поля товару.')
+    data = dict(old)
     for key, maximum in TEXT_FIELDS.items():
         if key in value:
             require(isinstance(value[key], str) and len(value[key].strip()) <= maximum, f'{key}: некоректний текст.')
             data[key] = value[key].strip()
-    from .catalog_references import validate_reference_fields
-    validate_reference_fields(data, old, creating=not bool(old.get('name')))
+    if validate_references:
+        from .catalog_references import validate_reference_fields
+        validate_reference_fields(data, old, creating=not bool(old.get('name')))
     if 'minStock' in value: data['minStock'] = float(dec(value['minStock'], 'Мінімальний залишок', Decimal('.001')))
     for key in ('cost', 'markup', 'price', 'promotionPrice'):
         if key in value:
@@ -184,17 +197,18 @@ def save_product(request, user, identifier=None):
         require(bool(old.get('promotion')) and old.get('promotionPrice') is None and price_terms(old) == price_terms(data), 'Вкажіть акційну ціну, меншу за звичайну.')
     if value.get('priceReviewed') or price_terms(old) != price_terms(data):
         data['priceAt'] = timezone.localdate().isoformat()
-    validate_product(data, document.path)
-    require(not data.get('barcode') or not Document.objects.filter(path__startswith='products/').exclude(pk=document.pk).filter(data__barcode=data['barcode']).exists(), 'Цей штрихкод уже використовується.')
-    document.data = data; document.save()
-    audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1'})
-    return response(serialize(document, user, defaults()), 200 if old.get('name') else 201)
+    validate_product(data, path)
+    require(not data.get('barcode') or not Document.objects.filter(path__startswith='products/').exclude(pk=path).filter(data__barcode=data['barcode']).exists(), 'Цей штрихкод уже використовується.')
+    return data
 
 
 def handle_catalog(request, user):
     from .views import response
     path = request.path.rstrip('/')
     collection = '/api/v1/catalog/products'
+    if path in {'/api/v1/catalog/import/preview', '/api/v1/catalog/import/commit'} and request.method == 'POST':
+        from .catalog_import import preview_import, commit_import
+        return preview_import(request, user) if path.endswith('/preview') else commit_import(request, user)
     if path == '/api/v1/catalog/references':
         from .catalog_references import get_references, create_reference
         if request.method == 'GET': return get_references(user)

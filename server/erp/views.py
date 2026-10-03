@@ -58,11 +58,15 @@ def owner(user):
 
 def legacy_state(user):
     from .catalog import revision, defaults, regular_price
+    from .task_scope import task_visible, task_permissions
+    from .legacy_settings import settings_for_role
     catalog_config=defaults()
     data={x:[] for x in COLLECTIONS}|{x:{} for x in SINGLE_DOCS}
     for d in Document.objects.all():
         col,_,id=d.path.partition('/')
         if col in COLLECTIONS:
+            if col=='tasks' and not task_visible(user,d.data):
+                continue
             if user.profile.role!='owner' and (col=='expenses' or col in {'tasks','ideas'} and d.data.get('scope')!='operations'):
                 continue
             product=dict(d.data)
@@ -73,8 +77,11 @@ def legacy_state(user):
                     product['price']=product['regularPrice']
                     product['manualPrice']=True
                     product.pop('cost',None);product.pop('markup',None)
-            data[col].append({'id':id,'data':product, **({'revision':revision(d,catalog_config)} if col=='products' else {})})
-        elif d.path in SINGLE_DOCS:data[d.path]=d.data
+            data[col].append({'id':id,'data':product,
+                             **({'permissions':task_permissions(user,d.path,product)} if col=='tasks' else {}),
+                             **({'revision':revision(d,catalog_config)} if col=='products' else {})})
+        elif d.path=='settings/main':data[d.path]=settings_for_role(d.data,user.profile.role)
+        elif d.path=='project/state' and user.profile.role=='owner':data[d.path]=d.data
     return data
 
 def validate_product(data, path=None):
@@ -105,6 +112,9 @@ def legacy_mutation(request,user,path):
     role=user.profile.role
     require(role=='owner' or col=='products' and role in {'manager','warehouse'} or col=='tasks' and role=='manager','Недостатньо прав для редагування.')
     d=Document.objects.filter(pk=path).first()
+    if col=='tasks' and d is not None:
+        from .task_scope import authorize_task
+        authorize_task(user,d.data)
     if path=='settings/main' and request.headers.get('If-Match'):
         from .labels import revision as label_revision
         if request.headers['If-Match'] != label_revision(d.data if d else {}):
@@ -114,6 +124,9 @@ def legacy_mutation(request,user,path):
         if request.headers['If-Match']!=revision(d):return response({'error':'Товар уже змінено. Оновіть дані перед повторним збереженням.','code':'revision_conflict'},409)
     if request.method=='DELETE':
         require(d is not None,'Запис не знайдено.')
+        if col=='tasks':
+            from .task_scope import delete_task
+            delete_task(user,path,d.data)
         require(col!='products' or not VoucherLine.objects.filter(product=d).exists() and not StockLot.objects.filter(product=d).exists(),'Товар уже використовується в обліку. Його не можна видалити.')
         if col=='products':
             require(not any(any(str(r.get('product'))==id for r in p.data.get('recipe',[])) for p in Document.objects.filter(path__startswith='products/')),'Товар використовується у рецептурі.')
@@ -127,6 +140,9 @@ def legacy_mutation(request,user,path):
                 from .budget import freeze_budget
                 freeze_budget(prior)
             value={**prior,**value}
+        if col=='tasks':
+            from .task_scope import prepare_task
+            value=prepare_task(user,path,value,d.data if d is not None else None)
         if col=='expenses':
             from .budget import validate_expense
             value=validate_expense(value)
@@ -319,7 +335,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/catalog-import.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':

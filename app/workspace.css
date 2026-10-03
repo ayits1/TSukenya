@@ -63,3 +63,14 @@
   .expense-budget .exp { grid-template-columns:minmax(0,1fr) 44px;gap:8px 12px; }
   .expense-budget .exp .n { grid-column:1/-1; }
 }
+
+.catalog-import-options { display:flex;flex-wrap:wrap;gap:16px;margin-block:16px; }
+.catalog-import-options .form-field { min-width:0;flex:1 1 220px;max-width:360px; }
+.catalog-import-list { list-style:none;padding:0;margin-block:16px; }
+.catalog-import-item { border-bottom:1px solid var(--ui-line);padding:12px 0;overflow-wrap:anywhere; }
+.catalog-import-item > div { display:flex;flex-wrap:wrap;gap:8px;align-items:center; }
+.catalog-import-item p { margin-block:8px; }
+.catalog-import-pagination { display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-block:16px; }
+#impBox .form-error { overflow-wrap:anywhere; }
+#impBox > .row { flex-wrap:wrap; }
+#impBox button { white-space:normal;min-height:44px; }

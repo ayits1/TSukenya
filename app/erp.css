@@ -24,3 +24,4 @@
 }
 
 @layer legacy { [data-trade][aria-disabled="true"]{cursor:progress} }
+@layer legacy { .trade-error,.trade-alert,.trade-saving { overflow-wrap:anywhere; } }

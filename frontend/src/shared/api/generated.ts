@@ -549,6 +549,158 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/catalog/import/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Read-only server validation of a parsed import. Owner, manager or warehouse role; standard cookie authentication, Origin and CSRF. Maximum 1000 rows and 1 MiB JSON request. Names use whitespace normalization and Unicode case folding; duplicate file names or ambiguous existing names are row errors. Computes authoritative regular and effective prices with the editor validator. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogImportRequest'];
+        };
+      };
+      responses: {
+        /** @description Validated preview */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportPreview'];
+          };
+        };
+        /** @description Invalid request; commit row errors include preview entries and no writes */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Session required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Role or CSRF denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Catalogue snapshot or immutable idempotency key conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/import/commit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Atomically save every validated row under the ERP ledger lock, or save none. Requires the original entries, unchanged preview snapshot and a stable UUID idempotency key. Revalidates prices, barcodes, recipe references and revisions. Concurrent catalogue/pricing changes return 409. Repeating the identical committed request for the same user returns the original result without writes; a changed payload or different user with that key returns 409. No stock or cash postings. Historical free text dictionary values remain compatible. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogImportCommitRequest'];
+        };
+      };
+      responses: {
+        /** @description Atomic commit or original retry result */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportResult'];
+          };
+        };
+        /** @description Invalid request; commit row errors include preview entries and no writes */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Session required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Role or CSRF denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Catalogue snapshot or immutable idempotency key conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -753,6 +905,90 @@ export interface components {
       value: string;
       /** @description Required existing group for category; otherwise absent or empty. */
       parentType?: string;
+    };
+    /** @description Parsed CSV/XLSX values. Decimal strings, explicit booleans; omitted fields preserve existing metadata. Historical free text dictionary values are supported without creating references. No accounting or recipe fields. */
+    CatalogImportValues: {
+      name: string;
+      type?: string;
+      category?: string;
+      pack?: string;
+      size?: string;
+      unit?: string;
+      barcode?: string;
+      cost?: string;
+      markup?: string;
+      price?: string | null;
+      manualPrice?: boolean;
+      promotion?: boolean;
+      priceAt?: string;
+      priceReviewed?: boolean;
+      minStock?: string;
+      /** @description Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null. */
+      promotionPrice?: string | null;
+    };
+    CatalogImportEntry: {
+      line: number;
+      /** @description Optional expected ID. Must agree with the unique normalized product name, including hidden products. */
+      id?: string;
+      /** @description Optional expected product revision; a mismatched revision is a row error. */
+      revision?: string;
+      values: components['schemas']['CatalogImportValues'];
+    };
+    CatalogImportRequest: {
+      entries: components['schemas']['CatalogImportEntry'][];
+      /** @description Initial markup for newly created products; omitted uses the server default. Does not replace an existing markup. */
+      defaultMarkup?: string;
+    };
+    CatalogImportCounts: {
+      created: number;
+      updated: number;
+      errors: number;
+    };
+    CatalogImportPreviewEntry: {
+      line: number | null;
+      /** @enum {string} */
+      action: 'create' | 'update' | 'error';
+      id: string | null;
+      revision: string | null;
+      values?: components['schemas']['CatalogImportValues'];
+      regularPrice?: string;
+      salePrice?: string;
+      error?: string;
+      /** @enum {string} */
+      code?: 'invalid_import_row';
+    };
+    CatalogImportPreview: {
+      valid: boolean;
+      entries: components['schemas']['CatalogImportPreviewEntry'][];
+      counts: components['schemas']['CatalogImportCounts'];
+      /** @description Opaque HMAC snapshot of all catalogue documents including hidden products and pricing settings. */
+      snapshot: string;
+      defaultMarkup: string;
+    };
+    CatalogImportCommitRequest: {
+      entries: components['schemas']['CatalogImportEntry'][];
+      /** @description Initial markup for newly created products; omitted uses the server default. Does not replace an existing markup. */
+      defaultMarkup?: string;
+      snapshot: string;
+      /**
+       * Format: uuid
+       * @description Generate once per confirmed preview; reuse unchanged after an ambiguous network failure. Bound to the user and complete immutable payload.
+       */
+      idempotencyKey: string;
+    };
+    CatalogImportResult: {
+      /** @constant */
+      ok: true;
+      /** Format: uuid */
+      idempotencyKey: string;
+      counts: components['schemas']['CatalogImportCounts'];
+      entries: {
+        line: number;
+        /** @enum {string} */
+        action: 'create' | 'update';
+        id: string;
+        revision: string;
+      }[];
     };
   };
   responses: never;

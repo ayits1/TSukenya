@@ -11,7 +11,7 @@
       const value = data[path];
       return { exists: !!value && Object.keys(value).length > 0, data: () => structuredClone(value || {}) };
     }
-    return { docs: (data[path] || []).map(item => ({ id: item.id, data: () => structuredClone(item.data) })) };
+    return { docs: (data[path] || []).map(item => ({ id: item.id, data: () => structuredClone(item.data), permissions: () => structuredClone(item.permissions || {}) })) };
   }
 
   function notify() {
