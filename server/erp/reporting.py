@@ -1,10 +1,11 @@
 import json
+from copy import deepcopy
 from datetime import datetime, timedelta
 from decimal import Decimal
 from django.db.models import Sum, Q
 from django.utils import timezone
 from .models import *
-from .services import money, require, ZERO, net_total, obligation, payroll_debt, cash_balance, day, dec, record_revision
+from .services import money, require, ZERO, net_total, obligation, payroll_debt, cash_balance, day, dec, record_revision, discount_limit, percent_text
 
 def number(value):
     return str(value or ZERO)
@@ -14,7 +15,7 @@ def voucher_json(v, detail=False, *, user):
     if v.kind in {'receipt','sale','debt_opening'} and v.status=='posted':
         result['outstanding'] = str(obligation(v))
     if detail:
-        result['payload']=v.payload
+        result['payload']=deepcopy(v.payload)
         result['lines']=[{'id':l.pk,'product':l.product_id.split('/',1)[1],'name':l.name,'unit':l.unit,'quantity':str(l.quantity),'price':str(l.price),'amount':str(l.amount),'cost':str(l.cost),'lot':l.lot,'expiry':l.expiry.isoformat() if l.expiry else ''} for l in v.lines.all()]
         for row in result['lines']:
             l = v.lines.get(pk=row['id'])
@@ -28,6 +29,8 @@ def voucher_json(v, detail=False, *, user):
         result['cash_movements']=[{'account':e.account_id,'amount':str(e.amount),'reversal':e.is_reversal} for e in v.cash_entries.all()]
     if user.profile.role == 'cashier':
         result.pop('cost', None)
+        for discount in result.get('payload', {}).get('discounts', []):
+            discount.pop('below_cost', None)
         for line in result.get('lines', []):
             line.pop('cost', None)
         for movement in result.get('movements', []):
@@ -73,6 +76,7 @@ def state(user):
     entities['username']=user.username
     if user.profile.role in {'owner','manager'}:entities['alerts_status']=alert_status()
     entities['fiscal_required']=Setting.objects.filter(key='fiscal_required',value='true').exists()
+    entities['max_discount']=percent_text(discount_limit())
     return entities
 
 ALERT_OK_KEY,ALERT_ERROR_KEY='alerts_last_ok','alerts_last_error'
