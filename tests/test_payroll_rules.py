@@ -20,8 +20,8 @@ class PayrollRuleTests(AccountingFixture):
         self.d3, self.d2, self.yesterday = day(3), day(2), day(1)  # stock and cash, sale and shift, accrual; the return is posted today
         self.v('cash_opening', amount=1000, account=self.cash.pk, date=self.d3); self.v('receipt', 20, 5, date=self.d3)
     till = test_erp.PayrollAndCashControlTests.till
-    def cash_sale(self, shift, qty=1, price=10, date=None, **extra):
-        return self.v('sale', qty, price, shift=shift.pk, date=date or self.d2, payload={'payments': [{'account': self.cash.pk, 'amount': str(money(Decimal(qty) * Decimal(price)))}]}, **extra)
+    def cash_sale(self, shift, qty=1, price=10, date=None, discount_reason='', **extra):
+        return self.v('sale', qty, price, shift=shift.pk, date=date or self.d2, payload={'discount_reason':discount_reason,'payments': [{'account': self.cash.pk, 'amount': str(money(Decimal(qty) * Decimal(price)))}]}, **extra)
     def cash_return(self, sale, shift, qty=1, price=10, date=None):
         return self.v('customer_return', qty, price, reference=sale.pk, shift=shift.pk, date=date or self.today, payload={'payments': [{'account': self.cash.pk, 'amount': str(money(Decimal(qty) * Decimal(price)))}]})
     save_work = test_erp.PayrollAndCashControlTests.save_work
@@ -96,7 +96,7 @@ class PayrollRuleTests(AccountingFixture):
     def test_late_amount_is_capped_by_the_accrued_basis(self):
         # Loss-making profit shift: basis 0 although 100 was accrued as the rate; a later return adds no bonus.
         worker = Employee.objects.create(name='Worker', store=self.store, shift_rate=100, bonus_percent=10)
-        shift = self.till(worker); a = self.cash_sale(shift, 5, 1); b = self.cash_sale(shift, 5, 6); self.close(shift)
+        shift = self.till(worker); a = self.cash_sale(shift, 5, 1, discount_reason='Узгоджений власником збитковий продаж для сценарію зарплати'); b = self.cash_sale(shift, 5, 6); self.close(shift)
         ws = WorkShift.objects.create(employee=worker, store=self.store, date=self.d2, cash_shift=shift, shift_rate=100, bonus_percent=10, bonus_basis='profit')
         self.v('payroll', employee=worker.pk, date=self.yesterday, payload={'shift_ids': [ws.pk]})
         ws.refresh_from_db(); self.assertEqual((ws.basis_amount, ws.accrued), (Decimal('0.00'), Decimal('100.00')))
