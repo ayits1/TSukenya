@@ -12,6 +12,13 @@ updates:
         patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
       vitest:
         patterns: ['vitest', '@vitest/*']
+    ignore:
+      # Types follow the Node runtime pinned in .nvmrc (24); a newer major describes APIs production lacks.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      # TypeScript 7 (native) has no JS compiler API yet; openapi-typescript and the lint/build tools need it.
+      - dependency-name: 'typescript'
+        versions: ['>=7']
   - package-ecosystem: pip
     directory: /server
     schedule:
