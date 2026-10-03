@@ -64,8 +64,10 @@ async function check(condition,message){for(let i=0;i<80;i++){if(await condition
  // the save carries the revision the editor opened and a server refusal is shown in Ukrainian.
  const legacy=await context.newPage();legacy.on('pageerror',e=>errors.push(e.message));await legacy.route('**/frontend/assets/**',route=>route.abort());
  const target=(await state()).products.find(p=>p.data.name==='Американо'),hostile='"><img src=x onerror="window.__xss=1">';
- const patch=(id,body)=>page.evaluate(async([id,body])=>{const s=await(await fetch('/api/state')).json();const r=await fetch('/api/docs/products/'+id,{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify(body)});return r.status;},[id,body]);
- assert.equal(await patch(target.id,{markup:hostile}),200);
+ const patch=(id,body)=>page.evaluate(async([id,body])=>{const s=await(await fetch('/api/state')).json(),revision=s.data.products.find(p=>p.id===id).revision;const r=await fetch('/api/docs/products/'+id,{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf,'If-Match':revision},body:JSON.stringify(body)});return r.status;},[id,body]);
+ // The server validates legacy writes now; a hostile markup can only come from legacy-migrated data.
+ assert.equal(await patch(target.id,{markup:hostile}),400,'legacy write rejects a non-numeric markup');
+ execFileSync(python,['-c',`import os\nos.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings')\nimport django;django.setup()\nfrom server.erp.models import Document\nd=Document.objects.get(pk='products/${target.id}');d.data={**d.data,'markup':${JSON.stringify(hostile)}};d.save()`],{cwd:root,env});
  await legacy.goto(base+'/#operations/products');await legacy.locator('#q').fill('Американо');await legacy.locator(`[data-edit-product="${target.id}"]`).first().click();await legacy.locator('#productForm').waitFor();
  assert.equal(await legacy.locator('#productEditor img').count(),0);assert.equal(await legacy.evaluate(()=>window.__xss),undefined);assert.equal(await legacy.locator('#productForm [name=markup]').getAttribute('value'),hostile);
  await legacy.locator('#productForm [name=markup]').fill('25');assert.equal(await patch(target.id,{size:'змінено в іншому сеансі'}),200);await legacy.evaluate(()=>window.TSUKENYA_REFRESH());
