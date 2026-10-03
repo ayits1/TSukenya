@@ -36,7 +36,8 @@ CODE = {'app/index.html': 'new', 'server/start.sh': 'new', 'frontend/package.jso
         'package.json': '{}', 'deploy/release.py': 'copy'}
 
 
-class ReleaseScriptTests(TestCase):
+class ReleaseSandbox(TestCase):
+    """A temporary /opt/tsukenya and a fake docker that serves the released commit."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         base = Path(self.tmp.name)
@@ -62,6 +63,8 @@ class ReleaseScriptTests(TestCase):
     def text(self, name):
         return (self.root / name).read_text()
 
+
+class ReleaseScriptTests(ReleaseSandbox):
     def test_check_changes_nothing(self):
         path = self.root / 'releases-in.tar.gz'
         archive(path, CODE)
@@ -136,3 +139,52 @@ class HealthReleaseTests(DjangoTestCase):
             self.assertEqual(views.release_commit(), SHA)
         finally:
             marker.unlink(missing_ok=True)
+
+
+CI = Path(__file__).resolve().parents[1] / 'deploy' / 'ci_deploy.py'
+
+
+class CiDeployTests(ReleaseSandbox):
+    """The SSH forced command: only status/check/release with a SHA that matches the streamed archive."""
+    def ci(self, command, payload=b''):
+        env = {**self.env, 'SSH_ORIGINAL_COMMAND': command}
+        return subprocess.run([sys.executable, str(CI)], input=payload, env=env, capture_output=True, timeout=120)
+
+    def payload(self, sha=SHA):
+        path = Path(self.tmp.name) / 'stream.tar.gz'
+        archive(path, {**CODE, 'deploy/release.py': SCRIPT.read_text()}, sha)
+        return path.read_bytes()
+
+    def test_only_allowed_commands_run(self):
+        for command in ['', 'bash', 'release', f'release {SHA} --force', 'release ../../etc', f'rm {SHA}', 'check ' + 'A' * 40]:
+            with self.subTest(command):
+                result = self.ci(command, self.payload())
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('дозволено лише', result.stderr.decode())
+        self.assertEqual(self.text('app/index.html'), 'old')
+        self.assertIn('refused', self.text('releases/ci-deploy.log'))
+
+    def test_archive_must_be_the_requested_commit(self):
+        result = self.ci(f'release {SHA}', self.payload('b' * 40))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('запитано', result.stderr.decode())
+        self.assertEqual(self.text('app/index.html'), 'old')
+        self.assertEqual(list((self.root / 'releases').glob('*.tar.gz')) + list((self.root / 'releases').glob('*.partial')), [])
+        self.assertEqual(self.ci(f'check {SHA}', b'not a tar').returncode, 2)
+
+    def test_check_then_release_through_the_streamed_archive(self):
+        check = self.ci(f'check {SHA}', self.payload())
+        self.assertEqual(check.returncode, 0, check.stderr.decode())
+        self.assertIn('змін не зроблено', check.stdout.decode())
+        self.assertEqual(self.text('app/index.html'), 'old')
+        self.env['TSUKENYA_PUBLIC_HEALTH'] = 'http://127.0.0.1:9/unused'
+        script = SCRIPT.read_text().replace("if not args.no_public_check:", "if False:")
+        path = Path(self.tmp.name) / 'stream.tar.gz'
+        archive(path, {**CODE, 'deploy/release.py': script})
+        released = self.ci(f'release {SHA}', path.read_bytes())
+        self.assertEqual(released.returncode, 0, released.stderr.decode() + released.stdout.decode())
+        self.assertEqual(self.text('app/index.html'), 'new')
+        self.assertEqual(json.loads(self.text('releases/CURRENT'))['commit'], SHA)
+        status = self.ci('status')
+        self.assertIn(SHA, status.stdout.decode())
+        self.assertIn(f'release {SHA} exit=0', self.text('releases/ci-deploy.log'))
