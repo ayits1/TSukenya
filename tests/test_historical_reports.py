@@ -181,6 +181,22 @@ class HistoricalReportTests(TransactionTestCase):
             if role == 'accountant':
                 self.assertEqual(post_voucher(user, draft.pk).status, 'posted')
 
+    def test_foreign_store_filter_is_empty_in_both_report_modes(self):
+        manager = self.user('manager', self.store)
+        foreign = Store.objects.create(name='Недоступний магазин')
+        for selected in (foreign.pk, foreign.pk + 100000):
+            for mode in ('period', 'balances'):
+                result = report(manager, {'mode': mode, 'store': str(selected)})
+                if mode == 'period':
+                    self.assertEqual(result['revenue'], '0.00')
+                    for field in ('by_store', 'products', 'cashiers', 'debts'):
+                        self.assertEqual(result[field], [])
+                else:
+                    for field in ('stock', 'cash', 'debts'):
+                        self.assertEqual(result[field], [])
+                    self.assertEqual(result['cash_total'], '0.00')
+                self.assertEqual(result['debt_totals'], {'owed_to_us': '0.00', 'owed_by_us': '0.00'})
+
     def test_ledger_filter_and_display_use_kyiv_storno_date(self):
         from server.erp.financial_browsing import ledger
         october1 = ledger(self.u, {'from': '2026-10-01', 'to': '2026-10-01'})

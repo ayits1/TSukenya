@@ -12,7 +12,7 @@ from django.db.models import Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from .models import CashAccount, CashEntry, Employee, StockEntry, Store, Voucher
-from .services import ZERO, day, money, obligation, require, scope
+from .services import ZERO, day, money, obligation, require
 from .browsing import positive_integer
 
 KYIV = ZoneInfo('Europe/Kyiv')
@@ -39,12 +39,14 @@ def read_snapshot(strict=True):
 def stores_for(user, params):
     require(user.profile.role in ROLES, 'Недостатньо прав для фінансових звітів.')
     selected = positive_integer(params['store'], 'ID магазину') if params.get('store') else user.profile.store_id
+    stores = Store.objects.all().order_by('pk')
+    if user.profile.store_id:
+        stores = stores.filter(pk=user.profile.store_id)
+    # Intersect the requested filter with role scope; never disclose a foreign store.
+    # Keep the existing report contract: an inaccessible filter yields empty totals.
     if selected:
-        store = Store.objects.filter(pk=selected).first()
-        require(store is not None, 'Магазин не знайдено.')
-        scope(user, store)
-        return list(Store.objects.filter(pk=selected)), True
-    return list(Store.objects.all().order_by('pk')), False
+        return list(stores.filter(pk=selected)), True
+    return list(stores), False
 
 
 def reversal_day(voucher):
@@ -143,7 +145,7 @@ def period(user, params):
         'unallocated_expenses': str(money(unallocated)),
         'by_store': [{'store': store.pk, 'name': store.name, **totals(rows[store.pk])} for store in stores],
         'expenses_by_category': [{'store': store, 'scope': 'network' if store is None else 'store', 'category': category, 'amount': str(money(value))} for (store, category), value in expenses_by_category.items()],
-        'cashiers': cashier_differences(user, start, end, stores[0].pk if scoped else None),
+        'cashiers': cashier_differences(user, start, end, stores[0].pk if scoped else None) if stores else [],
         'cashiers_basis': 'current_posted_closed_shifts', 'products': sorted(product_rows, key=lambda row: (-Decimal(row['result']), row['name'])),
         'debts': debts, 'debt_count': len(debts), 'debt_totals': debt_totals, 'debts_basis': 'current',
         'basis': 'accounting_dates', 'reversal_policy': 'kyiv_reversed_at'}
