@@ -5,6 +5,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from copy import copy
 from decimal import Decimal
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 from django.db import connection, transaction
 from django.db.models import Q
@@ -90,8 +91,11 @@ def period(user, params):
     start = day(params.get('from') or today.replace(day=1).isoformat()); end = day(params.get('to') or today.isoformat())
     require(start <= end <= today, 'Період має закінчуватись не раніше початку й не пізніше сьогодні.')
     require_reversal_dates(ids, end)
+    # Bound both sides in SQL: do not load every cancelled document in the company's history.
+    reversal_start = datetime.combine(start, time.min, tzinfo=KYIV)
+    reversal_end = datetime.combine(end + timedelta(days=1), time.min, tzinfo=KYIV)
     documents = list(Voucher.objects.filter(store_id__in=ids, status__in=['posted', 'reversed'])
-                     .filter(Q(date__range=(start, end)) | Q(reversed_at__isnull=False)).prefetch_related('lines'))
+                     .filter(Q(date__range=(start, end)) | Q(reversed_at__gte=reversal_start, reversed_at__lt=reversal_end)).prefetch_related('lines'))
     rows = {store.pk: metrics() for store in stores}; products = {}; unallocated = ZERO
     expenses_by_category = defaultdict(lambda: ZERO)
     for voucher in documents:
