@@ -401,8 +401,8 @@ def handle(request):
         return legacy_mutation(request,user,col+'/'+id)
     if path=='/api/erp/alerts' and request.method=='POST':
         require(user.profile.role in {'owner','manager'},'Недостатньо прав.')
-        from .alerts import sync_alerts
-        return response(sync_alerts(user))
+        from .alerts import run_alerts
+        return response(run_alerts(user,'manual'))
     if path=='/api/erp/state' and request.method=='GET':return response(state(user))
     if path=='/api/erp/import-preview' and request.method=='POST':
         require(user.profile.role in {'owner','manager','warehouse'},'Недостатньо прав.')
