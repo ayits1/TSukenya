@@ -4,6 +4,8 @@
 
 Поточна вебверсія: [tsukernya.pp.ua](https://tsukernya.pp.ua/) (приватний вхід). Вона працює на окремому сервісі VPS; інструкція оновлення й відкату — у [документі розгортання](docs/SERVER-DEPLOYMENT.md). Автоматичний обмін із Google Sheets у цій вебверсії поки не підключено: товари завантажено зі знімка від 29.09.2026, а оновлення доступне через імпорт CSV/XLSX.
 
+Репозиторій: [ayits1/TSukenya](https://github.com/ayits1/TSukenya). Основна гілка — `main`; правила синхронізації й злиття історій — [GITHUB-SYNC.md](docs/GITHUB-SYNC.md).
+
 ## Торговельний облік
 
 Додано простір **Облік торгівлі**: закупівлі, склад, продажі й касові зміни, фінанси, клієнти, команда та звіти. Сервер — Django 5.2, основна база на VPS — PostgreSQL 18. Документи проводяться атомарно, повторні запити не дублюють рух, а скасування створює зворотні записи.
@@ -96,10 +98,10 @@ PYTHON_BIN=.venv/bin/python npm run test:crm:ui
 
 Перевірки конкуренції виконуються лише на PostgreSQL. Браузерні перевірки використовують окремі тимчасові бази.
 
-Стек для подальшого зростання та поетапний перехід фронтенду — [STACK-EVOLUTION.md](docs/STACK-EVOLUTION.md). Це рекомендація; поточний інтерфейс залишається HTML/CSS/JavaScript.
+Стек для подальшого зростання та поетапний перехід фронтенду — [STACK-EVOLUTION.md](docs/STACK-EVOLUTION.md). Каталог і студія цінників уже на React/TypeScript; оболонка й решта торговельних екранів працюють через `app/` HTML/CSS/JavaScript. Django/PostgreSQL лишаються джерелом облікових даних.
 
 ## Основа React і Storybook
 
-Нова основа `frontend/` містить React/TypeScript/Vite, спільні контроли на React Aria, Storybook і автоматичні перевірки. Запуск: `npm ci`, потім `npm run dev:frontend` або `npm run storybook`. Це середовище компонентів; чинний інтерфейс CRM ще не перенесено. Команди перевірок, Docker, CI та порядок переходу — [FRONTEND-FOUNDATION.md](docs/FRONTEND-FOUNDATION.md). Проєктна навичка — `.agents/skills/tsukenya-development/SKILL.md`.
+`frontend/` містить робочі React-каталог і студію цінників, TypeScript/Vite, спільні контроли на React Aria, Storybook і автоматичні перевірки. Запуск: `npm ci`, потім `npm run dev:frontend` для лабораторії компонентів або `npm run storybook`. Робочі модулі інтегровані в Django-портал за `#operations/products` і `#operations/tags`; решта інтерфейсу CRM ще не перенесена. Команди перевірок, Docker, CI та порядок переходу — [FRONTEND-FOUNDATION.md](docs/FRONTEND-FOUNDATION.md). Проєктна навичка — `.agents/skills/tsukenya-development/SKILL.md`.
 
 Студія цінників на React: [сценарії, API та друк](docs/LABEL-STUDIO.md).
