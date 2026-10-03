@@ -1,6 +1,10 @@
 import { createApiClient } from '../../shared/api/client';
 import type { components } from '../../shared/api/generated';
 
+export type ProductPricePreviewRequest = components['schemas']['ProductPricePreviewRequest'];
+export type ProductPricePreview = components['schemas']['ProductPricePreview'];
+export type PricePreviewRequest = ProductPricePreviewRequest;
+export type PricePreview = ProductPricePreview;
 export type Product = components['schemas']['Product'];
 export function hasEffectivePromotion(product: Product): boolean {
   return (
@@ -167,6 +171,9 @@ export function createCatalogApi() {
           return true;
         },
       );
+    },
+    previewPrice(input: ProductPricePreviewRequest, signal?: AbortSignal) {
+      return client.previewProductPrice(input, signal);
     },
     save(product: ProductCreate | ProductPatch, id?: string) {
       return client.mutate(

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createApiClient, decodeHealth } from './client';
+import { createApiClient, decodeHealth, decodeProductPricePreview } from './client';
 
 describe('API boundary', () => {
   it('validates the existing health response and preserves cancellation', async () => {
@@ -106,5 +106,112 @@ describe('API boundary', () => {
         message: 'Не вдалося з’єднатися із сервером. Перевірте підключення та спробуйте ще раз.',
       },
     );
+  });
+});
+
+const pricePreview = {
+  regularPrice: '21.99',
+  salePrice: '17.50',
+  config: { markup: '30', rounding: '0.5' },
+  pricingRevision: 'a'.repeat(64),
+  warnings: [],
+  promotionValid: true,
+};
+
+describe('Product price preview contract', () => {
+  it('sends read-only POST with CSRF and cancellation, retaining exact decimal strings', async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json(pricePreview));
+    const controller = new AbortController();
+    const client = createApiClient({ transport, getCsrf: () => 'preview-csrf' });
+    const input = {
+      id: 'one',
+      revision: 'old',
+      cost: '10.29',
+      markup: '12.3456',
+      manualPrice: true,
+      price: '21.99',
+      promotion: true,
+      promotionPrice: '17.50',
+      priceReviewed: true,
+    };
+    await expect(client.previewProductPrice(input, controller.signal)).resolves.toEqual(
+      pricePreview,
+    );
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(transport).toHaveBeenCalledWith(
+      '/api/v1/catalog/products/price-preview',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(input),
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': 'preview-csrf' },
+      }),
+    );
+  });
+  it('keeps grandfather warnings and never substitutes browser-computed prices', () => {
+    expect(
+      decodeProductPricePreview({
+        ...pricePreview,
+        regularPrice: '99999999999999.99',
+        salePrice: '99999999999999.99',
+        promotionValid: false,
+        warnings: ['Стара акція'],
+      }),
+    ).toMatchObject({
+      regularPrice: '99999999999999.99',
+      warnings: ['Стара акція'],
+      promotionValid: false,
+    });
+  });
+  it.each([
+    { regularPrice: 21.99 },
+    { salePrice: 'NaN' },
+    { salePrice: '-1' },
+    { config: { markup: 30, rounding: '0.5' } },
+    { config: { markup: '30', rounding: '0.5', secret: 'no' } },
+    { pricingRevision: 'stale' },
+    { promotionValid: 'yes' },
+    { warnings: [1] },
+    { warnings: null },
+    { secret: 'private' },
+  ])('rejects malformed server preview %j', async (replacement) => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json({ ...pricePreview, ...replacement }));
+    await expect(
+      createApiClient({ transport, getCsrf: () => 'csrf' }).previewProductPrice({ cost: '10' }),
+    ).rejects.toThrow('невідомого формату');
+  });
+  it('does not make a preview request without CSRF', () => {
+    const transport = vi.fn<typeof fetch>();
+    expect(() => createApiClient({ transport }).previewProductPrice({ cost: '10' })).toThrow(
+      'оновити сесію',
+    );
+    expect(transport).not.toHaveBeenCalled();
+  });
+  it('preserves pricing conflicts and never retries a POST automatically', async () => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json(
+          { error: 'Оновіть розрахунок', code: 'pricing_revision_conflict' },
+          { status: 409 },
+        ),
+      );
+    await expect(
+      createApiClient({ transport, getCsrf: () => 'csrf' }).previewProductPrice({ cost: '10' }),
+    ).rejects.toMatchObject({ status: 409, code: 'pricing_revision_conflict' });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+  it('preserves abort errors so superseded editor requests can be discarded', async () => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockRejectedValue(new DOMException('Cancelled', 'AbortError'));
+    await expect(
+      createApiClient({ transport, getCsrf: () => 'csrf' }).previewProductPrice(
+        { cost: '10' },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ name: 'AbortError' });
   });
 });

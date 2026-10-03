@@ -901,6 +901,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/catalog/products/price-preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Read-only authoritative Decimal price calculation. No product, audit, inventory or settings writes. Uses same validation and legacy promotion preservation as Save. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['ProductPricePreviewRequest'];
+        };
+      };
+      responses: {
+        /** @description ProductPricePreview */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ProductPricePreview'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Product not found */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -963,6 +1048,8 @@ export interface components {
       minStock?: string;
       /** @description Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null. */
       promotionPrice?: string | null;
+      /** @description Optional preview pricing settings revision. Mismatch returns pricing_revision_conflict before any write. */
+      pricingRevision?: string;
     };
     ProductPatch: {
       revision: string;
@@ -984,6 +1071,8 @@ export interface components {
       minStock?: string;
       /** @description Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null. */
       promotionPrice?: string | null;
+      /** @description Optional preview pricing settings revision. Mismatch returns pricing_revision_conflict before any write. */
+      pricingRevision?: string;
     };
     Session: {
       /** @enum {string} */
@@ -1293,6 +1382,31 @@ export interface components {
         /** @enum {string} */
         action: 'update' | 'unchanged' | 'skip';
       }[];
+    };
+    /** @description Read-only pricing inputs shared with Save. Existing id enables unchanged legacy promotion terms; revision without id is invalid. */
+    ProductPricePreviewRequest: {
+      cost?: string;
+      markup?: string;
+      manualPrice?: boolean;
+      price?: string | null;
+      promotion?: boolean;
+      /** @description Explicit promotional price; retained when promotion is disabled. Active promotions require a value greater than zero and below regularPrice. Legacy badge-only records may contain null. */
+      promotionPrice?: string | null;
+      priceReviewed?: boolean;
+      id?: string;
+      revision?: string;
+    };
+    ProductPricePreview: {
+      regularPrice: string;
+      salePrice: string;
+      config: {
+        markup: string;
+        rounding: string;
+      };
+      pricingRevision: string;
+      warnings: string[];
+      /** @description True only for an enabled, valid explicit promotion below regularPrice. False for no promotion and grandfathered legacy badge-only/invalid promotions. */
+      promotionValid: boolean;
     };
   };
   responses: never;

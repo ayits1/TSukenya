@@ -1,3 +1,8 @@
+import type { components } from './generated';
+
+export type ProductPricePreviewRequest = components['schemas']['ProductPricePreviewRequest'];
+export type ProductPricePreview = components['schemas']['ProductPricePreview'];
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -58,25 +63,35 @@ export function createApiClient({
       throw new ApiError(response.status, 'Сервер повернув дані невідомого формату.');
     }
   }
+  function mutate<T>(
+    method: MutationMethod,
+    path: string,
+    value: unknown,
+    decode: Decoder<T>,
+    signal?: AbortSignal,
+  ) {
+    const csrf = getCsrf();
+    if (!csrf) throw new ApiError(403, 'Потрібно оновити сесію перед збереженням.');
+    return request(path, decode, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+      ...(value === undefined ? {} : { body: JSON.stringify(value) }),
+      ...(signal ? { signal } : {}),
+    });
+  }
   return {
     get<T>(path: string, decode: Decoder<T>, signal?: AbortSignal) {
       return request(path, decode, { method: 'GET', ...(signal ? { signal } : {}) });
     },
-    mutate<T>(
-      method: MutationMethod,
-      path: string,
-      value: unknown,
-      decode: Decoder<T>,
-      signal?: AbortSignal,
-    ) {
-      const csrf = getCsrf();
-      if (!csrf) throw new ApiError(403, 'Потрібно оновити сесію перед збереженням.');
-      return request(path, decode, {
-        method,
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-        ...(value === undefined ? {} : { body: JSON.stringify(value) }),
-        ...(signal ? { signal } : {}),
-      });
+    mutate,
+    previewProductPrice(value: ProductPricePreviewRequest, signal?: AbortSignal) {
+      return mutate(
+        'POST',
+        '/api/v1/catalog/products/price-preview',
+        value,
+        decodeProductPricePreview,
+        signal,
+      );
     },
   };
 }
@@ -95,4 +110,56 @@ export function decodeHealth(value: unknown): Health {
   )
     throw new Error('Invalid health response');
   return { status: 'ok', storage: value.storage, version: value.version };
+}
+
+const nonnegativeDecimal = (value: unknown): value is string =>
+  typeof value === 'string' && /^[0-9]+(\.[0-9]+)?$/.test(value) && Number.isFinite(Number(value));
+
+export function decodeProductPricePreview(value: unknown): ProductPricePreview {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).some(
+      (key) =>
+        ![
+          'regularPrice',
+          'salePrice',
+          'config',
+          'pricingRevision',
+          'warnings',
+          'promotionValid',
+        ].includes(key),
+    ) ||
+    !('regularPrice' in value) ||
+    !nonnegativeDecimal(value.regularPrice) ||
+    !('salePrice' in value) ||
+    !nonnegativeDecimal(value.salePrice) ||
+    !('pricingRevision' in value) ||
+    typeof value.pricingRevision !== 'string' ||
+    !/^[0-9a-f]{64}$/.test(value.pricingRevision) ||
+    !('promotionValid' in value) ||
+    typeof value.promotionValid !== 'boolean' ||
+    !('warnings' in value) ||
+    !Array.isArray(value.warnings) ||
+    !value.warnings.every((warning: unknown) => typeof warning === 'string') ||
+    !('config' in value) ||
+    !value.config ||
+    typeof value.config !== 'object' ||
+    Array.isArray(value.config) ||
+    Object.keys(value.config).some((key) => !['markup', 'rounding'].includes(key)) ||
+    !('markup' in value.config) ||
+    !nonnegativeDecimal(value.config.markup) ||
+    !('rounding' in value.config) ||
+    !nonnegativeDecimal(value.config.rounding)
+  )
+    throw new Error('Invalid product price preview');
+  return {
+    regularPrice: value.regularPrice,
+    salePrice: value.salePrice,
+    pricingRevision: value.pricingRevision,
+    promotionValid: value.promotionValid,
+    warnings: value.warnings.map((warning) => String(warning)),
+    config: { markup: value.config.markup, rounding: value.config.rounding },
+  };
 }

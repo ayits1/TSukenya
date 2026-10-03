@@ -41,6 +41,17 @@ def defaults():
     return pricing_config(document.data if document else {})
 
 
+def pricing_revision(config=None):
+    """Opaque version of the effective defaults; never exposes private settings."""
+    config = defaults() if config is None else config
+    material = json.dumps({key: plain(value) for key, value in config.items()}, sort_keys=True, separators=(',', ':'))
+    return hmac.new(settings.SECRET_KEY.encode(), material.encode(), hashlib.sha256).hexdigest()
+
+
+def new_product_data(config):
+    return {'unit': 'шт', 'markup': float(config['markup']), 'cost': 0, 'manualPrice': False, 'price': None}
+
+
 def keep_pricing_settings(value, old):
     """Legacy settings writes cannot change prices outside the pricing preview/commit flow."""
     require(pricing_config(value) == pricing_config(old), 'Націнку за замовчуванням і округлення змінюйте через попередній перегляд масової зміни цін.')
@@ -184,17 +195,20 @@ def save_product(request, user, identifier=None):
     require(user.profile.role in EDIT_ROLES, 'Недостатньо прав для редагування товарів.')
     ledger_lock()  # Same serialization boundary as legacy import and ERP posting.
     value = body(request)
+    config = defaults()
+    if 'pricingRevision' in value and (not isinstance(value['pricingRevision'], str) or value['pricingRevision'] != pricing_revision(config)):
+        return response({'error': 'Налаштування ціни вже змінено. Оновіть попередній розрахунок перед збереженням.', 'code': 'pricing_revision_conflict'}, 409)
     if identifier:
         document = Document.objects.filter(pk='products/' + identifier).first()
         if document is None: return response({'error': 'Товар не знайдено.', 'code': 'not_found'}, 404)
-        if not isinstance(value.get('revision'), str) or value['revision'] != revision(document):
+        if not isinstance(value.get('revision'), str) or value['revision'] != revision(document, config):
             return response({'error': 'Товар уже змінено з іншого пристрою. Оновіть дані перед збереженням.', 'code': 'revision_conflict'}, 409)
         data = dict(document.data)
     else:
         identifier = secrets.token_urlsafe(18).replace('-', '_')
         document = Document(path='products/' + identifier)
-        data = {'unit': 'шт', 'markup': float(defaults()['markup']), 'cost': 0, 'manualPrice': False, 'price': None}
-    require(not (set(value) - PRODUCT_FIELDS - {'revision'}), 'Запит містить невідомі поля товару.')
+        data = new_product_data(config)
+    require(not (set(value) - PRODUCT_FIELDS - {'revision', 'pricingRevision'}), 'Запит містить невідомі поля товару.')
     if request.method == 'DELETE':
         from .models import VoucherLine, StockLot
         require(not VoucherLine.objects.filter(product=document).exists() and not StockLot.objects.filter(product=document).exists(), 'Товар уже використовується в обліку. Його не можна видалити.')
@@ -202,11 +216,11 @@ def save_product(request, user, identifier=None):
         subject = document.path; document.delete(); audit(user, 'catalog_changed', subject, {'method': 'DELETE', 'contract': 'v1'})
         return response({'ok': True})
     old = dict(data)
-    data = normalise_product({key: item for key, item in value.items() if key != 'revision'}, old, document.path)
+    data = normalise_product({key: item for key, item in value.items() if key not in {'revision', 'pricingRevision'}}, old, document.path, config=config, old_config=config)
     if duplicate_name(data, old, document.path): return response(DUPLICATE_NAME, 409)
     document.data = data; document.save()
     audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1'})
-    return response(serialize(document, user, defaults()), 200 if old.get('name') else 201)
+    return response(serialize(document, user, config), 200 if old.get('name') else 201)
 
 
 def unit_in_use(path, data):
@@ -223,7 +237,7 @@ def unit_in_use(path, data):
     return None
 
 
-def normalise_product(value, old, path, *, validate_references=True, config=None):
+def normalise_product(value, old, path, *, validate_references=True, config=None, old_config=None):
     """One strict write validator shared by the editor and atomic legacy imports."""
     from .views import validate_product
     require(isinstance(value, dict) and not (set(value) - PRODUCT_FIELDS), 'Запит містить невідомі поля товару.')
@@ -261,7 +275,7 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
             require(PRICE_DATE.fullmatch(value['priceAt']), 'Вкажіть дату у форматі РРРР-ММ-ДД.')
             reviewed = day(value['priceAt']); require(reviewed <= timezone.localdate(), 'Дата ціни не може бути в майбутньому.')
         data['priceAt'] = value['priceAt']
-    old_config = defaults()
+    old_config = defaults() if old_config is None else old_config
     config = old_config if config is None else config
     def price_terms(item, pricing):
         manual = bool(item.get('manualPrice'))
@@ -302,6 +316,9 @@ def handle_catalog(request, user):
         if request.method == 'POST': return create_reference(request, user)
     if path == '/api/v1/session' and request.method == 'GET':
         return response({'role': user.profile.role, 'csrf': request.portal_session.csrf})
+    if path == collection + '/price-preview' and request.method == 'POST':
+        from .catalog_price_preview import preview_product_price
+        return preview_product_price(request, user)
     if path == collection:
         if request.method == 'GET': return list_products(request, user)
         if request.method == 'POST': return save_product(request, user)
