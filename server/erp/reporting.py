@@ -108,27 +108,40 @@ def alert_status():
     stale=not ok or now-ok[1]>=timedelta(minutes=ALERT_STALE_MINUTES)
     return {'ok':ok[0] if ok else None,'error':error[0] if error and (not ok or error[1]>ok[1]) else None,'stale':stale}
 
+def assortment_rules(warehouses):
+    """(warehouse, product path) -> (sold, minimum or None) for the assortment rows of these warehouses (B13)."""
+    return {(a.warehouse_id,a.product_id):(a.sold,a.min_stock) for a in Assortment.objects.filter(warehouse__in=warehouses)}
+
+def effective_assortment(rules,warehouse_id,product):
+    """A row decides whether the product is sold here and its minimum (null -> catalogue minStock); no row: sold everywhere with minStock."""
+    sold,minimum=rules.get((warehouse_id,product.pk),(True,None))
+    return sold,(minimum if minimum is not None else dec(product.data.get('minStock',0),quantum=Decimal('.001')))
+
 def stock(user):
     today=timezone.localdate()
-    lots=scoped(StockLot.objects.select_related('product','warehouse').filter(quantity__gt=0),user,'warehouse__store_id').order_by('warehouse_id','product_id','expiry','pk')
+    whs=scoped(Warehouse.objects.all(),user);rules=assortment_rules(whs)
+    # Lots sold down to zero still count: a product with movement history stays in the totals of its warehouse.
+    lots=scoped(StockLot.objects.select_related('product','warehouse'),user,'warehouse__store_id').order_by('warehouse_id','product_id','expiry','pk')
     result, grouped=[],{}
+    def group(warehouse_id,p):
+        sold,minimum=effective_assortment(rules,warehouse_id,p)
+        return grouped.setdefault((warehouse_id,p.pk),{'warehouse':warehouse_id,'product':p.pk.split('/',1)[1],'name':p.data.get('name',''),'unit':p.data.get('unit','шт'),'quantity':ZERO,'value':ZERO,'available':ZERO,'minimum':minimum,'sold':sold})
     for l in lots:
-        result.append({'id':l.pk,'warehouse':l.warehouse_id,'product':l.product_id.split('/',1)[1],'name':l.product.data.get('name',''),'unit':l.product.data.get('unit','шт'),'lot':l.code,'expiry':l.expiry.isoformat() if l.expiry else None,'quantity':str(l.quantity),'value':str(l.value),'expired':bool(l.expiry and l.expiry<today)})
-        key=(l.warehouse_id,l.product_id)
-        g=grouped.setdefault(key,{'warehouse':l.warehouse_id,'product':l.product_id.split('/',1)[1],'name':l.product.data.get('name',''),'unit':l.product.data.get('unit','шт'),'quantity':ZERO,'value':ZERO,'available':ZERO,'minimum':dec(l.product.data.get('minStock',0),quantum=Decimal('.001'))})
+        if l.quantity>0:result.append({'id':l.pk,'warehouse':l.warehouse_id,'product':l.product_id.split('/',1)[1],'name':l.product.data.get('name',''),'unit':l.product.data.get('unit','шт'),'lot':l.code,'expiry':l.expiry.isoformat() if l.expiry else None,'quantity':str(l.quantity),'value':str(l.value),'expired':bool(l.expiry and l.expiry<today)})
+        g=group(l.warehouse_id,l.product)
         g['quantity']+=l.quantity;g['value']+=l.value
         if not l.expiry or l.expiry>=today:g['available']+=l.quantity
-    # Include stocked-out products that have movements or a configured minimum.
-    whs=scoped(Warehouse.objects.all(),user)
-    products=Document.objects.filter(path__startswith='products/')
+    # Products without lots appear where they are sold with a positive minimum.
+    products=list(Document.objects.filter(path__startswith='products/'))
     for w in whs:
         for p in products:
-            minimum=dec(p.data.get('minStock',0),quantum=Decimal('.001'))
-            if minimum>0:
-                grouped.setdefault((w.pk,p.pk),{'warehouse':w.pk,'product':p.pk.split('/',1)[1],'name':p.data.get('name',''),'unit':p.data.get('unit','шт'),'quantity':ZERO,'value':ZERO,'available':ZERO,'minimum':minimum})
+            if (w.pk,p.pk) in grouped:continue
+            sold,minimum=effective_assortment(rules,w.pk,p)
+            if sold and minimum>0:group(w.pk,p)
     totals=[]
     for g in grouped.values():
-        g['low']=g['available']<g['minimum']
+        # Only the assortment of a warehouse asks for replenishment.
+        g['low']=g['sold'] and g['available']<g['minimum']
         totals.append({k:str(v) if isinstance(v,Decimal) else v for k,v in g.items()})
     return {'lots':result,'totals':totals}
 

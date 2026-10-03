@@ -161,3 +161,13 @@ class LoginThrottle(models.Model):
     key = models.CharField(max_length=64, primary_key=True)
     attempts = models.PositiveIntegerField(default=0)
     until = models.BigIntegerField()
+
+class Assortment(models.Model):
+    """Product × warehouse assortment (B13). Without a row the product is sold in every warehouse with its catalogue minStock."""
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE)
+    product = models.ForeignKey(Document, on_delete=models.CASCADE)
+    sold = models.BooleanField(default=True)
+    # Null keeps the catalogue minimum of the product.
+    min_stock = models.DecimalField(max_digits=18, decimal_places=3, null=True, blank=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['warehouse', 'product'], name='assortment_key'), models.CheckConstraint(condition=models.Q(min_stock__gte=0), name='assortment_min_nonnegative')]
