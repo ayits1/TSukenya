@@ -1924,12 +1924,21 @@ export interface components {
       reason: string;
       /** Format: date-time */
       at: string;
+      name: string;
     };
     CampaignPage: {
       items: components['schemas']['Campaign'][];
+      page: number;
+      pages: number;
+      total: number;
+      limit: number;
     };
     PriceHistoryPage: {
       items: components['schemas']['PriceHistoryItem'][];
+      page: number;
+      pages: number;
+      total: number;
+      limit: number;
     };
   };
   responses: never;
@@ -2181,6 +2190,8 @@ export interface operations {
         /** @description ERPStore identity; absent means network for unscoped user or own store for scoped user. */
         store?: number;
         product?: string;
+        page?: number;
+        limit?: 10 | 20 | 50;
       };
       header?: never;
       path?: never;
@@ -2237,7 +2248,11 @@ export interface operations {
   };
   listCampaigns: {
     parameters: {
-      query?: never;
+      query?: {
+        page?: number;
+        limit?: 10 | 20 | 50;
+        scope?: '' | 'network' | 'stores';
+      };
       header?: never;
       path?: never;
       cookie?: never;

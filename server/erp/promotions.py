@@ -15,12 +15,14 @@ FIELDS = {'name', 'startsOn', 'endsOn', 'active', 'scope', 'stores', 'prices', '
 
 def campaign_json(campaign):
     today = kyiv_day()
+    prices=campaign.prices.all()
+    if 'prices' not in getattr(campaign,'_prefetched_objects_cache',{}):prices=prices.select_related('product')
     status = 'archived' if campaign.archived else 'disabled' if not campaign.active else 'scheduled' if today < campaign.starts_on else 'expired' if today > campaign.ends_on else 'active'
     return {'id': str(campaign.pk), 'name': campaign.name, 'startsOn': campaign.starts_on.isoformat(),
         'endsOn': campaign.ends_on.isoformat(), 'active': campaign.active, 'archived': campaign.archived,
-        'scope': campaign.scope, 'stores': list(campaign.stores.order_by('pk').values_list('pk', flat=True)),
+        'scope': campaign.scope, 'stores': [s.pk for s in sorted(campaign.stores.all(),key=lambda s:s.pk)],
         'prices': [{'product': item.product_id.split('/', 1)[1], 'name': str(item.product.data.get('name') or ''),
-                    'price': format(item.price, 'f')} for item in campaign.prices.select_related('product').order_by('product_id')],
+                    'price': format(item.price, 'f')} for item in sorted(prices,key=lambda p:p.product_id)],
         'reason': campaign.reason, 'revision': campaign.revision, 'status': status, 'author': campaign.author.username}
 
 
@@ -32,7 +34,7 @@ def validate(value):
     starts, ends = day(value['startsOn']), day(value['endsOn'])
     require(starts <= ends, 'Закінчення акції не може бути раніше початку.')
     require(type(value.get('active')) is bool, 'Некоректний стан акції.')
-    require(value.get('scope') in {'network', 'stores'}, 'Виберіть мережу або магазини.')
+    require(isinstance(value.get('scope'),str) and value['scope'] in {'network', 'stores'}, 'Виберіть мережу або магазини.')
     stores = value.get('stores')
     require(isinstance(stores, list) and len(stores) <= 100 and all(type(item) is int and 0 < item <= 9223372036854775807 for item in stores) and len(set(stores)) == len(stores), 'Некоректний список магазинів.')
     require(not stores if value['scope'] == 'network' else bool(stores), 'Для всієї мережі магазини не вибираються; для магазинної акції оберіть магазин.')
@@ -120,6 +122,14 @@ def archive_campaign(request, user, identifier):
     return response(current)
 
 
+
+def paginate(request, query):
+    raw=request.GET.get('page','1')
+    require(isinstance(raw,str) and raw.isascii() and raw.isdigit() and len(raw)<=9 and int(raw)>0,'Некоректна сторінка.')
+    require(request.GET.get('limit','20') in {'10','20','50'},'Некоректний розмір сторінки.')
+    limit=int(request.GET.get('limit','20')); total=query.count();pages=max(1,(total+limit-1)//limit);page=min(int(raw),pages)
+    return list(query[(page-1)*limit:page*limit]),{'page':page,'pages':pages,'limit':limit,'total':total}
+
 def handle_promotions(request, user):
     from .views import response
     path = request.path.rstrip('/')
@@ -139,12 +149,19 @@ def handle_promotions(request, user):
         if identifier:
             require(re.fullmatch(r'[A-Za-z0-9_-]{1,120}', identifier), 'Некоректний товар.')
             records = records.filter(product_path='products/' + identifier)
-        return response({'items': [{'id': row.pk, 'product': row.product_path.split('/', 1)[1],
+        rows,page=paginate(request,records)
+        names={p.path:str(p.data.get('name') or '') for p in Document.objects.filter(pk__in=[row.product_path for row in rows])}
+        return response({**page,'items': [{'id': row.pk, 'product': row.product_path.split('/', 1)[1], 'name':names.get(row.product_path) or row.product_path.split('/',1)[1],
             'storeId': row.store_id, 'before': row.before, 'after': row.after, 'author': row.author.username,
-            'source': row.source, 'reason': row.reason, 'at': row.at.isoformat()} for row in records[:200]]})
+            'source': row.source, 'reason': row.reason, 'at': row.at.isoformat()} for row in rows]})
     require(user.profile.role == 'owner' and user.profile.store_id is None, 'Акціями мережі керує власник із мережевим доступом.')
     if path == '/api/v1/promotions/campaigns':
-        if request.method == 'GET': return response({'items': [campaign_json(item) for item in PromotionCampaign.objects.select_related('author').order_by('-created_at')[:200]]})
+        if request.method == 'GET':
+            campaigns=PromotionCampaign.objects.select_related('author').prefetch_related('stores','prices__product').order_by('-created_at','pk')
+            scope=request.GET.get('scope','');require(scope in {'','network','stores'},'Некоректний простір акцій.')
+            if scope:campaigns=campaigns.filter(scope=scope)
+            rows,page=paginate(request,campaigns)
+            return response({**page,'items':[campaign_json(item) for item in rows]})
         if request.method == 'POST': return save_campaign(request, user)
     match = re.fullmatch(r'/api/v1/promotions/campaigns/([0-9a-f-]{36})', path)
     if match:

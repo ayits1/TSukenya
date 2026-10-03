@@ -1447,6 +1447,26 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                20,
+                50
+              ]
+            }
           }
         ]
       }
@@ -1505,7 +1525,41 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                20,
+                50
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "network",
+                "stores"
+              ]
+            }
+          }
+        ]
       },
       "post": {
         "operationId": "createCampaign",
@@ -4510,6 +4564,9 @@
           "at": {
             "type": "string",
             "format": "date-time"
+          },
+          "name": {
+            "type": "string"
           }
         },
         "required": [
@@ -4521,7 +4578,8 @@
           "author",
           "source",
           "reason",
-          "at"
+          "at",
+          "name"
         ]
       },
       "CampaignPage": {
@@ -4533,10 +4591,30 @@
             "items": {
               "$ref": "#/components/schemas/Campaign"
             }
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [
-          "items"
+          "items",
+          "page",
+          "pages",
+          "total",
+          "limit"
         ]
       },
       "PriceHistoryPage": {
@@ -4548,10 +4626,30 @@
             "items": {
               "$ref": "#/components/schemas/PriceHistoryItem"
             }
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [
-          "items"
+          "items",
+          "page",
+          "pages",
+          "total",
+          "limit"
         ]
       }
     }

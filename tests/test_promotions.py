@@ -103,6 +103,32 @@ class CampaignTests(ApiFixture):
         commit=self.call('post','/api/v1/catalog/pricing/commit',{**payload,'snapshot':preview.json()['snapshot'],'idempotencyKey':str(uuid.uuid4())})
         self.assertEqual(commit.status_code,409,commit.content)
         self.assertEqual(commit.json()['code'],'revision_conflict')
+    def test_stale_expired_observation_records_transition_before_actual_edit(self):
+        self.create()
+        # Last control still remembers 25.00, but this edit happens after expiry.
+        after=kyiv_day()+timedelta(days=1)
+        with patch('server.erp.promotion_prices.kyiv_day',return_value=after):
+            product=self.product();before=PriceChange.objects.count()
+            response=self.call('patch','/api/v1/catalog/products/p',{'revision':product['revision'],'price':'32.00'})
+            self.assertEqual(response.status_code,200,response.content)
+            changes=list(PriceChange.objects.filter(store__isnull=True).order_by('pk'))
+            self.assertEqual(changes[-2].source,'observed_transition')
+            self.assertEqual((changes[-2].before['salePrice'],changes[-2].after['salePrice']),('25.00','30.00'))
+            self.assertEqual((changes[-1].before['salePrice'],changes[-1].after['salePrice']),('30.00','32.00'))
+            self.assertEqual(changes[-1].source,'catalog');self.assertEqual(PriceChange.objects.count(),before+6)
+    def test_malformed_scope_and_pagination_reach_all_201_records(self):
+        for malformed in [[],{},False,None]:
+            response=self.call('post','/api/v1/promotions/campaigns',self.payload(scope=malformed))
+            self.assertEqual(response.status_code,400,response.content)
+        PromotionCampaign.objects.bulk_create([PromotionCampaign(name=f'Запис {i}',starts_on=kyiv_day(),ends_on=kyiv_day(),scope='network',author=self.u,request_fingerprint=str(i),archived=True,active=False) for i in range(201)])
+        last=self.client.get('/api/v1/promotions/campaigns?page=5&limit=50').json()
+        self.assertEqual((last['total'],last['pages'],last['page'],len(last['items'])),(201,5,5,1))
+        self.assertEqual(self.client.get('/api/v1/promotions/campaigns?page=NaN').status_code,400)
+        terms={'regularPrice':'30.00','salePrice':'25.00','effectivePromotion':None}
+        PriceChange.objects.bulk_create([PriceChange(product_path=self.p.path,store=self.store,before=terms,after=terms,author=self.u,source='fixture',reason='Ізольовані дані') for _ in range(201)])
+        history=self.client.get(f'/api/v1/promotions/history?store={self.store.pk}&page=5&limit=50').json()
+        self.assertEqual((history['total'],history['pages'],history['page'],len(history['items'])),(201,5,5,1))
+        self.assertEqual(history['items'][0]['name'],'Кава')
 
 from concurrent.futures import ThreadPoolExecutor
 import hashlib,time

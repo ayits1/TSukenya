@@ -33,11 +33,14 @@ def observe_prices(user, documents, source, reason, *, seed=False, config=None, 
             if observation is None:
                 PriceObservation.objects.create(key=key, product_path=document.path, store=store, terms=value)
                 continue
-            if seed or observation.terms == value:
+            if observation.terms == value:
                 continue
+            # A delayed scheduler must not mislabel the remembered price as this edit's immediate before state.
+            change_source='observed_transition' if seed else source
+            change_reason='Попередній перехід чинної ціни виявлено перед зміною: '+source if seed else reason
             previous = observation.terms
             change = PriceChange.objects.create(product_path=document.path, store=store,
-                before=previous, after=value, author=user, source=source, reason=reason[:500])
+                before=previous, after=value, author=user, source=change_source, reason=change_reason[:500])
             observation.terms = value
             observation.save(update_fields=['terms', 'observed_at'])
             task_path = 'tasks/reprint_' + hashlib.sha256(key.encode()).hexdigest()[:32]
@@ -52,7 +55,7 @@ def observe_prices(user, documents, source, reason, *, seed=False, config=None, 
                 'order': old.get('order') or int(stamp.timestamp() * 1000)}
             Document.objects.update_or_create(pk=task_path, defaults={'data': task})
             audit(user, 'price_changed', document.path, {'store': store.pk if store else None,
-                'before': previous, 'after': value, 'source': source, 'reason': reason[:500], 'change': change.pk})
+                'before': previous, 'after': value, 'source': change_source, 'reason': change_reason[:500], 'change': change.pk})
             count += 1
     return count
 
