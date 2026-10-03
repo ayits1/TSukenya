@@ -19,7 +19,7 @@ COPY manage.py /app/manage.py
 COPY --from=frontend /build/frontend/dist /app/frontend/dist
 COPY data/tovary-source-2026-09-29.csv /app/seed.csv
 RUN chmod 755 /app/server/start.sh
-ENV PYTHONUNBUFFERED=1 PORT=8080 DATA_DIR=/data
+ENV PYTHONUNBUFFERED=1 PORT=8080 DATA_DIR=/data TSUKENYA_REQUIRE_POSTGRES=1
 EXPOSE 8080
 USER 10001:10001
 CMD ["/app/server/start.sh"]
