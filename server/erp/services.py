@@ -34,6 +34,8 @@ class Conflict(BusinessError):
         super().__init__(message)
         self.code, self.extra = code, extra
 
+_UNOBSERVED_REVISION = object()
+
 STALE_FORM = 'Запис уже змінено на іншому пристрої. Ваші зміни не збережено: скопіюйте потрібне, закрийте форму й відкрийте запис знову.'
 
 def record_revision(obj):
@@ -46,6 +48,12 @@ def record_revision(obj):
 def require_revision(obj, sent):
     if not isinstance(sent, str) or sent != record_revision(obj):
         raise Conflict(STALE_FORM, 'revision_conflict')
+
+def require_voucher_revision(voucher, sent):
+    """An observed draft version must still be current under the ledger lock."""
+    if type(sent) is not int or sent != voucher.revision:
+        raise Conflict(STALE_FORM, 'revision_conflict', id=voucher.pk, revision=voucher.revision)
+
 
 def request_fingerprint(user, body):
     """Normalised create request: the same retry matches, a changed form under the same key does not."""
@@ -196,8 +204,10 @@ def require_active(obj, what):
 def require_active_participants(v):
     if v.kind in ACTIVE_PARTY_KINDS and v.party:
         require_active(v.party, 'Постачальник' if v.party.kind == 'supplier' else 'Покупець')
-    if v.kind in ACTIVE_EMPLOYEE_KINDS and v.employee:
+    if v.kind in ACTIVE_EMPLOYEE_KINDS:
         require_active(v.employee, 'Працівник')
+        if v.shift:
+            require_active(v.shift.employee, 'Працівник касової зміни')
 
 DISCOUNT_KEY, DISCOUNT_DEFAULT = 'max_cashier_discount', Decimal(10)
 
@@ -252,8 +262,7 @@ def save_voucher(user, body, pk=None):
         require(v.status == 'draft', 'Проведений документ редагувати не можна.')
         require(v.kind == kind, 'Тип документа змінити не можна.')
         # B06: a draft form saves only over the version it was opened from.
-        if body.get('revision') != v.revision:
-            raise Conflict('Чернетку вже змінено на іншому пристрої. Ваші зміни не збережено: скопіюйте потрібне, закрийте форму й відкрийте документ знову.', 'revision_conflict', id=v.pk, revision=v.revision)
+        require_voucher_revision(v, body.get('revision'))
         v.revision += 1
     else:
         fingerprint = request_fingerprint(user, body)
@@ -373,7 +382,7 @@ def bonus_duplicates(shift, ids=()):
 
 def payroll_locked(v):
     """Whether this sale/return changes a posted payroll basis; mirrors payroll_amount."""
-    accrued = WorkShift.objects.filter(store=v.store, payroll__status='posted')
+    accrued = WorkShift.objects.filter(store=v.store, payroll__status='posted', bonus_percent__gt=0)
     # Without a cash shift a legacy percent reads every store sale/return of that day; later days also
     # block backdating. A rate-only day does not depend on sales and never freezes trading.
     if accrued.filter(cash_shift__isnull=True, bonus_percent__gt=0, date__gte=v.date).exists():
@@ -415,7 +424,7 @@ def payroll_amount(v):
     return total
 
 @transaction.atomic
-def post_voucher(user, pk):
+def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     lock = ledger_lock()
     v = get(Voucher, pk, 'Документ')
     scope(user,v.store)
@@ -423,6 +432,9 @@ def post_voucher(user, pk):
     if v.status == 'posted':
         return v
     require(v.status == 'draft', 'Скасований документ повторно провести не можна.')
+    # Omitted revision keeps the explicit API 'post current' contract; browser sends its observed version.
+    if expected_revision is not _UNOBSERVED_REVISION:
+        require_voucher_revision(v, expected_revision)
     require(not lock.closed_through or v.date > lock.closed_through, 'Обліковий період закритий.')
     require(v.store.active, 'Магазин вимкнений.')
     require_active_participants(v)
