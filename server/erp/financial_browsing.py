@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Q, Case, When, F, DateField
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
@@ -35,13 +35,14 @@ def date_filter(query, params, field):
 def ledger(user, params):
     financial_access(user)
     requested = page_number(params)
-    query = scoped(CashEntry.objects.select_related('voucher', 'account'), user, 'account__store_id')
+    query = scoped(CashEntry.objects.select_related('voucher', 'account'), user, 'account__store_id').annotate(
+        entry_day=Case(When(is_reversal=True, then=TruncDate('voucher__reversed_at', tzinfo=ZoneInfo('Europe/Kyiv'))), default=F('voucher__date'), output_field=DateField()))
     if user.profile.role == 'manager':
         query = query.exclude(voucher__kind__in=['payroll', 'payroll_payment'])
     for parameter, field in [('store', 'account__store_id'), ('account', 'account_id')]:
         if params.get(parameter):
             query = query.filter(**{field: positive_integer(params[parameter], 'ID рахунку' if parameter == 'account' else 'ID магазину')})
-    query = date_filter(query, params, 'voucher__date')
+    query = date_filter(query, params, 'entry_day')
     search = params.get('q', '').strip()
     require(len(search) <= 250, 'Пошуковий запит задовгий.')
     number = search.lstrip('№').strip()
@@ -53,7 +54,7 @@ def ledger(user, params):
     total = query.count()
     page, pages, offset = page_bounds(total, requested)
     return {'entries': [{
-        'id': entry.pk, 'voucher': entry.voucher_id, 'date': entry.voucher.date,
+        'id': entry.pk, 'voucher': entry.voucher_id, 'date': entry.entry_day,
         'account': entry.account.name, 'account_id': entry.account_id,
         'store_id': entry.account.store_id, 'kind': entry.voucher.kind,
         'amount': str(entry.amount), 'note': entry.voucher.note, 'reversal': entry.is_reversal,

@@ -209,6 +209,9 @@ def require_active_participants(v):
         if v.shift:
             require_active(v.shift.employee, 'Працівник касової зміни')
 
+def expense_permission(user, voucher):
+    require(voucher.kind != 'expense' or voucher.payload.get('expense_scope', 'store') != 'network' or user.profile.role in {'owner', 'accountant'}, 'Мережеві витрати доступні лише власнику або бухгалтеру.')
+
 DISCOUNT_KEY, DISCOUNT_DEFAULT = 'max_cashier_discount', Decimal(10)
 
 def percent_text(value):
@@ -278,6 +281,7 @@ def save_voucher(user, body, pk=None):
         scope(user, v.store)
         require(v.status == 'draft', 'Проведений документ редагувати не можна.')
         require(v.kind == kind, 'Тип документа змінити не можна.')
+        expense_permission(user, v)
         # B06: a draft form saves only over the version it was opened from.
         require_voucher_revision(v, body.get('revision'))
         v.revision += 1
@@ -335,7 +339,11 @@ def save_voucher(user, body, pk=None):
     payload = body.get('payload', {})
     require(isinstance(payload, dict), 'Некоректні реквізити документа.')
     # Store only supported fields; amounts and computed payroll never come from the client.
-    v.payload = {'payments': payload.get('payments', []), 'fiscal_ref': str(payload.get('fiscal_ref',''))[:160], 'category': str(payload.get('category','Інше'))[:100], 'shift_ids': payload.get('shift_ids', []), 'due_date': str(payload.get('due_date','')), 'additional_cost': str(dec(payload.get('additional_cost', 0))), 'recipe': payload.get('recipe', []), 'target_account': payload.get('target_account'), 'discount_reason': str(payload.get('discount_reason','')).strip()[:300]}
+    old_expense_scope = v.payload.get('expense_scope', 'store') if v.pk else None
+    expense_scope = payload.get('expense_scope', old_expense_scope or 'store')
+    require(expense_scope in {'store', 'network'}, 'Некоректна належність витрати.')
+    require(expense_scope == 'store' or kind == 'expense' and user.profile.role in {'owner', 'accountant'}, 'Мережеві витрати доступні лише власнику або бухгалтеру.')
+    v.payload = {'payments': payload.get('payments', []), 'fiscal_ref': str(payload.get('fiscal_ref',''))[:160], 'category': str(payload.get('category','Інше'))[:100], 'shift_ids': payload.get('shift_ids', []), 'due_date': str(payload.get('due_date','')), 'additional_cost': str(dec(payload.get('additional_cost', 0))), 'recipe': payload.get('recipe', []), 'target_account': payload.get('target_account'), 'discount_reason': str(payload.get('discount_reason','')).strip()[:300], **({'expense_scope': expense_scope} if kind == 'expense' else {})}
     if v.payload['due_date']:
         day(v.payload['due_date'])
     require(isinstance(v.payload['payments'], list) and len(v.payload['payments']) <= 10, 'Некоректні способи оплати.')
@@ -381,7 +389,7 @@ def save_voucher(user, body, pk=None):
             v.total += dec(v.payload['additional_cost'])
         require(v.total <= Decimal('99999999999999.99'), 'Сума документа перевищує допустиме значення.')
         v.save(update_fields=['total'])
-    audit(user, 'draft_saved', f'voucher/{v.pk}', {'kind':kind})
+    audit(user, 'draft_saved', f'voucher/{v.pk}', {'kind':kind, **({'expense_scope': expense_scope, 'old_expense_scope': old_expense_scope} if kind == 'expense' else {})})
     return v
 
 def validate_reference_quantities(v):
@@ -446,6 +454,7 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     v = get(Voucher, pk, 'Документ')
     scope(user,v.store)
     permission(user,v.kind)
+    expense_permission(user, v)
     if v.status == 'posted':
         return v
     require(v.status == 'draft', 'Скасований документ повторно провести не можна.')
@@ -619,6 +628,7 @@ def reverse_voucher(user, pk, reason):
     scope(user,v.store)
     require(user.profile.role in {'owner','manager','accountant'}, 'Скасування доступне керівнику або бухгалтеру.')
     permission(user,v.kind)
+    expense_permission(user, v)
     require(str(reason).strip(), 'Вкажіть причину скасування.')
     if v.status == 'reversed':
         return v
