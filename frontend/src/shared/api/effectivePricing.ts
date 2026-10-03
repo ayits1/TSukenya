@@ -18,6 +18,17 @@ export type EffectivePricing = {
 const amount = (v: unknown) => typeof v === 'string' && /^\d+\.\d{2}$/.test(v);
 const day = (v: unknown) =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v));
+export function validateRequiredEffectivePricing(
+  v: Record<string, unknown>,
+): asserts v is Record<string, unknown> & Required<EffectivePricing> {
+  if (
+    ['effectivePromotion', 'effectiveDay', 'effectivePriceRevision', 'priceContext'].some(
+      (key) => !(key in v),
+    )
+  )
+    throw new Error('Invalid product price preview context');
+  validateEffectivePricing(v);
+}
 export function validateEffectivePricing(v: Record<string, unknown>): void {
   if (
     !['effectivePromotion', 'effectiveDay', 'effectivePriceRevision', 'priceContext'].some(
