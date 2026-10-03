@@ -86,6 +86,23 @@ def totals(row):
     return {**{key: str(money(value)) for key, value in row.items()}, 'gross_profit': str(money(gross)), 'profit': str(money(profit))}
 
 
+def period_documents(ids, start, end, *, kinds=None, include_lines=False):
+    # Bound originals and Kyiv cancellations in SQL without loading cancelled history.
+    reversal_start = datetime.combine(start, time.min, tzinfo=KYIV)
+    reversal_end = datetime.combine(end + timedelta(days=1), time.min, tzinfo=KYIV)
+    query = Voucher.objects.filter(store_id__in=ids, status__in=['posted', 'reversed']).filter(
+        Q(date__range=(start, end)) | Q(reversed_at__gte=reversal_start, reversed_at__lt=reversal_end))
+    if kinds is not None:
+        query = query.filter(kind__in=kinds)
+    return query.prefetch_related('lines') if include_lines else query
+
+
+def period_sign(voucher, start, end):
+    # The reversal offsets its own Kyiv date, never the original accounting month.
+    cancelled = reversal_day(voucher)
+    return int(start <= voucher.date <= end) - int(cancelled is not None and start <= cancelled <= end)
+
+
 def period(user, params):
     from .reporting import cashier_differences
     stores, scoped = stores_for(user, params); ids = {store.pk for store in stores}
@@ -93,16 +110,11 @@ def period(user, params):
     start = day(params.get('from') or today.replace(day=1).isoformat()); end = day(params.get('to') or today.isoformat())
     require(start <= end <= today, 'Період має закінчуватись не раніше початку й не пізніше сьогодні.')
     require_reversal_dates(ids, end)
-    # Bound both sides in SQL: do not load every cancelled document in the company's history.
-    reversal_start = datetime.combine(start, time.min, tzinfo=KYIV)
-    reversal_end = datetime.combine(end + timedelta(days=1), time.min, tzinfo=KYIV)
-    documents = list(Voucher.objects.filter(store_id__in=ids, status__in=['posted', 'reversed'])
-                     .filter(Q(date__range=(start, end)) | Q(reversed_at__gte=reversal_start, reversed_at__lt=reversal_end)).prefetch_related('lines'))
+    documents = period_documents(ids, start, end, include_lines=True)
     rows = {store.pk: metrics() for store in stores}; products = {}; unallocated = ZERO
     expenses_by_category = defaultdict(lambda: ZERO)
     for voucher in documents:
-        dates = [(voucher.date, 1)] + ([(reversal_day(voucher), -1)] if reversal_day(voucher) else [])
-        sign = sum(sign for date, sign in dates if start <= date <= end)
+        sign = period_sign(voucher, start, end)
         if not sign: continue
         row = rows[voucher.store_id]; total, cost = sign * voucher.total, sign * voucher.cost
         if voucher.kind == 'sale': row['revenue'] += total; row['cogs'] += cost

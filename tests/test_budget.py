@@ -189,6 +189,7 @@ class BudgetFactTests(TestCase):
         voucher('expense', '700', day=today.replace(day=1) - timedelta(days=1), payload={'category': 'Оренда'})
         voucher('payroll', '1200', employee=worker)
         self.month = today.strftime('%Y-%m')
+        self.store, self.account, self.worker = store, account, worker
 
     def test_month_facts_by_category(self):
         from server.erp.budget import BUDGET_CATEGORIES, budget_fact
@@ -216,3 +217,42 @@ class BudgetFactTests(TestCase):
         self.assertEqual(validate_expense({'name': 'Зарплата продавців', 'group': 'fixed', 'amount': 1, 'category': 'Зарплата'})['category'], 'Зарплата')
         with self.assertRaisesMessage(BusinessError, 'категорія'):
             validate_expense({'name': 'X', 'group': 'fixed', 'amount': 1, 'category': 'Щось'})
+
+    def test_month_fact_and_report_share_reversal_month_and_kyiv_cutoff(self):
+        from datetime import date, datetime, timezone as utc
+        from decimal import Decimal
+        from unittest.mock import patch
+        from server.erp.models import Voucher
+        from server.erp.budget import budget_fact
+        from server.erp.reporting import report
+        Voucher.objects.all().delete()
+        base = dict(store=self.store, account=self.account, created_by=self.user, date=date(2026, 9, 30), status='reversed', reversed_at=datetime(2026, 9, 30, 21, 30, tzinfo=utc.utc))
+        expense = Voucher.objects.create(kind='expense', total='100.25', payload={'category':'Оренда', 'expense_scope':'network'}, **base)
+        Voucher.objects.create(kind='payroll', total='250.50', employee=self.worker, **base)
+        Voucher.objects.create(kind='expense', total='20.00', store=self.store, account=self.account, created_by=self.user, date=date(2026, 10, 2), status='posted', payload={'category':'Оренда'})
+        with patch('django.utils.timezone.localdate', return_value=date(2026, 10, 4)):
+            september = budget_fact(self.user, {'month':'2026-09'})
+            october = budget_fact(self.user, {'month':'2026-10'})
+            self.assertEqual((september['facts']['Оренда'], september['facts']['Зарплата']), ('100.25','250.50'))
+            self.assertEqual((october['facts']['Оренда'], october['facts']['Зарплата']), ('-80.25','-250.50'))
+            self.assertEqual(october['reversal_policy'], 'kyiv_reversed_at')
+            report_september = report(self.user, {'from':'2026-09-01', 'to':'2026-09-30'})
+            report_october = report(self.user, {'from':'2026-10-01', 'to':'2026-10-04'})
+            for facts, report_result in [(september,report_september),(october,report_october)]:
+                self.assertEqual(sum(Decimal(facts['facts'][key]) for key in facts['categories'] if key != 'Зарплата'), Decimal(report_result['expenses']))
+                self.assertEqual(facts['facts']['Зарплата'],report_result['payroll'])
+            # A fake future document does not enter the current month before its date.
+            Voucher.objects.create(kind='expense',total=90,store=self.store,account=self.account,created_by=self.user,date=date(2026,10,6),status='posted',payload={'category':'Оренда'})
+            self.assertEqual(budget_fact(self.user, {'month':'2026-10'})['facts']['Оренда'],'-80.25')
+            self.assertEqual(budget_fact(self.user, {'month':'9999-12'})['facts']['Оренда'],'0.00')
+            Voucher.objects.filter(pk=expense.pk).update(reversed_at=None)
+            from server.erp.services import BusinessError
+            with self.assertRaisesMessage(BusinessError,'без дати скасування'):
+                budget_fact(self.user, {'month':'2026-09'})
+
+    def test_month_zero_and_unicode_digits_are_rejected_as_business_errors(self):
+        from server.erp.services import BusinessError
+        from server.erp.budget import budget_fact
+        for month in ('0000-01', '٢٠٢٦-١٠'):
+            with self.subTest(month=month), self.assertRaisesMessage(BusinessError,'РРРР-ММ'):
+                budget_fact(self.user, {'month':month})
