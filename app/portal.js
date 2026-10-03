@@ -18,6 +18,8 @@
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const money = v => (Math.round(v*100)/100).toLocaleString("uk-UA",{minimumFractionDigits:2,maximumFractionDigits:2});
   const money0 = v => Math.round(v).toLocaleString("uk-UA");
+  // Price per 100 g of a per-kg price: whole kopecks, half-up (12,35 → 1,24).
+  const per100 = pr => Math.floor((Math.round(pr*100)+5)/10)/100;
   const countWord = (n,one,few,many) => n%100>=11&&n%100<=14 ? many : n%10===1 ? one : n%10>=2&&n%10<=4 ? few : many;
   const num = v => { const x = parseFloat(String(v).replace(",", ".")); return isFinite(x) ? x : 0; };
 
@@ -121,16 +123,26 @@
 
   /* ---------- pricing ---------- */
   const defMarkup = () => S.settings.defaultMarkup ?? 30;
-  function roundPrice(x){ const r = S.settings.rounding ?? 0.5; const price=Math.ceil(x/r - 1e-9)*r;return price===0?0:price; }
-  function regularPriceOf(p){
-    if (p.cost === undefined && p.regularPrice != null) return num(p.regularPrice);
-    if (p.manualPrice && p.price != null) return num(p.price);
-    const m = p.markup ?? defMarkup();
-    return roundPrice(num(p.cost)*(1+num(m)/100));
+  // Products exactly as the server sent them: their regularPrice is authoritative (Decimal on the server).
+  const served = new WeakSet();
+  // Decimal digits and scale of a value; prices are counted in whole kopecks, never in binary floats.
+  const exact = v => { const [,sign,whole,frac="",exp=0]=String(num(v)).match(/^(-?)(\d+)(?:\.(\d+))?(?:e([+-]\d+))?$/); let d=BigInt(whole+frac),k=frac.length-Number(exp); if(k<0){d*=10n**BigInt(-k);k=0;} return [sign?-d:d,k]; };
+  const halfUp = (x,y) => x<0n ? -((-2n*x+y)/(2n*y)) : (2n*x+y)/(2n*y);
+  const kopecks = v => { const [d,k]=exact(v); return halfUp(d*100n,10n**BigInt(k)); };
+  // Like the server: a discount with more than two decimals is ignored, not rounded.
+  const discountKopecks = v => { const [d,k]=exact(v),y=10n**BigInt(k); return (d*100n)%y===0n ? d*100n/y : 0n; };
+  function regularKopecks(p){
+    if (p.regularPrice != null && (served.has(p) || p.cost === undefined)) return kopecks(p.regularPrice);
+    if (p.manualPrice && p.price != null) return kopecks(p.price);
+    // Same rule as server regular_price(): ceil(cost × (1 + markup/100) / rounding) × rounding.
+    const [c,ck]=exact(p.cost), [m,mk]=exact(p.markup ?? defMarkup()); let [r,rk]=exact(S.settings.rounding ?? 0.5); if(r<=0n){r=5n;rk=1;}
+    const n=c*(100n*10n**BigInt(mk)+m)*10n**BigInt(rk), d=10n**BigInt(ck+mk+2)*r, steps=n/d+(n%d>0n?1n:0n);
+    return halfUp(steps*r*100n,10n**BigInt(rk));
   }
+  function regularPriceOf(p){ return Number(regularKopecks(p))/100; }
   function priceOf(p){
-    const regular=regularPriceOf(p), discounted=num(p.promotionPrice);
-    return p.promotion && discounted>0 && discounted<regular ? discounted : regular;
+    const regular=regularKopecks(p), discounted=discountKopecks(p.promotionPrice);
+    return Number(p.promotion && discounted>0n && discounted<regular ? discounted : regular)/100;
   }
   const hasDiscount = p => p.promotion && priceOf(p)<regularPriceOf(p);
   const marginOf = p => { const pr = priceOf(p); return pr>0 ? (pr-num(p.cost))/pr : 0; };
@@ -141,7 +153,8 @@
     try { await fn(); if (ok) toast(ok); return true; }
     catch(e){
       if (e && e.code==="unavailable"){ await new Promise(r=>setTimeout(r,400+Math.random()*600)); try{ await fn(); if(ok) toast(ok); return true; }catch(_){} }
-      toast(e && e.code==="invalid_argument" ? "Немає прав змінювати дані" : "Не вдалося зберегти, спробуйте ще раз");return false;
+      // Server reasons (rights, barcode, version conflict) are Ukrainian; transport errors are not shown verbatim.
+      toast(e?.serverMessage || (e && e.code==="invalid_argument" ? "Немає прав змінювати дані" : "Не вдалося зберегти, спробуйте ще раз"));return false;
     }
   }
   const gsSoon = col => { if (col==="products" && S.settings.gsId){ clearTimeout(S.gsSoonT); S.gsSoonT = setTimeout(()=>gsSync(), 2500); } };
@@ -293,7 +306,7 @@
     window.Trade?.leave();
     renderPath();
     const m = $("#main"),openPanels=[...m.querySelectorAll("[data-disclosure][open]")].map(el=>el.dataset.disclosure),scrolls=[...m.querySelectorAll(".pick,.field-list")].map(el=>[el.className,el.scrollTop,el.scrollLeft]);
-    const drafts=inlineDrafts();
+    const drafts=inlineDrafts(),focus=m.contains(a)&&a!==m?focusKey(a):null;
     m.innerHTML = ({overview, devOverview, work, tasks, ideas, products, tags, expenses})[tab]();
     if(tab==='expenses'){
       m.querySelectorAll(budgetFields).forEach(el=>{const draft=budgetDrafts.get(budgetKey(el));if(draft)el.value=draft.value;});
@@ -302,7 +315,20 @@
     for(const [key,value] of drafts){const el=[...m.querySelectorAll(inlineFields)].find(el=>fieldKey(el)===key);if(el)el.value=value;}
     for(const key of openPanels)m.querySelector(`[data-disclosure="${key}"]`)?.setAttribute("open","");
     for(const [cls,top,left]of scrolls){const el=m.getElementsByClassName(cls)[0];if(el){el.scrollTop=top;el.scrollLeft=left;}}
+    if(focus)restoreFocus(m,focus);
     if (tab==="tags") renderPreview();
+  }
+  // Re-rendering #main replaces its controls; keyboard focus returns to the same control (same action and record).
+  const FOCUS_ATTRS = ['id','name','href','data-act','data-cycle','data-del-task','data-react','data-v','data-idea-task','data-exp','data-del-exp','data-g','data-newexp','data-budget-discard','data-edit-product','data-promotion','data-page','data-f','data-fclear','data-ddtoggle','data-tag','data-qty','data-store','data-style','data-prop','data-field','data-field-visible','data-edit-field','data-go','data-pf','data-id'];
+  function focusKey(el){
+    const own=FOCUS_ATTRS.filter(name=>el.hasAttribute(name)).map(name=>[name,el.getAttribute(name)]),box=el.closest('[data-disclosure]')?.dataset.disclosure;
+    return own.length||el.tagName==='SUMMARY'&&box ? {tag:el.tagName,own,box,selection:el.tagName==='INPUT'||el.tagName==='TEXTAREA'?[el.selectionStart,el.selectionEnd]:null} : null;
+  }
+  function restoreFocus(root,key){
+    const el=[...root.getElementsByTagName(key.tag)].find(x=>key.own.every(([name,value])=>x.getAttribute(name)===value)&&x.closest('[data-disclosure]')?.dataset.disclosure===key.box);
+    if(!el||el.disabled||el.closest('[hidden]'))return;
+    el.focus({preventScroll:true});
+    if(key.selection&&key.selection[0]!=null)try{el.setSelectionRange(...key.selection);}catch(_){}
   }
   $("#main").addEventListener("focusout", ()=>setTimeout(()=>{ if(pending) render(); },0));
   const SECTIONS = {
@@ -472,7 +498,7 @@
     if(window.TSUKENYA_SERVER && !["owner","manager","warehouse"].includes(window.TSUKENYA_ROLE))return "";
     return `<details class="panel disclosure" data-disclosure="import"><summary>Імпорт товарів із CSV або Excel</summary><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></details>
     <details class="panel disclosure" data-disclosure="sheets"><summary>Спільна Google-таблиця</summary><div id="linkBox">${linkInner()}</div></details>
-    <details class="panel disclosure" data-disclosure="bulk"><summary>Масове оновлення націнки та округлення</summary>${window.TSUKENYA_SERVER&&window.CatalogPricing?`<div id="bulkBox">${window.CatalogPricing.html()}</div>`:`<div class="row"><label class="form-field">Націнка, %<input id="bulkM" type="number" value="${defMarkup()}"></label><label class="form-field">Застосувати до<select id="bulkC"><option value="">Усі товари</option><option value="__f">Показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><button class="btn" data-act="bulk">Оновити ціни</button><label class="form-field">Округлення<select id="rounding">${[[0.01,'До копійки'],[0.1,'До 10 коп.'],[0.5,'До 50 коп.'],[1,'До гривні']].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?'selected':''}>${l}</option>`).join('')}</select></label></div>`}</details>`;
+    <details class="panel disclosure" data-disclosure="bulk"><summary>Масове оновлення націнки та округлення</summary>${window.TSUKENYA_SERVER&&window.CatalogPricing?`<div id="bulkBox">${window.CatalogPricing.html()}</div>`:`<div class="row"><label class="form-field">Націнка, %<input id="bulkM" type="number" value="${esc(defMarkup())}"></label><label class="form-field">Застосувати до<select id="bulkC"><option value="">Усі товари</option><option value="__f">Показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><button class="btn" data-act="bulk">Оновити ціни</button><label class="form-field">Округлення<select id="rounding">${[[0.01,'До копійки'],[0.1,'До 10 коп.'],[0.5,'До 50 коп.'],[1,'До гривні']].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?'selected':''}>${l}</option>`).join('')}</select></label></div>`}</details>`;
   }
   function products(){
     const f=S.F.prod;
@@ -480,14 +506,15 @@
   }
   function openProduct(id){
     const p=S.products.find(x=>x.id===id)||{name:'',cost:0,markup:defMarkup(),unit:'шт'}, d=$('#productEditor');
-    S.productEditId=id||null;S.editDirty=false;S.productOpener=document.activeElement;
+    // The revision shown when the editor opened is the one the save may replace.
+    S.productEditId=id||null;S.productEditRevision=id?S.productRevisions?.get(id):undefined;S.editDirty=false;S.productOpener=document.activeElement;
     d.innerHTML=`<form id="productForm"><div class="row between gap-lg"><h2 id="productDialogTitle">${id?'Редагувати товар':'Новий товар'}</h2><button type="button" class="x" data-act="closeProduct" aria-label="Закрити редактор">×</button></div><div class="editor-grid">
       <label class="form-field span-all">Назва товару<input name="name" value="${esc(p.name)}" required maxlength="250" autocomplete="off"></label>
       <label class="form-field">Група<select name="type">${typeOpts(id?typeOf(p):TYPES[0])}</select></label><label class="form-field">Категорія<input name="category" value="${esc(p.category||'')}" autocomplete="off"></label>
       <label class="form-field">Пакування<select name="pack">${packOpts(p.pack||'')}</select></label><label class="form-field">Об’єм / вага<input name="size" value="${esc(p.size||'')}" autocomplete="off"></label>
       <label class="form-field">Штрихкод<input name="barcode" value="${esc(p.barcode||'')}" maxlength="80" autocomplete="off"></label><label class="form-field">Мінімальний залишок<input name="minStock" type="number" min="0" step="0.001" value="${num(p.minStock)}"></label>
       <label class="form-field">Одиниця продажу<select name="unit">${unitOpts(p.unit||'шт')}</select></label><label class="form-field">Дата перевірки ціни<input name="priceAt" type="date" value="${esc(p.priceAt||today())}"></label>
-      <label class="form-field">Закупівля, грн<input name="cost" type="number" min="0" step="0.01" value="${num(p.cost)}"></label><label class="form-field">Націнка, %<input name="markup" type="number" min="0" step="0.1" value="${p.markup??defMarkup()}"></label>
+      <label class="form-field">Закупівля, грн<input name="cost" type="number" min="0" step="0.01" value="${num(p.cost)}"></label><label class="form-field">Націнка, %<input name="markup" type="number" min="0" step="0.1" value="${esc(p.markup??defMarkup())}"></label>
       <label class="form-field">Розрахунок ціни<select name="priceMode"><option value="calculated" ${!p.manualPrice?'selected':''}>Закупівля + націнка</option><option value="manual" ${p.manualPrice?'selected':''}>Задати вручну</option></select></label><label class="form-field">Ручна ціна, грн<input name="price" type="number" min="0" step="0.01" value="${p.manualPrice?num(p.price):''}" ${p.manualPrice?'':'disabled'}></label>
       <label class="promotion-toggle span-all"><input name="promotion" type="checkbox" ${p.promotion?'checked':''}><span>Акційний товар — показувати «Акція» на ціннику</span></label>
       <label class="form-field">Акційна ціна, грн<input name="promotionPrice" type="number" min="0.01" step="0.01" value="${p.promotionPrice==null?'':esc(p.promotionPrice)}"><small>Звичайна ціна зберігається окремо. Акційна ціна застосовується лише під час акції.</small></label></div>
@@ -496,8 +523,8 @@
   }
   async function deleteEditedProduct(button){
     if(!confirm('Видалити цей товар?'))return;button.disabled=true;
-    try{await db.collection('products').doc(S.productEditId).delete();S.editDirty=false;$('#productEditor').close();toast('Товар видалено');}
-    catch(error){$('#productError').textContent=error.message||'Не вдалося видалити товар.';button.disabled=false;}
+    try{await db.collection('products').doc(S.productEditId).delete(S.productEditRevision&&{revision:S.productEditRevision});S.editDirty=false;$('#productEditor').close();toast('Товар видалено');}
+    catch(error){$('#productError').textContent=error.serverMessage||'Не вдалося видалити товар.';button.disabled=false;}
   }
   function closeProduct(){if(S.editDirty&&!confirm('Закрити редактор без збереження змін?'))return;$('#productEditor').close();S.editDirty=false;}
   document.addEventListener('submit',async e=>{
@@ -506,7 +533,7 @@
     const payload={barcode:v.barcode.trim(),minStock:num(v.minStock),name:v.name.trim(),type:v.type,category:v.category.trim(),pack:v.pack||null,size:v.size.trim()||null,unit:v.unit,cost:num(v.cost),markup:num(v.markup),manualPrice:manual,price:manual?num(v.price):null,priceAt:v.priceAt||null,promotion:f.elements.promotion.checked,promotionPrice:v.promotionPrice?num(v.promotionPrice):null};
     if(payload.promotion && payload.promotionPrice!=null && !(payload.promotionPrice>0 && payload.promotionPrice<regularPriceOf(payload))){$('#productError').textContent='Акційна ціна має бути більшою за нуль і нижчою за звичайну.';f.elements.promotionPrice.focus();return;}
     if(!payload.name)return;const b=f.querySelector('[type=submit]');b.disabled=true;b.textContent='Збереження…';
-    try{if(S.productEditId)await db.collection('products').doc(S.productEditId).update(payload);else await db.collection('products').add(payload);S.editDirty=false;$('#productEditor').close();toast('Товар збережено');}catch(err){$('#productError').textContent=err.message||'Не вдалося зберегти товар.';}finally{b.disabled=false;b.textContent='Зберегти товар';}
+    try{if(S.productEditId)await db.collection('products').doc(S.productEditId).update(payload,S.productEditRevision&&{revision:S.productEditRevision});else await db.collection('products').add(payload);S.editDirty=false;$('#productEditor').close();toast('Товар збережено');}catch(err){$('#productError').textContent=err.serverMessage||'Не вдалося зберегти товар.';}finally{b.disabled=false;b.textContent='Зберегти товар';}
   });
 
   /* ---------- price tags ---------- */
@@ -561,7 +588,7 @@
       pack: c.pack ? packLabel(p.pack) : "", size:c.psize ? sizeLabel(p) : "",
       price: c.price ? priceTxt : "",
       oldPrice: c.oldPrice && hasDiscount(p) ? money(regularPriceOf(p))+" грн" : "",
-      unit: c.unit ? unitPhrase(p.unit) : "", per100:c.per100 && kg && pr>0 ? `100 г — ${money(pr/10)} грн` : "",
+      unit: c.unit ? unitPhrase(p.unit) : "", per100:c.per100 && kg && pr>0 ? `100 г — ${money(per100(pr))} грн` : "",
       category: c.category ? (p.category||"") : "",
       date: c.date ? new Date().toLocaleDateString("uk-UA") : ""
     };
@@ -774,7 +801,7 @@
   }
   function csv(list){
     const labels=["Назва","Категорія","Одиниця","Звичайна ціна, грн","Акційна ціна, грн","Діюча ціна, грн","Ціна за 100 г, грн","Акція"];
-    const rows=list.map(p=>{const pr=priceOf(p);return [p.name,p.category||"",p.unit||"шт",money(regularPriceOf(p)),hasDiscount(p)?money(pr):"",money(pr),p.unit==="кг"?money(pr/10):"",p.promotion?"Так":"Ні"];});
+    const rows=list.map(p=>{const pr=priceOf(p);return [p.name,p.category||"",p.unit||"шт",money(regularPriceOf(p)),hasDiscount(p)?money(pr):"",money(pr),p.unit==="кг"?money(per100(pr)):"",p.promotion?"Так":"Ні"];});
     return window.TSukenyaCsv.serialize(labels.map((label,index)=>({label,kind:index>=3&&index<=6?'number':'text'})),rows,{reversible:true});
   }
   async function save(filename, data){
@@ -986,7 +1013,7 @@
     const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
     const rows = [["Назва","Діюча ціна, грн","Од.","Ціна за 100 г, грн","Група","Категорія","Пакування","Розмір","Ціна оновлена","Звичайна ціна, грн","Акція","Акційна ціна, грн"]].concat(list.map(p=>{
       const pr = priceOf(p);
-      return [p.name, pr>0 ? dec(pr) : "", p.unit||"шт", (pr>0 && p.unit==="кг") ? dec(pr/10) : "", typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.priceAt||"", regularPriceOf(p)>0?dec(regularPriceOf(p)):"", p.promotion?"Так":"Ні", num(p.promotionPrice)>0?dec(num(p.promotionPrice)):""];
+      return [p.name, pr>0 ? dec(pr) : "", p.unit||"шт", (pr>0 && p.unit==="кг") ? dec(per100(pr)) : "", typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.priceAt||"", regularPriceOf(p)>0?dec(regularPriceOf(p)):"", p.promotion?"Так":"Ні", num(p.promotionPrice)>0?dec(num(p.promotionPrice)):""];
     }));
     return rows.map(r=>r.map(q).join(",")).join("\r\n");
   }
@@ -1149,7 +1176,7 @@
       put("name", m.name); put("type", m.type); put("category", m.category); put("pack", m.pack); put("size", m.size ? "'"+m.size : "");
       put("unit", m.unit); put("cost", numOrBlank(m.cost)); put("markup", +m.markup); put("price", numOrBlank(m.price));
       put("promotion", m.promotion==="1"?"Так":"Ні");put("promotionPrice", numOrBlank(m.promotionPrice));
-      put("tagPrice", pr > 0 ? Math.round(pr*100)/100 : ""); put("per100", m.unit==="кг" && pr > 0 ? Math.round(pr*10)/100 : "");
+      put("tagPrice", pr > 0 ? Math.round(pr*100)/100 : ""); put("per100", m.unit==="кг" && pr > 0 ? Math.floor((Math.round(pr*100)+5)/10)/100 : "");
       put("priceAt", priceAt ? "'"+priceAt : ""); put("id", "'"+id);
       return out;
     };
@@ -1505,6 +1532,7 @@
     db.collection("products").onSnapshot(s=>{
       const firstProducts = !S.productsLoaded;
       S.allProducts = s.docs.map(x=>({id:x.id, ...x.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name),"uk"));
+      S.allProducts.forEach(p=>served.add(p)); S.productRevisions = new Map(s.docs.map(x=>[x.id,x.revision]));
       S.products = S.allProducts.filter(p=>!p.hidden); S.productsLoaded=true; render(); if(firstProducts) syncSetup();
     }, ()=>{});
     sub("expenses","expenses",byOrder);
