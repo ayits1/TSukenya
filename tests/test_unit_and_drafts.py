@@ -91,6 +91,47 @@ class DraftRevisionTests(ApiFixture):
         self.assertEqual(Voucher.objects.count(), 1)
         self.assertEqual(Voucher.objects.get().lines.get().quantity, 1)
 
+    def test_post_observed_revision_refuses_unseen_changes_without_movements(self):
+        created = self.call('post', '/api/erp/vouchers', self.body()).json()
+        url = f'/api/erp/vouchers/{created["id"]}'
+        updated = self.call('put', url, self.body(revision=1, lines=[{'product': 'p', 'quantity': 7, 'price': 5}]))
+        self.assertEqual(updated.status_code, 200, updated.content)
+        for revision in (1, '2', True, None):
+            refused = self.call('post', url + '/post', {'revision': revision})
+            self.assertEqual(refused.status_code, 409, refused.content)
+            self.assertEqual(refused.json()['code'], 'revision_conflict')
+        self.assertEqual(StockEntry.objects.count(), 0)
+        self.assertEqual(Voucher.objects.get().status, 'draft')
+        posted = self.call('post', url + '/post', {'revision': 2})
+        self.assertEqual(posted.status_code, 200, posted.content)
+        self.assertEqual(StockLot.objects.get().quantity, 7)
+        # Lost posting response is safe to retry, including an older observed version.
+        self.assertEqual(self.call('post', url + '/post', {'revision': 1}).status_code, 200)
+        self.assertEqual(StockEntry.objects.count(), 1)
+
+    def test_deliberate_post_current_api_remains_available(self):
+        created = self.call('post', '/api/erp/vouchers', self.body()).json()
+        self.assertEqual(self.call('post', f'/api/erp/vouchers/{created["id"]}/post').status_code, 200)
+
+    def test_delete_observed_revision_preserves_newer_draft(self):
+        created = self.call('post', '/api/erp/vouchers', self.body()).json()
+        url = f'/api/erp/vouchers/{created["id"]}'
+        self.call('put', url, self.body(revision=1, lines=[{'product': 'p', 'quantity': 7, 'price': 5}]))
+        refused = self.call('delete', url, {'revision': 1})
+        self.assertEqual(refused.status_code, 409, refused.content)
+        self.assertEqual(Voucher.objects.get().lines.get().quantity, 7)
+        self.assertEqual(self.call('delete', url, {'revision': 2}).status_code, 200)
+
+    def test_create_retry_after_another_editor_never_adopts_their_revision(self):
+        body = self.body(idempotency_key='lost-response')
+        created = self.call('post', '/api/erp/vouchers', body).json()
+        self.call('put', f'/api/erp/vouchers/{created["id"]}', self.body(revision=1, lines=[{'product': 'p', 'quantity': 7, 'price': 5}]))
+        for _ in range(2):
+            refused = self.call('post', '/api/erp/vouchers', body)
+            self.assertEqual(refused.status_code, 409)
+            self.assertEqual(refused.json()['code'], 'idempotency_conflict')
+            self.assertEqual(Voucher.objects.get().lines.get().quantity, 7)
+
     def test_create_key_is_bound_to_its_author(self):
         body = self.body(idempotency_key='author-key')
         save_voucher(self.u, body)

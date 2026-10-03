@@ -34,6 +34,8 @@ class Conflict(BusinessError):
         super().__init__(message)
         self.code, self.extra = code, extra
 
+_UNOBSERVED_REVISION = object()
+
 STALE_FORM = 'Запис уже змінено на іншому пристрої. Ваші зміни не збережено: скопіюйте потрібне, закрийте форму й відкрийте запис знову.'
 
 def record_revision(obj):
@@ -46,6 +48,12 @@ def record_revision(obj):
 def require_revision(obj, sent):
     if not isinstance(sent, str) or sent != record_revision(obj):
         raise Conflict(STALE_FORM, 'revision_conflict')
+
+def require_voucher_revision(voucher, sent):
+    """An observed draft version must still be current under the ledger lock."""
+    if type(sent) is not int or sent != voucher.revision:
+        raise Conflict(STALE_FORM, 'revision_conflict', id=voucher.pk, revision=voucher.revision)
+
 
 def request_fingerprint(user, body):
     """Normalised create request: the same retry matches, a changed form under the same key does not."""
@@ -196,8 +204,10 @@ def require_active(obj, what):
 def require_active_participants(v):
     if v.kind in ACTIVE_PARTY_KINDS and v.party:
         require_active(v.party, 'Постачальник' if v.party.kind == 'supplier' else 'Покупець')
-    if v.kind in ACTIVE_EMPLOYEE_KINDS and v.employee:
+    if v.kind in ACTIVE_EMPLOYEE_KINDS:
         require_active(v.employee, 'Працівник')
+        if v.shift:
+            require_active(v.shift.employee, 'Працівник касової зміни')
 
 DISCOUNT_KEY, DISCOUNT_DEFAULT = 'max_cashier_discount', Decimal(10)
 
@@ -212,24 +222,41 @@ def discount_limit():
     except InvalidOperation:
         return DISCOUNT_DEFAULT
 
-def apply_discounts(user, v):
-    """B07: price below the catalogue price at this moment needs a reason, a role that may give that discount and leaves a snapshot."""
+def approved_order_price(line):
+    """Only posting creates this proof; legacy orders and draft snapshots are not approvals."""
+    if not line.reference_line:
+        return False
+    source = line.reference_line.voucher
+    if source.kind != 'customer_order' or source.status != 'posted':
+        return False
+    return any(a.get('line') == line.reference_line_id and a.get('price') == str(line.reference_line.price)
+               and a.get('role') in {'owner', 'manager', 'cashier'}
+               for a in source.payload.get('price_approvals', []) if isinstance(a, dict)) and line.price >= line.reference_line.price
+
+def apply_discounts(user, v, *, actual_cost=False):
+    """Validate price at posting. Sales use consumed stock value, independently of discounts or orders."""
     from .catalog import defaults, regular_price, sale_price, decimal
     config, limit, role, snapshots = defaults(), discount_limit(), user.profile.role, []
-    for l in v.lines.select_related('product', 'reference_line'):
+    for l in v.lines.select_related('product', 'reference_line__voucher'):
         data = l.product.data
         effective = sale_price(data, config)
-        # A price fixed in the already approved customer order is not a new discount.
-        if effective <= 0 or l.price >= effective or l.reference_line and l.price >= l.reference_line.price: continue
-        cost, deep = decimal(data.get('cost')), (effective - l.price) * 100 > limit * effective
-        below_cost = cost > 0 and l.price < cost
+        approved = v.kind == 'sale' and approved_order_price(l)
+        discounted = effective > 0 and l.price < effective and not approved
+        below_cost = l.amount < l.cost if actual_cost else decimal(data.get('cost')) > l.price
+        # A catalogue promotion or an approved order never authorizes a cashier's loss-making sale.
         require(role in {'owner', 'manager'} or not below_cost, f'{l.name}: ціна нижче собівартості. Такий продаж може провести лише менеджер або власник.')
+        if not discounted and not below_cost:
+            continue
+        deep = discounted and (effective - l.price) * 100 > limit * effective
         require(role in {'owner', 'manager'} or not deep, f'{l.name}: знижка перевищує ліміт касира {percent_text(limit)}%. Більшу знижку може провести лише менеджер або власник.')
         reason = str(v.payload.get('discount_reason', '')).strip()
         require(reason, 'Вкажіть причину знижки.')
-        snapshots.append({'product': l.product_id.split('/', 1)[1], 'name': l.name, 'catalogue_price': str(regular_price(data, config)), 'effective_price': str(effective), 'price': str(l.price), 'discount_percent': str(((effective - l.price) * 100 / effective).quantize(CENT, rounding=ROUND_HALF_UP)), 'below_cost': below_cost, 'author': user.username, 'reason': reason})
+        percent = max(ZERO, (effective - l.price) * 100 / effective) if effective > 0 else ZERO
+        snapshots.append({'product': l.product_id.split('/', 1)[1], 'name': l.name, 'catalogue_price': str(regular_price(data, config)), 'effective_price': str(effective), 'price': str(l.price), 'discount_percent': str(percent.quantize(CENT, rounding=ROUND_HALF_UP)), 'below_cost': below_cost, 'author': user.username, 'reason': reason})
+    v.payload.pop('discounts', None)
     if snapshots:
-        v.payload['discounts'] = snapshots; v.save(update_fields=['payload'])
+        v.payload['discounts'] = snapshots
+    v.save(update_fields=['payload'])
 
 @transaction.atomic
 def save_voucher(user, body, pk=None):
@@ -252,8 +279,7 @@ def save_voucher(user, body, pk=None):
         require(v.status == 'draft', 'Проведений документ редагувати не можна.')
         require(v.kind == kind, 'Тип документа змінити не можна.')
         # B06: a draft form saves only over the version it was opened from.
-        if body.get('revision') != v.revision:
-            raise Conflict('Чернетку вже змінено на іншому пристрої. Ваші зміни не збережено: скопіюйте потрібне, закрийте форму й відкрийте документ знову.', 'revision_conflict', id=v.pk, revision=v.revision)
+        require_voucher_revision(v, body.get('revision'))
         v.revision += 1
     else:
         fingerprint = request_fingerprint(user, body)
@@ -373,7 +399,7 @@ def bonus_duplicates(shift, ids=()):
 
 def payroll_locked(v):
     """Whether this sale/return changes a posted payroll basis; mirrors payroll_amount."""
-    accrued = WorkShift.objects.filter(store=v.store, payroll__status='posted')
+    accrued = WorkShift.objects.filter(store=v.store, payroll__status='posted', bonus_percent__gt=0)
     # Without a cash shift a legacy percent reads every store sale/return of that day; later days also
     # block backdating. A rate-only day does not depend on sales and never freezes trading.
     if accrued.filter(cash_shift__isnull=True, bonus_percent__gt=0, date__gte=v.date).exists():
@@ -415,7 +441,7 @@ def payroll_amount(v):
     return total
 
 @transaction.atomic
-def post_voucher(user, pk):
+def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     lock = ledger_lock()
     v = get(Voucher, pk, 'Документ')
     scope(user,v.store)
@@ -423,13 +449,17 @@ def post_voucher(user, pk):
     if v.status == 'posted':
         return v
     require(v.status == 'draft', 'Скасований документ повторно провести не можна.')
+    # Omitted revision keeps the explicit API 'post current' contract; browser sends its observed version.
+    if expected_revision is not _UNOBSERVED_REVISION:
+        require_voucher_revision(v, expected_revision)
     require(not lock.closed_through or v.date > lock.closed_through, 'Обліковий період закритий.')
     require(v.store.active, 'Магазин вимкнений.')
     require_active_participants(v)
     require(not v.reference or v.reference.status == 'posted', 'Вихідний документ скасований.')
     validate_reference_quantities(v)
-    if v.kind == 'sale':
+    if v.kind == 'customer_order':
         apply_discounts(user, v)
+        v.payload['price_approvals'] = [{'line': l.pk, 'price': str(l.price), 'author': user.username, 'role': user.profile.role} for l in v.lines.all()]
     if v.kind in {'customer_return','supplier_return'}:
         v.total = ZERO
         for line in v.lines.select_related('reference_line'):
@@ -527,6 +557,7 @@ def post_voucher(user, pk):
         require(v.shift.store_id == v.store_id and not v.shift.closed_at, 'Касова зміна закрита або належить іншому магазину.')
         require(user.profile.role != 'cashier' or v.shift.opened_by_id == user.pk, 'Касова зміна відкрита іншим касиром.')
     if v.kind == 'sale':
+        apply_discounts(user, v, actual_cost=True)
         require(v.employee is None or v.employee.store_id == v.store_id, 'Працівник належить іншому магазину.')
         fiscal = Setting.objects.filter(key='fiscal_required').first()
         require(not fiscal or fiscal.value != 'true' or v.payload['fiscal_ref'], 'Потрібен номер фіскального чека із вашого ПРРО.')

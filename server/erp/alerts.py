@@ -1,22 +1,30 @@
 """Operational alerts become store-scoped tasks, deduplicated by business condition."""
 import hashlib
+import logging
+import uuid
 from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 import json
 from .models import Document, Voucher, Setting
 from .services import ledger_lock, obligation, audit
-from .reporting import stock, scoped, ALERT_OK_KEY, ALERT_ERROR_KEY
+from .reporting import stock, scoped, ALERT_OK_KEY, ALERT_ERROR_KEY, ALERT_PUBLIC_ERROR
+
+logger=logging.getLogger(__name__)
 
 def record_alert_error(user,source,error):
     # Only network-wide runs say anything about the whole control; a failed run rolled back, so the error is written outside its transaction.
     if user is not None and user.profile.store_id:return
-    Setting.objects.update_or_create(pk=ALERT_ERROR_KEY,defaults={'value':json.dumps({'at':timezone.now().isoformat(),'source':source,'message':str(error)[:300] or error.__class__.__name__},ensure_ascii=False)})
+    reference=uuid.uuid4().hex[:12]
+    logger.error('Operational alert control failed [%s], source=%s',reference,source,exc_info=(type(error),error,error.__traceback__))
+    Setting.objects.update_or_create(pk=ALERT_ERROR_KEY,defaults={'value':json.dumps({'at':timezone.now().isoformat(),'source':source,'message':ALERT_PUBLIC_ERROR,'reference':reference},ensure_ascii=False)})
 
 def run_alerts(user,source='manual'):
     try:return sync_alerts(user,source)
     except Exception as error:
-        record_alert_error(user,source,error);raise
+        try:record_alert_error(user,source,error)
+        except Exception:logger.exception('Could not record operational alert control failure')
+        raise
 
 @transaction.atomic
 def sync_alerts(user,source='manual'):
