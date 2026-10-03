@@ -47,6 +47,8 @@ export type StudioFilters = {
 export type StudioViewProps = {
   config: LabelConfig;
   settings: LabelSettings;
+  previewSettings?: LabelSettings;
+  previewConfig?: LabelConfig;
   selectedField: LabelField;
   onSelectField: (field: LabelField) => void;
   /** `mergeKey`: consecutive changes with the same key form one undo step (e.g. a colour drag). */
@@ -459,8 +461,8 @@ export function StudioView(props: StudioViewProps) {
               {props.previewProduct ? (
                 <Canvas
                   product={props.previewProduct}
-                  config={config}
-                  settings={settings}
+                  config={props.previewConfig || config}
+                  settings={props.previewSettings || settings}
                   selectedField={selectedField}
                   onSelectField={props.onSelectField}
                 />

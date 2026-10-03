@@ -2,7 +2,7 @@
 import re
 from decimal import Decimal
 from .catalog import (EDIT_ROLES, defaults, new_product_data, normalise_product, plain,
-                      pricing_revision, promotion_amount, regular_price, revision, sale_price)
+                      pricing_revision, promotion_amount, regular_price, revision)
 from .models import Document
 from .services import require
 
@@ -35,6 +35,8 @@ def preview_product_price(request, user):
     warnings = []
     if data.get('promotion') and not valid:
         warnings.append('Збережена акція не має чинної акційної ціни. Застосовується звичайна ціна; для зміни умов вкажіть акційну ціну.')
-    return response({'regularPrice': format(regular, 'f'), 'salePrice': format(sale_price(data, config), 'f'),
+    from .promotion_prices import PriceResolver, context_store
+    resolved = PriceResolver(config, context_store(user, request.GET.get('store')), product_paths=[path]).resolve(Document(path=path, data=data))
+    return response({**resolved,
         'config': {'markup': plain(config['markup']), 'rounding': plain(config['rounding'] if config['rounding'] > 0 else Decimal('.5'))},
         'pricingRevision': pricing_revision(config), 'warnings': warnings, 'promotionValid': valid})

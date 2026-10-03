@@ -29,6 +29,8 @@ def run_alerts(user,source='manual'):
 @transaction.atomic
 def sync_alerts(user,source='manual'):
     ledger_lock()
+    from .promotion_history import scan_prices
+    scan_prices(user,source=source)
     now=timezone.localdate();conditions={}
     data=stock(user)
     for s in data['totals']:

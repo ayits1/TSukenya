@@ -256,11 +256,17 @@ def approved_order_price(line):
 
 def apply_discounts(user, v, *, actual_cost=False):
     """Validate price at posting. Sales use consumed stock value, independently of discounts or orders."""
-    from .catalog import defaults, regular_price, sale_price, decimal
+    from .catalog import defaults, regular_price, decimal
     config, limit, role, snapshots = defaults(), discount_limit(), user.profile.role, []
-    for l in v.lines.select_related('product', 'reference_line__voucher'):
+    from .promotion_prices import PriceResolver
+    lines = list(v.lines.select_related('product', 'reference_line__voucher'))
+    resolver = PriceResolver(config, v.store, product_paths=[line.product_id for line in lines])
+    versions = []
+    for l in lines:
         data = l.product.data
-        effective = sale_price(data, config)
+        resolved = resolver.resolve(l.product)
+        effective = Decimal(resolved['salePrice'])
+        versions.append({'product': l.product_id.split('/', 1)[1], 'effective_price': str(effective), 'effective_day': resolved['effectiveDay'], 'price_revision': resolved['effectivePriceRevision']})
         approved = v.kind == 'sale' and approved_order_price(l)
         discounted = effective > 0 and l.price < effective and not approved
         below_cost = l.amount < l.cost if actual_cost else decimal(data.get('cost')) > l.price
@@ -274,6 +280,8 @@ def apply_discounts(user, v, *, actual_cost=False):
         require(reason, 'Вкажіть причину знижки.')
         percent = max(ZERO, (effective - l.price) * 100 / effective) if effective > 0 else ZERO
         snapshots.append({'product': l.product_id.split('/', 1)[1], 'name': l.name, 'catalogue_price': str(regular_price(data, config)), 'effective_price': str(effective), 'price': str(l.price), 'discount_percent': str(percent.quantize(CENT, rounding=ROUND_HALF_UP)), 'below_cost': below_cost, 'author': user.username, 'reason': reason})
+    v.payload['price_context'] = {'store': v.store_id, 'effective_day': resolver.day.isoformat()}
+    v.payload['price_versions'] = versions
     v.payload.pop('discounts', None)
     if snapshots:
         v.payload['discounts'] = snapshots

@@ -148,6 +148,9 @@ def commit_pricing(request, user):
         return response({'error': 'Каталог або налаштування цін уже змінено. Оновіть попередній перегляд.', 'code': 'revision_conflict'}, 409)
     if not result['valid']:
         return response({**result, 'error': 'Зміна цін містить помилки. Жодного товару чи налаштування не збережено.', 'code': 'invalid_pricing'}, 400)
+    from .promotion_history import observe_prices
+    observed = [document for document, *_ in prepared]
+    observe_prices(user,observed,'pricing','Масова зміна цін',seed=True,config=defaults())
     settings = result['settings']
     if config != defaults():  # Decimal values: '30' and 30 are the same setting.
         document, _ = Document.objects.get_or_create(pk='settings/main', defaults={'data': {}})
@@ -161,6 +164,7 @@ def commit_pricing(request, user):
             document.save()
             audit(user, 'catalog_changed', document.path, {'method': 'PRICING', 'contract': 'v1', 'run': payload['idempotencyKey']})
         committed_entries.append({'id': entry['id'], 'action': entry['action'], 'revision': revision(document, config)})
+    observe_prices(user,observed,'pricing','Масова зміна цін',config=config)
     committed = {'ok': True, 'idempotencyKey': payload['idempotencyKey'], 'kind': result['kind'],
                  'summary': result['summary'], 'settings': settings, 'entries': committed_entries}
     Document.objects.create(path=path, data={'owner': user.pk, 'payloadHash': digest, 'result': committed})

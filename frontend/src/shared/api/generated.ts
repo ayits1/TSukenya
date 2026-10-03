@@ -1210,6 +1210,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/promotions/context': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['promotionContext'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/promotions/history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['priceHistory'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/promotions/campaigns': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['listCampaigns'];
+    put?: never;
+    post: operations['createCampaign'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/promotions/campaigns/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getPromotionCampaign'];
+    put?: never;
+    post?: never;
+    delete: operations['archiveCampaign'];
+    options?: never;
+    head?: never;
+    patch: operations['updateCampaign'];
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1245,6 +1309,11 @@ export interface components {
         size?: string;
         unit?: string;
       };
+      readonly effectivePromotion?: components['schemas']['EffectivePromotion'];
+      /** Format: date */
+      readonly effectiveDay?: string;
+      readonly effectivePriceRevision?: string;
+      readonly priceContext?: components['schemas']['PriceContext'];
     };
     ProductPage: {
       items: components['schemas']['Product'][];
@@ -1395,6 +1464,8 @@ export interface components {
     }[];
     LabelPrepareRequest: {
       selection: components['schemas']['LabelSelection'];
+      /** @description ERP store identity; null means network for an unscoped user, own store for a scoped user. */
+      store?: number | null;
     };
     LabelProof: {
       /** @description Saved legacy/v2 layout; frontend migrates supported legacy sizes without rewriting unknown future layouts. */
@@ -1410,6 +1481,7 @@ export interface components {
       /** Format: date */
       date: string;
       snapshot: string;
+      readonly priceContext?: components['schemas']['PriceContext'];
     };
     /** @enum {string} */
     ReferenceField: 'type' | 'category' | 'pack' | 'size' | 'unit';
@@ -1640,6 +1712,11 @@ export interface components {
       warnings: string[];
       /** @description True only for an enabled, valid explicit promotion below regularPrice. False for no promotion and grandfathered legacy badge-only/invalid promotions. */
       promotionValid: boolean;
+      readonly effectivePromotion: components['schemas']['EffectivePromotion'];
+      /** Format: date */
+      readonly effectiveDay: string;
+      readonly effectivePriceRevision: string;
+      readonly priceContext: components['schemas']['PriceContext'];
     };
     ReferenceManagedItem: {
       id: string;
@@ -1721,6 +1798,147 @@ export interface components {
       warnings: string[];
       /** @constant */
       ok: true;
+    };
+    PriceContext: {
+      storeId: number | null;
+      storeName: string | null;
+    };
+    EffectivePromotion: {
+      /** @enum {string} */
+      source: 'legacy' | 'campaign';
+      id: string | null;
+      name: string;
+      price: string;
+      /** Format: date */
+      startsOn: string | null;
+      /** Format: date */
+      endsOn: string | null;
+      revision: number | null;
+    } | null;
+    PromotionContext: {
+      storeId: number | null;
+      storeName: string | null;
+      /** Format: date */
+      effectiveDay: string;
+      stores: {
+        id: number;
+        name: string;
+      }[];
+      canManage: boolean;
+      canSelectNetwork: boolean;
+      canViewHistory: boolean;
+      csrf: string;
+    };
+    CampaignInput: {
+      name: string;
+      /** Format: date */
+      startsOn: string;
+      /** Format: date */
+      endsOn: string;
+      active: boolean;
+      /** @enum {string} */
+      scope: 'network' | 'stores';
+      stores: number[];
+      prices: {
+        product: string;
+        price: string;
+      }[];
+      reason: string;
+    };
+    CampaignCreate: {
+      name: string;
+      /** Format: date */
+      startsOn: string;
+      /** Format: date */
+      endsOn: string;
+      active: boolean;
+      /** @enum {string} */
+      scope: 'network' | 'stores';
+      stores: number[];
+      prices: {
+        product: string;
+        price: string;
+      }[];
+      reason: string;
+      /** Format: uuid */
+      idempotencyKey: string;
+    };
+    CampaignPatch: {
+      name: string;
+      /** Format: date */
+      startsOn: string;
+      /** Format: date */
+      endsOn: string;
+      active: boolean;
+      /** @enum {string} */
+      scope: 'network' | 'stores';
+      stores: number[];
+      prices: {
+        product: string;
+        price: string;
+      }[];
+      reason: string;
+      revision: number;
+    };
+    CampaignArchive: {
+      revision: number;
+      reason: string;
+    };
+    Campaign: {
+      name: string;
+      /** Format: date */
+      startsOn: string;
+      /** Format: date */
+      endsOn: string;
+      active: boolean;
+      /** @enum {string} */
+      scope: 'network' | 'stores';
+      stores: number[];
+      prices: {
+        product: string;
+        price: string;
+        name: string;
+      }[];
+      reason: string;
+      /** Format: uuid */
+      id: string;
+      revision: number;
+      archived: boolean;
+      /** @enum {string} */
+      status: 'active' | 'scheduled' | 'expired' | 'disabled' | 'archived';
+      author: string;
+    };
+    PricingTerms: {
+      regularPrice: string;
+      salePrice: string;
+      effectivePromotion: components['schemas']['EffectivePromotion'];
+    };
+    PriceHistoryItem: {
+      id: number;
+      product: string;
+      storeId: number | null;
+      before: components['schemas']['PricingTerms'];
+      after: components['schemas']['PricingTerms'];
+      author: string;
+      source: string;
+      reason: string;
+      /** Format: date-time */
+      at: string;
+      name: string;
+    };
+    CampaignPage: {
+      items: components['schemas']['Campaign'][];
+      page: number;
+      pages: number;
+      total: number;
+      limit: number;
+    };
+    PriceHistoryPage: {
+      items: components['schemas']['PriceHistoryItem'][];
+      page: number;
+      pages: number;
+      total: number;
+      limit: number;
     };
   };
   responses: never;
@@ -1897,6 +2115,393 @@ export interface operations {
         };
       };
       /** @description Success */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  promotionContext: {
+    parameters: {
+      query?: {
+        /** @description ERPStore identity; absent means network for unscoped user or own store for scoped user. */
+        store?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authoritative promotion result */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PromotionContext'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  priceHistory: {
+    parameters: {
+      query?: {
+        /** @description ERPStore identity; absent means network for unscoped user or own store for scoped user. */
+        store?: number;
+        product?: string;
+        page?: number;
+        limit?: 10 | 20 | 50;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authoritative promotion result */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PriceHistoryPage'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  listCampaigns: {
+    parameters: {
+      query?: {
+        page?: number;
+        limit?: 10 | 20 | 50;
+        scope?: '' | 'network' | 'stores';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authoritative promotion result */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CampaignPage'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  createCampaign: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CampaignCreate'];
+      };
+    };
+    responses: {
+      /** @description Authoritative promotion result */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Campaign'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  getPromotionCampaign: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fresh campaign terms for explicit conflict recovery */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Campaign'];
+        };
+      };
+    };
+  };
+  archiveCampaign: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CampaignArchive'];
+      };
+    };
+    responses: {
+      /** @description Authoritative promotion result */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Campaign'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  updateCampaign: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CampaignPatch'];
+      };
+    };
+    responses: {
+      /** @description Authoritative promotion result */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Campaign'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Validation/access/version error; local draft must be retained */
       409: {
         headers: {
           [name: string]: unknown;

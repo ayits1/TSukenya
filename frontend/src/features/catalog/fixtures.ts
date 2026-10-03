@@ -14,6 +14,10 @@ export async function fixturePricePreview(input: PricePreviewRequest): Promise<P
     pricingRevision: 'synthetic-pricing',
     warnings: [],
     promotionValid: !!input.promotion && !!input.promotionPrice,
+    effectivePromotion: null,
+    effectiveDay: '2026-10-04',
+    effectivePriceRevision: 'f'.repeat(64),
+    priceContext: { storeId: null, storeName: null },
   };
 }
 export const catalogProducts: Product[] = [

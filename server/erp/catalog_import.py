@@ -25,7 +25,11 @@ def canonical(value):
 
 
 def snapshot(documents, config):
-    material = {'products': [(doc.path, revision(doc, config)) for doc in documents],
+    from .promotion_prices import PriceResolver
+    resolver=PriceResolver(config)
+    from .models import Store
+    store_resolvers=[PriceResolver(config,s) for s in Store.objects.filter(active=True).order_by('pk')]
+    material = {'effective': [(doc.path, [r.resolve(doc)['effectivePriceRevision'] for r in [resolver,*store_resolvers]]) for doc in documents], 'products': [(doc.path, revision(doc, config)) for doc in documents],
                 'pricing': {key: plain(value) for key, value in config.items()}}
     return hmac.new(settings.SECRET_KEY.encode(), canonical(material).encode(), hashlib.sha256).hexdigest()
 
@@ -168,8 +172,11 @@ def commit_import(request, user):
             # Prevent replacing any preexisting document at the deterministic create ID.
             require(not Document.objects.filter(pk=path).exists(), 'ID нового товару вже використовується.')
             document = Document(path=path)
+        from .promotion_history import observe_prices
+        if document.pk and Document.objects.filter(pk=document.pk).exists():observe_prices(user,[document],'import','Імпорт товарів',seed=True)
         document.data = data
         document.save()
+        observe_prices(user,[document],'import','Імпорт товарів')
         audit(user, 'catalog_changed', document.path, {'method': 'IMPORT', 'contract': 'v1', 'run': payload['idempotencyKey'], 'line': entry['line']})
         product = serialize(document, user, config)
         saved.append({'line': entry['line'], 'action': entry['action'], 'id': product['id'], 'revision': product['revision']})

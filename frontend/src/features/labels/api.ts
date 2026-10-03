@@ -19,6 +19,7 @@ export type Proof = Workspace & {
   selection: Selection;
   date: string;
   snapshot: string;
+  priceContext?: { storeId: number | null; storeName: string | null };
 };
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -59,6 +60,16 @@ export function decodeWorkspace(value: unknown): Workspace {
     warnings: labelConfigWarnings(config),
   };
 }
+function decodePriceContext(value: unknown) {
+  const v = object(value);
+  if (
+    !(v.storeId === null || (Number.isInteger(v.storeId) && Number(v.storeId) > 0)) ||
+    !(v.storeName === null || typeof v.storeName === 'string') ||
+    (v.storeId === null) !== (v.storeName === null)
+  )
+    throw new Error('Invalid print price context');
+  return { storeId: v.storeId as number | null, storeName: v.storeName as string | null };
+}
 export function decodeProof(value: unknown): Proof {
   const raw = object(value),
     workspace = decodeWorkspace(value);
@@ -93,7 +104,14 @@ export function decodeProof(value: unknown): Proof {
     products.some((product, index) => product.id !== selection[index]?.id)
   )
     throw new Error('Invalid print products');
-  return { ...workspace, products, selection, date: raw.date, snapshot: raw.snapshot };
+  return {
+    ...workspace,
+    products,
+    selection,
+    date: raw.date,
+    snapshot: raw.snapshot,
+    ...(raw.priceContext ? { priceContext: decodePriceContext(raw.priceContext) } : {}),
+  };
 }
 export function createLabelApi() {
   let csrf: string | undefined;
@@ -115,8 +133,14 @@ export function createLabelApi() {
       csrf = result.csrf;
       return result;
     },
-    prepare(selection: Selection, signal?: AbortSignal) {
-      return client.mutate('POST', '/api/v1/labels/prepare', { selection }, decodeProof, signal);
+    prepare(selection: Selection, signal?: AbortSignal, store?: number | null) {
+      return client.mutate(
+        'POST',
+        '/api/v1/labels/prepare',
+        { selection, ...(store === undefined ? {} : { store }) },
+        decodeProof,
+        signal,
+      );
     },
   };
 }

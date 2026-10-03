@@ -7,6 +7,8 @@ import { ReferenceManager } from './ReferenceManager';
 import { ProductEditor } from './ProductEditor';
 import { emptyFilters, type CatalogApi, type Product, type Filters } from './api';
 import './catalog.css';
+import { CampaignManager } from '../promotions/CampaignManager';
+import type { PromotionApi, PromotionContext } from '../promotions/api';
 
 export function Catalog({
   api,
@@ -14,14 +16,23 @@ export function Catalog({
   onDirty,
   initialFilters = emptyFilters,
   onFiltersChanged,
+  priceStore,
+  promotions,
+  priceContext,
 }: {
   api: CatalogApi;
+  priceStore?: number | null;
+  promotions?: PromotionApi;
+  priceContext?: PromotionContext;
   onChanged: () => void;
   onDirty: (dirty: boolean) => void;
   initialFilters?: Filters;
   onFiltersChanged: (filters: Filters) => void;
 }) {
   const client = useQueryClient();
+  const [productDirty, setProductDirty] = useState(false);
+  const [campaignDirty, setCampaignDirty] = useState(false);
+  useEffect(() => onDirty(productDirty || campaignDirty), [onDirty, productDirty, campaignDirty]);
   const [filters, setFilters] = useState(initialFilters);
   const [query, setQuery] = useState(initialFilters.q);
   const [editing, setEditing] = useState<{ product?: Product; activatePromotion?: boolean } | null>(
@@ -40,7 +51,7 @@ export function Catalog({
     retry: false,
   });
   const result = useQuery({
-    queryKey: ['catalog', { ...filters, q: query }],
+    queryKey: ['catalog', { ...filters, q: query }, priceStore],
     queryFn: ({ signal }) => api.list({ ...filters, q: query }, signal),
     enabled: !!session.data,
     placeholderData: keepPreviousData,
@@ -57,13 +68,13 @@ export function Catalog({
   }, [client]);
   const saved = useCallback(
     (product: Product) => {
-      onDirty(false);
+      setProductDirty(false);
       setEditing(null);
       setMessage(`Збережено: ${product.name}`);
       void client.invalidateQueries({ queryKey: ['catalog'] });
       onChanged();
     },
-    [client, onChanged, onDirty],
+    [client, onChanged],
   );
   const promotion = useMutation({
     mutationFn: (product: Product) =>
@@ -123,7 +134,8 @@ export function Catalog({
         }}
         onEdit={(product) => setEditing(product ? { product } : {})}
         onPromotion={(product) => {
-          if (product.promotion) promotion.mutate(product);
+          if (product.effectivePromotion?.source === 'campaign') setEditing({ product });
+          else if (product.promotion) promotion.mutate(product);
           else setEditing({ product, activatePromotion: true });
         }}
         busy={result.isFetching || promotion.isPending}
@@ -132,24 +144,36 @@ export function Catalog({
       {managingReferences ? (
         <ReferenceManager onClose={() => setManagingReferences(false)} onChanged={onChanged} />
       ) : null}
+      {promotions && priceContext && (priceContext.canManage || priceContext.canViewHistory) ? (
+        <CampaignManager
+          api={promotions}
+          catalog={api}
+          context={priceContext}
+          onDirty={setCampaignDirty}
+          onChanged={() => {
+            void client.invalidateQueries({ queryKey: ['catalog'] });
+            onChanged();
+          }}
+        />
+      ) : null}
       {editing ? (
         <ProductEditor
           {...editing}
           defaultMarkup={result.data.defaultMarkup}
           api={api}
           onClose={() => {
-            onDirty(false);
+            setProductDirty(false);
             setEditing(null);
           }}
           onSaved={saved}
           onDeleted={() => {
-            onDirty(false);
+            setProductDirty(false);
             setEditing(null);
             setMessage('Товар видалено');
             void client.invalidateQueries({ queryKey: ['catalog'] });
             onChanged();
           }}
-          onDirty={onDirty}
+          onDirty={setProductDirty}
         />
       ) : null}
     </>

@@ -1,3 +1,4 @@
+import { validateRequiredEffectivePricing } from './effectivePricing';
 import type { components } from './generated';
 
 export type ProductPricePreviewRequest = components['schemas']['ProductPricePreviewRequest'];
@@ -84,10 +85,14 @@ export function createApiClient({
       return request(path, decode, { method: 'GET', ...(signal ? { signal } : {}) });
     },
     mutate,
-    previewProductPrice(value: ProductPricePreviewRequest, signal?: AbortSignal) {
+    previewProductPrice(
+      value: ProductPricePreviewRequest,
+      signal?: AbortSignal,
+      store?: number | null,
+    ) {
       return mutate(
         'POST',
-        '/api/v1/catalog/products/price-preview',
+        '/api/v1/catalog/products/price-preview' + (store == null ? '' : `?store=${store}`),
         value,
         decodeProductPricePreview,
         signal,
@@ -129,6 +134,10 @@ export function decodeProductPricePreview(value: unknown): ProductPricePreview {
           'pricingRevision',
           'warnings',
           'promotionValid',
+          'effectivePromotion',
+          'effectiveDay',
+          'effectivePriceRevision',
+          'priceContext',
         ].includes(key),
     ) ||
     !('regularPrice' in value) ||
@@ -154,7 +163,10 @@ export function decodeProductPricePreview(value: unknown): ProductPricePreview {
     !nonnegativeDecimal(value.config.rounding)
   )
     throw new Error('Invalid product price preview');
+  const effective = value as Record<string, unknown>;
+  validateRequiredEffectivePricing(effective);
   return {
+    ...effective,
     regularPrice: value.regularPrice,
     salePrice: value.salePrice,
     pricingRevision: value.pricingRevision,

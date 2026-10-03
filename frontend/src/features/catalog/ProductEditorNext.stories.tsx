@@ -35,6 +35,10 @@ function calculated(input: PricePreviewRequest): PricePreview {
     pricingRevision: 'synthetic-policy',
     warnings: [],
     promotionValid: !!input.promotion && !!input.promotionPrice,
+    effectivePromotion: null,
+    effectiveDay: '2026-10-04',
+    effectivePriceRevision: 'f'.repeat(64),
+    priceContext: { storeId: null, storeName: null },
   };
 }
 const api: CatalogApi = {

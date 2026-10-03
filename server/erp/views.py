@@ -67,13 +67,20 @@ def auth(request):
 def owner(user):
     require(user.profile.role=='owner','Недостатньо прав. Операція доступна лише власнику.')
 
-CASHIER_PRODUCT_FIELDS={'name','type','category','pack','size','unit','barcode','regularPrice','promotion','promotionPrice','priceAt','minStock','hidden','example'}
+CASHIER_PRODUCT_FIELDS={'name','type','category','pack','size','unit','barcode','regularPrice','salePrice','effectivePromotion','storeSalePrices','promotion','promotionPrice','priceAt','minStock','hidden','example'}
 
 def legacy_state(user):
-    from .catalog import revision, defaults, regular_price
+    from .catalog import revision, defaults
     from .task_scope import task_visible, task_permissions
     from .legacy_settings import settings_for_role
     catalog_config=defaults()
+    from .promotion_prices import PriceResolver, context_store
+    from .models import Store
+    price_store=context_store(user)
+    store_query=Store.objects.filter(active=True)
+    if user.profile.store_id is not None:store_query=store_query.filter(pk=user.profile.store_id)
+    price_resolver=PriceResolver(catalog_config,price_store)
+    store_resolvers={str(s.pk):PriceResolver(catalog_config,s) for s in store_query}
     data={x:[] for x in COLLECTIONS}|{x:{} for x in SINGLE_DOCS}
     for d in Document.objects.all():
         col,_,id=d.path.partition('/')
@@ -84,7 +91,10 @@ def legacy_state(user):
                 continue
             product=dict(d.data)
             if col=='products':
-                product['regularPrice']=float(regular_price(product,catalog_config))
+                resolved=price_resolver.resolve(d)
+                product.update({k:resolved[k] for k in ('regularPrice','salePrice','effectivePromotion')})
+                product['regularPrice']=float(resolved['regularPrice'])
+                product['storeSalePrices']={key:r.resolve(d)['salePrice'] for key,r in store_resolvers.items()}
                 product.setdefault('promotionPrice',None)
                 if user.profile.role=='cashier':
                     # Allow-list: legacy sync metadata such as gsBase also carries purchase cost.
@@ -161,6 +171,8 @@ def legacy_mutation(request,user,path,create_key=None):
             delete_task(user,path,d.data)
         require(col!='products' or not VoucherLine.objects.filter(product=d).exists() and not StockLot.objects.filter(product=d).exists(),'Товар уже використовується в обліку. Його не можна видалити.')
         if col=='products':
+            from .models import PromotionPrice
+            require(not PromotionPrice.objects.filter(product=d).exists(),'Товар використовується в історії акцій. Приховайте його замість видалення.')
             require(not any(any(str(r.get('product'))==id for r in p.data.get('recipe',[])) for p in Document.objects.filter(path__startswith='products/')),'Товар використовується у рецептурі.')
         LegacyCreateReceipt.objects.filter(document_path=path,deleted_at__isnull=True).update(deleted_at=timezone.now())
         d.delete()
@@ -207,6 +219,8 @@ def legacy_mutation(request,user,path,create_key=None):
             from .catalog import normalise_legacy, duplicate_name, DUPLICATE_NAME
             old=d.data if d is not None else {}
             value=normalise_legacy(value,old,path)
+            from .promotion_history import observe_prices
+            if d is not None:observe_prices(user,[d],'legacy','Редагування товару',seed=True)
             if duplicate_name(value,old,path):return response(DUPLICATE_NAME,409)
         if create_key is not None:
             Document.objects.create(pk=path,data=value)
@@ -214,6 +228,9 @@ def legacy_mutation(request,user,path,create_key=None):
                 request_fingerprint=request_fingerprint,created_fingerprint=legacy_create_fingerprint(value))
         else:
             Document.objects.update_or_create(pk=path,defaults={'data':value})
+    if col=='products' and request.method!='DELETE':
+        from .promotion_history import observe_prices
+        observe_prices(user,[Document.objects.get(pk=path)],'legacy','Редагування товару')
     audit(user,'catalog_changed' if col=='products' else 'legacy_changed',path,{'method':request.method})
     if path=='settings/main':
         # The next save chains from this version, not from a later poll that may carry another session's layout.
@@ -403,6 +420,9 @@ def handle(request):
         result=HttpResponse(status=302);result['Location']='/';return result
     user=auth(request)
     if path.startswith('/api/v1/'):
+        if path.startswith('/api/v1/promotions/'):
+            from .promotions import handle_promotions
+            return handle_promotions(request,user)
         if path.startswith('/api/v1/labels/'):
             from .labels import handle_labels
             return handle_labels(request,user)

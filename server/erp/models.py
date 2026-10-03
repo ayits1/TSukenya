@@ -184,3 +184,6 @@ class Assortment(models.Model):
     min_stock = models.DecimalField(max_digits=18, decimal_places=3, null=True, blank=True)
     class Meta:
         constraints = [models.UniqueConstraint(fields=['warehouse', 'product'], name='assortment_key'), models.CheckConstraint(condition=models.Q(min_stock__gte=0), name='assortment_min_nonnegative')]
+
+# Kept in a domain module so promotion policy does not enlarge the accounting models file.
+from .promotion_models import PromotionCampaign, PromotionPrice, PriceObservation, PriceChange
