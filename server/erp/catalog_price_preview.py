@@ -1,5 +1,6 @@
 """Read-only editor pricing using exactly the product write validator and Decimal formula."""
 import re
+from decimal import Decimal
 from .catalog import (EDIT_ROLES, defaults, new_product_data, normalise_product, plain,
                       pricing_revision, promotion_amount, regular_price, revision, sale_price)
 from .models import Document
@@ -35,5 +36,5 @@ def preview_product_price(request, user):
     if data.get('promotion') and not valid:
         warnings.append('Збережена акція не має чинної акційної ціни. Застосовується звичайна ціна; для зміни умов вкажіть акційну ціну.')
     return response({'regularPrice': format(regular, 'f'), 'salePrice': format(sale_price(data, config), 'f'),
-        'config': {key: plain(amount) for key, amount in config.items()},
+        'config': {'markup': plain(config['markup']), 'rounding': plain(config['rounding'] if config['rounding'] > 0 else Decimal('.5'))},
         'pricingRevision': pricing_revision(config), 'warnings': warnings, 'promotionValid': valid})

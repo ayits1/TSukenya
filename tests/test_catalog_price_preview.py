@@ -165,3 +165,15 @@ class ProductPricePreviewTests(TestCase):
         for schema in ('ProductCreate', 'ProductPatch'):
             self.assertIn('pricingRevision', spec['components']['schemas'][schema]['properties'])
             self.assertNotIn('pricingRevision', spec['components']['schemas'][schema]['required'])
+
+    def test_legacy_zero_rounding_reports_effective_half_hryvnia_without_changing_revision(self):
+        settings = Document.objects.get(pk='settings/main'); settings.data['rounding'] = 0; settings.save()
+        token = pricing_revision()
+        result = self.preview({'cost': '10.01', 'markup': '0'}).json()
+        self.assertEqual(result['config']['rounding'], '0.5')
+        self.assertEqual(result['regularPrice'], '10.50')
+        self.assertEqual(result['pricingRevision'], token)
+        saved = self.save({'name': 'Fallback', 'cost': '10.01', 'markup': '0', 'pricingRevision': token})
+        self.assertEqual(saved.status_code, 201)
+        self.assertEqual(saved.json()['regularPrice'], result['regularPrice'])
+        self.assertEqual(Document.objects.get(pk='settings/main').data['rounding'], 0)
