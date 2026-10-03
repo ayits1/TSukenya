@@ -95,23 +95,32 @@ def stock(user):
     return {'lots':result,'totals':totals}
 
 def cashier_differences(user, start, end, store=None):
-    """Closed till shifts of the period by cashier: counted minus expected cash."""
+    """Closed till shifts of the period by cashier: counted minus expected cash, and sales per open hour."""
     from zoneinfo import ZoneInfo
     from django.db.models.functions import TruncDate
     shifts=scoped(CashShift.objects.select_related('employee','opened_by'),user).filter(closed_at__isnull=False).annotate(closed_day=TruncDate('closed_at',tzinfo=ZoneInfo('Europe/Kyiv'))).filter(closed_day__gte=start,closed_day__lte=end)
     if store:shifts=shifts.filter(store_id=store)
     rows={}
+    # Sales minus returns posted on each shift, whatever the payment method.
+    sold={}
+    for shift_id,kind,total in Voucher.objects.filter(shift__in=shifts,status='posted',kind__in=['sale','customer_return']).values_list('shift_id','kind','total'):
+        sold[shift_id]=sold.get(shift_id,ZERO)+(total if kind=='sale' else -total)
     for s in shifts.order_by('pk'):
         key=('employee',s.employee_id) if s.employee_id else ('user',s.opened_by_id)
-        row=rows.setdefault(key,{'employee':s.employee_id,'name':s.employee.name if s.employee_id else s.opened_by.username,'shifts':0,'with_difference':0,'shortage':ZERO,'surplus':ZERO})
+        row=rows.setdefault(key,{'employee':s.employee_id,'name':s.employee.name if s.employee_id else s.opened_by.username,'shifts':0,'with_difference':0,'shortage':ZERO,'surplus':ZERO,'revenue':ZERO,'seconds':0})
         difference=s.counted_cash-s.expected_cash
+        row['revenue']+=sold.get(s.pk,ZERO)
+        row['seconds']+=max(0,int((s.closed_at-s.opened_at).total_seconds()))
         row['shifts']+=1
         if difference:row['with_difference']+=1
         if difference<0:row['shortage']-=difference
         else:row['surplus']+=difference
     result=[]
     for row in sorted(rows.values(),key=lambda r:(-r['shortage'],r['name'])):
-        result.append({**row,'shortage':str(money(row['shortage'])),'surplus':str(money(row['surplus'])),'net':str(money(row['surplus']-row['shortage']))})
+        seconds=row.pop('seconds');hours=(Decimal(seconds)/3600).quantize(Decimal('.1'))
+        # Shifts shorter than 6 minutes carry no meaningful hourly rate.
+        per_hour=str(money(row['revenue']*3600/seconds)) if seconds>=360 else None
+        result.append({**row,'shortage':str(money(row['shortage'])),'surplus':str(money(row['surplus'])),'net':str(money(row['surplus']-row['shortage'])),'revenue':str(money(row['revenue'])),'hours':str(hours),'revenue_per_hour':per_hour})
     return result
 
 def product_margins(qs):
