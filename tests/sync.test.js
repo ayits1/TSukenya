@@ -140,3 +140,24 @@ test("таблиця без стовпця «Назва» — зрозуміла
   const p = planSync([["Товар?", "Ціна"]], prods, env);
   assert.match(p.error, /Назва/);
 });
+
+test("таблиця іншої панелі (більшість ID чужі) — синхронізація зупиняється, нічого не пише", () => {
+  const foreignSheet = [["Назва", "Закупівля, грн", "ID"], ["Чай", "20", "x1"], ["Кава", "90", "x2"], ["Какао", "60", "x3"], ["Вода", "10", ""]];
+  const p = planSync(foreignSheet, [], makeEnv());
+  assert.match(p.error, /інша панель/); assert.equal(p.foreign, 3);
+  assert.equal(p.rowWrites, undefined, "плану записів немає");
+});
+
+test("таблицю іншої панелі можна свідомо забрати: товари з’являються, ID переписуються на свої", () => {
+  const sheet2 = [["Назва", "Закупівля, грн", "ID"], ["Чай", "20", "x1"], ["Кава", "90", "x2"], ["Какао", "60", "x3"]];
+  const p = planSync(sheet2, [], makeEnv({adoptForeign:true}));
+  assert.equal(p.error, undefined); assert.equal(p.dbAdds.length, 3); assert.equal(p.clears.length, 0);
+  assert.ok(p.rowWrites.every(w => /^'g\d+$/.test(w.values[2])), "ID у рядках — нові, тутешні");
+});
+
+test("кілька чужих ID серед своїх (рядки зі старої копії) — не блокують синхронізацію", () => {
+  const own = [{id:"a1", name:"Чай", cost:20, markup:30}, {id:"a2", name:"Кава", cost:90, markup:30}, {id:"a3", name:"Какао", cost:60, markup:30}, {id:"a4", name:"Вода", cost:10, markup:30}];
+  const sheet3 = [["Назва", "Закупівля, грн", "ID"], ["Чай", "20", "a1"], ["Кава", "90", "a2"], ["Какао", "60", "a3"], ["Вода", "10", "a4"], ["Халва", "40", "old1"]];
+  const p = planSync(sheet3, own, makeEnv());
+  assert.equal(p.error, undefined); assert.equal(p.dbAdds.length, 1);
+});

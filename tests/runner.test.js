@@ -124,3 +124,20 @@ test("прихований товар повертають у застосунк
   const rows = sh.sheet.filter(r => r[0] === "Халва 250 г");
   assert.equal(rows.length, 1); assert.equal(rows[0][idCol(sh)], halva.id);
 });
+
+test("підключили таблицю іншої панелі — помилка з поясненням; після згоди товари забрано, згода скидається", async () => {
+  const clock = {t:Date.parse("2026-10-03T08:00:00Z")};
+  const db = fakeDb({now:() => clock.t});
+  await db.doc("settings/main").set({gsId:"sheet1"});
+  const sh = fakeSheets([["Назва", "Закупівля, грн", "ID"], ["Чай", "20", "x1"], ["Кава", "90", "x2"], ["Какао", "60", "x3"]]);
+  const A = device({db, mcp:sh});
+  await A.gsSync(); clock.t += 5000;
+  assert.match(A.S.sync.error, /інша панель/); assert.equal(A.S.sync.foreign, 3);
+  assert.equal(db.list("products").length, 0, "нічого не забрано");
+  assert.deepEqual(sh.sheet[1], ["Чай", "20", "x1"], "таблиця не змінилась");
+  A.S.settings.gsAdopt = true;
+  await A.gsSync();
+  assert.equal(A.S.sync.error, null);
+  assert.equal(db.list("products").length, 3);
+  assert.equal((await db.doc("settings/main").get()).data().gsAdopt, false, "згода одноразова");
+});

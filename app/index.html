@@ -48,7 +48,9 @@ button{cursor:pointer}
 /* ---------- оболонка ---------- */
 .app{max-width:1180px;margin:0 auto;padding-inline:var(--gut);padding-block:0 40px}
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;display:flex;align-items:center;gap:18px;padding:14px 0;background:var(--bg)}
-.brand{display:flex;align-items:center;gap:12px;min-width:0;margin-right:auto;text-decoration:none;color:inherit}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;text-decoration:none;color:inherit}
+.bar>.brand+#envPill{margin-left:-6px}
+.bar>.tabs{margin-left:auto}
 .brand-mark{width:38px;height:38px;flex:none;color:var(--accent)}
 .brand-t{min-width:0}
 .brand-t b{display:block;font-family:var(--f-display);font-weight:700;font-size:1.15rem;letter-spacing:-.01em;line-height:1.1}
@@ -77,7 +79,7 @@ main{display:flex;flex-direction:column;gap:16px;padding-top:6px}
   .tab .dot{left:calc(50% + 6px);top:4px}
   .tab[aria-selected="true"] .dot{box-shadow:0 0 0 2px var(--accent-soft)}
   .app{padding-block:0 calc(var(--nav-h) + 28px + env(safe-area-inset-bottom,0px))}
-  .sync{max-width:46vw}
+  .sync{max-width:46vw;margin-left:auto}
 }
 @media (max-width:420px){ .brand-t span{display:none} .sync span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)} .sync{padding:9px} }
 
@@ -396,6 +398,7 @@ details.fold[open]>summary::after{transform:rotate(-135deg)}
       <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M8 20 1.5 12.5v15L8 20Zm24 0 6.5-7.5v15L32 20Z" fill="currentColor" opacity=".55"/><circle cx="20" cy="20" r="12" fill="currentColor"/><path d="M13.5 17.5c2.2-3.6 6.8-4.9 10.6-2.9M14.6 23.6c2.6 2.2 6.5 2.5 9.4.6" stroke="var(--surface)" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
       <span class="brand-t"><b>Цукерня</b><span id="chainName">Мережа солодощів</span></span>
     </a>
+    <span class="pill warn" id="envPill" hidden></span>
     <nav class="tabs" role="tablist" id="tabs" aria-label="Розділи">
       <button class="tab" role="tab" data-tab="today" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg><span>Сьогодні</span></button>
       <button class="tab" role="tab" data-tab="products" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path d="m4 8.5 8 4.5 8-4.5M12 13v7"/></svg><span>Товари</span></button>
@@ -614,6 +617,8 @@ details.fold[open]>summary::after{transform:rotate(-135deg)}
   function renderChrome(){
     const cn = String(S.settings.chainName || "").trim();
     $("#chainName").textContent = cn && cn.toLowerCase()!=="цукерня" ? cn : "Панель власника мережі";
+    // мітка середовища (тестова копія тощо) — задається в базі: settings/main.envLabel
+    const env = String(S.settings.envLabel || "").trim(), ep = $("#envPill"); ep.hidden = !env; ep.textContent = env;
     // крапка на вкладці — там є що зробити
     const dots = {today: attention().some(a=>a.sev==="bad"), tags: byTagStatus("changed").length>0, plan: S.ideas.some(i=>!i.reaction)};
     document.querySelectorAll(".tab").forEach(b=>{
@@ -1510,6 +1515,8 @@ details.fold[open]>summary::after{transform:rotate(-135deg)}
     return `<div class="sheetbar"><span class="sync ${syncState().cls}" id="sheetDot" style="border:0;background:none;padding:0" aria-hidden="true"><i></i></span>
       <div class="st"><b>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${title}</a>` : title}</b><span class="muted small" id="syncText">${esc(syncText())}</span></div>
       <div class="tools"><button class="btn soft" data-act="gsSyncNow" ${mcp?"":"disabled"}>Синхронізувати</button><button class="btn quiet" data-act="gsUnlink">Відключити</button></div></div>
+      ${(S.sync && S.sync.foreign) ? `<div class="note bad" style="margin-top:12px"><b>Цю таблицю веде інша панель.</b> Якщо це стара панель, яку ви замінюєте, спершу відключіть таблицю в ній — інакше вона очистить рядки, які забере ця. Потім натисніть кнопку: товари з таблиці з’являться тут, а ID у таблиці зміняться на тутешні.
+        <div class="row" style="margin-top:10px"><button class="btn soft" data-act="gsAdopt">Забрати товари з цієї таблиці</button><button class="btn quiet" data-act="gsUnlink">Відключити</button></div></div>` : ""}
       <details class="fold" style="margin-top:10px"><summary class="muted small">Як працює синхронізація</summary><p class="muted small" style="margin-top:8px;max-width:78ch">Синхронізація двостороння: зміни в таблиці з’являються тут приблизно за хвилину, зміни тут потрапляють у таблицю за кілька секунд. Якщо одне поле змінили і там, і тут, перемагає таблиця. «Ціна продажу» — ручна ціна; порожня означає «закупівля + націнка», підсумок видно в стовпці «Ціна на цінник». Стовпець ID не змінюйте: за ним застосунок впізнає товар. Видалили рядок у таблиці — товар ховається тут; видалили товар тут — рядок очищується в таблиці.</p></details>`;
   }
   function renderLink(){ const b = $("#linkBox"); if (b) b.innerHTML = linkInner(); }
@@ -1549,7 +1556,8 @@ details.fold[open]>summary::after{transform:rotate(-135deg)}
   const n2 = x => { const v = Math.round((+x || 0)*100)/100; return String(v); };
   function colLetter(i){ let s = ""; i++; while (i > 0){ const m = (i-1) % 26; s = String.fromCharCode(65+m) + s; i = Math.floor((i-1)/26); } return s; }
   function planSync(values, all, env){
-    // env: {defMarkup, priceOf(p), norm, parseNum, unitNorm, packNorm, today, newId(), deleted: Set ID товарів, видалених у застосунку}
+    // env: {defMarkup, priceOf(p), norm, parseNum, unitNorm, packNorm, today, newId(), deleted: Set ID товарів, видалених у застосунку,
+    //       adoptForeign: true — свідомо забрати таблицю, яку вела інша панель}
     const rows = Array.isArray(values) ? values : [];
     const hdrRaw = (rows[0] || []).map(v=>String(v ?? "").trim());
     if (!hdrRaw.length) return {error:"У першому рядку таблиці немає заголовків."};
@@ -1597,6 +1605,11 @@ details.fold[open]>summary::after{transform:rotate(-135deg)}
     const lastRow = rows.reduce((m, r, i) => (r && r.some(v=>String(v ?? "").trim()!=="")) ? i+1 : m, 1);
     const plan = {header: hdrChanged ? newHdr : null, last, width, lastRow, rowWrites:[], appends:[], clears:[], dbUpdates:[], dbAdds:[], hides:[], n:0, added:0, changed:0, pushed:0};
     const byId = new Map(all.map(p=>[p.id, p]));
+    // Таблицю веде інша панель (більшість ID чужі): не забираємо її рядки й не переписуємо ID, бо це зламає ту панель. Лише за явною згодою.
+    const ids = rows.slice(1).filter(r=>r && cell(r,"name")).map(r=>cell(r,"id").replace(/^'/,"")).filter(Boolean);
+    const foreign = ids.filter(id=>!byId.has(id) && !(env.deleted && env.deleted.has(id))).length;
+    if (!env.adoptForeign && foreign >= 3 && foreign*2 > ids.length)
+      return {error:`Схоже, цю таблицю веде інша панель: ${foreign} з ${ids.length} товарів у ній мають ID, яких тут немає. Синхронізацію зупинено, щоб не зіпсувати ту панель.`, foreign};
     const claimed = new Set(), pending = [];
     const handle = (r, i, p) => {
       const s = fromSheet(r), a = fromApp(p), b = p.gsBase || null, m = {};
@@ -1675,7 +1688,7 @@ details.fold[open]>summary::after{transform:rotate(-135deg)}
     const id = S.settings.gsId; if (!id || !mcp || !db) return;
     const y = S.sync || (S.sync = {});
     if (y.busy){ y.again = true; return; }
-    y.busy = true; y.error = null; y.waiting = false; updateSyncUi();
+    y.busy = true; y.error = null; y.waiting = false; y.foreign = 0; updateSyncUi();
     let held = false;
     try{
       const lease = await syncLease(SYNC_TTL);
@@ -1696,9 +1709,9 @@ details.fold[open]>summary::after{transform:rotate(-135deg)}
       const all = (await db.collection("products").get()).docs.map(x=>({id:x.id, ...x.data()}));
       const deleted = new Set((await db.collection("deletedProducts").get()).docs.map(x=>x.id));
       const plan = planSync(d && Array.isArray(d.values) ? d.values : [], all, {
-        defMarkup:defMarkup(), priceOf, norm, parseNum, unitNorm, packNorm, today:today(), deleted,
+        defMarkup:defMarkup(), priceOf, norm, parseNum, unitNorm, packNorm, today:today(), deleted, adoptForeign:!!S.settings.gsAdopt,
         newId:()=>db.collection("products").doc().id || ("g"+Date.now().toString(36)+Math.random().toString(36).slice(2,7))});
-      if (plan.error) throw {sheetErr:plan.error};
+      if (plan.error) throw {sheetErr:plan.error, foreign:plan.foreign || 0};
       const L = plan.last;
       // 1) нові товари з таблиці — у застосунок (щоб їхні ID вже існували)
       for (const a of plan.dbAdds){ await keep(); await db.collection("products").doc(a.id).set(clean(a.data)); }
@@ -1719,7 +1732,8 @@ details.fold[open]>summary::after{transform:rotate(-135deg)}
       // 3) зміни з таблиці — у застосунок
       for (const u of plan.dbUpdates){ await keep(); await db.collection("products").doc(u.id).update(clean(u.patch)); }
       Object.assign(y, {at:Date.now(), n:plan.n, added:plan.added, upd:plan.changed, pushed:plan.pushed + plan.appends.length});
-    }catch(e){ y.error = (e && e.sheetErr) ? e.sheetErr : /quota|rate/i.test(String(e && (e.message||""))) ? "Google тимчасово обмежив кількість запитів. Спробую ще раз за хвилину." : sheetsErr(e); }
+      if (S.settings.gsAdopt){ S.settings.gsAdopt = false; await db.doc("settings/main").update({gsAdopt:false}); } // згода одноразова: далі захист знову діє
+    }catch(e){ y.foreign = (e && e.foreign) || 0; y.error = (e && e.sheetErr) ? e.sheetErr : /quota|rate/i.test(String(e && (e.message||""))) ? "Google тимчасово обмежив кількість запитів. Спробую ще раз за хвилину." : sheetsErr(e); }
     finally{
       if (held) await syncLease(1000).catch(()=>{}); // звільняємо замок: окремої команди немає, тож коротшаємо строк до 1 с
       y.busy = false; updateSyncUi();
@@ -1902,6 +1916,7 @@ details.fold[open]>summary::after{transform:rotate(-135deg)}
     if (a==="gsLinkNew"){ gsCreateBase(t); }
     if (a==="gsSyncNow"){ gsSync(); }
     if (a==="gsUnlink"){ if (!armed(t, "Точно відключити?")) return; setDoc("settings/main", {gsId:null, gsTitle:null, gsUrl:null}, "Таблицю відключено. Товари лишилися тут.").then(()=>{ S.sync = null; }); }
+    if (a==="gsAdopt"){ if (!armed(t, "Так, забрати товари")) return; setDoc("settings/main", {gsAdopt:true}).then(()=>{ S.settings.gsAdopt = true; gsSync(); }); }
     if (a==="gsSearch"){ gsSearch(); }
     if (a==="gsClose"){ S.gs = null; renderGs(); }
     if (a==="dlCsv"){ const list = selectedProducts(); save(`tsinnyky-${today()}.csv`, csv(list)).then(ok=>{ if (ok) markPrinted(list); }); }
