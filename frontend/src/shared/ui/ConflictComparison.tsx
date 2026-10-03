@@ -71,7 +71,7 @@ export function ConflictComparison({
             {row.status === 'conflict' ? (
               <RadioGroup
                 className="tk-conflict-choices"
-                value={choices[row.id] || ''}
+                value={choices[row.id] ?? null}
                 onChange={(choice) => {
                   if (choice === 'mine' || choice === 'server') onChoice(row.id, choice);
                 }}
@@ -95,7 +95,7 @@ export function ConflictComparison({
         {unresolved ? `Потрібно узгодити: ${unresolved}.` : 'Усі зміни узгоджено.'}
       </p>
       <div className="tk-conflict-actions">
-        <Button type="button" onPress={onCancel} isDisabled={isDisabled}>
+        <Button type="button" onPress={onCancel}>
           Повернутися до чернетки
         </Button>
         <Button
