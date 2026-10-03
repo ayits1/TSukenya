@@ -96,7 +96,7 @@ def prepare(request, user):
     # Freeze one consistent read with the same lock used by catalogue/pricing writes.
     ledger_lock()
     value = body(request)
-    require(set(value) == {'selection'}, 'Некоректні параметри друку.')
+    require('selection' in value and not (set(value) - {'selection', 'store'}), 'Некоректні параметри друку.')
     selection = value['selection']
     require(isinstance(selection, list) and 0 < len(selection) <= 1000, 'Оберіть товари для друку.')
     ids = []
@@ -115,11 +115,17 @@ def prepare(request, user):
     quantities = [quantities_by_id[identifier] for identifier in ids]
     selection = [{'id': identifier, 'quantity': quantities_by_id[identifier]} for identifier in ids]
     pricing = defaults()
-    products = [serialize(documents[identifier], user, pricing) for identifier in ids]
+    from .promotion_prices import PriceResolver, context_store
+    store = context_store(user, value.get('store'))
+    resolver = PriceResolver(pricing, store)
+    products = [serialize(documents[identifier], user, pricing, resolver=resolver) for identifier in ids]
     current = workspace(user, request.portal_session.csrf)
-    date = timezone.localdate().isoformat()
-    snapshot = sign({'workspace': current['revision'], 'date': date, 'selection': [{'id': item['id'], 'revision': item['revision'], 'quantity': quantity} for item, quantity in zip(products, quantities)]})
-    return response({**current, 'products': products, 'selection': selection, 'date': date, 'snapshot': snapshot})
+    # Layout names are not ERP identities: proof uses only the validated price context.
+    current['settings'] = {**current['settings'], 'storeNames': [store.name] if store else []}
+    current['config'] = {**current['config'], 'storeIdx': 0, **({'store': False} if store is None else {})}
+    date = resolver.day.isoformat()
+    snapshot = sign({'workspace': current['revision'], 'date': date, 'store': store.pk if store else None, 'storeName': store.name if store else None, 'selection': [{'id': item['id'], 'revision': item['revision'], 'priceRevision': item['effectivePriceRevision'], 'quantity': quantity} for item, quantity in zip(products, quantities)]})
+    return response({**current, 'products': products, 'selection': selection, 'date': date, 'snapshot': snapshot, 'priceContext': {'storeId': store.pk if store else None, 'storeName': store.name if store else None}})
 
 
 def handle_labels(request, user):

@@ -1304,6 +1304,428 @@
           }
         }
       }
+    },
+    "/api/v1/promotions/context": {
+      "get": {
+        "operationId": "promotionContext",
+        "responses": {
+          "200": {
+            "description": "Authoritative promotion result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "store",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "ERPStore identity; absent means network for unscoped user or own store for scoped user."
+          }
+        ]
+      }
+    },
+    "/api/v1/promotions/history": {
+      "get": {
+        "operationId": "priceHistory",
+        "responses": {
+          "200": {
+            "description": "Authoritative promotion result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceHistoryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "store",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "ERPStore identity; absent means network for unscoped user or own store for scoped user."
+          },
+          {
+            "in": "query",
+            "name": "product",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/promotions/campaigns": {
+      "get": {
+        "operationId": "listCampaigns",
+        "responses": {
+          "200": {
+            "description": "Authoritative promotion result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCampaign",
+        "responses": {
+          "200": {
+            "description": "Authoritative promotion result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/promotions/campaigns/{id}": {
+      "patch": {
+        "operationId": "updateCampaign",
+        "responses": {
+          "200": {
+            "description": "Authoritative promotion result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignPatch"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "archiveCampaign",
+        "responses": {
+          "200": {
+            "description": "Authoritative promotion result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation/access/version error; local draft must be retained",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignArchive"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1457,6 +1879,23 @@
             "required": [],
             "readOnly": true,
             "description": "Server-owned stable dictionary IDs; never accepted in product writes. Legacy text gets a deterministic identity, explicit archives suppress new choices."
+          },
+          "effectivePromotion": {
+            "$ref": "#/components/schemas/EffectivePromotion",
+            "readOnly": true
+          },
+          "effectiveDay": {
+            "type": "string",
+            "format": "date",
+            "readOnly": true
+          },
+          "effectivePriceRevision": {
+            "type": "string",
+            "readOnly": true
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext",
+            "readOnly": true
           }
         }
       },
@@ -2050,6 +2489,14 @@
         "properties": {
           "selection": {
             "$ref": "#/components/schemas/LabelSelection"
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "description": "ERP store identity; null means network for an unscoped user, own store for a scoped user."
           }
         },
         "required": [
@@ -2092,6 +2539,10 @@
           },
           "snapshot": {
             "type": "string"
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext",
+            "readOnly": true
           }
         },
         "required": [
@@ -3057,6 +3508,23 @@
           "promotionValid": {
             "type": "boolean",
             "description": "True only for an enabled, valid explicit promotion below regularPrice. False for no promotion and grandfathered legacy badge-only/invalid promotions."
+          },
+          "effectivePromotion": {
+            "$ref": "#/components/schemas/EffectivePromotion",
+            "readOnly": true
+          },
+          "effectiveDay": {
+            "type": "string",
+            "format": "date",
+            "readOnly": true
+          },
+          "effectivePriceRevision": {
+            "type": "string",
+            "readOnly": true
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext",
+            "readOnly": true
           }
         }
       },
@@ -3475,6 +3943,615 @@
           "blockedCount",
           "warnings",
           "ok"
+        ]
+      },
+      "PriceContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "storeId",
+          "storeName"
+        ],
+        "properties": {
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "storeName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "EffectivePromotion": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "id",
+          "name",
+          "price",
+          "startsOn",
+          "endsOn",
+          "revision"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "campaign"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "startsOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "endsOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      },
+      "PromotionContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "storeName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "effectiveDay": {
+            "type": "string",
+            "format": "date"
+          },
+          "stores": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ]
+            }
+          },
+          "canManage": {
+            "type": "boolean"
+          },
+          "canSelectNetwork": {
+            "type": "boolean"
+          },
+          "canViewHistory": {
+            "type": "boolean"
+          },
+          "csrf": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "storeId",
+          "storeName",
+          "effectiveDay",
+          "stores",
+          "canManage",
+          "canSelectNetwork",
+          "canViewHistory",
+          "csrf"
+        ]
+      },
+      "CampaignInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "network",
+              "stores"
+            ]
+          },
+          "stores": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxItems": 100
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "product": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "string",
+                  "pattern": "^\\d+\\.\\d{2}$"
+                }
+              },
+              "required": [
+                "product",
+                "price"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "name",
+          "startsOn",
+          "endsOn",
+          "active",
+          "scope",
+          "stores",
+          "prices",
+          "reason"
+        ]
+      },
+      "CampaignCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "network",
+              "stores"
+            ]
+          },
+          "stores": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxItems": 100
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "product": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "string",
+                  "pattern": "^\\d+\\.\\d{2}$"
+                }
+              },
+              "required": [
+                "product",
+                "price"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "name",
+          "startsOn",
+          "endsOn",
+          "active",
+          "scope",
+          "stores",
+          "prices",
+          "reason",
+          "idempotencyKey"
+        ]
+      },
+      "CampaignPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "network",
+              "stores"
+            ]
+          },
+          "stores": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxItems": 100
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "product": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "string",
+                  "pattern": "^\\d+\\.\\d{2}$"
+                }
+              },
+              "required": [
+                "product",
+                "price"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "name",
+          "startsOn",
+          "endsOn",
+          "active",
+          "scope",
+          "stores",
+          "prices",
+          "reason",
+          "revision"
+        ]
+      },
+      "CampaignArchive": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "revision",
+          "reason"
+        ]
+      },
+      "Campaign": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "network",
+              "stores"
+            ]
+          },
+          "stores": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxItems": 100
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "product": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "string",
+                  "pattern": "^\\d+\\.\\d{2}$"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "product",
+                "price",
+                "name"
+              ]
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "scheduled",
+              "expired",
+              "disabled",
+              "archived"
+            ]
+          },
+          "author": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "startsOn",
+          "endsOn",
+          "active",
+          "scope",
+          "stores",
+          "prices",
+          "reason",
+          "id",
+          "revision",
+          "archived",
+          "status",
+          "author"
+        ]
+      },
+      "PricingTerms": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "regularPrice": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "salePrice": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "effectivePromotion": {
+            "$ref": "#/components/schemas/EffectivePromotion"
+          }
+        },
+        "required": [
+          "regularPrice",
+          "salePrice",
+          "effectivePromotion"
+        ]
+      },
+      "PriceHistoryItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "before": {
+            "$ref": "#/components/schemas/PricingTerms"
+          },
+          "after": {
+            "$ref": "#/components/schemas/PricingTerms"
+          },
+          "author": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "product",
+          "storeId",
+          "before",
+          "after",
+          "author",
+          "source",
+          "reason",
+          "at"
+        ]
+      },
+      "CampaignPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Campaign"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "PriceHistoryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceHistoryItem"
+            }
+          }
+        },
+        "required": [
+          "items"
         ]
       }
     }

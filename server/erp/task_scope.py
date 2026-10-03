@@ -35,7 +35,7 @@ def authorize_task(user, data):
 
 
 def alert_task(path, data):
-    return path.startswith('tasks/auto_') or any(key.startswith('_alert') for key in data)
+    return path.startswith(('tasks/auto_', 'tasks/reprint_')) or any(key.startswith(('_alert', '_price')) for key in data)
 
 
 def task_permissions(user, path, data):

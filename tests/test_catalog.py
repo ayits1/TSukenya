@@ -27,7 +27,7 @@ class CatalogTests(TestCase):
         result=self.client.get('/api/v1/catalog/products?type=Напої&limit=10').json()
         self.assertEqual(result['total'],2)
         self.assertEqual(set(result['facets']['category']),{'Кава','Вода'})
-        self.assertEqual(self.client.get('/api/v1/catalog/products?q=Coffee&promotion=yes').json()['total'],1)
+        self.assertEqual(self.client.get('/api/v1/catalog/products?q=Coffee&promotion=yes').json()['total'],0)
         self.assertEqual(self.client.get('/api/v1/catalog/products?q=absent').json()['items'],[])
         self.assertEqual(self.client.get('/api/v1/catalog/products?limit=999').status_code,400)
     def test_decimal_price_and_role_redaction(self):
@@ -43,7 +43,7 @@ class CatalogTests(TestCase):
         stale=self.patch({'revision':original['revision'],'cost':'30.00'})
         self.assertEqual(stale.status_code,409)
         self.assertEqual(Document.objects.get(pk='products/one').data['cost'],20)
-        self.assertEqual(AuditEvent.objects.count(),1)
+        self.assertEqual(AuditEvent.objects.filter(action='catalog_changed').count(),1)
     def test_metadata_keeps_price_date_and_preserves_other_fields(self):
         product=Document.objects.get(pk='products/one');product.data.update(priceAt='2026-09-15',minStock=3,recipe=[]);product.save()
         result=self.patch({'revision':self.detail()['revision'],'name':'Coffee updated','cost':'10','markup':'30','manualPrice':False,'price':None})
@@ -171,7 +171,7 @@ class CatalogTests(TestCase):
         self.assertEqual(replaced.status_code,409);self.assertEqual(replaced.json()['code'],'product_exists')
         self.assertEqual(Document.objects.get(pk='products/two').data['cost'],20)
         self.assertEqual(Document.objects.get(pk='products/two').data['category'],'Вода')
-        self.assertEqual(AuditEvent.objects.count(),1)
+        self.assertEqual(AuditEvent.objects.filter(action='catalog_changed').count(),1)
         self.assertEqual(self.legacy('delete',None,'two').status_code,200)
         self.assertFalse(Document.objects.filter(pk='products/two').exists())
 
@@ -187,7 +187,7 @@ class CatalogTests(TestCase):
         result=self.legacy('patch',{'cost':20},'two')
         self.assertEqual(result.status_code,200);self.assertEqual(self.detail('two')['regularPrice'],'26.00')
         self.assertEqual(self.detail('two')['priceAt'],timezone.localdate().isoformat())
-        self.assertEqual(AuditEvent.objects.get().action,'catalog_changed')
+        self.assertEqual(AuditEvent.objects.filter(action='catalog_changed').count(),1)
 
     def test_legacy_patch_changes_only_sent_keys_and_null_text_means_empty(self):
         doc=Document.objects.get(pk='products/two');doc.data.update(pack='Пляшка',size='0,5 л',recipe=[],minStock=2,priceAt='2026-09-01');doc.save()
@@ -315,4 +315,4 @@ class CatalogConcurrencyTests(TransactionTestCase):
                 return result.status_code
             finally:connections.close_all()
         with ThreadPoolExecutor(max_workers=2) as pool:statuses=list(pool.map(update,['20.00','30.00']))
-        self.assertCountEqual(statuses,[200,409]);self.assertEqual(AuditEvent.objects.count(),1)
+        self.assertCountEqual(statuses,[200,409]);self.assertEqual(AuditEvent.objects.filter(action='catalog_changed').count(),1)

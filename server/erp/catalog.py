@@ -129,14 +129,15 @@ def sale_price(data, config=None):
     return promotion if data.get('promotion') and promotion is not None and 0 < promotion < regular else regular
 
 
-def serialize(document, user, config):
+def serialize(document, user, config, resolver=None):
+    from .promotion_prices import PriceResolver, context_store
+    resolver = resolver or PriceResolver(config, context_store(user))
+    resolved = resolver.resolve(document)
     data = document.data
     cost = decimal(data.get('cost'))
     markup = decimal(data.get('markup', config['markup']))
     manual = bool(data.get('manualPrice'))
-    regular = regular_price(data, config)
     promotion = promotion_amount(data)
-    price = sale_price(data, config)
     private = user.profile.role != 'cashier'
     return {
         'id': document.path.split('/', 1)[1], 'revision': revision(document, config),
@@ -145,10 +146,10 @@ def serialize(document, user, config):
         'cost': format(cost, 'f') if private else None,
         'markup': format(markup, 'f') if private else None,
         'price': format(decimal(data.get('price')), 'f') if manual else None,
-        'regularPrice': format(regular, 'f'),
+        'regularPrice': resolved['regularPrice'],
         'promotionPrice': format(promotion, 'f') if promotion is not None else None,
-        'salePrice': format(price, 'f'),
-        'manualPrice': manual, 'promotion': bool(data.get('promotion')),
+        'salePrice': resolved['salePrice'],
+        'manualPrice': manual, 'promotion': bool(data.get('promotion')), **resolved,
         'priceAt': price_date(data.get('priceAt')), 'minStock': format(decimal(data.get('minStock')), 'f'),
     }
 
@@ -184,8 +185,12 @@ def list_products(request, user):
         query = query.filter(Q(data__name__icontains=word) | Q(data__barcode__icontains=word))
     promotion = request.GET.get('promotion', '')
     require(promotion in {'', 'yes', 'no'}, 'Некоректний фільтр акції.')
-    if promotion == 'yes': query = query.filter(data__promotion=True)
-    if promotion == 'no': query = query.filter(Q(data__promotion__isnull=True) | ~Q(data__promotion=True))
+    from .promotion_prices import PriceResolver, context_store
+    config = defaults()
+    resolver = PriceResolver(config, context_store(user, request.GET.get('store')))
+    if promotion:
+        matched = [d.pk for d in query if bool(resolver.resolve(d)['effectivePromotion']) == (promotion == 'yes')]
+        query = query.filter(pk__in=matched)
     # Each following choice is constrained by its parents, never by itself.
     facets = {}
     for key in ('type', 'category', 'pack'):
@@ -199,7 +204,7 @@ def list_products(request, user):
     page = min(page, pages)
     documents = query.order_by('data__type', 'data__category', 'data__name', 'path')[(page - 1) * limit:page * limit]
     config = defaults()
-    return response({'items': [serialize(document, user, config) for document in documents],
+    return response({'items': [serialize(document, user, config, resolver=resolver) for document in documents],
         'total': count, 'page': page, 'pages': pages, 'limit': limit, 'facets': facets,
         'canEdit': user.profile.role in EDIT_ROLES, 'defaultMarkup': format(config['markup'], 'f')})
 
@@ -225,7 +230,8 @@ def save_product(request, user, identifier=None):
         data = new_product_data(config)
     require(not (set(value) - PRODUCT_FIELDS - {'revision', 'pricingRevision'}), 'Запит містить невідомі поля товару.')
     if request.method == 'DELETE':
-        from .models import VoucherLine, StockLot
+        from .models import VoucherLine, StockLot, PromotionPrice
+        require(not PromotionPrice.objects.filter(product=document).exists(), 'Товар використовується в історії акцій. Приховайте його замість видалення.')
         require(not VoucherLine.objects.filter(product=document).exists() and not StockLot.objects.filter(product=document).exists(), 'Товар уже використовується в обліку. Його не можна видалити.')
         require(not any(any(str(row.get('product')) == identifier for row in item.data.get('recipe', [])) for item in Document.objects.filter(path__startswith='products/')), 'Товар використовується у рецептурі.')
         subject = document.path; document.delete(); audit(user, 'catalog_changed', subject, {'method': 'DELETE', 'contract': 'v1'})
@@ -233,9 +239,13 @@ def save_product(request, user, identifier=None):
     old = dict(data)
     data = normalise_product({key: item for key, item in value.items() if key not in {'revision', 'pricingRevision'}}, old, document.path, config=config, old_config=config)
     if duplicate_name(data, old, document.path): return response(DUPLICATE_NAME, 409)
+    from .promotion_history import observe_prices
+    if old.get('name'):observe_prices(user,[document],'catalog','Редагування товару',seed=True)
     document.data = data; document.save()
+    observe_prices(user,[document],'catalog','Редагування товару')
     audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1'})
-    return response(serialize(document, user, config), 200 if old.get('name') else 201)
+    from .promotion_prices import PriceResolver, context_store
+    return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')))), 200 if old.get('name') else 201)
 
 
 def unit_in_use(path, data):
@@ -356,6 +366,8 @@ def handle_catalog(request, user):
         if request.method == 'GET':
             document = base_query().filter(pk='products/' + match[1]).first()
             if not document: return response({'error': 'Товар не знайдено.', 'code': 'not_found'}, 404)
-            return response(serialize(document, user, defaults()))
+            from .promotion_prices import PriceResolver, context_store
+            config=defaults()
+            return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')))))
         if request.method in {'PATCH', 'DELETE'}: return save_product(request, user, match[1])
     return response({'error': 'Метод або маршрут не підтримується.', 'code': 'unsupported_route'}, 405)
