@@ -112,6 +112,39 @@ class MonthlyBudgetTests(TransactionTestCase):
         Voucher.objects.filter(pk=expense.pk).update(payload=[])
         with self.assertRaises(BusinessError):view(self.u,{'month':self.month})
 
+    def test_api_malformed_mode_rejected_without_mutation_or_audit(self):
+        self.login();before=(MonthlyBudget.objects.count(),BudgetLine.objects.count(),AuditEvent.objects.count())
+        for mode in ([],{},False,None,1):
+            body=self.body();body['lines'][0]['mode']=mode
+            response=self.request('post','/api/erp/monthly-budgets',body)
+            self.assertEqual(response.status_code,400,response.content)
+            self.assertEqual((MonthlyBudget.objects.count(),BudgetLine.objects.count(),AuditEvent.objects.count()),before)
+
+    def test_category_create_retry_rejects_edited_record_even_after_name_restored(self):
+        self.login();body={'id':str(uuid.uuid4()),'name':'Окрема стаття','active':True}
+        first=self.request('post','/api/erp/budget-categories',body);self.assertEqual(first.status_code,201,first.content)
+        retried=self.request('post','/api/erp/budget-categories',body);self.assertEqual(retried.json(),first.json())
+        subject='budget-category/'+body['id'];self.assertEqual(AuditEvent.objects.filter(subject=subject).count(),1)
+        changed=self.request('put','/api/erp/budget-categories/'+body['id'],{'name':'Змінена стаття','active':True,'revision':1});self.assertEqual(changed.status_code,200,changed.content)
+        restored=self.request('put','/api/erp/budget-categories/'+body['id'],{'name':body['name'],'active':True,'revision':2});self.assertEqual(restored.status_code,200,restored.content)
+        audits=AuditEvent.objects.filter(subject=subject).count()
+        refused=self.request('post','/api/erp/budget-categories',body);self.assertEqual(refused.status_code,400,refused.content);self.assertEqual(AuditEvent.objects.filter(subject=subject).count(),audits)
+        self.assertEqual(ExpenseCategory.objects.get(pk=body['id']).revision,3)
+
+    def test_normalized_budget_and_category_audit_captures_pre_mutation_rows(self):
+        body=self.body();body.update({'password':'not-business-data','create_key':'not-an-audit-field'})
+        second={'id':str(uuid.uuid4()),'category':str(self.othercat.pk),'mode':'revenue_rate','amount':'0','rate':'1.234','base':'revenue'};body['lines'].append(second)
+        saved=save(self.u,body);subject='budget/'+saved['id'];event=AuditEvent.objects.filter(subject=subject).get().detail
+        self.assertIsNone(event['before']);self.assertEqual(event['after']['planned_revenue'],'1000.00');self.assertEqual(event['after']['lines'][1]['position'],1);self.assertEqual(event['after']['lines'][1]['rate'],'1.234');self.assertTrue(event['request_id'])
+        original=event['after'];body['revision']=1;body['planned_revenue']='1234.56';body['lines']=[second];second['mode']='variable_amount';second['rate']='0';second['amount']='19.23'
+        updated=save(self.u,body,saved['id']);event=AuditEvent.objects.filter(subject=subject).order_by('-pk').first().detail
+        self.assertEqual(event['before'],original);self.assertEqual(event['observed_revision'],1);self.assertEqual(event['after']['revision'],2);self.assertEqual(event['after']['planned_revenue'],'1234.56')
+        self.assertEqual(event['after']['lines'],[{'id':second['id'],'category_id':str(self.othercat.pk),'category_name':'Інше','position':0,'mode':'variable_amount','amount':'19.23','rate':'0.000','base':'revenue'}])
+        for forbidden in ('password','not-business-data','idempotency_key','create_key','fingerprint'):self.assertNotIn(forbidden,json.dumps(event))
+        renamed=save_category(self.u,{'name':'Приміщення','active':False,'revision':1,'unknown_private':'not-allowed'},str(self.rent.pk))
+        event=AuditEvent.objects.filter(subject='budget-category/'+str(self.rent.pk)).get().detail
+        self.assertEqual(event['before'],{'id':str(self.rent.pk),'name':'Оренда','semantic_key':'rent','active':True,'revision':1});self.assertEqual(event['after'],renamed);self.assertEqual(event['observed_revision'],1);self.assertNotIn('unknown_private',str(event))
+
     def test_postgres_concurrent_create_and_update_same_budget(self):
         if connection.vendor!='postgresql':self.skipTest('PostgreSQL global planning lock')
         body=self.body();barrier=Barrier(2);results=[]

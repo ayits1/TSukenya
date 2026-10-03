@@ -16,7 +16,7 @@
 - `POST /api/erp/budget-categories` — `{id: UUID, name, active}`. Стабільний UUID дозволяє повторити створення після втрати відповіді без дубля.
 - `PUT /api/erp/budget-categories/:id` — `{name, active, revision}`; конфлікт версії `409 budget_revision_conflict`. `semantic_key` у записі заборонений.
 - `GET /api/erp/monthly-budgets?month=YYYY-MM&store=ID` — owner; відсутній store означає мережу. Read-only, PostgreSQL repeatable-read snapshot. Scope профілю owner також застосовується; scoped owner не читає мережу.
-- `POST /api/erp/monthly-budgets` — `{month,store,planned_revenue,lines,idempotency_key}`; стабільний ключ і незмінний запит повертають той самий створений бюджет. Змінений запит/вже оновлений бюджет під старим ключем відхиляються.
+- `POST /api/erp/monthly-budgets` — `{month,store,planned_revenue,lines,idempotency_key}`; стабільний ключ і незмінний запит повертають той самий створений бюджет. Змінений запит/вже оновлений бюджет під старим ключем відхиляються. Створення статті під тим самим UUID повторюється тільки доки revision=1; після редагування, навіть із поверненням початкової назви, replay відхиляється.
 - `PUT /api/erp/monthly-budgets/:id` — той самий зміст плюс `revision`; місяць і магазин незмінні. Конфлікт зберігає чернетку, повертає `409 budget_revision_conflict`; друга незалежна спроба створення того самого місяця/scope — `409 budget_exists`.
 
 Рядок: `{id,category,mode,amount,rate,base}`. Гроші — десяткові рядки з точністю копійок, ставки — до трьох знаків. Сервер перевіряє невід’ємність, фінальне округлення і максимуми; bool/додаткові знаки не округляються мовчки. До 200 рядків, batch-запис і batch-перевірка ID. Рядок іншого бюджету не можна привласнити. Всі writes атомарні під існуючим `LedgerLock`, мають audit; GET не створює моделей чи audit.
@@ -50,4 +50,8 @@ Read DTO: збережений бюджет, довідник, ERP-магази�
 
 Копіювання бюджету між місяцями, погодження/замороження плану, касовий прогноз та кілька баз ставок не входять у цей етап. Reload після закриття браузера не відновлює незбережену чернетку; збережений бюджет історичний. Категорія має створення/перейменування/архів, фізичне видалення не надається.
 
-B18 snapshot whitelist має включити чотири моделі й порядок FK: `ExpenseCategory` → `ExpenseCategoryAlias`, `MonthlyBudget` → `BudgetLine`. Бюджети не слід відновлювати з legacy `settings/main`: storeNames/ціни/ідентичність цінників залишено незмінними. Audit actions `monthly_budget_saved`, `budget_category_saved`; міграція0010 надає реальний dependency для B10/0011.
+B18 snapshot whitelist має включити чотири моделі й порядок FK: `ExpenseCategory` → `ExpenseCategoryAlias`, `MonthlyBudget` → `BudgetLine`. Бюджети не слід відновлювати з legacy `settings/main`: storeNames/ціни/ідентичність цінників залишено незмінними. Audit actions `monthly_budget_saved`, `budget_category_saved` мають нормалізовані `before/after`, request_id і observed_revision. Знімок бюджету включає дозволені поля бюджету й усіх рядків (ID статті, назва, position, mode, amount, rate, base), зняті до зміни; category snapshot включає лише id/name/semantic_key/active/revision. Ключі створення, fingerprint і невідомі вхідні поля не логуються. Міграція0010 надає реальний dependency для B10/0011.
+
+### Цільове рев’ю B18-сумісності
+
+Чотири PG-перевірки PASS після доповнення аудиту: API відхиляє mode[]/{} і інші нестрокові значення з400 без рядків/audit; category create replay після edit→renameback відхиляється; before/after зберігає попередні рядки й позиції без client unknown/private fields; 65batch-рядків лишаються в межі≤25queries. Міграцію0010 не змінено, успішні UI та accounting перевірки повторно не запускались.

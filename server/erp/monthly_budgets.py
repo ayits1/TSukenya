@@ -9,6 +9,7 @@ from django.utils import timezone
 from .models import ExpenseCategory,ExpenseCategoryAlias,MonthlyBudget,BudgetLine,Store
 from .services import ZERO,QTY,dec,money,require,scope,ledger_lock,audit,Conflict,get
 from .historical_reports import period_documents,period_sign,require_reversal_dates,read_snapshot
+from .business_audit import select as audit_select,change as audit_change
 
 
 def owner(user):require(user.profile.role=='owner','Бюджет доступний лише власнику.')
@@ -30,6 +31,16 @@ def decimal(raw,label,quantum=Decimal('.01')):
     require(isinstance(raw,str),f'{label}: вкажіть десятковий рядок.')
     return dec(raw,label,quantum)
 def category_json(c):return {'id':str(c.pk),'name':c.name,'semantic_key':c.semantic_key,'active':c.active,'revision':c.revision}
+def category_snapshot(category):
+    return audit_select(category,('id','name','semantic_key','active','revision')) if category else None
+
+def budget_snapshot(budget):
+    if budget is None:return None
+    value={'id':str(budget.pk),'month':budget.month.isoformat(),'store_id':budget.store_id,'planned_revenue':str(budget.planned_revenue),'revision':budget.revision}
+    result=audit_select(value,('id','month','store_id','planned_revenue','revision'))
+    result['lines']=[audit_select(line,('id','category_id','category_name','position','mode','amount','rate','base')) for line in budget.lines.order_by('position','pk')]
+    return result
+
 def categories(user):
     require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав.')
     return {'items':[category_json(c) for c in ExpenseCategory.objects.order_by('name','pk')]}
@@ -54,7 +65,8 @@ def save_category(user,body,key=None):
     candidate=identity(body['id']) if body.get('id') else uuid.uuid4()
     if not c and ExpenseCategory.objects.filter(pk=candidate).exists():
         old=ExpenseCategory.objects.get(pk=candidate)
-        require(old.name==name and old.active==active,'ID створення вже використано для іншої статті.');return category_json(old)
+        require(old.revision==1 and old.name==name and old.active==active,'ID створення вже використано або статтю змінено.');return category_json(old)
+    before=category_snapshot(c)
     aliases=ExpenseCategoryAlias.objects.filter(name=name)
     require(not aliases.exclude(category=c).exists() if c else not aliases.exists(),'Назва вже належить іншій історичній статті.')
     if c:
@@ -63,7 +75,7 @@ def save_category(user,body,key=None):
         c.name=name;c.active=active;c.revision+=1
     else:c=ExpenseCategory(id=candidate,name=name,active=active)
     c.save();ExpenseCategoryAlias.objects.get_or_create(name=name,defaults={'category':c})
-    audit(user,'budget_category_saved',f'budget-category/{c.pk}',category_json(c));return category_json(c)
+    audit(user,'budget_category_saved',f'budget-category/{c.pk}',audit_change(before,category_snapshot(c),observed=body.get('revision')));return category_json(c)
 
 def budget_json(b):
     return {'id':str(b.pk),'month':b.month.strftime('%Y-%m'),'store':b.store_id,'revision':b.revision,'planned_revenue':str(b.planned_revenue),
@@ -86,6 +98,7 @@ def save(user,body,key=None):
         require(old.month==start and old.store_id==(store.pk if store else None),'Період і магазин збереженого бюджету незмінні.')
         require(type(body.get('revision')) is int,'Передайте версію бюджету.')
         if old.revision!=body['revision']:raise Conflict('Бюджет змінено в іншому сеансі. Ваша чернетка збережена.','budget_revision_conflict',revision=old.revision)
+    before=budget_snapshot(old)
     normalized=[];seen=set();prior={str(l.pk):l for l in old.lines.all()} if old else {}
     prepared=[]
     for position,item in enumerate(raw):
@@ -101,7 +114,7 @@ def save(user,body,key=None):
         category=cats.get(cid);require(category is not None,'Стаття: запис не знайдено.')
         previous=prior.get(str(lid))
         require(category.active or previous and previous.category_id==category.pk,'Архівну статтю можна зберігати лише в її чинному історичному рядку.')
-        mode=item.get('mode');require(mode in {'fixed_amount','variable_amount','revenue_rate'},'Виберіть спосіб планування.')
+        mode=item.get('mode');require(isinstance(mode,str) and mode in {'fixed_amount','variable_amount','revenue_rate'},'Виберіть спосіб планування.')
         base=item.get('base','revenue');require(base=='revenue','Підтримано лише явну базу «Виторг».')
         amount=decimal(item.get('amount','0'),'Планова сума');rate=decimal(item.get('rate','0'),'Відсоток',QTY);require(rate<=100,'Відсоток має бути від 0 до 100.')
         require(amount==0 if mode=='revenue_rate' else rate==0,'Сума і відсоток — різні способи планування.')
@@ -121,7 +134,7 @@ def save(user,body,key=None):
         (updated if existing else created).append(line)
     BudgetLine.objects.bulk_create(created,batch_size=200)
     if updated:BudgetLine.objects.bulk_update(updated,['category','category_name','position','mode','amount','rate','base'],batch_size=200)
-    audit(user,'monthly_budget_saved',f'budget/{b.pk}',{'month':start.strftime('%Y-%m'),'store':b.store_id,'revision':b.revision,'lines':len(normalized),'planned_revenue':str(revenue)})
+    audit(user,'monthly_budget_saved',f'budget/{b.pk}',audit_change(before,budget_snapshot(b),observed=body.get('revision')))
     return budget_json(b)
 
 def view_data(user,params):
