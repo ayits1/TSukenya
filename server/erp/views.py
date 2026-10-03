@@ -497,7 +497,7 @@ def handle(request):
         if not action and request.method=='PUT':return response(voucher_json(save_voucher(user,body(request),pk),True,user=user))
         if not action and request.method=='DELETE':
             with transaction.atomic():
-                ledger_lock();v.refresh_from_db();scope(user,v.store);permission(user,v.kind);require(v.status=='draft','Видалити можна тільки чернетку.')
+                ledger_lock();v.refresh_from_db();scope(user,v.store);permission(user,v.kind);expense_permission(user,v);require(v.status=='draft','Видалити можна тільки чернетку.')
                 value=body(request)
                 if 'revision' in value:require_voucher_revision(v,value['revision'])
                 audit(user,'draft_deleted',f'voucher/{pk}');v.delete()

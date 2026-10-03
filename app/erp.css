@@ -50,3 +50,20 @@
 }
 }
 @layer legacy { .trade-assortment-sold{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}.trade-assortment-sold input{width:20px;height:20px;margin:0}.trade-assortment-min input{width:min(140px,100%);min-height:44px} }
+
+@layer legacy {
+ .trade-report-tabs {display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+ .trade-report-tabs .btn {min-height:44px;white-space:normal;text-align:left}
+ .trade-report-tabs [aria-selected="true"] {font-weight:600}
+ @media(max-width:480px) {.trade-report-tabs{display:grid;grid-template-columns:1fr}.trade-report-tabs .btn{width:100%}}
+}
+
+@layer legacy {
+ .trade-store-result {min-width:0;max-width:340px;overflow-wrap:anywhere}
+ .trade-store-result summary {min-height:44px;padding:10px 0;cursor:pointer}
+ .trade-store-result dl {margin:8px 0;min-width:0}
+ .trade-store-result dl>div {display:flex;justify-content:space-between;gap:12px;margin:6px 0}
+ .trade-store-result dt {min-width:0}
+ .trade-store-result dd {margin:0;flex:none;font-variant-numeric:tabular-nums;white-space:nowrap}
+ @media(max-width:380px) {.trade-store-result dl>div{display:block}.trade-store-result dd{margin-top:2px}}
+}
