@@ -1344,7 +1344,6 @@
     if(a==='addWork'){const input=$('#newWork'),due=$('#newWorkDue');void addInline(a,'tasks',{title:input.value.trim(),scope:'operations',dueDate:due.value||null,status:'todo',order:Date.now()},[input,due],'Поточну задачу додано');return;}
     if(a==='addTask'){const input=$('#newTask');void addInline(a,'tasks',{title:input.value.trim(),scope:'development',stage:+$('#newTaskStage').value,status:'todo',order:Date.now()},[input,$('#newTaskStage')],'Задачу додано');return;}
     if(a==='addIdea'){const input=$('#newIdea');void addInline(a,'ideas',{title:input.value.trim(),text:'Ідея власника',reaction:null,order:Date.now(),byOwner:true},[input],'Ідею записано');return;}
-    if (a==="clearEx"){ if(confirm("Прибрати всі товари-приклади?")) S.products.filter(p=>p.example).reduce((pr,p)=>pr.then(()=>del("products",p.id)),Promise.resolve()).then(()=>toast("Приклади прибрано")); }
     if (a==="bulk"){ const m=num($("#bulkM").value), c=$("#bulkC").value; const list = c==="__f" ? (window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)) : S.products.filter(p=>!c||p.category===c);
       if(!list.length) return; if(!confirm(`Встановити націнку ${m}% для ${list.length} товарів? Ручні ціни теж перерахуються.`)) return;
       (async()=>{ for(const p of list) await upd("products",p.id,{markup:m,manualPrice:false,price:null,priceAt:today()}); if(!c) await setDoc("settings/main",{defaultMarkup:m}); toast("Ціни перераховано"); })(); }
