@@ -1,6 +1,17 @@
 """Legacy budget validation and a count independent from label/ERP identities."""
+from calendar import monthrange
+from datetime import date
 from decimal import Decimal
-from .services import dec, require
+import re
+
+from django.db.models import Sum
+from django.utils import timezone
+
+from .services import ZERO, dec, money, require
+
+# Categories of the expense document form (app/erp.js) plus payroll accruals, which are their own documents.
+EXPENSE_CATEGORIES = ['Оренда', 'Комунальні', 'Логістика', 'Обслуговування', 'Маркетинг', 'Податки', 'Інше']
+BUDGET_CATEGORIES = EXPENSE_CATEGORIES[:-1] + ['Зарплата', 'Інше']
 
 
 def valid_count(value):
@@ -47,4 +58,29 @@ def validate_expense(data):
     require(type(raw) in {int, float}, 'Сума витрати має бути числом.')
     amount = dec(raw, 'Сума витрати')
     require(amount <= Decimal('99999999.99'), 'Сума витрати не може перевищувати 99 999 999,99 грн.')
+    category = data.get('category')
+    require(category is None or category in BUDGET_CATEGORIES, 'Невідома категорія обліку для статті витрат.')
     return {**data, 'name': name.strip(), 'amount': float(amount)}
+
+
+def budget_fact(user, params):
+    """Actual expenses of one month by accounting category, for the budget plan-versus-fact view."""
+    from .models import Voucher
+    from .reporting import scoped
+    require(user.profile.role == 'owner', 'Бюджет витрат доступний власнику мережі.')
+    today = timezone.localdate()
+    raw = str(params.get('month') or today.strftime('%Y-%m'))
+    match = re.fullmatch(r'(\d{4})-(\d{2})', raw)
+    require(match and 1 <= int(match[2]) <= 12, 'Місяць має бути у форматі РРРР-ММ.')
+    year, month = int(match[1]), int(match[2])
+    start, end = date(year, month, 1), date(year, month, monthrange(year, month)[1])
+    posted = scoped(Voucher.objects.filter(status='posted', date__gte=start, date__lte=end), user)
+    facts = {category: ZERO for category in BUDGET_CATEGORIES}
+    for voucher in posted.filter(kind='expense').only('total', 'payload'):
+        category = voucher.payload.get('category')
+        facts[category if category in EXPENSE_CATEGORIES else 'Інше'] += voucher.total
+    facts['Зарплата'] += posted.filter(kind='payroll').aggregate(n=Sum('total'))['n'] or ZERO
+    passed = 0 if today < start else (end - start).days + 1 if today > end else (today - start).days + 1
+    return {'month': f'{year:04d}-{month:02d}', 'from': start.isoformat(), 'to': end.isoformat(),
+            'days_passed': passed, 'days_total': (end - start).days + 1, 'categories': BUDGET_CATEGORIES,
+            'facts': {category: str(money(amount)) for category, amount in facts.items()}}

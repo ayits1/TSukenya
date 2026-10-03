@@ -451,6 +451,9 @@ def handle(request):
     if path=='/api/erp/ledger' and request.method=='GET':
         from .financial_browsing import ledger
         return response(ledger(user,request.GET))
+    if path=='/api/erp/budget-fact' and request.method=='GET':
+        from .budget import budget_fact
+        return response(budget_fact(user,request.GET))
     if path=='/api/erp/debts/summary' and request.method=='GET':
         from .financial_browsing import debt_summary
         return response(debt_summary(user))

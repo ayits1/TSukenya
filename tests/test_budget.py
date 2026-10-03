@@ -1,4 +1,5 @@
 import copy
+from datetime import timedelta
 import hashlib
 import time
 
@@ -164,3 +165,52 @@ class BudgetTests(TestCase):
         self.assertEqual(document.data['budgetStores'], 2)
         self.assertEqual(document.data['storeNames'], ['Новий A'])
         self.assertNotIn('stores', document.data)
+
+
+class BudgetFactTests(TestCase):
+    def setUp(self):
+        from server.erp.models import CashAccount, Employee, Voucher
+        LedgerLock.objects.create(pk=1)
+        self.user = User.objects.create(username='fact-owner')
+        Profile.objects.create(user=self.user, role='owner')
+        store = Store.objects.create(name='Факт')
+        account = CashAccount.objects.create(store=store, name='Каса', kind='cash')
+        worker = Employee.objects.create(name='Касир', store=store, shift_rate=300)
+        from django.utils import timezone
+        today = timezone.localdate()
+        def voucher(kind, total, day=today, status='posted', **extra):
+            Voucher.objects.create(kind=kind, status=status, date=day, store=store, account=account, total=total, created_by=self.user, **extra)
+        voucher('expense', '1000', payload={'category': 'Оренда'})
+        voucher('expense', '250.50', payload={'category': 'Оренда'})
+        voucher('expense', '99', payload={'category': 'Невідома'})
+        voucher('expense', '500', status='draft', payload={'category': 'Оренда'})
+        voucher('expense', '700', day=today.replace(day=1) - timedelta(days=1), payload={'category': 'Оренда'})
+        voucher('payroll', '1200', employee=worker)
+        self.month = today.strftime('%Y-%m')
+
+    def test_month_facts_by_category(self):
+        from server.erp.budget import BUDGET_CATEGORIES, budget_fact
+        result = budget_fact(self.user, {})
+        self.assertEqual(result['month'], self.month)
+        self.assertEqual(result['categories'], BUDGET_CATEGORIES)
+        self.assertEqual((result['facts']['Оренда'], result['facts']['Інше'], result['facts']['Зарплата'], result['facts']['Податки']), ('1250.50', '99.00', '1200.00', '0.00'))
+        from django.utils import timezone
+        self.assertEqual(result['days_passed'], timezone.localdate().day)
+
+    def test_owner_only_and_month_format(self):
+        from server.erp.budget import budget_fact
+        from server.erp.services import BusinessError
+        with self.assertRaisesMessage(BusinessError, 'РРРР-ММ'):
+            budget_fact(self.user, {'month': '2026-13'})
+        past = budget_fact(self.user, {'month': '2020-02'})
+        self.assertEqual((past['days_total'], past['days_passed'], past['facts']['Оренда']), (29, 29, '0.00'))
+        self.user.profile.role = 'manager'; self.user.profile.save()
+        with self.assertRaisesMessage(BusinessError, 'власнику'):
+            budget_fact(self.user, {})
+
+    def test_budget_line_category_is_validated(self):
+        from server.erp.budget import validate_expense
+        from server.erp.services import BusinessError
+        self.assertEqual(validate_expense({'name': 'Зарплата продавців', 'group': 'fixed', 'amount': 1, 'category': 'Зарплата'})['category'], 'Зарплата')
+        with self.assertRaisesMessage(BusinessError, 'категорія'):
+            validate_expense({'name': 'X', 'group': 'fixed', 'amount': 1, 'category': 'Щось'})
