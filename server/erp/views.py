@@ -485,13 +485,19 @@ def handle(request):
     match=re.fullmatch(r'/api/erp/vouchers/(\d+)(?:/(post|reverse))?',path)
     if match:
         pk,action=match.groups();v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind)
-        if action=='post' and request.method=='POST':return response(voucher_json(post_voucher(user,pk),True,user=user))
+        if action=='post' and request.method=='POST':
+            value=body(request)
+            observed={'expected_revision':value['revision']} if 'revision' in value else {}
+            return response(voucher_json(post_voucher(user,pk,**observed),True,user=user))
         if action=='reverse' and request.method=='POST':return response(voucher_json(reverse_voucher(user,pk,body(request).get('reason','')),True,user=user))
         if not action and request.method=='GET':return response(voucher_json(v,True,user=user))
         if not action and request.method=='PUT':return response(voucher_json(save_voucher(user,body(request),pk),True,user=user))
         if not action and request.method=='DELETE':
             with transaction.atomic():
-                ledger_lock();v.refresh_from_db();require(v.status=='draft','Видалити можна тільки чернетку.');audit(user,'draft_deleted',f'voucher/{pk}');v.delete()
+                ledger_lock();v.refresh_from_db();scope(user,v.store);permission(user,v.kind);require(v.status=='draft','Видалити можна тільки чернетку.')
+                value=body(request)
+                if 'revision' in value:require_voucher_revision(v,value['revision'])
+                audit(user,'draft_deleted',f'voucher/{pk}');v.delete()
             return response({'ok':True})
     match=re.fullmatch('/api/erp/entities/(stores|warehouses|parties|accounts|employees)',path)
     if match and request.method=='POST':return entity_save(user,match[1],body(request))

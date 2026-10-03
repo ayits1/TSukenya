@@ -36,6 +36,39 @@ assert.equal((await put).status(),409);
 await wait(async()=>(await page.locator('#tradeFormError').innerText()).includes('іншому пристрої'));
 assert.equal(await page.locator('#tradeVoucherForm [data-line=quantity]').inputValue(),'7');
 assert.equal((await ok('vouchers/'+draft.id)).lines[0].quantity,'3.000');
+// An older detail view may not post or delete lines changed after it was opened.
+await go('purchases');await page.locator(`[data-trade=view][data-id="${draft.id}"]`).first().click();
+const observed=await ok('vouchers/'+draft.id);
+await ok('vouchers/'+draft.id,'PUT',{kind:'purchase_order',store,warehouse:wh,party:supplier,date,revision:observed.revision,lines:[{product:p,quantity:'9',price:'5'}]});
+const posting=page.waitForResponse(r=>r.url().endsWith(`/api/erp/vouchers/${draft.id}/post`));
+await page.locator('[data-trade=post-voucher]').click();assert.equal((await posting).status(),409);
+assert.equal((await ok('vouchers/'+draft.id)).status,'draft');
+await page.locator('[data-trade=delete-voucher]').click();
+const deleting=page.waitForResponse(r=>r.url().endsWith('/api/erp/vouchers/'+draft.id)&&r.request().method()==='DELETE');
+await page.locator('dialog[open] button[type=submit]').click();assert.equal((await deleting).status(),409);
+assert.equal((await ok('vouchers/'+draft.id)).lines[0].quantity,'9.000');
+// A create committed but its reply was lost; another editor then updated it.
+await go('purchases');await page.locator('[data-trade=new-voucher][data-kind=purchase_order]').click();
+const newForm=page.locator('#tradeVoucherForm');
+await newForm.locator('[name=party]').selectOption(String(supplier));
+await newForm.locator('[data-line=product]').selectOption(p);
+await newForm.locator('[data-line=quantity]').fill('1');await newForm.locator('[data-line=price]').fill('5');
+let lostId;
+await page.route('**/api/erp/vouchers',async route=>{
+ if(route.request().method()!=='POST')return route.continue();
+ const response=await route.fetch(),created=await response.json();lostId=created.id;
+ await ok('vouchers/'+lostId,'PUT',{kind:'purchase_order',store,warehouse:wh,party:supplier,date,revision:created.revision,lines:[{product:p,quantity:'11',price:'5'}]});
+ await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Тест: відповідь втрачено після збереження'})});
+});
+await saveDraft();await wait(async()=>(await page.locator('#tradeFormError').innerText()).includes('відповідь втрачено'));
+await page.unroute('**/api/erp/vouchers');
+for(let retry=0;retry<2;retry++){
+ const retried=page.waitForResponse(r=>r.url().endsWith('/api/erp/vouchers')&&r.request().method()==='POST');
+ await saveDraft();assert.equal((await retried).status(),409);
+ await wait(async()=>(await page.locator('#tradeFormError').innerText()).includes('актуальну чернетку'));
+ assert.equal(await newForm.locator('[data-line=quantity]').inputValue(),'1');
+ assert.equal((await ok('vouchers/'+lostId)).lines[0].quantity,'11.000');
+}
 // 3. Directory form opened before another device renamed the customer: 409, the newer name stays.
 const customer=(await ok('entities/parties','POST',{name:'Клієнт версії',kind:'customer'})).id;
 const party=async()=>(await ok('state')).parties.find(x=>x.id===customer);
@@ -47,5 +80,5 @@ await page.locator('#tradeEntityForm [type=submit]').click();assert.equal((await
 await wait(async()=>(await page.locator('#tradeFormError').innerText()).includes('іншому пристрої'));
 assert.equal((await party()).name,'Змінено деінде');
 assert.deepEqual(errors,[]);
-console.log('PASS: opened draft saves with its revision; stale draft form 409 keeps input and newer lines; stale directory form 409 keeps the newer name.');
+console.log('PASS: stale save/post/delete preserve newer drafts; repeated create after lost reply never adopts another editor revision; stale directory keeps newer name.');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.kill();fs.rmSync(data,{recursive:true,force:true});});
