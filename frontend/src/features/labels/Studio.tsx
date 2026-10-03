@@ -212,6 +212,10 @@ function StudioWorkspace({
     busy = useRef(false),
     alive = useRef(true),
     outputController = useRef<AbortController | null>(null);
+  // Every draft replacement increments `edits`; a reload answers only for the draft it replaced.
+  const edits = useRef(0),
+    reloads = useRef(0),
+    lastEdit = useRef<{ key: string; at: number } | null>(null);
   const dirty = !equal({ config: saved.config, settings: saved.settings }, draft);
   const canEdit = saved.canEdit && !saved.warnings.length;
   useEffect(() => {
@@ -283,9 +287,17 @@ function StudioWorkspace({
     setAcknowledged(false);
     setPreparing(false);
   };
-  const change = (next: Draft) => {
+  const change = (next: Draft, mergeKey?: string) => {
     if (!canEdit || busy.current || saveState === 'saving') return;
-    setHistory((current) => ({ past: [...current.past, draft].slice(-40), future: [] }));
+    // A colour drag reports every intermediate value. Consecutive changes of the same property
+    // without a pause form one undo step instead of filling the 40-step history.
+    const now = Date.now(),
+      previous = lastEdit.current;
+    const merge = !!mergeKey && previous?.key === mergeKey && now - previous.at < 1500;
+    lastEdit.current = mergeKey ? { key: mergeKey, at: now } : null;
+    if (!merge)
+      setHistory((current) => ({ past: [...current.past, draft].slice(-40), future: [] }));
+    edits.current++;
     setDraft(next);
     setError('');
     if (saveState !== 'conflict') setSaveState('idle');
@@ -295,6 +307,8 @@ function StudioWorkspace({
     if (!canEdit || busy.current || saveState === 'saving') return;
     const next = redo ? history.future[0] : history.past.at(-1);
     if (!next) return;
+    lastEdit.current = null;
+    edits.current++;
     setHistory(
       redo
         ? { past: [...history.past, draft], future: history.future.slice(1) }
@@ -325,6 +339,8 @@ function StudioWorkspace({
       const result = await api.save(saved.revision, draft.config, draft.settings);
       if (!alive.current) return;
       setSaved(result);
+      lastEdit.current = null;
+      edits.current++;
       setDraft({ config: result.config, settings: result.settings });
       setHistory({ past: [], future: [] });
       setSaveState('idle');
@@ -338,18 +354,26 @@ function StudioWorkspace({
   const reload = async () => {
     if (busy.current || saveState === 'saving') return;
     if (dirty && !confirm('Замінити чернетку збереженим макетом?')) return;
+    // An edit, undo or newer reload while waiting wins: a late response must not replace
+    // that draft or clear its undo history.
+    const token = ++reloads.current,
+      draftAtRequest = edits.current;
+    const current = () =>
+      alive.current && token === reloads.current && draftAtRequest === edits.current;
     setPreparing(true);
     try {
-      const current = await api.workspace();
-      if (!alive.current) return;
-      setSaved(current);
-      setDraft({ config: current.config, settings: current.settings });
+      const workspace = await api.workspace();
+      if (!current()) return;
+      setSaved(workspace);
+      lastEdit.current = null;
+      edits.current++;
+      setDraft({ config: workspace.config, settings: workspace.settings });
       setHistory({ past: [], future: [] });
       setSaveState('idle');
       setError('');
       invalidate();
     } catch (cause) {
-      if (alive.current) {
+      if (current()) {
         setError(message(cause));
         setPreparing(false);
       }
@@ -585,7 +609,7 @@ function StudioWorkspace({
       settings={draft.settings}
       selectedField={field}
       onSelectField={setField}
-      onConfigChange={(config) => change({ ...draft, config })}
+      onConfigChange={(config, mergeKey) => change({ ...draft, config }, mergeKey)}
       onSettingsChange={(settings, storeIdx) =>
         change({
           ...draft,
@@ -628,6 +652,7 @@ function StudioWorkspace({
       }}
       previewProduct={previewProduct}
       previewProducts={suggestions.data?.items.map(toLabel) || []}
+      previewLoading={suggestions.isFetching}
       onPreviewProductChange={(id) => {
         const product =
           suggestions.data?.items.find((product) => product.id === id) ||

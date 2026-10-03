@@ -5,6 +5,7 @@ import { Label, PrintPages } from './Label';
 import {
   clippedLabel,
   formatLabelMoney,
+  formatPer100,
   hasPromotionPrice,
   MAX_LABEL_COPIES,
   pageGeometry,
@@ -452,7 +453,7 @@ export function downloadCsv(products: LabelProduct[]): void {
     formatLabelMoney(product.regularPrice ?? product.salePrice),
     hasPromotionPrice(product) ? formatLabelMoney(product.salePrice) : '',
     formatLabelMoney(product.salePrice),
-    product.unit === 'кг' ? formatLabelMoney(product.salePrice / 10) : '',
+    product.unit === 'кг' ? formatPer100(product.salePrice) : '',
     product.promotion ? 'Так' : 'Ні',
   ]);
   download(

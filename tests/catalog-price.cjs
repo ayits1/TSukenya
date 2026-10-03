@@ -82,13 +82,14 @@ module.exports = async (page, until) => {
   assert.equal(await dialog.getByRole('textbox', { name: 'Акційна ціна: гривні', exact: true }).inputValue(), '19');
   assert.equal(await dialog.getByRole('textbox', { name: 'Акційна ціна: копійки', exact: true }).inputValue(), '99');
   await dialog.getByRole('button', { name: 'Закрити редактор' }).click();
-  const promotion = page.getByRole('button', { name: 'Акція для ' + product.name, exact: true });
+  const promotion = page.getByRole('button', { name: 'Акція: ' + product.name, exact: true });
+  const noPromotion = page.getByRole('button', { name: 'Без акції: ' + product.name, exact: true });
   await promotion.click();
-  await until(async () => await promotion.getAttribute('aria-pressed') === 'false', 'promotion disabled');
+  await until(async () => await noPromotion.count() === 1, 'promotion disabled');
   const inactive = await page.evaluate(async id => (await (await fetch('/api/v1/catalog/products/' + id)).json()), product.id);
   assert.equal(inactive.salePrice, '21.09', 'disabling promotion restores regular price');
   assert.equal(inactive.promotionPrice, '19.99', 'previous promotion price is retained');
-  await promotion.click();
+  await noPromotion.click();
   await dialog.waitFor();
   assert.equal(await dialog.getByRole('textbox', { name: 'Акційна ціна: гривні', exact: true }).inputValue(), '19', 'enabling opens price editor');
   await dialog.getByRole('button', { name: 'Зберегти товар', exact: true }).click();

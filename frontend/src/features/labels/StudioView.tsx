@@ -16,7 +16,14 @@ import { ComboBox } from '../../shared/ui/ComboBox';
 import { Select } from '../../shared/ui/Select';
 import { TextField } from '../../shared/ui/TextField';
 import { Label } from './Label';
-import { fieldStyle, fieldVisible, LABEL_FIELDS, LABEL_SIZES, formatLabelMoney } from './domain';
+import {
+  fieldStyle,
+  fieldVisible,
+  LABEL_FIELDS,
+  LABEL_SIZES,
+  formatLabelMoney,
+  withFieldStyle,
+} from './domain';
 import type { LabelConfig, LabelField, LabelProduct, LabelSettings, LabelStyle } from './domain';
 import type { LabelOutputProgress } from './output';
 import { pageGeometry } from './domain';
@@ -42,11 +49,12 @@ export type StudioViewProps = {
   settings: LabelSettings;
   selectedField: LabelField;
   onSelectField: (field: LabelField) => void;
-  onConfigChange: (config: LabelConfig) => void;
+  /** `mergeKey`: consecutive changes with the same key form one undo step (e.g. a colour drag). */
+  onConfigChange: (config: LabelConfig, mergeKey?: string) => void;
   onSettingsChange: (settings: LabelSettings, storeIdx?: number) => void;
   onResetField: () => void;
   onResetTemplate: () => void;
-  onApplyPreset: (preset: 'standard' | 'promotion' | 'minimal') => void;
+  onApplyPreset: (preset: PresetId) => void;
   saveStatus: 'saved' | 'dirty' | 'saving' | 'error' | 'conflict';
   onSave: () => void;
   onReload: () => void;
@@ -60,7 +68,9 @@ export type StudioViewProps = {
   selectedTab: StudioTab;
   onTabChange: (tab: StudioTab) => void;
   previewProduct: LabelProduct | null;
+  /** Server search results for the typed preview text; listed without a second filter. */
   previewProducts: LabelProduct[];
+  previewLoading?: boolean;
   onPreviewProductChange: (id: string | null) => void;
   onPreviewQueryChange: (query: string) => void;
   products: LabelProduct[];
@@ -106,10 +116,18 @@ function outputMessage(state: StudioOutputState): string {
   return `Готуємо цінники: ${state.completed} з ${state.total}.`;
 }
 const fieldName = (key: LabelField) => LABEL_FIELDS.find(([field]) => field === key)?.[1] ?? key;
-const choices = (values: string[], all: string) => [
+// An active filter stays visible even when the current facets no longer contain its value.
+const choices = (values: string[], all: string, selected: string) => [
   { id: '*', label: all },
+  ...(selected && !values.includes(selected) ? [{ id: selected, label: selected }] : []),
   ...values.map((value) => ({ id: value, label: value })),
 ];
+const PRESETS = [
+  { id: 'standard', label: 'Стандартне' },
+  { id: 'promotion', label: 'Акцент на акції' },
+  { id: 'minimal', label: 'Тільки головне' },
+] as const;
+type PresetId = (typeof PRESETS)[number]['id'];
 const SAVE_LABELS = {
   saved: 'Макет збережено',
   dirty: 'Є незбережені зміни',
@@ -249,18 +267,16 @@ export function StudioView(props: StudioViewProps) {
   const quantities = Object.values(props.selection).filter((quantity) => quantity > 0);
   const copies = quantities.reduce((sum, quantity) => sum + quantity, 0);
   const change = (patch: Partial<LabelConfig>) => props.onConfigChange({ ...config, ...patch });
-  const changeStyle = (patch: Partial<LabelStyle>) =>
-    change({ styles: { ...config.styles, [selectedField]: { ...style, ...patch } } });
+  // Only the edited property is stored: an untouched size keeps scaling with the format.
+  const changeStyle = (patch: Partial<LabelStyle>, mergeKey?: string) =>
+    props.onConfigChange(withFieldStyle(config, selectedField, patch), mergeKey);
   const filters = (patch: Partial<StudioFilters>) =>
     props.onFiltersChange({ ...props.filters, ...patch });
   const [width, height] = LABEL_SIZES[config.size];
-  const previewOptions = [
-    ...(props.previewProduct &&
-    !props.previewProducts.some((product) => product.id === props.previewProduct?.id)
-      ? [props.previewProduct]
-      : []),
-    ...props.previewProducts,
-  ].map((product) => ({ id: product.id, label: product.name }));
+  const previewOptions = props.previewProducts.map((product) => ({
+    id: product.id,
+    label: product.name,
+  }));
   return (
     <section className="tk-root tk-studio" aria-label="Студія цінників">
       <Tabs
@@ -353,8 +369,15 @@ export function StudioView(props: StudioViewProps) {
             />
             <div className="tk-studio-preview-picker">
               <ComboBox
+                search="server"
                 label="Товар для перегляду"
                 options={previewOptions}
+                selectedOption={
+                  props.previewProduct
+                    ? { id: props.previewProduct.id, label: props.previewProduct.name }
+                    : null
+                }
+                isLoading={!!props.previewLoading}
                 selectedKey={props.previewProduct?.id ?? null}
                 onSelectionChange={(key) => props.onPreviewProductChange(String(key))}
                 onInputChange={props.onPreviewQueryChange}
@@ -498,7 +521,10 @@ export function StudioView(props: StudioViewProps) {
                   <input
                     type="color"
                     value={style.color}
-                    onChange={(event) => changeStyle({ color: event.target.value })}
+                    onChange={(event) =>
+                      // Dragging in the picker emits many values; keep them as one undo step.
+                      changeStyle({ color: event.target.value }, `${selectedField}.color`)
+                    }
                     disabled={locked}
                   />
                 </label>
@@ -624,15 +650,15 @@ export function StudioView(props: StudioViewProps) {
                 <div>
                   <Select
                     label="Готове оформлення"
-                    options={[
-                      { id: 'standard', label: 'Стандартне' },
-                      { id: 'promotion', label: 'Акцент на акції' },
-                      { id: 'minimal', label: 'Тільки головне' },
-                    ]}
+                    options={[...PRESETS]}
                     placeholder="Оберіть варіант"
-                    onSelectionChange={(key) =>
-                      props.onApplyPreset(String(key) as 'standard' | 'promotion' | 'minimal')
-                    }
+                    // An action, not a stored setting: after applying or cancelling it shows
+                    // no choice, so the same preset can be applied again.
+                    selectedKey={null}
+                    onSelectionChange={(key) => {
+                      const preset = PRESETS.find((item) => item.id === key);
+                      if (preset) props.onApplyPreset(preset.id);
+                    }}
                     isDisabled={locked}
                   />
                   <Button onPress={props.onResetTemplate} isDisabled={locked}>
@@ -672,7 +698,7 @@ export function StudioView(props: StudioViewProps) {
               />
               <ComboBox
                 label="Група"
-                options={choices(props.facets.type, 'Усі групи')}
+                options={choices(props.facets.type, 'Усі групи', props.filters.type)}
                 selectedKey={props.filters.type || '*'}
                 isDisabled={props.outputBusy}
                 onSelectionChange={(key) =>
@@ -681,7 +707,7 @@ export function StudioView(props: StudioViewProps) {
               />
               <ComboBox
                 label="Категорія"
-                options={choices(props.facets.category, 'Усі категорії')}
+                options={choices(props.facets.category, 'Усі категорії', props.filters.category)}
                 selectedKey={props.filters.category || '*'}
                 isDisabled={props.outputBusy || props.loading}
                 onSelectionChange={(key) =>

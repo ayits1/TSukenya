@@ -9,6 +9,12 @@ function split(value: string) {
     kopecks: fraction === undefined ? '' : fraction.padEnd(2, '0'),
   };
 }
+/**
+ * Kopecks are the digits after the decimal comma, whether typed or pasted: 21,5 is 21.50 and
+ * 21,05 is 21.05. Kopecks without гривні (",50") mean 0.50; both parts empty mean no amount.
+ */
+const decimal = (hryvnias: string, kopecks: string) =>
+  hryvnias || kopecks ? `${hryvnias || '0'}.${kopecks.padEnd(2, '0')}` : '';
 
 /** Two editable parts, one decimal-string value. No floating-point arithmetic. */
 export function MoneyField({
@@ -31,7 +37,7 @@ export function MoneyField({
   // Keep typing drafts (e.g. a single kopeck digit) while accepting external reloads.
   if (value !== parts.source) setParts(split(value));
   const update = (hryvnias: string, kopecks: string) => {
-    const amount = hryvnias ? `${hryvnias}.${(kopecks || '0').padStart(2, '0')}` : '';
+    const amount = decimal(hryvnias, kopecks);
     setParts({ source: amount, hryvnias, kopecks });
     onChange(amount);
   };
@@ -104,8 +110,12 @@ export function MoneyField({
               placeholder="00"
               onPaste={paste}
               onBlur={() => {
-                if (/^\d$/.test(parts.kopecks))
-                  update(parts.hryvnias, parts.kopecks.padStart(2, '0'));
+                // Show the amount that is sent: 21,5 → 21 грн 50 коп.; ,50 → 0 грн 50 коп.
+                if (
+                  /^\d{1,2}$/.test(parts.kopecks) &&
+                  (!parts.hryvnias || parts.kopecks.length === 1)
+                )
+                  update(parts.hryvnias || '0', parts.kopecks.padEnd(2, '0'));
               }}
             />
             <span className="tk-money-unit" aria-hidden="true">

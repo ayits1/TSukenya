@@ -86,8 +86,8 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  console.log('Conflict protection completed');await page.getByRole('button',{name:'Закрити редактор'}).click();
  await page.getByRole('searchbox',{name:'Пошук товару'}).fill('Оновлено іншим редактором');
  await until(async()=>await page.locator('.tk-product-link').count()===1,'updated search');
- await page.getByRole('button',{name:/Акція для Оновлено/}).click();
- await until(async()=>await page.getByRole('button',{name:/Акція для Оновлено/}).getAttribute('aria-pressed')==='false','promotion toggle persisted');
+ await page.getByRole('button',{name:/^Акція: Оновлено/}).click();
+ await until(async()=>await page.getByRole('button',{name:/^Без акції: Оновлено/}).count()===1,'promotion toggle persisted');
  await page.goto(base+'/#operations/tags');await page.waitForSelector('.tk-studio');const preview=page.getByRole('combobox',{name:'Товар для перегляду',exact:true});await preview.fill('Оновлено іншим редактором');await page.getByRole('option',{name:'Оновлено іншим редактором',exact:true}).click();
  assert.equal(await page.locator('.tk-studio-canvas [data-field=name]').innerText(),'Оновлено іншим редактором');assert.equal(await page.locator('.tk-studio-canvas .t-promo').count(),0);
  }
