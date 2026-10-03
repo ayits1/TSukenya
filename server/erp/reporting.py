@@ -3,13 +3,13 @@ from decimal import Decimal
 from django.db.models import Sum, Q
 from django.utils import timezone
 from .models import *
-from .services import money, require, ZERO, net_total, obligation, payroll_debt, cash_balance, day, dec
+from .services import money, require, ZERO, net_total, obligation, payroll_debt, cash_balance, day, dec, record_revision
 
 def number(value):
     return str(value or ZERO)
 
 def voucher_json(v, detail=False, *, user):
-    result = {'id':v.pk,'number':f'{v.pk:06d}','kind':v.kind,'status':v.status,'date':v.date.isoformat(),'store':v.store_id,'warehouse':v.warehouse_id,'target':v.target_id,'party':v.party_id,'employee':v.employee_id,'account':v.account_id,'shift':v.shift_id,'reference':v.reference_id,'total':str(v.total),'cost':str(v.cost),'note':v.note,'created_by':v.created_by.username,'created_at':v.created_at.isoformat(),'posted_at':v.posted_at.isoformat() if v.posted_at else None}
+    result = {'id':v.pk,'number':f'{v.pk:06d}','kind':v.kind,'status':v.status,'date':v.date.isoformat(),'store':v.store_id,'warehouse':v.warehouse_id,'target':v.target_id,'party':v.party_id,'employee':v.employee_id,'account':v.account_id,'shift':v.shift_id,'reference':v.reference_id,'total':str(v.total),'cost':str(v.cost),'note':v.note,'created_by':v.created_by.username,'created_at':v.created_at.isoformat(),'posted_at':v.posted_at.isoformat() if v.posted_at else None,'revision':v.revision}
     if v.kind in {'receipt','sale','debt_opening'} and v.status=='posted':
         result['outstanding'] = str(obligation(v))
     if detail:
@@ -39,7 +39,7 @@ def scoped(qs, user, field='store_id'):
     return qs
 
 def state(user):
-    from .shift_browsing import cash_shift_json, CASH_SHIFT_ROLES, WORK_FIELDS
+    from .shift_browsing import cash_shift_json, CASH_SHIFT_ROLES, work_shift_json
     salary = user.profile.role in {'owner','accountant'}
     entities = {}
     for name,model,fields in [('stores',Store,['id','name','active']),('warehouses',Warehouse,['id','store_id','name']),('parties',Counterparty,['id','name','kind','phone','email','notes','active']),('accounts',CashAccount,['id','store_id','name','kind']),('employees',Employee,['id','name','store_id','active']+(['shift_rate','bonus_percent','bonus_basis'] if salary else []))]:
@@ -48,7 +48,10 @@ def state(user):
             qs=qs.filter(pk=user.profile.store_id)
         elif name in {'warehouses','accounts','employees'}:
             qs=scoped(qs,user)
-        entities[name]=list(qs.values(*fields))
+        # Each row carries its content version; an edit form sends it back (B06).
+        # Only roles that may edit a directory get its version (sent back by the edit form, B06).
+        editable=user.profile.role in ({'owner','manager','accountant'} if name=='parties' else {'owner'})
+        entities[name]=[{**{field:getattr(obj,field) for field in fields},**({'revision':record_revision(obj)} if editable else {})} for obj in qs]
     if user.profile.role in {'owner','manager','accountant'}:
         for a in entities['accounts']:
             a['balance']=str(cash_balance(CashAccount(pk=a['id'])))
@@ -60,7 +63,7 @@ def state(user):
     entities['active_shifts']=[cash_shift_json(s) for s in shifts.filter(closed_at__isnull=True)]
     if salary:
         work_shifts=scoped(WorkShift.objects.all(),user).order_by('-date','-pk')
-        entities['work_shifts']=list(work_shifts[:500].values(*WORK_FIELDS))
+        entities['work_shifts']=[work_shift_json(s) for s in work_shifts[:500]]
         entities['work_shifts_total']=work_shifts.count()
         entities['payroll_debts']=[{'employee':e.pk,'amount':str(payroll_debt(e))} for e in scoped(Employee.objects.all(),user)]
     lock=LedgerLock.objects.get(pk=1)

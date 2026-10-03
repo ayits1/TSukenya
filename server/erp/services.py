@@ -1,7 +1,11 @@
 """Document posting. Decimal arithmetic and one atomic transaction per voucher."""
 from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_HALF_UP
 from datetime import date
+import hashlib
+import hmac
+import json
 import uuid
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Sum, F, Q
 from django.utils import timezone
@@ -23,6 +27,30 @@ ROLE_KINDS = {
 SYSTEM_KINDS = {'cash_difference'}
 class BusinessError(ValueError):
     pass
+
+class Conflict(BusinessError):
+    """HTTP 409: the record changed elsewhere or a create key was reused with another request."""
+    def __init__(self, message, code, **extra):
+        super().__init__(message)
+        self.code, self.extra = code, extra
+
+STALE_FORM = 'Запис уже змінено на іншому пристрої. Ваші зміни не збережено: скопіюйте потрібне, закрийте форму й відкрийте запис знову.'
+
+def record_revision(obj):
+    """Content version of a directory record or timesheet row; any stored field change gives a new one."""
+    # Keyed like catalogue revisions: hidden fields such as an employee's rate cannot be guessed from it.
+    values = {f.attname: str(getattr(obj, f.attname)) for f in obj._meta.concrete_fields}
+    material = json.dumps([obj._meta.label, values], sort_keys=True, ensure_ascii=False).encode()
+    return hmac.new(settings.SECRET_KEY.encode(), material, hashlib.sha256).hexdigest()[:32]
+
+def require_revision(obj, sent):
+    if not isinstance(sent, str) or sent != record_revision(obj):
+        raise Conflict(STALE_FORM, 'revision_conflict')
+
+def request_fingerprint(user, body):
+    """Normalised create request: the same retry matches, a changed form under the same key does not."""
+    material = {key: value for key, value in body.items() if key not in {'idempotency_key', 'revision'}}
+    return hashlib.sha256(json.dumps([user.pk, material], sort_keys=True, ensure_ascii=False, separators=(',', ':'), default=str).encode()).hexdigest()
 
 def require(condition, message):
     if not condition:
@@ -179,14 +207,22 @@ def save_voucher(user, body, pk=None):
         scope(user, v.store)
         require(v.status == 'draft', 'Проведений документ редагувати не можна.')
         require(v.kind == kind, 'Тип документа змінити не можна.')
+        # B06: a draft form saves only over the version it was opened from.
+        if body.get('revision') != v.revision:
+            raise Conflict('Чернетку вже змінено на іншому пристрої. Ваші зміни не збережено: скопіюйте потрібне, закрийте форму й відкрийте документ знову.', 'revision_conflict', id=v.pk, revision=v.revision)
+        v.revision += 1
     else:
+        fingerprint = request_fingerprint(user, body)
         previous = Voucher.objects.filter(idempotency_key=key).first()
         if previous:
             scope(user, previous.store)
             permission(user, previous.kind)
             require(previous.kind == kind, 'Ключ запиту вже використано для іншого документа.')
+            # Documents saved before fingerprints keep the earlier kind-only retry rule.
+            if previous.request_fingerprint and (previous.request_fingerprint != fingerprint or previous.revision != 1):
+                raise Conflict(f'Документ № {previous.pk:06d} уже створено попереднім запитом, але з іншим змістом. Відкрийте його та внесіть зміни там.', 'idempotency_conflict', id=previous.pk, revision=previous.revision, status=previous.status)
             return previous
-        v = Voucher(kind=kind, created_by=user, idempotency_key=key)
+        v = Voucher(kind=kind, created_by=user, idempotency_key=key, request_fingerprint=fingerprint)
     v.date, v.store = posting_day, store
     for field, model, label in [('warehouse',Warehouse,'Склад'),('target',Warehouse,'Склад призначення'),('party',Counterparty,'Контрагент'),('employee',Employee,'Працівник'),('account',CashAccount,'Рахунок'),('shift',CashShift,'Касова зміна'),('reference',Voucher,'Пов’язаний документ')]:
         setattr(v, field, get(model, body[field], label) if body.get(field) else None)

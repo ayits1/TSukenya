@@ -198,7 +198,7 @@ class PayrollAndCashControlTests(AccountingFixture):
         with self.assertRaisesMessage(BusinessError,f'уже враховано в табелі за {self.yesterday}. Для цього дня залиште лише ставку'):
             self.save_work(worker,self.today,shift,'10')
         second=self.save_work(worker,self.today,shift,'0','300')
-        self.save_work(worker,self.yesterday,shift,'10',id=first)
+        self.save_work(worker,self.yesterday,shift,'10',id=first,revision=record_revision(WorkShift.objects.get(pk=first)))
         other=self.save_work(partner,self.today,shift,'10')
         self.assertEqual(self.v('payroll',employee=worker.pk,payload={'shift_ids':[first,second]}).total,Decimal('400.00'))
         self.assertEqual(self.v('payroll',employee=partner.pk,payload={'shift_ids':[other]}).total,Decimal('100.00'))

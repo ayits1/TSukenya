@@ -9,6 +9,7 @@ from django.test import TestCase
 from server.erp.budget import budget_count, freeze_budget
 from server.erp.labels import revision
 from server.erp.models import Document, LedgerLock, PortalSession, Profile, Store
+from server.erp.services import record_revision
 from tests.test_labels import config
 
 
@@ -143,7 +144,8 @@ class BudgetTests(TestCase):
                 self.assertEqual(revision(document.data), old_revision)
                 self.assertEqual(document.data['storeNames'], ['Цінник A'])
                 self.assertEqual(document.data['stores'], ['ERP A', 'ERP B'] if isinstance(legacy, list) else 7)
-                deactivated = self.write('post', '/api/erp/entities/stores', {'id': existing.pk, 'name': 'ERP A', 'active': False})
+                existing.refresh_from_db()
+                deactivated = self.write('post', '/api/erp/entities/stores', {'id': existing.pk, 'name': 'ERP A', 'active': False, 'revision': record_revision(existing)})
                 self.assertEqual(deactivated.status_code, 200, deactivated.content)
                 document.refresh_from_db()
                 self.assertEqual(document.data['budgetStores'], old_count)

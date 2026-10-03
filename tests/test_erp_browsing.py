@@ -261,7 +261,7 @@ class BrowsingTests(TestCase):
         self.assertEqual(created.status_code, 201, created.content)
         self.assert_no_cost(created.json())
         pk = created.json()['id']
-        updated = self.request('put', f'/api/erp/vouchers/{pk}', data)
+        updated = self.request('put', f'/api/erp/vouchers/{pk}', {**data, 'revision': created.json()['revision']})
         self.assertEqual(updated.status_code, 200, updated.content)
         self.assert_no_cost(updated.json())
         posted = self.request('post', f'/api/erp/vouchers/{pk}/post')

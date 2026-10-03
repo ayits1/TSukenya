@@ -192,6 +192,7 @@ def entity_save(user,name,value):
     else:require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав.')
     model=allowed[name]
     obj=get(model,value['id'],'Запис') if value.get('id') else model()
+    if obj.pk:require_revision(obj,value.get('revision'))
     obj.name=str(value.get('name','')).strip()
     require(0<len(obj.name)<=160,'Вкажіть назву (до 160 символів).')
     if name in {'warehouses','accounts','employees'}:
@@ -259,6 +260,7 @@ def work_shift_save(user,value):
     require(not lock.closed_through or d>lock.closed_through,'Обліковий період закритий.')
     s=get(WorkShift,value['id'],'Зміна') if value.get('id') else WorkShift(employee=e,store=e.store,date=d)
     require(not s.payroll_id,'Зміну вже включено в нарахування.')
+    if s.pk:require_revision(s,value.get('revision'))
     require(not s.pk or s.employee_id==e.pk and s.date==d,'Працівника та дату існуючої зміни змінити не можна.')
     s.units=dec(value.get('units',1),'Частка зміни',CENT,minimum=CENT)
     require(s.units<=10,'Завелика кількість змін.')
@@ -283,6 +285,8 @@ def work_shift_save(user,value):
 def portal(request):
     try:
         return handle(request)
+    except Conflict as exc:
+        return response({'error':str(exc),'code':exc.code,**exc.extra},409)
     except BusinessError as exc:
         status=401 if request.portal_user is None and request.path!='/api/login' else 400
         if 'прав' in str(exc) or 'роль' in str(exc) or 'доступ' in str(exc) or 'не підтверджений' in str(exc):status=403
