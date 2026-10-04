@@ -356,6 +356,7 @@
     document.querySelectorAll('[data-exp-cat],[data-legacy-edit=expenses]').forEach(el=>el.disabled=budgetSaves.has(`amount:${el.dataset.expCat||el.dataset.id}`)||window.LegacyEditors?.isPending('expenses',el.dataset.expCat||el.dataset.id));
   }
   function trackBudget(el){
+    if(window.TSUKENYA_SERVER&&el.dataset.exp){try{window.ExpenseDraftRecovery.track(collectionRecord('expenses',el.dataset.exp),{amount:el.value});el.setCustomValidity('');}catch(error){el.setCustomValidity(error.message);}}
     const key=budgetKey(el),previous=budgetDrafts.get(key);
     const exists=!el.dataset.exp||!!collectionRecord('expenses',el.dataset.exp);
     if(exists && el.value!=='' && Number(el.value)===budgetSavedValue(el) && el.checkValidity())budgetDrafts.delete(key);
@@ -385,7 +386,7 @@
     try{
       if(!db)throw Error('Зміни зараз не зберігаються.');
       const value=Number(draft.value);
-      if(el.dataset.exp){const saved=await window.LegacyEditors.update('expenses',draft.baseline,{amount:window.NativeLegacyEditor.legacyMoney(draft.value)},()=>{if(budgetDrafts.get(key)===draft)budgetDrafts.delete(key);budgetStatus();});if(!saved){draft.error='Чернетка залишена в редакторі узгодження.';return;}}
+      if(el.dataset.exp){const saved=await window.LegacyEditors.update('expenses',draft.baseline,{amount:window.NativeLegacyEditor.legacyMoney(draft.value.replace(',','.'))},()=>{if(budgetDrafts.get(key)===draft)budgetDrafts.delete(key);budgetStatus();});if(!saved){draft.error='Чернетка залишена в редакторі узгодження.';return;}}
       else {const ref=db.doc('settings/main'),snapshot=await ref.get();await (snapshot.exists?ref.update({budgetStores:value}):ref.set({budgetStores:value}));}
       if(budgetDrafts.get(key)===draft)budgetDrafts.delete(key);
     }catch(error){
@@ -514,7 +515,7 @@
     window.BusinessInitiatives?.mount();
     if(tab==='expenses'){
       m.querySelectorAll(budgetFields).forEach(el=>{const draft=budgetDrafts.get(budgetKey(el));if(draft)el.value=draft.value;});
-      budgetStatus();window.MonthlyBudgets?.mount(m.querySelector('#monthlyBudget'));
+      budgetStatus();window.MonthlyBudgets?.mount(m.querySelector('#monthlyBudget'));window.ExpenseDraftRecovery?.mountInline();
     }
     for(const [key,value] of drafts){const el=[...m.querySelectorAll(inlineFields)].find(el=>fieldKey(el)===key);if(el)el.value=value;}
     for(const key of openPanels)m.querySelector(`[data-disclosure="${key}"]`)?.setAttribute("open","");
@@ -572,6 +573,7 @@
     if(next!==tab && window.BudgetTemplate && !window.BudgetTemplate.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && tab==='expenses' && window.MonthlyBudgets && !window.MonthlyBudgets.canLeave()){history.replaceState(null,'','#operations/expenses');return;}
     if(next!==tab && window.BusinessInitiatives && !window.BusinessInitiatives.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+    if(next!==tab && window.ExpenseDraftRecovery&&!window.ExpenseDraftRecovery.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && window.LegacyEditors&&!window.LegacyEditors.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && budgetSaves.size){toast('Дочекайтеся збереження бюджету.');history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     const draftKeys={work:['addWork'],tasks:['addTask'],ideas:['addIdea',...[...createPending.keys()].filter(key=>key.startsWith('ideaTask:'))],expenses:['addExp:fixed','addExp:variable']}[tab]||[];
@@ -1704,7 +1706,7 @@
   }
   function expRow(e){
     const category=budgetCategory(e);
-    return `<div class="exp"><span class="n">${esc(e.name)}${window.TSUKENYA_SERVER?`<label class="exp-cat">Категорія обліку <select data-exp-cat="${esc(e.id)}" aria-label="Категорія обліку: ${esc(e.name)}">${BUDGET_CATEGORIES.map(c=>`<option ${c===category?'selected':''}>${c}</option>`).join('')}</select></label>`:''}</span><div class="expense-amount"><input type="number" inputmode="decimal" required min="0" max="99999999.99" step="0.01" value="${num(e.amount)}" data-exp="${esc(e.id)}" aria-label="${esc(e.name)}, грн на місяць" aria-describedby="budgetSaveError"><span class="muted">грн</span></div><div class="expense-actions"><button type="button" class="btn soft" data-legacy-edit="expenses" data-id="${esc(e.id)}">Редагувати</button><button type="button" class="x" data-del-exp="${esc(e.id)}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div></div>`;
+    return `<div class="exp"><span class="n">${esc(e.name)}${window.TSUKENYA_SERVER?`<label class="exp-cat">Категорія обліку <select data-exp-cat="${esc(e.id)}" aria-label="Категорія обліку: ${esc(e.name)}">${BUDGET_CATEGORIES.map(c=>`<option ${c===category?'selected':''}>${c}</option>`).join('')}</select></label>`:''}</span><div class="expense-amount"><input type="${window.TSUKENYA_SERVER?'text':'number'}" inputmode="decimal" required ${window.TSUKENYA_SERVER?'maxlength="8000" pattern="[0-9]{1,8}([.,][0-9]{1,2})?"':'min="0" max="99999999.99" step="0.01"'} value="${esc(e.amount)}" data-exp="${esc(e.id)}" aria-label="${esc(e.name)}, грн на місяць" aria-describedby="budgetSaveError"><span class="muted">грн</span></div><div class="expense-actions"><button type="button" class="btn soft" data-legacy-edit="expenses" data-id="${esc(e.id)}">Редагувати</button><button type="button" class="x" data-del-exp="${esc(e.id)}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div></div>`;
   }
   function expenses(){
     if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner')return '<section class="panel"><p role="status">Бюджет витрат доступний власнику мережі.</p><a class="btn soft" href="#operations/overview">До операційного огляду</a></section>';
@@ -1715,7 +1717,7 @@
       ${window.TSUKENYA_SERVER?collectionList('expenses',g,expRow):list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
       <div class="expense-add"><input type="text" placeholder="Нова стаття" maxlength="250" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>${createRecovery('addExp:'+g)}
       <div class="total"><span>Разом на місяць</span><span class="num">${window.TSUKENYA_SERVER&&t.model?window.PortalApi.money(t.model[g]):money(sum)} грн</span></div></div>`;
-    const legacy = `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Орієнтир за каталогом</h2>
+    const legacy = `<section class="panel expense-budget" ${window.TSUKENYA_SERVER?'data-expense-private hidden':''}><div class="row between gap-lg"><h2>Орієнтир за каталогом</h2>
       <div class="budget-store-controls"><label class="inl budget-store-count">Планова кількість магазинів <input id="stores" type="number" inputmode="numeric" required min="1" max="1000" step="1" value="${stores}" ${window.TSUKENYA_SERVER?'disabled':''} aria-describedby="budgetSaveError"></label>${window.TSUKENYA_SERVER?'<button class="btn soft" type="button" data-budget-template-edit>Змінити кількість</button>':''}</div></div>
       <p class="muted gap-lg">Впишіть суми за місяць на всю мережу. Зміни зберігаються, щойно ви перейдете до іншого поля.</p>
       <div class="budget-save-state"><p id="budgetSaveStatus" class="muted" role="status" aria-live="polite"></p><p id="budgetSaveError" class="form-error" role="alert"></p><div id="budgetOrphans"></div><button class="btn soft" data-act="retry-budget" hidden>Повторити збереження</button></div>
@@ -1778,7 +1780,7 @@
     if (t.dataset.react!==undefined && t.dataset.react){const i=collectionRecord('ideas',t.dataset.react);void window.LegacyEditors.update('ideas',i,{reaction:t.dataset.v||null});return;}
     if (t.dataset.delProd){ if(confirm("Видалити товар?")) del("products",t.dataset.delProd,"Товар видалено"); return; }
     if (t.dataset.delExp){void deleteBudget(t.dataset.delExp);return;}
-    if(t.dataset.budgetDiscard){budgetDrafts.delete(t.dataset.budgetDiscard);window.PortalCollections?.unpin('expenses',t.dataset.budgetDiscard.slice(7));budgetStatus();return;}
+    if(t.dataset.budgetDiscard){const key=t.dataset.budgetDiscard,id=key.slice(7);t.disabled=true;void(async()=>{try{if(window.TSUKENYA_SERVER&&!await window.ExpenseDraftRecovery.discardInline(id))return;budgetDrafts.delete(key);window.PortalCollections?.unpin('expenses',id);budgetStatus();}finally{if(t.isConnected)t.disabled=false;}})();return;}
     const a = t.dataset.act;
     if(a==='retry-budget'){document.querySelectorAll(budgetFields).forEach(el=>{if(budgetDrafts.has(budgetKey(el)))void saveBudget(el);});return;}
     if(a==='retryTagSave'){if(S.tagSaveFailed)saveTag({});return;}
@@ -1829,6 +1831,7 @@
     if (a==="gsSearch"){ gsSearch(); }
     if (a==="gsClose"){ S.gs = null; renderGs(); }
     if (a==="dlCsv"){ save(`tsinnyky-${new Date().toISOString().slice(0,10)}.csv`, csv(selectedProducts())); }
+    if(a==='addExp'&&window.TSUKENYA_SERVER){const g=t.dataset.g,input=document.querySelector(`[data-newexp="${g}"]`);void window.ExpenseDraftRecovery.create(g,input.value).catch(error=>toast(error.message));return;}
     if(a==='addExp'){const g=t.dataset.g,input=document.querySelector(`[data-newexp="${g}"]`);void addInline(a,'expenses',{name:input.value.trim(),group:g,amount:0,order:Date.now()},[input],'Статтю додано');return;}
   });
   document.addEventListener("change", e=>{
@@ -1881,6 +1884,7 @@
   document.addEventListener("input", e=>{
     if(e.target.matches(budgetFields)){trackBudget(e.target);return;}
     if(e.target.matches(inlineFields)){
+      if(window.TSUKENYA_SERVER&&e.target.dataset.newexp){try{window.ExpenseDraftRecovery.trackNew(e.target.dataset.newexp,e.target.value);e.target.setCustomValidity('');}catch(error){e.target.setCustomValidity(error.message);}return;}
       e.target.setCustomValidity?.('');
       const actions={newWork:'addWork',newTask:'addTask',newIdea:'addIdea'},key=actions[e.target.id]||(e.target.dataset.newexp?`addExp:${e.target.dataset.newexp}`:null);
       // Clearing a confirmed changed/deleted create explicitly starts a new draft.

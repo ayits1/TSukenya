@@ -2,7 +2,7 @@
 
 Цей count-only підпакет базується на monthly `3e06f8a` у власному checkout. Реальний `budget-template.js` підключено до прийнятої P0 foundation, namespace `native-template-v1`. Monthly/category/voucher/entity/workShift/recipe джерела не змінено.
 
-**Сім'ю template загалом ще не закрито:** raw `expenses` inline amount/category, new-name/create та LegacyEditors expense fields лишаються наступним P2 enrollment. Чинні one-field PATCH/ревізії/partial saves та одиниці expense amount не змінено цим count пакетом; його codec їх не видає за збережені. P2/P3, browser restart/cross-device та backup0.1 не виконано.
+Цей документ фіксує count-only доказ. Наступний окремий пакет підключив raw `expenses` inline amount/category, new-name/create та LegacyEditors editable expense fields — див. [EXPENSE-DRAFT-PERSISTENCE.md](EXPENSE-DRAFT-PERSISTENCE.md); його actual proofs наведено окремо, destructive DELETE durable intent і весь P2/P3 не закрито. Чинні one-field PATCH/ревізії/partial saves та одиниці expense amount не змінено цим count пакетом; його codec їх не видає за збережені. P2/P3, browser restart/cross-device та backup0.1 не виконано.
 
 ## Авторитет і whitelist
 
