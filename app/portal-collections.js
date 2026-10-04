@@ -1,7 +1,7 @@
 /* Bounded read coordinator. Page records are not a full collection; drafts pin their own baselines. */
 (()=>{'use strict';
  const states=new Map(),pins=new Map();let active=new Set(),render=()=>{},generation=0,identity='';
- const flatten=item=>({id:item.id,...item.data,revision:item.revision,permissions:item.permissions,initiative:item.initiative,managed:item.managed,...(typeof item.hasDevelopmentTask==='boolean'?{hasDevelopmentTask:item.hasDevelopmentTask}:{})});
+ const flatten=item=>({...item.data,id:item.id,revision:item.revision,permissions:item.permissions,initiative:item.initiative,managed:item.managed,...(typeof item.hasDevelopmentTask==='boolean'?{hasDevelopmentTask:item.hasDevelopmentTask}:{})});
  const key=(name,params)=>name+'?'+new URLSearchParams(params);
  function trim(){for(const [k,s] of states){if(states.size<=8)break;if(!active.has(k)){s.controller?.abort();states.delete(k);}}}
  async function load(k,s){s.controller?.abort();const controller=new AbortController(),n=++generation;s.controller=controller;s.generation=n;s.state='loading';
