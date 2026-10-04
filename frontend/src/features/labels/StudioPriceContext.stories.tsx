@@ -72,6 +72,7 @@ function Harness({ onPrepare }: { onPrepare: (store: number | undefined | null) 
       session: async () => ({ role: 'owner', csrf: 'synthetic' }),
       list: async () => ({ ...catalogPage, items: [product(liveStore)] }),
       product: async () => product(liveStore),
+      visibility: async (product, hidden) => ({ ...product, hidden }),
       previewPrice: fixturePricePreview,
       save: async () => product(liveStore),
       remove: async () => true,

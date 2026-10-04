@@ -34,6 +34,7 @@ export type ReferenceCreate = components['schemas']['ReferenceCreate'];
 export const referenceKey = (value: string) =>
   value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('uk-UA');
 export type Filters = {
+  visibility?: 'active' | 'hidden';
   q: string;
   type: string;
   category: string;
@@ -43,6 +44,7 @@ export type Filters = {
   limit: number;
 };
 export const emptyFilters: Filters = {
+  visibility: 'active',
   q: '',
   type: '',
   category: '',
@@ -83,9 +85,13 @@ export function decodeProduct(value: unknown): Product {
     !decimal(item.salePrice) ||
     !decimal(item.regularPrice) ||
     typeof item.manualPrice !== 'boolean' ||
-    typeof item.promotion !== 'boolean'
+    typeof item.promotion !== 'boolean' ||
+    typeof item.hidden !== 'boolean' ||
+    typeof item.canEdit !== 'boolean'
   )
     throw new Error('Invalid pricing');
+  if (item.canEdit && (item.cost === null || item.markup === null))
+    throw new Error('Missing editable pricing terms');
   if (
     item.expiryAlertDays !== undefined &&
     item.expiryAlertDays !== null &&
@@ -108,10 +114,17 @@ export function decodeProduct(value: unknown): Product {
   validateEffectivePricing(item);
   return item as Product;
 }
-export function decodePage(value: unknown): ProductPage {
+export function decodePage(
+  value: unknown,
+  expectedVisibility: 'active' | 'hidden' = 'active',
+): ProductPage {
   const page = object(value);
+  if (page.visibility !== expectedVisibility) throw new Error('Invalid visibility');
   if (!Array.isArray(page.items)) throw new Error('Invalid products');
-  page.items.forEach(decodeProduct);
+  page.items.forEach((item) => {
+    if (decodeProduct(item).hidden !== (expectedVisibility === 'hidden'))
+      throw new Error('Invalid product visibility');
+  });
   for (const key of ['total', 'page', 'pages', 'limit']) {
     if (!Number.isInteger(page[key]) || Number(page[key]) < (key === 'total' ? 0 : 1))
       throw new Error(`Invalid ${key}`);
@@ -135,7 +148,8 @@ export function decodePage(value: unknown): ProductPage {
 function decodeSession(value: unknown): Session {
   const session = object(value);
   if (
-    !['owner', 'manager', 'warehouse', 'cashier', 'accountant'].includes(String(session.role)) ||
+    typeof session.role !== 'string' ||
+    !['owner', 'manager', 'warehouse', 'cashier', 'accountant'].includes(session.role) ||
     typeof session.csrf !== 'string' ||
     !session.csrf
   )
@@ -187,12 +201,24 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
       const params = new URLSearchParams(
         Object.entries(filters).map(([key, value]) => [key, String(value)]),
       );
-      return client.get(contextual(`/api/v1/catalog/products?${params}`), decodePage, signal);
-    },
-    product(id: string) {
+      const visibility = filters.visibility || 'active';
       return client.get(
-        contextual(`/api/v1/catalog/products/${encodeURIComponent(id)}`),
-        decodeProduct,
+        contextual(`/api/v1/catalog/products?${params}`),
+        (value) => decodePage(value, visibility),
+        signal,
+      );
+    },
+    product(id: string, includeHidden = false, signal?: AbortSignal) {
+      return client.get(
+        contextual(
+          `/api/v1/catalog/products/${encodeURIComponent(id)}${includeHidden ? '?includeHidden=true' : ''}`,
+        ),
+        (value) => {
+          const p = decodeProduct(value);
+          if (p.id !== id) throw new Error('Invalid product identity');
+          return p;
+        },
+        signal,
       );
     },
     references(signal?: AbortSignal) {
@@ -200,6 +226,49 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
     },
     createReference(reference: ReferenceCreate) {
       return client.mutate('POST', '/api/v1/catalog/references', reference, decodeReference);
+    },
+    visibility(product: Product, hidden: boolean) {
+      return client.mutate(
+        'PATCH',
+        contextual(`/api/v1/catalog/products/${encodeURIComponent(product.id)}/visibility`),
+        { revision: product.revision, hidden },
+        (value) => {
+          const p = decodeProduct(value);
+          const unchanged = [
+            'name',
+            'type',
+            'category',
+            'pack',
+            'size',
+            'unit',
+            'barcode',
+            'cost',
+            'markup',
+            'price',
+            'manualPrice',
+            'promotion',
+            'promotionPrice',
+            'priceAt',
+            'minStock',
+            'expiryAlertDays',
+          ] as const;
+          if (
+            p.id !== product.id ||
+            p.hidden !== hidden ||
+            !p.canEdit ||
+            (product.hidden !== hidden && p.revision === product.revision) ||
+            unchanged.some((key) => p[key] !== product[key]) ||
+            Object.keys(p.referenceIds || {}).length !==
+              Object.keys(product.referenceIds || {}).length ||
+            Object.entries(product.referenceIds || {}).some(
+              ([key, id]) =>
+                p.referenceIds?.[key as keyof NonNullable<Product['referenceIds']>] !== id,
+            )
+          )
+            throw new Error('Invalid visibility acknowledgement');
+          return p;
+        },
+      );
     },
     remove(product: Product) {
       return client.mutate(

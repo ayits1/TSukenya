@@ -17,6 +17,7 @@ const api: CatalogApi = {
   product: async () => product,
   save: fn(async () => product),
   remove: async () => true,
+  visibility: async (product, hidden) => ({ ...product, hidden }),
   previewPrice: async (input) => fixturePricePreview(input),
   references: async () => ({
     ...catalogReferences,

@@ -6,9 +6,9 @@ from django.db import transaction
 from server.erp.models import Document, RecipeVersion, RecipeComponent, Voucher, StockLot, StockEntry, AuditEvent
 from server.erp.catalog import revision
 from server.erp.services import save_voucher, post_voucher, reverse_voucher, BusinessError, ledger_lock
-from tests.test_unit_and_drafts import ApiFixture
+from tests.test_unit_and_drafts import TransactionApiFixture
 
-class ProductionVersionTests(ApiFixture):
+class ProductionVersionTests(TransactionApiFixture):
     def setUp(self):
         super().setUp()
         self.output=Document.objects.create(path='products/output',data={'name':'Кекс із довгою назвою','unit':'шт','recipe':[{'product':'p','quantity':'2'}]})

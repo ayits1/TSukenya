@@ -1,10 +1,10 @@
 import hashlib
 import time
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TransactionTestCase
 from server.erp.models import Document, Profile, PortalSession, LedgerLock, AuditEvent
 
-class CatalogTests(TestCase):
+class CatalogTests(TransactionTestCase):
     def setUp(self):
         self.user = User.objects.create(username='catalog-owner')
         Profile.objects.create(user=self.user, role='owner')

@@ -51,6 +51,7 @@ const api: CatalogApi = {
   createReference: async () => {
     throw new Error('Додавання довідника тут не використовується.');
   },
+  visibility: async (product, hidden) => ({ ...product, hidden }),
   previewPrice: async (input) => calculated(input),
 };
 const meta = {
@@ -210,6 +211,7 @@ export const SamePriceRequiresChoiceAndCancelPreservesDraft: Story = {
     product: catalogProducts[0]!,
     api: {
       ...api,
+      visibility: async (product, hidden) => ({ ...product, hidden }),
       previewPrice: fixturePricePreview,
       product: async () => ({
         ...catalogProducts[0]!,

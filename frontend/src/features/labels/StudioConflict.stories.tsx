@@ -89,6 +89,7 @@ function ConflictScenario({ mode = 'merge' }: { mode?: Mode }) {
         throw new Error('Довідники не використовуються в цьому сценарії.');
       },
       ...{
+        visibility: async (product, hidden) => ({ ...product, hidden }),
         previewPrice: async () => ({
           regularPrice: '35.00',
           salePrice: '29.99',

@@ -1,6 +1,7 @@
 import { Button } from '../../shared/ui/Button';
 import { TextField } from '../../shared/ui/TextField';
 import { ComboBox } from '../../shared/ui/ComboBox';
+import { CatalogVisibility } from './CatalogVisibility';
 import { Select } from '../../shared/ui/Select';
 import { hasEffectivePromotion, type Filters, type Product, type ProductPage } from './api';
 
@@ -24,7 +25,9 @@ export function CatalogView({
   busy = false,
   message = '',
   onReferences,
+  showVisibility = true,
 }: {
+  showVisibility?: boolean;
   data: ProductPage;
   filters: Filters;
   onFilters: (filters: Filters) => void;
@@ -54,6 +57,11 @@ export function CatalogView({
           </Button>
         ) : null}
       </header>
+      {showVisibility ? (
+        <div className="tk-catalog-visibility">
+          <CatalogVisibility filters={filters} onChange={onFilters} />
+        </div>
+      ) : null}
       <div className="tk-catalog-filters">
         <TextField
           label="Пошук товару"
@@ -111,6 +119,7 @@ export function CatalogView({
               promotion: '',
               page: 1,
               limit: filters.limit,
+              visibility: filters.visibility || 'active',
             })
           }
         >
@@ -133,7 +142,7 @@ export function CatalogView({
               <tr key={product.id}>
                 <td data-label="Товар">
                   <div className="tk-product-title">
-                    {data.canEdit ? (
+                    {data.canEdit && product.canEdit ? (
                       <button
                         type="button"
                         className="tk-product-link"
@@ -194,7 +203,7 @@ export function CatalogView({
                   ) : null}
                 </td>
                 <td data-label="Акція">
-                  {data.canEdit ? (
+                  {data.canEdit && product.canEdit ? (
                     // The accessible name starts with the visible text. Only an active promotion
                     // is a toggle (pressing ends it); enabling opens the editor for its price.
                     <button
@@ -221,12 +230,20 @@ export function CatalogView({
         </table>
       ) : (
         <div className="tk-catalog-empty">
-          <h3>{busy ? 'Завантажуємо товари…' : 'Товарів не знайдено'}</h3>
+          <h3>
+            {busy
+              ? 'Завантажуємо товари…'
+              : data.visibility === 'hidden'
+                ? 'Прихованих товарів не знайдено'
+                : 'Товарів не знайдено'}
+          </h3>
           <p>
             {busy
               ? 'Список з’явиться після завершення запиту.'
               : data.canEdit
-                ? 'Змініть пошук, скиньте фільтри або додайте товар.'
+                ? data.visibility === 'hidden'
+                  ? 'Змініть пошук або скиньте фільтри. Приховані товари можна відновити в редакторі.'
+                  : 'Змініть пошук, скиньте фільтри або додайте товар.'
                 : 'Змініть пошук або скиньте фільтри.'}
           </p>
         </div>

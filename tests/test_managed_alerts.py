@@ -5,9 +5,9 @@ from unittest.mock import patch
 from server.erp.models import Document,AlertTaskAction,AuditEvent,Store,Profile
 from server.erp.managed_alerts import task_revision as record_revision
 from server.erp.alerts import sync_alerts
-from tests.test_unit_and_drafts import ApiFixture
+from tests.test_unit_and_drafts import TransactionApiFixture
 
-class ManagedAlertTests(ApiFixture):
+class ManagedAlertTests(TransactionApiFixture):
     def setUp(self):
         super().setUp();self.p.data['minStock']=2;self.p.save();sync_alerts(self.u)
         self.task=next(d for d in Document.objects.filter(path__startswith='tasks/auto_') if d.data['_alertKey']==f'low:{self.wh.pk}:p')

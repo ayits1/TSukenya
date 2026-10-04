@@ -23,6 +23,8 @@ export async function fixturePricePreview(input: PricePreviewRequest): Promise<P
 export const catalogProducts: Product[] = [
   {
     id: 'sample-1',
+    hidden: false,
+    canEdit: true,
     revision: 'synthetic-1',
     name: 'Кава Американо',
     type: 'Напої',
@@ -44,6 +46,8 @@ export const catalogProducts: Product[] = [
   },
   {
     id: 'sample-2',
+    hidden: false,
+    canEdit: true,
     revision: 'synthetic-2',
     name: 'Шоколад із фундуком та карамеллю в подарунковому пакуванні, обмежена серія',
     type: 'Цукерки',
@@ -65,6 +69,8 @@ export const catalogProducts: Product[] = [
   },
   {
     id: 'sample-3',
+    hidden: false,
+    canEdit: true,
     revision: 'synthetic-3',
     name: 'Новий товар без ціни',
     type: '',
@@ -86,6 +92,7 @@ export const catalogProducts: Product[] = [
   },
 ];
 export const catalogPage: ProductPage = {
+  visibility: 'active',
   items: catalogProducts,
   total: 3,
   page: 1,

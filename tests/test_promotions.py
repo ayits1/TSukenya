@@ -7,9 +7,9 @@ from server.erp.models import Document, Store, PromotionCampaign, PromotionPrice
 from server.erp.promotion_prices import PriceResolver, kyiv_day
 from server.erp.promotion_history import scan_prices
 from server.erp.services import ledger_lock, post_voucher, BusinessError, save_voucher
-from tests.test_unit_and_drafts import ApiFixture
+from tests.test_unit_and_drafts import TransactionApiFixture
 
-class CampaignTests(ApiFixture):
+class CampaignTests(TransactionApiFixture):
     def setUp(self):
         super().setUp()
         self.other=Store.objects.create(name='Інший')

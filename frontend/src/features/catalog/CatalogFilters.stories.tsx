@@ -31,6 +31,7 @@ function PendingFacets() {
           };
         },
         product: async () => product,
+        visibility: async (product, hidden) => ({ ...product, hidden }),
         previewPrice: fixturePricePreview,
         save: async () => product,
         remove: async () => true,

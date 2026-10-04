@@ -147,6 +147,7 @@ def serialize(document, user, config, resolver=None):
     private = user.profile.role != 'cashier'
     return {
         'id': document.path.split('/', 1)[1], 'revision': revision(document, config),
+        'hidden': data.get('hidden') is True, 'canEdit': user.profile.role in EDIT_ROLES,
         'referenceIds': reference_bindings(data),
         **{key: str(data.get(key) or ('шт' if key == 'unit' else '')) for key in TEXT_FIELDS},
         'cost': format(cost, 'f') if private else None,
@@ -179,9 +180,10 @@ def base_query():
     return Document.objects.filter(path__startswith='products/').filter(Q(data__hidden__isnull=True) | ~Q(data__hidden=True))
 
 
-def filtered_products(user, params, *, with_facets=False):
+def filtered_products(user, params, *, with_facets=False, visibility='active'):
     """One authoritative filter semantics for catalogue pages and frozen pricing scopes."""
-    query = base_query()
+    require(visibility in {'active', 'hidden'}, 'Некоректний стан товарів.')
+    query = base_query() if visibility == 'active' else Document.objects.filter(path__startswith='products/', data__hidden=True)
     words = params.get('q', '').strip()[:250].split()
     for word in words:
         query = query.filter(Q(data__name__icontains=word) | Q(data__barcode__icontains=word))
@@ -206,6 +208,13 @@ def filtered_products(user, params, *, with_facets=False):
 
 
 def list_products(request, user):
+    from .services import current_actor
+    from .historical_reports import read_snapshot
+    with read_snapshot():
+        return _list_products(request, current_actor(user))
+
+
+def _list_products(request, user):
     from .views import response
     from .promotion_prices import PriceResolver
     try:
@@ -213,7 +222,8 @@ def list_products(request, user):
     except ValueError:
         return response({'error': 'Некоректна сторінка.', 'code': 'invalid_page'}, 400)
     require(page >= 1 and limit in {10, 20, 50}, 'Некоректна сторінка або розмір списку.')
-    query, config, store, facets, resolver = filtered_products(user, request.GET, with_facets=True)
+    visibility = request.GET.get('visibility', 'active')
+    query, config, store, facets, resolver = filtered_products(user, request.GET, with_facets=True, visibility=visibility)
     count = query.count()
     pages = max(1, (count + limit - 1) // limit)
     page = min(page, pages)
@@ -222,7 +232,7 @@ def list_products(request, user):
     resolver = resolver or PriceResolver(config, store, product_paths=[d.path for d in documents])
     return response({'items': [serialize(document, user, config, resolver=resolver) for document in documents],
         'total': count, 'page': page, 'pages': pages, 'limit': limit, 'facets': facets,
-        'canEdit': user.profile.role in EDIT_ROLES, 'defaultMarkup': format(config['markup'], 'f')})
+        'visibility': visibility, 'canEdit': user.profile.role in EDIT_ROLES, 'defaultMarkup': format(config['markup'], 'f')})
 
 
 @transaction.atomic
@@ -267,6 +277,27 @@ def save_product(request, user, identifier=None):
     audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1', **audit_change(before, audit_snapshot('product', data), observed=value.get('revision'))})
     from .promotion_prices import PriceResolver, context_store
     return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')), product_paths=[document.path])), 200 if old.get('name') else 201)
+
+
+@transaction.atomic
+def save_visibility(request, user, identifier):
+    """Only catalogue visibility changes; drafts/prices/history are never replayed here."""
+    from .views import body, response
+    require(user.profile.role in EDIT_ROLES, 'Недостатньо прав для редагування товарів.')
+    ledger_lock(); revalidate_actor(user, EDIT_ROLES, 'Недостатньо прав для редагування товарів.')
+    value = body(request)
+    require(set(value) == {'revision', 'hidden'} and type(value['hidden']) is bool, 'Передайте лише версію та логічний стан приховування.')
+    document = Document.objects.filter(pk='products/' + identifier).first()
+    if document is None: return response({'error':'Товар не знайдено.', 'code':'not_found'}, 404)
+    config = defaults()
+    if not isinstance(value['revision'], str) or value['revision'] != revision(document, config):
+        return response({'error':'Товар змінено з іншого пристрою. Прочитайте поточні дані перед зміною видимості.', 'code':'revision_conflict'}, 409)
+    old = dict(document.data)
+    if (old.get('hidden') is True) != value['hidden']:
+        document.data = {**old, 'hidden': value['hidden']}; document.save()
+        audit(user, 'catalog_changed', document.path, {'method':'PATCH', 'contract':'v1-visibility', **audit_change(audit_snapshot('product',old),audit_snapshot('product',document.data),observed=value['revision'])})
+    from .promotion_prices import PriceResolver, context_store
+    return response(serialize(document,user,config,resolver=PriceResolver(config,context_store(user,request.GET.get('store')),product_paths=[document.path])))
 
 
 def unit_in_use(path, data, *, legacy_recipe_lookup=None):
@@ -395,13 +426,22 @@ def handle_catalog(request, user):
     if path == collection:
         if request.method == 'GET': return list_products(request, user)
         if request.method == 'POST': return save_product(request, user)
+    visibility_match = re.fullmatch(re.escape(collection) + r'/([A-Za-z0-9_-]{1,120})/visibility', path)
+    if visibility_match and request.method == 'PATCH': return save_visibility(request,user,visibility_match[1])
     match = re.fullmatch(re.escape(collection) + r'/([A-Za-z0-9_-]{1,120})', path)
     if match:
         if request.method == 'GET':
-            document = base_query().filter(pk='products/' + match[1]).first()
-            if not document: return response({'error': 'Товар не знайдено.', 'code': 'not_found'}, 404)
-            from .promotion_prices import PriceResolver, context_store
-            config=defaults()
-            return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')), product_paths=[document.path])))
+            include_hidden = request.GET.get('includeHidden', '')
+            require(include_hidden in {'','false','true'}, 'Некоректний дозвіл читання прихованого товару.')
+            from .services import current_actor
+            from .historical_reports import read_snapshot
+            with read_snapshot():
+                user = current_actor(user)
+                query = Document.objects.filter(path__startswith='products/') if include_hidden == 'true' else base_query()
+                document = query.filter(pk='products/' + match[1]).first()
+                if document is None: return response({'error':'Товар не знайдено.','code':'not_found'},404)
+                from .promotion_prices import PriceResolver, context_store
+                config = defaults()
+                return response(serialize(document,user,config,resolver=PriceResolver(config,context_store(user,request.GET.get('store')),product_paths=[document.path])))
         if request.method in {'PATCH', 'DELETE'}: return save_product(request, user, match[1])
     return response({'error': 'Метод або маршрут не підтримується.', 'code': 'unsupported_route'}, 405)

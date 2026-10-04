@@ -99,6 +99,7 @@ function makeServices(onContext: (store: number | undefined | null) => void) {
         ...product,
         priceContext: { storeId: store, storeName: store ? context(store).storeName : null },
       }),
+      visibility: async (product, hidden) => ({ ...product, hidden }),
       previewPrice: fixturePricePreview,
       save: async () => product,
       remove: async () => true,

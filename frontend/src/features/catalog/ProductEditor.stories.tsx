@@ -22,6 +22,7 @@ const meta = {
         throw new Error('Not used in editor story');
       },
       product: async () => product,
+      visibility: async (product, hidden) => ({ ...product, hidden }),
       previewPrice: fixturePricePreview,
       remove: async () => true,
       save: fn(async () => product),

@@ -356,3 +356,24 @@
     animation: none;
   }
 }
+
+.tk-catalog-visibility {
+  max-width: 320px;
+  margin-bottom: 16px;
+}
+
+.tk-catalog-mode {
+  background: var(--tk-paper);
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+  padding: 16px 24px;
+  margin-bottom: 12px;
+}
+.tk-catalog-mode > .tk-field {
+  max-width: 320px;
+}
+@media (max-width: 700px) {
+  .tk-catalog-mode {
+    padding: 16px;
+  }
+}

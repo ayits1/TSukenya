@@ -4,13 +4,13 @@ import re
 import time
 from django.contrib.auth.models import User
 from django.db import connection
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from server.erp.models import AuditEvent, Document, LedgerLock, PortalSession, Profile
 from server.erp.catalog import pricing_revision
 
 
-class ProductPricePreviewTests(TestCase):
+class ProductPricePreviewTests(TransactionTestCase):
     def setUp(self):
         self.user = User.objects.create(username='price-preview-owner')
         Profile.objects.create(user=self.user, role='owner')
