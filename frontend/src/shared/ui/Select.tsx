@@ -18,9 +18,11 @@ type Props = Omit<SelectProps<Choice>, 'children' | 'className'> & {
   options: Choice[];
   description?: string;
   error?: string;
+  /** Native dialog top-layer hosting; options must stay inside its modal subtree. */
+  portalContainer?: Element;
 };
 
-export function Select({ label, options, description, error, ...props }: Props) {
+export function Select({ label, options, description, error, portalContainer, ...props }: Props) {
   return (
     <AriaSelect
       {...props}
@@ -39,7 +41,13 @@ export function Select({ label, options, description, error, ...props }: Props) 
         </Text>
       ) : null}
       <FieldError className="tk-error">{error}</FieldError>
-      <Popover className="tk-popover" placement="bottom start">
+      <Popover
+        className="tk-popover"
+        placement="bottom start"
+        {...(portalContainer
+          ? { UNSTABLE_portalContainer: portalContainer, containerPadding: 32 }
+          : {})}
+      >
         <ListBox className="tk-listbox" items={options}>
           {(option) => (
             <ListBoxItem className="tk-option" id={option.id} textValue={option.label}>
