@@ -1,5 +1,9 @@
 # Рецептури: конфлікти й відновлення · 03.10.2026
 
+> Історичний звіт 03.10.2026. Чинні raw draft/reload, explicit comparison/Apply,
+> privacy та команди перевірки описані у [RECIPE-DRAFT-PERSISTENCE.md](RECIPE-DRAFT-PERSISTENCE.md).
+> Старі назви scope/Chrome докази нижче не є інструкцією для нового запуску.
+
 ## Виправлення
 
 Форма завантажує актуальну рецептуру GET `/api/erp/recipes?product=ID`, а не копію зі старого каталогу. Відповідь містить metadata/recipe/revision; POST потребує саме прочитаної версії. Під чинним PostgreSQL ledger lock сервер звіряє revision, перевіряє recipe та записує зміну разом з audit в одній транзакції. Конфлікт повертає 409 `revision_conflict`. Дублікати інгредієнтів відхиляються; чинні правила одиниць/кількості/self-ingredient збережені.

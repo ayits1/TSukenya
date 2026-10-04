@@ -454,8 +454,18 @@
         return;
       }
       let acknowledged = false;
+      const writeGeneration = generation,
+        writeHash = location.hash;
       try {
         payload = await store.before(payload);
+        // Authorization can outlive the editor. Keep the durable intent, but
+        // never send from a closed, suspended or superseded form.
+        if (
+          !live(writeGeneration) ||
+          location.hash !== writeHash ||
+          store.hidden
+        )
+          return;
         const value = await api(
           legacy ? "recipes" : "recipes/versions",
           "POST",
@@ -493,7 +503,7 @@
           } catch {}
           status.textContent = legacy
             ? "Результат не підтверджено. Прочитайте поточний запис без повторного збереження."
-            : "Результат не підтверджено. Перевірте UUID або повторіть початкове затвердження з незмінними умовами.";
+            : "Результат не підтверджено. Перевірте початкове затвердження або повторіть ті самі умови.";
           formError(error, d);
         }
       } finally {
@@ -523,7 +533,7 @@
       status.textContent = first()
         ? legacy
           ? "Результат попереднього збереження невідомий. Перечитайте та узгодьте запис."
-          : "Початкове затвердження збережено. Перевірте UUID або повторіть незмінний запит."
+          : "Первісний запит збережено у вкладці. Перевірте його результат або повторіть ті самі умови."
         : confirmed()
           ? "Збереження підтверджено. Потрібне лише читання поточних умов."
           : "Введення відновлено локально. Прочитайте й узгодьте поточну рецептуру перед збереженням.";
