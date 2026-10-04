@@ -13,6 +13,9 @@ declare global {
       leave: () => void;
       dirty: () => boolean;
       filters: () => Filters;
+      pricingFilter: () => Pick<Filters, 'q' | 'type' | 'category' | 'pack' | 'promotion'> & {
+        store: string;
+      };
     };
     TSUKENYA_REFRESH?: () => Promise<void>;
   }
@@ -22,6 +25,7 @@ let root: Root | undefined;
 let container: HTMLElement | undefined;
 let dirty = false;
 let filters = emptyFilters;
+let pricingStore: number | null = null;
 const onFiltersChanged = (value: Filters) => {
   filters = value;
 };
@@ -42,18 +46,21 @@ window.ReactCatalog = {
       <I18nProvider locale="uk-UA">
         <QueryClientProvider client={client}>
           <PricingContext>
-            {(api, store, context, promotions) => (
-              <Catalog
-                api={api}
-                priceStore={store}
-                priceContext={context}
-                promotions={promotions}
-                onChanged={onChanged}
-                onDirty={onDirty}
-                initialFilters={filters}
-                onFiltersChanged={onFiltersChanged}
-              />
-            )}
+            {(api, store, context, promotions) => {
+              pricingStore = store;
+              return (
+                <Catalog
+                  api={api}
+                  priceStore={store}
+                  priceContext={context}
+                  promotions={promotions}
+                  onChanged={onChanged}
+                  onDirty={onDirty}
+                  initialFilters={filters}
+                  onFiltersChanged={onFiltersChanged}
+                />
+              );
+            }}
           </PricingContext>
         </QueryClientProvider>
       </I18nProvider>,
@@ -67,5 +74,13 @@ window.ReactCatalog = {
   },
   dirty: () => dirty,
   filters: () => filters,
+  pricingFilter: () => ({
+    q: filters.q,
+    type: filters.type,
+    category: filters.category,
+    pack: filters.pack,
+    promotion: filters.promotion,
+    store: pricingStore == null ? '' : String(pricingStore),
+  }),
 };
 window.dispatchEvent(new Event('tsukenya:catalog-ready'));

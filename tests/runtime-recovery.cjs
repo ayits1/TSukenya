@@ -6,9 +6,9 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../server/runtime.js'), 'utf8');
 
 function payload(role = 'manager') {
-  return { role, csrf: 'isolated-csrf', labelRevision: 'label-revision', data: {
+  return { contract:'portal-metadata-v1',networkOwner:role==='owner',role, csrf: 'isolated-csrf', labelRevision: 'label-revision', data: {
     tasks: [{ id: 'existing', data: { title: 'Cached task', scope: 'operations' }, permissions: { canEdit: true, canDelete: true } }],
-    products: [{ id: 'p1', data: { name: 'Cached product' }, revision: 'product-revision' }],
+    ideas:[],expenses:[],'project/state':{},
     'settings/main': { chainName: 'Cached chain' },
   } };
 }
@@ -16,7 +16,7 @@ function response(status, value) {
   return { status, ok: status >= 200 && status < 300, async json() { return structuredClone(value); } };
 }
 function runtime() {
-  const window = new EventTarget(), calls = [], queue = [], intervals = [], notices = [], recoveries = [];
+  const window = new EventTarget();window.PortalApi=require('../app/portal-api.js');const calls = [], queue = [], intervals = [], notices = [], recoveries = [];
   window.addEventListener('tsukenya:refresh-failed', event => notices.push(event.detail));
   window.addEventListener('tsukenya:refresh-succeeded', () => recoveries.push(true));
   const location = { href: '/initial' };
@@ -95,7 +95,7 @@ function cached(db, collection) {
     await assert.rejects(r.window.TSUKENYA_REFRESH(), /private server/);
     assert(!JSON.stringify(r.notices).includes('private'), 'network failure details are excluded from UI event');
     r.queue.push(response(200, { ok: true }), response(503, {}));
-    await db.doc('products/p1').update({ name: 'Confirmed product' });
+    await db.doc('products/p1').update({ name: 'Confirmed product' },{revision:'product-revision'});
     const write = r.calls.find(c => c.method === 'PATCH');
     assert.equal(write.headers['If-Match'], 'product-revision', 'failed GET preserves existing version');
     assert.equal(write.headers['X-CSRF-Token'], 'isolated-csrf', 'failed GET preserves existing CSRF');
@@ -134,7 +134,7 @@ function cached(db, collection) {
     let release;
     r.queue.push(() => new Promise(resolve => { release = resolve; }));
     const first = r.window.TSUKENYA_REFRESH(), second = r.window.TSUKENYA_REFRESH();
-    assert.equal(r.calls.filter(c => c.url === '/api/state').length, 4, 'concurrent refresh callers share one request');
+    assert.equal(r.calls.filter(c => c.url === '/api/v1/portal/state').length, 4, 'concurrent refresh callers share one request');
     release(response(200, payload()));
     await Promise.all([first, second]);
     assert.equal(r.queue.length, 0);
@@ -176,7 +176,7 @@ function cached(db, collection) {
   {
     // An explicit refresh (after a catalogue/import write through another API) does not reuse a background poll.
     const r = runtime(), db = await r.db(), fresh = payload();
-    fresh.data.products[0].data.name = 'Saved elsewhere';
+    fresh.data.tasks[0].data.title = 'Saved elsewhere';
     let releasePoll;
     r.queue.push(() => new Promise(resolve => { releasePoll = resolve; }), response(200, fresh));
     r.intervals[0]();
@@ -187,21 +187,21 @@ function cached(db, collection) {
     releasePoll(response(200, payload()));
     await Promise.all([explicit, shared]);
     assert.equal(r.calls.length, 3, 'explicit callers share one read started after the poll');
-    assert.equal(cached(db, 'products').docs[0].data().name, 'Saved elsewhere');
+    assert.equal(cached(db, 'tasks').docs[0].data().title, 'Saved elsewhere');
     assert.equal(r.queue.length, 0);
   }
   {
     // Server reasons are marked for display; transport and 5xx texts are not.
     const r = runtime(), db = await r.db();
     r.queue.push(response(409, { error: 'Товар уже змінено. Оновіть дані перед повторним збереженням.', code: 'revision_conflict' }));
-    const conflict = await db.doc('products/p1').update({ name: 'Late' }).catch(error => error);
+    const conflict = await db.doc('products/p1').update({ name: 'Late' }, {revision:'opened-product-revision'}).catch(error => error);
     assert.equal(conflict.serverMessage, 'Товар уже змінено. Оновіть дані перед повторним збереженням.');
     assert.equal(conflict.status, 409);
     r.queue.push(response(503, { error: 'upstream connect error' }));
-    const unavailable = await db.doc('products/p1').update({ name: 'Late' }).catch(error => error);
+    const unavailable = await db.doc('products/p1').update({ name: 'Late' }, {revision:'opened-product-revision'}).catch(error => error);
     assert.equal(unavailable.serverMessage, undefined, 'a 5xx body is not a business reason');
     r.queue.push({ status: 502, ok: false, async json() { throw new SyntaxError('Unexpected token <'); } });
-    const html = await db.doc('products/p1').update({ name: 'Late' }).catch(error => error);
+    const html = await db.doc('products/p1').update({ name: 'Late' }, {revision:'opened-product-revision'}).catch(error => error);
     assert.equal(html.message, 'Save failed');
     assert.equal(html.serverMessage, undefined);
     assert.equal(r.calls.filter(c => c.method === 'GET').length, 1, 'refused writes do not refresh');
@@ -209,11 +209,10 @@ function cached(db, collection) {
   {
     // Editors send the revision they opened, not the latest polled one.
     const r = runtime(), db = await r.db(), updated = payload();
-    updated.data.products[0].revision = 'changed-elsewhere';
     updated.labelRevision = 'label-changed-elsewhere';
     r.queue.push(response(200, updated));
     await r.window.TSUKENYA_REFRESH();
-    assert.equal(cached(db, 'products').docs[0].revision, 'changed-elsewhere', 'snapshot exposes the shown product revision');
+    assert.throws(()=>cached(db,'products'),/unavailable/,'metadata does not masquerade as a full product snapshot');
     let settings;
     db.doc('settings/main').onSnapshot(s => { settings = s; })();
     assert.equal(settings.revision, 'label-changed-elsewhere', 'settings snapshot exposes the shown label revision');
@@ -224,8 +223,8 @@ function cached(db, collection) {
     await assert.rejects(db.collection('products').doc('p1').delete({ revision: 'product-revision' }));
     assert.equal(r.calls.at(-1).headers['If-Match'], 'product-revision');
     r.queue.push(response(200, { ok: true }), response(200, updated));
-    await db.collection('products').doc('p1').update({ promotion: true });
-    assert.equal(r.calls.find(c => c.method === 'PATCH' && c.headers['If-Match'] === 'changed-elsewhere') !== undefined, true, 'immediate actions keep the latest revision');
+    await db.collection('products').doc('p1').update({ promotion: true },{revision:'opened-product-revision'});
+    assert.equal(r.calls.find(c => c.method === 'PATCH' && c.headers['If-Match'] === 'opened-product-revision') !== undefined, true, 'metadata actions require the explicit opened product revision');
   }
   {
     // A settings write returns its layout version; the next save chains from it even if the read after it fails.

@@ -165,6 +165,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/csv-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-pricing-contract.cjs']);
     await run('node', ['tests/catalog-pricing-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/portal-metadata-contract.cjs']);
     await run('node', ['tests/runtime-recovery.cjs']);
     await run('node', ['tests/runtime-create-key.cjs']);
     await run('node', ['tests/runtime-managed-refresh.cjs']);
@@ -188,6 +189,8 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/labels-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/labels-output-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/portal-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/portal-metadata-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/portal-metadata-ui.cjs'], { env: { ...browserEnv, QA_PORTAL_FROM: 'module' } });
     await run('node', ['tests/budget-break-even-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/monthly-budget-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/monthly-budget-recovery-ui.cjs'], { env: browserEnv });

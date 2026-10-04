@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const window={addEventListener(){}};
 // Expose private pure functions in the VM fixture, never in the served module.
-const source=fs.readFileSync(path.join(__dirname,'../app/monthly-budget.js'),'utf8').replace('window.MonthlyBudgets={shell,mount,canLeave};','window.MonthlyBudgets={normalizedDecimal,decimalEqual,money,decode};');
+const source=fs.readFileSync(path.join(__dirname,'../app/monthly-budget.js'),'utf8').replace(/window\.MonthlyBudgets=\{shell,mount,canLeave[^;]*;/,'window.MonthlyBudgets={normalizedDecimal,decimalEqual,money,decode};');
 vm.runInNewContext(source,{window,Intl,Date,URLSearchParams,Number,BigInt,Object,Set,Map},{filename:'monthly-budget.js'});
 const {normalizedDecimal,decimalEqual,money,decode}=window.MonthlyBudgets;
 const compact=v=>v.replace(/[\s\u00a0\u202f]/g,'');

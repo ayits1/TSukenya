@@ -1,9 +1,9 @@
 /* Stable native create keys: isolated VM, no network/database. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../server/runtime.js'),'utf8');
-const state={role:'owner',csrf:'isolated',data:{tasks:[],ideas:[],expenses:[]}};
+const state={contract:'portal-metadata-v1',networkOwner:true,labelRevision:'label',role:'owner',csrf:'isolated',data:{tasks:[],ideas:[],expenses:[],'settings/main':{},'project/state':{}}};
 const response=(status,value)=>({status,ok:status>=200&&status<300,json:async()=>structuredClone(value)});
-const window=new EventTarget(),queue=[],calls=[];let keys=0;
+const window=new EventTarget(),queue=[],calls=[];window.PortalApi=require('../app/portal-api.js');let keys=0;
 vm.runInNewContext(source,{window,document:{hidden:false},location:{href:'/'},Event,CustomEvent,structuredClone,
  crypto:{randomUUID:()=>`isolated-create-key-${++keys}`},setInterval(){},setTimeout,Blob,URL,
  fetch:async(url,options={})=>{calls.push({url,...options});assert(queue.length,'specify response for '+url);const next=queue.shift();if(next instanceof Error)throw next;return next;} });

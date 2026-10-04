@@ -101,7 +101,12 @@
     return `<div class="fbar"><input id="q" type="text" placeholder="Пошук за назвою" value="${esc(f.q)}" aria-label="Пошук за назвою"><div id="facets">${facetsHtml(f)}</div><span class="fcount muted" id="fcount" title="Показано товарів з усіх">${countText(f)}</span><button type="button" class="btn soft fclear" id="fResetBtn" data-act="fReset" ${isActive(f)?"":"hidden"}>Скинути</button></div>`;
   }
   function refreshFilters(foc){
-    const f = curF(), list = filtered(f), m=$('#main');
+    const m=$('#main');
+    if(window.TSUKENYA_SERVER&&(tab==='products'&&window.ReactCatalog||tab==='tags'&&window.ReactLabels)){
+      if(window.TSUKENYA_ROLE!=='owner')m.querySelectorAll('[data-disclosure=bulk],[data-disclosure=sheets],.identity-settings').forEach(x=>x.hidden=true);
+      return;
+    }
+    const f = curF(), list = filtered(f);
     const fx = $("#facets"); if (fx) fx.innerHTML = facetsHtml(f);
     if (foc && fx){ const e = [...fx.querySelectorAll("[data-f],[data-ddtoggle]")].find(x=> foc.k ? (x.dataset.f===foc.k && x.dataset.v===foc.v) : x.dataset.ddtoggle===foc.t); if (e) e.focus(); }
     const c = $("#fcount"); if (c) c.textContent = countText(f);
@@ -323,6 +328,11 @@
   }
 
   /* ---------- tabs ---------- */
+  const failedModules=new Set();
+  window.addEventListener('tsukenya:module-unavailable',event=>{failedModules.add(event.detail);if(['products','tags'].includes(tab))render(true);});
+  setTimeout(()=>{if(!window.ReactCatalog)failedModules.add('catalog');if(!window.ReactLabels)failedModules.add('labels');if(['products','tags'].includes(tab))render(true);},5000);
+  function moduleStatus(){const name=tab==='products'?'catalog':'labels',failed=failedModules.has(name);return `<section class="panel"><h2>${failed?'Не вдалося завантажити '+(tab==='products'?'каталог':'студію цінників'):'Завантажуємо '+(tab==='products'?'каталог':'студію цінників')+'…'}</h2><p role="${failed?'alert':'status'}">${failed?'Дані не прочитано. Оновіть сторінку, щоб повторити завантаження модуля.':'Готуємо модуль. Список товарів з’явиться після підтвердженого читання.'}</p>${failed?'<button class="btn soft" type="button" data-module-retry>Повторити завантаження</button>':''}</section>`;}
+  document.addEventListener('click',event=>{if(event.target.closest('[data-module-retry]'))location.reload();});
   function render(force=false){
     const a = document.activeElement;
     if(inlineSaves.size||budgetSaves.size){pending=true;return;}
@@ -333,11 +343,12 @@
       window.Trade?.leave();window.ReactCatalog?.leave();window.ReactLabels?.leave();
       $('#main').innerHTML='<section class="panel"><p role="status">План розвитку доступний власнику мережі.</p><a class="btn soft" href="#operations/work">До поточних задач</a></section>';return;
     }
+    if(window.TSUKENYA_SERVER&&(tab==='products'&&!window.ReactCatalog||tab==='tags'&&!window.ReactLabels)){window.Trade?.leave();renderPath();$('#main').innerHTML=moduleStatus();return;}
     if(tab==='products' && window.ReactCatalog){
       window.ReactLabels?.leave();
       window.Trade?.leave();renderPath();
       if(!$('#react-catalog'))$('#main').innerHTML='<div id="react-catalog"></div><div id="catalog-tools"></div>';
-      const tools=$('#catalog-tools'),ready=!window.TSUKENYA_SERVER||S.productsLoaded&&S.settingsLoaded,key=(window.TSUKENYA_ROLE||'')+'|'+!!ready;
+      const tools=$('#catalog-tools'),ready=!window.TSUKENYA_SERVER||S.settingsLoaded,key=(window.TSUKENYA_ROLE||'')+'|'+!!ready;
       if(tools&&tools.dataset.key!==key){tools.innerHTML=ready?productTools():'<p role="status" class="muted">Завантажуємо інструменти каталогу…</p>';tools.dataset.key=key;}
       window.ReactCatalog.mount($('#react-catalog'));refreshFilters();return;
     }
@@ -447,8 +458,54 @@
   window.addEventListener('hashchange',route);
   window.addEventListener('beforeunload',event=>{if(hasInlineDraft()||createPending.size||inlineSaves.size||budgetDrafts.size||budgetSaves.size){event.preventDefault();event.returnValue='';}});
 
+  /* Compact server reads are lazy; opening a React catalogue never fetches a full product collection. */
+  function portalReadStatus(key){const r=S[key];return `<p role="${r?.state==='error'?'alert':'status'}">${r?.state==='error'?'Не вдалося прочитати підсумок.':'Завантажуємо серверний підсумок…'}</p>${r?.state==='error'?`<button class="btn soft" type="button" data-portal-retry="${key}">Повторити читання</button>`:''}`;}
+  function loadPortalRead(key,force=false){
+    if(!window.TSUKENYA_SERVER||!S.settingsLoaded||key==='portalModel'&&(!window.TSUKENYA_NETWORK_OWNER||!window.MonthlyBudgets?.catalogVisible()))return;
+    const current=S[key];if(current?.state==='loading'||!force&&current)return;
+    const r={state:'loading',identity:window.TSUKENYA_ROLE+'|'+window.TSUKENYA_NETWORK_OWNER};S[key]=r;
+    const model=key==='portalModel';
+    window.PortalApi.get(model?'catalogue-model':'overview',v=>window.PortalApi.decodeSummary(v,model,window.TSUKENYA_NETWORK_OWNER)).then(value=>{
+      if(S[key]!==r||r.identity!==window.TSUKENYA_ROLE+'|'+window.TSUKENYA_NETWORK_OWNER)return;
+      r.state='ready';r.data=value;
+      if(value.nextChangeAt){const wait=Math.max(1,Date.parse(value.nextChangeAt)-Date.now());r.timer=setTimeout(()=>{if(S[key]===r){delete S[key];if(tab==='overview'&&!model||tab==='expenses'&&model&&window.MonthlyBudgets?.catalogVisible())render();}},Math.min(wait,2147483647));}
+    }).catch(()=>{if(S[key]===r)r.state='error';}).finally(()=>{if(S[key]===r&&(tab==='overview'&&!model||tab==='expenses'&&model))render();});
+  }
+  function serverModelFormula(m){
+    if(!m)return portalReadStatus('portalModel');const money=window.PortalApi.money;
+    if(m.breakEvenRevenue!==null&&num(m.breakEvenRevenue)>0)return `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div><div class="big num">${money(m.breakEvenRevenue)} грн на місяць</div><p class="muted">≈ ${money(m.breakEvenDaily)} грн на день${m.budgetStores>1?` · ≈ ${money(m.breakEvenPerStore)} грн на день з кожного магазину`:''}. Рівна частка товарів: ${esc(m.marginPercent)}% маржі. Враховано ${m.coverage} із ${m.catalogCount} товарів. Ціна — звичайна або акційна ціна самого товару; магазинні кампанії не входять у цю модель.</p>`;
+    return num(m.fixed)+num(m.variable)===0?'<p>План витрат дорівнює нулю.</p>':m.reason==='no_coverage'?'<p>Недостатньо даних: потрібні закупівельна ціна та ціна продажу.</p>':'<p>Середня маржа нульова або від’ємна. Продажі за таких цін не покриють планові витрати.</p>';
+  }
+  function serverOverview(){
+    loadPortalRead('portalOverview');const r=S.portalOverview,data=r?.state==='ready'?r.data:null,current=operationTasks().filter(t=>t.status!=='done');
+    if(!data)return `<section class="panel">${portalReadStatus('portalOverview')}</section>${debtSummaryHtml()}`;
+    const plan=data.plannedExpenses;
+    return `<section class="panel"><div class="stats"><div class="stat"><div class="l">Товарів у каталозі</div><div class="v num">${data.catalogCount}</div></div><div class="stat"><div class="l">Потребують ціни</div><div class="v num">${data.noPriceCount}</div></div><div class="stat"><div class="l">Поточні задачі</div><div class="v num">${current.length}</div></div>${window.TSUKENYA_NETWORK_OWNER?`<div class="stat"><div class="l">План витрат на місяць</div><div class="v num">${window.PortalApi.money(plan)} грн</div></div>`:''}</div></section>${debtSummaryHtml()}<section class="panel"><h3>Швидкі дії</h3><div class="quick-actions"><a href="#trade/purchases">Облік торгівлі<span>Закупівлі, склад і продажі</span></a><a href="#operations/products">Оновити каталог<span>Ціни, закупівля та націнка</span></a><a href="#operations/tags">Підготувати цінники<span>Макет, PDF і друк</span></a><a href="#operations/work">Запланувати роботу<span>Задачі та терміни</span></a></div></section><section class="panel"><div class="row between"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${data.noPriceCount?`${data.noPriceCount} товарів без ціни.`:'У всіх товарів є ціна.'} ${data.stalePriceCount?`${data.stalePriceCount} товарів мають застарілу дату ціни.`:''}</p><p class="muted">Стан на ${esc(new Date(data.generatedAt).toLocaleString('uk-UA'))}. Поріг — понад ${staleDays()} повних діб від дати ціни; кампанії не змінюють цей каталогний орієнтир.</p>${examplesNotice({examples:data.allExampleCount})}</section><section class="panel"><h3>Найближчі задачі</h3>${current.length?current.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')).slice(0,5).map(taskRow).join(''):'<p>Поточних задач немає.</p>'}</section>`;
+  }
+  async function cleanupExamples(){
+    if(!canClearExamples())return;
+    if(S.cleanupDialog?.open){S.cleanupDialog.focus();return;}
+    const opener=document.activeElement,d=document.createElement('dialog');S.cleanupDialog=d;d.className='trade-dialog';d.setAttribute('aria-labelledby','cleanupTitle');let page=1,listing=null,busy=false,result=null;
+    function draw(message=''){
+      d.innerHTML=`<header class="trade-dialog-head"><h2 id="cleanupTitle" tabindex="-1">Прибирання товарів-прикладів</h2><button class="btn soft" data-cleanup="close" ${busy?'disabled':''}>Закрити</button></header><div class="trade-dialog-body"><p class="muted">Перевірте товари цієї сторінки. Використані в обліку, рецептурах або історії акцій товари сервер збереже. Приховані приклади також включено.</p><p role="status" aria-live="polite">${esc(message)}</p>${listing?`<ul>${listing.items.map(p=>`<li>${esc(p.name)}${p.hidden?' · прихований':''}</li>`).join('')}</ul><nav class="row" aria-label="Сторінки прикладів"><button class="btn soft" data-cleanup="previous" ${busy||S.cleanupIntent||listing.page<=1?'disabled':''}>Попередня</button><span>${listing.page} / ${listing.pages} · ${listing.total} прикладів</span><button class="btn soft" data-cleanup="next" ${busy||S.cleanupIntent||listing.page>=listing.pages?'disabled':''}>Наступна</button></nav>`:''}${result?`<ul>${result.items.map(p=>`<li>${esc(p.id)}: ${p.status==='deleted'?'прибрано':esc(p.error)}</li>`).join('')}</ul>`:''}<div class="row"><button class="btn" data-cleanup="delete" ${busy||!S.cleanupIntent&&!listing?.items.length?'disabled':''}>${S.cleanupIntent?'Підтвердити первісне прибирання':'Прибрати приклади цієї сторінки'}</button><button class="btn soft" data-cleanup="reload" ${busy||S.cleanupIntent?'disabled':''}>Оновити список</button></div></div>`;
+    }
+    async function load(){busy=true;listing=null;draw('Читаємо список…');try{listing=await window.PortalApi.get('examples?page='+page,window.PortalApi.decodeExamples);page=listing.page;draw();}catch(error){draw(error.message);}finally{busy=false;draw(listing?'': 'Список не завантажено. Повторіть читання.');d.querySelector('h2')?.focus();}}
+    async function remove(){if(busy)return;if(!S.cleanupIntent){if(!listing?.items.length||!confirm(`Прибрати ${listing.items.length} прикладів цієї сторінки?`))return;S.cleanupIntent={idempotencyKey:crypto.randomUUID(),items:listing.items.map(p=>({id:p.id,revision:p.revision}))};}busy=true;draw('Перевіряємо та прибираємо…');try{result=await window.PortalApi.cleanup(S.cleanupIntent);S.cleanupIntent=null;busy=false;await window.TSUKENYA_REFRESH_AFTER_WRITE().catch(()=>{});await load();}catch(error){if(error.status>=400&&error.status<500)S.cleanupIntent=null;busy=false;draw(error.status>=400&&error.status<500?error.message:'Підтвердження не отримано. Повторіть первісний пакет із тим самим ключем.');}}
+    d.onclick=event=>{const action=event.target.closest('[data-cleanup]')?.dataset.cleanup;if(action==='close'&&!busy)d.close();if(action==='reload')void load();if(action==='delete')void remove();if(['next','previous'].includes(action)&&!busy&&!S.cleanupIntent){page+=action==='next'?1:-1;void load();}};
+    d.addEventListener('cancel',event=>{if(busy)event.preventDefault();});d.addEventListener('close',()=>{d.remove();if(opener?.isConnected)opener.focus();});document.body.append(d);draw();d.showModal();d.querySelector('h2').focus();if(!S.cleanupIntent)await load();else draw('Попередній запит ще не підтверджено. Повторіть його без зміни товарів чи ключа.');
+  }
+  window.addEventListener('tsukenya:catalogue-model-open',()=>{if(tab==='expenses')render();});
+  window.addEventListener('tsukenya:data-changed',event=>{
+    const domains=event.detail?.domains;if(domains&&!domains.some(k=>['products','settings/main','expenses'].includes(k)))return;
+    for(const key of ['portalOverview','portalModel']){clearTimeout(S[key]?.timer);delete S[key];}
+    S.salesFacts=null;
+    if(tab==='overview'||tab==='expenses')render();
+  });
+  document.addEventListener('click',event=>{const key=event.target.closest('[data-portal-retry]')?.dataset.portalRetry;if(['portalOverview','portalModel'].includes(key)){delete S[key];loadPortalRead(key,true);render();}});
+
   /* ---------- totals ---------- */
   function totals(){
+    if(window.TSUKENYA_SERVER){const model=S.portalModel?.state==='ready'?S.portalModel.data:null;return {fixed:num(model?.fixed),variable:num(model?.variable),avgM:num(model?.equalWeightMargin),be:num(model?.breakEvenRevenue),coverage:model?.coverage||0,total:model?.catalogCount||0,examples:model?.exampleCount||S.portalOverview?.data?.exampleCount||0,model};}
     const fixed = S.expenses.filter(e=>e.group==="fixed").reduce((s,e)=>s+num(e.amount),0);
     const variable = S.expenses.filter(e=>e.group!=="fixed").reduce((s,e)=>s+num(e.amount),0);
     // Demo products imported from the original artifact do not describe the real assortment.
@@ -459,6 +516,7 @@
   }
   const realProducts = () => S.products.filter(p=>!p.example);
   async function clearExamples(){
+    if(window.TSUKENYA_SERVER){await cleanupExamples();return;}
     const list=S.allProducts.filter(p=>p.example);
     if(!list.length||!canClearExamples()||!confirm(`Прибрати ${list.length} товарів-прикладів зі старої демо-версії? Справжні товари не зміняться.`))return;
     let removed=0;
@@ -496,6 +554,7 @@
     </div>${shown.length?`<h4 class="debt-calendar-title">Календар оплат постачальникам</h4><ul class="debt-calendar">${shown.map(x=>`<li><span class="when">${esc(when(x.due_date))}</span><span class="who">${esc(x.party)}<span class="muted"> · № ${esc(x.number)}</span></span><span class="num">${money(num(x.amount))} грн</span></li>`).join("")}</ul>${rest>0?`<p class="muted">І ще ${rest} у найближчі ${d.days} днів — повний перелік у розділі «Фінанси».</p>`:""}`:`<p class="muted">Найближчими ${d.days} днями оплат постачальникам за строками немає.</p>`}</section>`;
   }
   function overview(){
+    if(window.TSUKENYA_SERVER)return serverOverview();
     const t=totals(), real=realProducts(), current=operationTasks().filter(x=>x.status!=='done'), noPrice=real.filter(p=>priceState(p)==='none').length, stale=real.filter(p=>priceState(p)==='stale').length;
     return `<section class="panel"><div class="stats">
       <div class="stat"><div class="l">Товарів у каталозі</div><div class="v num">${real.length}</div></div>
@@ -576,7 +635,7 @@
   }
   function productTools(){
     if(window.TSUKENYA_SERVER && !["owner","manager","warehouse"].includes(window.TSUKENYA_ROLE))return "";
-    return `<details class="panel disclosure" data-disclosure="import"><summary>Імпорт товарів із CSV або Excel</summary><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></details>
+    return `${window.TSUKENYA_SERVER?'<section class="panel"><a class="btn soft" href="/api/v1/portal/catalogue.csv">Завантажити каталог CSV</a><p class="muted">Явний експорт усіх видимих товарів. Поля відповідають правам поточного користувача.</p></section>':''}<details class="panel disclosure" data-disclosure="import"><summary>Імпорт товарів із CSV або Excel</summary><div id="impBox">${importInner()}</div><input id="impFile" type="file" accept=".xlsx,.xls,.csv" hidden></details>
     <details class="panel disclosure" data-disclosure="sheets"><summary>Спільна Google-таблиця</summary><div id="linkBox">${linkInner()}</div></details>
     <details class="panel disclosure" data-disclosure="bulk"><summary>Масове оновлення націнки та округлення</summary>${window.TSUKENYA_SERVER&&window.CatalogPricing?`<div id="bulkBox">${window.CatalogPricing.html()}</div>`:`<div class="row"><label class="form-field">Націнка, %<input id="bulkM" type="number" value="${esc(defMarkup())}"></label><label class="form-field">Застосувати до<select id="bulkC"><option value="">Усі товари</option><option value="__f">Показані за фільтром</option>${cats().map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><button class="btn" data-act="bulk">Оновити ціни</button><label class="form-field">Округлення<select id="rounding">${[[0.01,'До копійки'],[0.1,'До 10 коп.'],[0.5,'До 50 коп.'],[1,'До гривні']].map(([v,l])=>`<option value="${v}" ${num(S.settings.rounding??0.5)===v?'selected':''}>${l}</option>`).join('')}</select></label></div>`}</details>`;
   }
@@ -1158,6 +1217,7 @@
     const b = $("#syncNoteT"); if (b) b.textContent = syncText();
   }
   function linkInner(){
+    if(window.TSUKENYA_SERVER)return '<p class="muted">Пряме з’єднання з Google-таблицею на сервері не налаштовано. Для обміну використовуйте явний CSV-експорт та імпорт CSV/Excel; автоматична синхронізація не виконується.</p>';
     const st = S.settings;
     if (window.TSUKENYA_SERVER) return `<h3>Спільна Google-таблиця</h3>
       <p class="muted" style="margin:6px 0 12px">Початкові товари завантажено зі знімка аркуша «Товари» від 29.09.2026. Автоматичний обмін зі спільною таблицею ще не підключено, тому зміни в застосунку наразі не потрапляють до неї.</p>
@@ -1393,15 +1453,12 @@
 
   /* ---------- expenses ---------- */
   // Actual gross margin of recent posted sales; the catalogue model stays as the fallback.
-  const FACT_DAYS=30, isoDay=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   function loadSalesFacts(){
     if(!window.TSUKENYA_SERVER||window.TSUKENYA_ROLE!=="owner"||S.salesFacts?.state==="loading"||S.salesFacts&&Date.now()-S.salesFacts.at<300000)return;
-    const from=new Date();from.setDate(from.getDate()-(FACT_DAYS-1));
-    S.salesFacts={state:"loading",at:Date.now()};
-    fetch("/api/erp/report?"+new URLSearchParams({from:isoDay(from),to:today()}),{credentials:"same-origin"})
-      .then(r=>r.ok?r.json():Promise.reject(Error("report "+r.status)))
-      .then(r=>{S.salesFacts={state:"ready",at:Date.now(),from:r.from,to:r.to,revenue:num(r.revenue),gross:num(r.gross_profit)};})
-      .catch(()=>{S.salesFacts={state:"error",at:Date.now()};})
+    const reading=S.salesFacts={state:"loading",at:Date.now()};
+    window.PortalApi.get('sales-margin',window.PortalApi.decodeSalesMargin)
+      .then(r=>{if(S.salesFacts===reading)S.salesFacts={...r,state:"ready",at:Date.now()};})
+      .catch(()=>{if(S.salesFacts===reading)S.salesFacts={state:"error",at:Date.now()};})
       .finally(()=>{if(tab==="expenses")render();});
   }
   function salesFactsHtml(t){
@@ -1409,12 +1466,10 @@
     const f=S.salesFacts, day=v=>new Date(v+"T12:00:00").toLocaleDateString("uk-UA",{day:"numeric",month:"long"});
     if(!f||f.state==="loading")return '<div class="be-fact muted" role="status">Завантажуємо фактичні продажі за 30 днів…</div>';
     if(f.state==="error")return '<div class="be-fact"><p class="muted">Не вдалося завантажити фактичні продажі.</p><button class="btn soft" type="button" data-act="reloadFacts">Повторити</button></div>';
-    if(f.revenue<=0)return '<div class="be-fact muted">За останні 30 днів проведених продажів немає, тому показано модель каталогу.</div>';
-    const margin=f.gross/f.revenue, daily=f.revenue/FACT_DAYS, plan=t.fixed+t.variable, head=`<h3>За фактичними продажами</h3><p>${day(f.from)} – ${day(f.to)}: виторг ${money0(f.revenue)} грн, валова маржа ${Math.round(margin*100)}%, у середньому ${money0(daily)} грн на день.</p>`;
-    if(margin<=0)return `<div class="be-fact">${head}<p class="be-gap">Продажі за цей період не покрили навіть закупівельну вартість. Перевірте ціни та списання.</p></div>`;
-    if(!plan)return `<div class="be-fact">${head}</div>`;
-    const need=plan/margin/FACT_DAYS, gap=need-daily;
-    return `<div class="be-fact">${head}<p>Щоб покрити план витрат за такої маржі, потрібно ≈ <b class="num">${money0(need)} грн</b> на день.</p><p class="${gap>0?"be-gap":"be-ok"}">${gap>0?`Не вистачає ≈ ${money0(gap)} грн виторгу на день.`:`План покривається: запас ≈ ${money0(-gap)} грн на день.`}</p></div>`;
+    if(f.reason==='no_sales')return '<div class="be-fact muted">За останні 30 днів проведених продажів немає, тому показано модель каталогу.</div>';
+    const money=window.PortalApi.money,head=`<h3>За фактичними продажами</h3><p>${day(f.from)} – ${day(f.to)}: виторг ${money(f.revenue)} грн, валова маржа ${esc(f.marginPercent)}%, у середньому ${money(f.dailyRevenue)} грн на день.</p>`;
+    if(f.reason==='nonpositive_margin')return `<div class="be-fact">${head}<p class="be-gap">Продажі за цей період не покрили навіть закупівельну вартість. Перевірте ціни та списання.</p></div>`;
+    return `<div class="be-fact">${head}${f.needDaily===null?'':`<p>Щоб покрити план витрат за такої маржі, потрібно ≈ <b>${money(f.needDaily)} грн</b> на день.</p><p>${num(f.gapDaily)>0?'Не вистачає ≈ '+money(f.gapDaily):'План покривається; відхилення '+money(f.gapDaily)} грн на день.</p>`}</div>`;
   }
   // Accounting category of a budget line: chosen explicitly, otherwise guessed from its name.
   const BUDGET_CATEGORIES=['Оренда','Комунальні','Логістика','Обслуговування','Маркетинг','Податки','Зарплата','Інше'];
@@ -1447,12 +1502,13 @@
   }
   function expenses(){
     if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner')return '<section class="panel"><p role="status">Бюджет витрат доступний власнику мережі.</p><a class="btn soft" href="#operations/overview">До операційного огляду</a></section>';
+    if(window.TSUKENYA_SERVER&&!window.TSUKENYA_NETWORK_OWNER)return window.MonthlyBudgets?.shell('')||'<p>Завантаження бюджету…</p>';
     const t = totals(), stores=budgetStores(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
-    loadSalesFacts();
+    if(!window.TSUKENYA_SERVER||window.MonthlyBudgets?.catalogVisible()){loadSalesFacts();if(window.TSUKENYA_SERVER&&window.TSUKENYA_NETWORK_OWNER)loadPortalRead('portalModel');}
     const block = (title, hint, list, g, sum) => `<div class="expense-group"><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
       ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
       <div class="expense-add"><input type="text" placeholder="Нова стаття" maxlength="250" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
-      <div class="total"><span>Разом на місяць</span><span class="num">${money(sum)} грн</span></div></div>`;
+      <div class="total"><span>Разом на місяць</span><span class="num">${window.TSUKENYA_SERVER&&t.model?window.PortalApi.money(t.model[g]):money(sum)} грн</span></div></div>`;
     const legacy = `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Орієнтир за каталогом</h2>
       <label class="inl budget-store-count">Планова кількість магазинів <input id="stores" type="number" inputmode="numeric" required min="1" max="1000" step="1" value="${stores}" aria-describedby="budgetSaveError"></label></div>
       <p class="muted gap-lg">Впишіть суми за місяць на всю мережу. Зміни зберігаються, щойно ви перейдете до іншого поля.</p>
@@ -1461,13 +1517,13 @@
         ${block("Постійні","Платите щомісяця, навіть якщо продажів мало",fx,"fixed",t.fixed)}
         ${block("Змінні","Залежать від обсягу закупівель і продажів",vr,"variable",t.variable)}
       </div>
-      <div class="be">${t.be ? `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div>
+      <div class="be">${window.TSUKENYA_SERVER?serverModelFormula(t.model):t.be ? `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div>
         <div class="big num">${money0(t.be)} грн на місяць</div>
         <div class="muted">≈ ${money0(t.be/30)} грн на день${stores>1?` · ≈ ${money0(t.be/30/stores)} грн на день з кожного магазину`:""}. Орієнтовний розрахунок за рівною часткою товарів: ${Math.round(t.avgM*100)}% маржі. Враховано ${t.coverage} із ${t.total} товарів. Це модель каталогу; фактична точка беззбитковості потребує структури продажів і змінних витрат.</div>`
         : t.fixed+t.variable===0 ? '<div>План витрат дорівнює нулю. Введіть суми, щоб оцінити потрібний виторг.</div>'
         : !t.coverage ? '<div>Недостатньо даних для розрахунку. Потрібен хоча б один товар із закупівельною ціною та ціною продажу.</div>'
-        : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}${salesFactsHtml(t)}${examplesNotice(t)}</div>
-    </section>${budgetFactHtml()}`;
+        : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}${!window.TSUKENYA_SERVER||window.MonthlyBudgets?.catalogVisible()?salesFactsHtml(t):''}${examplesNotice(t)}</div>
+    </section>${!window.TSUKENYA_SERVER||window.MonthlyBudgets?.catalogVisible()?budgetFactHtml():''}`;
     return window.MonthlyBudgets?.shell(legacy)||legacy;
   }
 
@@ -1635,7 +1691,7 @@
   const noDbTimer = setTimeout(()=>{ if(!db) $("#noDb").hidden=false; }, 4000);
   window.claude?.use?.("downloads").then(d=>{ downloads=d; if(tab==="tags") render(); }).catch(()=>{});
   window.claude?.use?.("mcp").then(m=>{ mcp=m; if(tab==="tags"||tab==="products") render(); syncSetup(); }).catch(()=>{});
-  window.CatalogPricing?.configure(()=>({markup:defMarkup(),rounding:num(S.settings.rounding??0.5),categories:cats(),selectIds:scope=>(scope==='__f'?(window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)):S.products.filter(p=>!p.hidden&&p.category===scope)).map(p=>p.id)}));
+  window.CatalogPricing?.configure(()=>({markup:defMarkup(),rounding:num(S.settings.rounding??0.5),categories:window.TSUKENYA_SERVER?[]:cats(),selection:scope=>window.TSUKENYA_SERVER&&scope==='__f'?window.ReactCatalog?.pricingFilter():null,selectIds:scope=>(scope==='__f'?(window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)):S.products.filter(p=>!p.hidden&&p.category===scope)).map(p=>p.id)}));
   (window.claude?.use ? window.claude.use("db") : Promise.resolve(null)).then(d=>{
     if(!d){ $("#noDb").hidden=false; clearTimeout(noDbTimer); return; }
     db = d; clearTimeout(noDbTimer);
@@ -1645,7 +1701,7 @@
     }, ()=>{});
     sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
     sub("ideas","ideas",byOrder);
-    db.collection("products").onSnapshot(s=>{
+    if(!window.TSUKENYA_SERVER)db.collection("products").onSnapshot(s=>{
       const firstProducts = !S.productsLoaded;
       S.allProducts = s.docs.map(x=>({id:x.id, ...x.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name),"uk"));
       S.allProducts.forEach(p=>served.add(p)); S.productRevisions = new Map(s.docs.map(x=>[x.id,x.revision]));

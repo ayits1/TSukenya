@@ -70,7 +70,7 @@ def owner(user):
 
 CASHIER_PRODUCT_FIELDS={'name','type','category','pack','size','unit','barcode','regularPrice','salePrice','effectivePromotion','storeSalePrices','promotion','promotionPrice','priceAt','minStock','hidden','example'}
 
-def legacy_state(user, effective_day=None):
+def legacy_state(user, effective_day=None, *, include_products=True):
     from .catalog import revision, defaults
     from .task_scope import task_visible, task_permissions
     from .managed_alerts import task_revision
@@ -81,13 +81,19 @@ def legacy_state(user, effective_day=None):
     price_store=context_store(user)
     store_query=Store.objects.filter(active=True).order_by('pk')
     if user.profile.store_id is not None:store_query=store_query.filter(pk=user.profile.store_id)
-    price_resolver=PriceResolver(catalog_config,price_store,effective_day)
-    store_resolvers={str(s.pk):PriceResolver(catalog_config,s,effective_day) for s in store_query}
+    price_resolver=PriceResolver(catalog_config,price_store,effective_day) if include_products else None
+    store_resolvers={str(s.pk):PriceResolver(catalog_config,s,effective_day) for s in store_query} if include_products else {}
     from .models import ProjectTask,IdeaProject
     linked_tasks={row['document_id']:row for row in ProjectTask.objects.values('document_id','project_id','project__store_id')} if user.profile.role=='owner' else {}
     linked_ideas={row['idea_id']:row for row in IdeaProject.objects.values('idea_id','id','store_id')} if user.profile.role=='owner' else {}
-    data={x:[] for x in COLLECTIONS}|{x:{} for x in SINGLE_DOCS}
-    for d in Document.objects.order_by('path'):
+    collections=COLLECTIONS if include_products else COLLECTIONS-{'products'}
+    data={x:[] for x in collections}|{x:{} for x in SINGLE_DOCS}
+    documents=Document.objects.order_by('path')
+    if not include_products:
+        relevant=Q(path__in=SINGLE_DOCS)
+        for collection in collections:relevant |= Q(path__startswith=collection+'/')
+        documents=documents.filter(relevant)
+    for d in documents:
         col,_,id=d.path.partition('/')
         if col in COLLECTIONS:
             link=linked_tasks.get(d.path) if col=='tasks' else linked_ideas.get(d.path) if col=='ideas' else None
@@ -463,7 +469,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -475,12 +481,15 @@ def handle(request):
                 for chunk in entry.get('imports',[]): collect_styles(chunk)
             for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx']:
                 collect_styles(key)
-                if manifest.get(key,{}).get('file'): scripts.append('<script type="module" src="/frontend/'+manifest[key]['file']+'"></script>')
+                if manifest.get(key,{}).get('file'): scripts.append('<script type="module" src="/frontend/'+manifest[key]['file']+'" onerror="window.dispatchEvent(new CustomEvent(\'tsukenya:module-unavailable\',{detail:\''+key.split('/')[1].split('-')[0]+'\'}))"></script>')
             html=html.replace('</head>',''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in sorted(styles))+'</head>').replace('</body>',''.join(scripts)+'</body>')
         return HttpResponse(html)
     if path=='/account' and not request.portal_user:
         result=HttpResponse(status=302);result['Location']='/';return result
     user=auth(request)
+    if path.startswith('/api/v1/portal/'):
+        from .portal_api import handle_portal
+        return handle_portal(request,user)
     if path.startswith('/api/v1/'):
         if path.startswith('/api/v1/crm/'):
             from .customers import handle_customers
@@ -499,7 +508,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/reconciliation.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/portal-api.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/reconciliation.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':

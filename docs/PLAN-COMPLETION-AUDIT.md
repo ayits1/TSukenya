@@ -143,3 +143,11 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 Завершення всього плану не означає «усі PR merged». Кожний I/M має конкретний accepted scope/реалізацію й matching targeted proof; U або закрито рішенням/доступом, або явно лишено deferred. Артефакти мають exact source/seed/команду й пояснену межу доказу. Зміна документації про historical defect не вимагає повторювати незмінені тести.
 
 Для code completion зберігаються money/roles/audit/history, focused tests потрібні лише для зміненої поведінки. Повна регресія й deployment є окремими явними gates перед релізом. Зовнішні дані, редактори, фізичний принтер, capacity SLA та backup0.1 не підміняються synthetic green CI й не перетворюються на необмежений новий UI-audit scope.
+
+
+## B24 compact portal · PR integration · 04.10.2026
+
+- **#56** прийнято в main0550d10; operational import worker перевірено ізольовано та exact-head CI. VPS worker не активовано, production capacity не підтверджена.
+- **Portal metadata:** новий строгий compact contract, actual shell consumers, owner equal-weight Decimal catalogue model, frozen full-filter pricing selection, paged exact-retry example cleanup та role-aware streaming CSV інтегровано для PR/CI. Незалежне root VM рев’ю відтворило missing/wrong-contract acceptance і підтвердило виправлення; actual model320/1440 PNG переглянуті. Цільові PG/VM/native докази й невирішені межі — [PORTAL-METADATA.md](PORTAL-METADATA.md).
+- Залишаються bounded trading directories, окремі unbounded report API/consumers, повна trading React міграція й B06 recovery. Цей пакет не оголошує весь B24 завершеним.
+- Повний test:full не запускався; production release/VPS/Google access та виключений backup0.1 не виконані.

@@ -34,7 +34,7 @@
     if (loading) return loading.catch(() => {}).then(() => refresh(after));
     const id = loadingId = ++started;
     loading = (async () => {
-      const response = await fetch("/api/state", { credentials: "same-origin", cache: "no-store", headers: stateETag ? { "If-None-Match": stateETag } : {} });
+      const response = await fetch("/api/v1/portal/state", { credentials: "same-origin", cache: "no-store", headers: stateETag ? { "If-None-Match": stateETag } : {} });
       if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
       if (response.status === 304) {
         if (!data || !stateETag || response.headers?.get("ETag") !== stateETag) throw new Error("Invalid database validator");
@@ -48,14 +48,16 @@
           (result.labelRevision !== undefined && typeof result.labelRevision !== 'string')) {
         throw new Error('Invalid database response');
       }
+      try { window.PortalApi.decodeState(result); } catch (_) { throw new Error('Invalid database response'); }
       const etag = response.headers?.get("ETag") || "";
       const validVersions = result.stateVersions && typeof result.stateVersions === "object" && !Array.isArray(result.stateVersions) &&
         Object.keys(result.stateVersions).length === domains.length && domains.every(name => typeof result.stateVersions[name] === "string" && /^[a-f0-9]{64}$/.test(result.stateVersions[name]));
-      if (etag && (!/^"tsukenya-state-v1-[a-f0-9]{64}"$/.test(etag) || !validVersions)) throw new Error("Invalid database validator");
+      if (etag && (!/^"tsukenya-portal-v1-[a-f0-9]{64}"$/.test(etag) || !validVersions)) throw new Error("Invalid database validator");
       const changedPaths = etag && stateVersions ? domains.filter(name => stateVersions[name] !== result.stateVersions[name]) : null;
       const changed = changedPaths ? changedPaths.length > 0 : JSON.stringify(data) !== JSON.stringify(result.data) || window.TSUKENYA_ROLE !== result.role;
       data = result.data;
       window.TSUKENYA_ROLE = result.role;
+      window.TSUKENYA_NETWORK_OWNER = result.networkOwner === true;
       csrf = result.csrf;
       labelRevision = result.labelRevision || "";
       stateETag = etag;
@@ -75,7 +77,8 @@
   // received version is sent, which only suits immediate one-field actions.
   async function mutate(method, path, value, options) {
     const productId=path.startsWith('/api/docs/products/')?path.slice('/api/docs/products/'.length):null;
-    const version=options?.revision||(productId?data?.products?.find(item=>item.id===productId)?.revision:path==='/api/docs/settings/main'?labelRevision:null);
+    if(productId&&!options?.revision)throw new Error('Product revision required; read product detail before changing it');
+    const version=options?.revision||(path==='/api/docs/settings/main'?labelRevision:null);
     const response = await fetch(path, {
       method,
       credentials: "same-origin",
@@ -144,6 +147,7 @@
           }
         },
         onSnapshot(callback) {
+          if(name==='products')throw new Error('Full catalogue subscription is unavailable; use catalogue search or explicit export');
           const set = listeners.get(name) || new Set(); set.add(callback); listeners.set(name, set);
           if (data) callback(snapshot(name));
           return () => { set.delete(callback); if (!set.size) listeners.delete(name); };
