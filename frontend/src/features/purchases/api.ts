@@ -44,7 +44,8 @@ export function decodePolicy(raw: unknown): Policy {
   const p = object(raw);
   keys(p, ['role', 'store', 'documentKinds']);
   check(
-    ['owner', 'manager', 'warehouse'].includes(String(p.role)) &&
+    text(p.role) &&
+      ['owner', 'manager', 'warehouse'].includes(p.role) &&
       (p.store === null || int(p.store, 1)) &&
       JSON.stringify(p.documentKinds) === JSON.stringify(Object.keys(kinds)),
   );
@@ -97,8 +98,10 @@ export function decodeDocuments(raw: unknown, query: DocumentQuery): Documents {
     check(
       int(r.id, 1) &&
         r.number === String(r.id).padStart(6, '0') &&
-        Object.hasOwn(kinds, String(r.kind)) &&
-        Object.hasOwn(statuses, String(r.status)) &&
+        text(r.kind) &&
+        Object.hasOwn(kinds, r.kind) &&
+        text(r.status) &&
+        Object.hasOwn(statuses, r.status) &&
         date(r.date) &&
         int(r.store, 1) &&
         text(r.storeName) &&
@@ -207,12 +210,19 @@ const selection = (query: ReplenishmentQuery, group: Group) => ({
 });
 function boundGroup(raw: unknown, p: Policy, query: ReplenishmentQuery, expected: Group): Group {
   const group = decodeGroup(raw, p, query.store);
-  check(
-    group.key === expected.key &&
-      group.binding === expected.binding &&
-      group.linesCount === expected.linesCount &&
-      group.parts === expected.parts,
-  );
+  // Every header and preview field belongs to the displayed, binding-confirmed snapshot.
+  // The native editor uses these values directly when preparing an unsaved order.
+  const { preview: expectedPreview, ...expectedHeader } = expected;
+  for (const key of Object.keys(expectedHeader) as (keyof typeof expectedHeader)[]) {
+    check(group[key] === expectedHeader[key]);
+  }
+  check(group.preview.length === expectedPreview.length);
+  expectedPreview.forEach((line, index) => {
+    const actual = group.preview[index] ?? fail();
+    for (const key of Object.keys(line) as (keyof Line)[]) {
+      check(actual[key] === line[key]);
+    }
+  });
   return group;
 }
 export function decodeLines(raw: unknown, query: ReplenishmentQuery, group: Group): Lines {

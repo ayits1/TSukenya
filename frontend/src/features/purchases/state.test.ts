@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { ApiError } from '../../shared/api/client';
 import { PurchasesModel } from './state';
 import { fixtureApi, options, group } from './fixtures';
-import type { Documents } from './api';
+import { createPurchasesApi, type Documents } from './api';
 const delayed = <T>() => {
   let resolve!: (value: T) => void, reject!: (error: Error) => void;
   const promise = new Promise<T>((yes, no) => {
@@ -69,6 +69,29 @@ describe('purchases lifetime and callbacks', () => {
     await start;
     expect(onReplenishment).not.toHaveBeenCalled();
     expect(model.state.groups).toBeNull();
+  });
+  it('malformed wrong-store draft with unchanged binding never reaches the native editor callback', async () => {
+    const api = fixtureApi(),
+      onReplenishment = vi.fn();
+    const draft = await api.draft({ q: '', store: null, warehouse: null }, group, 1);
+    const transport = createPurchasesApi(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ...draft,
+            group: { ...draft.group, store: 2 },
+          }),
+        ),
+    );
+    api.draft = transport.draft;
+    const model = new PurchasesModel(api);
+    await model.activate({ ...options, onReplenishment });
+    await model.change({ view: 'replenishment' });
+    await model.prepare(group, 1);
+    expect(onReplenishment).not.toHaveBeenCalled();
+    expect(model.state.prepared.size).toBe(0);
+    expect(model.state.error).toContain('некоректні дані');
+    expect(model.state.groups?.items[0]?.store).toBe(1);
   });
   it('prepares explicit second part from the displayed query, preserving native callback and no local write', async () => {
     const api = fixtureApi(),

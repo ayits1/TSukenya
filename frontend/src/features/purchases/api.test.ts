@@ -57,6 +57,37 @@ describe('purchases scoped API boundary', () => {
     expect(decimalText('12.3456', 2)).toBe('12,3456');
     expect(decimalText('12345678901234567890.10', 2)).toBe('12 345 678 901 234 567 890,10');
   });
+  it('rejects changed immutable group headers and previews even with the original binding', async () => {
+    const source = fixtureApi();
+    const draft = await source.draft(groupQuery, group, 1);
+    const page = await source.lines(groupQuery, group, 1);
+    const mutations = [
+      { store: 2 },
+      { storeName: 'Інший магазин' },
+      { warehouseName: 'Інший склад' },
+      { partyName: 'Інший постачальник' },
+      { total: '1.00' },
+      { preview: group.preview.map((row, index) => (index ? row : { ...row, price: '0.1234' })) },
+    ];
+    for (const patch of mutations) {
+      const changed = { ...group, ...patch };
+      expect(() => decodeDraft({ ...draft, group: changed }, groupQuery, group, 1)).toThrow();
+      expect(() => decodeLines({ ...page, group: changed }, groupQuery, group)).toThrow();
+    }
+    expect(decodeDraft(draft, groupQuery, group, 1).group).toEqual(group);
+  });
+  it('rejects array-coerced role, document kind and status enums', () => {
+    for (const patch of [{ kind: ['receipt'] }, { status: ['posted'] }])
+      expect(() =>
+        decodeDocuments(
+          { ...documents, items: [{ ...documents.items[0], ...patch }] },
+          documents.query,
+        ),
+      ).toThrow();
+    expect(() =>
+      decodeGroups({ ...groups, policy: { ...groups.policy, role: ['owner'] } }, groupQuery),
+    ).toThrow();
+  });
   it('sends only bounded GET reads and binds null supplier+full group fingerprint+part', async () => {
     let url = '',
       init: RequestInit | undefined;
