@@ -1,7 +1,7 @@
 /* Stable native create keys: isolated VM, no network/database. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../server/runtime.js'),'utf8');
-const state={contract:'portal-metadata-v1',networkOwner:true,labelRevision:'label',role:'owner',csrf:'isolated',data:{tasks:[],ideas:[],expenses:[],'settings/main':{},'project/state':{}}};
+const state={contract:'portal-metadata-v2',scopeStore:null,networkOwner:true,labelRevision:'label',role:'owner',csrf:'isolated',data:{'settings/main':{},'project/state':{}}};
 const response=(status,value)=>({status,ok:status>=200&&status<300,json:async()=>structuredClone(value)});
 const window=new EventTarget(),queue=[],calls=[];window.PortalApi=require('../app/portal-api.js');let keys=0;
 vm.runInNewContext(source,{window,document:{hidden:false},location:{href:'/'},Event,CustomEvent,structuredClone,

@@ -124,7 +124,9 @@
     if (tab==="tags") renderPreview();
   }
 
-  window.ManagedAlerts?.configure({tasks:()=>S.tasks,render:()=>render(),refresh:()=>window.TSUKENYA_REFRESH_AFTER_WRITE(),toast:t=>toast(t)});
+  const collectionRecord=(name,id)=>window.TSUKENYA_SERVER?window.PortalCollections?.record(name,id):S[name].find(x=>x.id===id);
+  window.PortalCollections?.configure(()=>render());
+  window.ManagedAlerts?.configure({tasks:()=>S.tasks,lookup:id=>collectionRecord('tasks',id),pin:id=>window.PortalCollections?.pin('tasks',id),unpin:id=>window.PortalCollections?.unpin('tasks',id),render:()=>render(),refresh:async id=>{await window.TSUKENYA_REFRESH_AFTER_WRITE();if(id)return window.PortalCollections.task(id);},toast:t=>toast(t)});
   function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2200); }
 
   /* ---------- pricing ---------- */
@@ -252,11 +254,11 @@
     for(const key of ['stores','storeNames'])if(Array.isArray(S.settings[key]) && validStoreCount(S.settings[key].length))return S.settings[key].length;
     return 1;
   }
-  function budgetSavedValue(el){return el.dataset.exp ? num(S.expenses.find(e=>e.id===el.dataset.exp)?.amount) : budgetStores();}
+  function budgetSavedValue(el){return el.dataset.exp ? num(collectionRecord('expenses',el.dataset.exp)?.amount) : budgetStores();}
   function budgetStatus(){
     const status=$('#budgetSaveStatus'),error=$('#budgetSaveError'),retry=$('[data-act=retry-budget]'),orphans=$('#budgetOrphans');
     if(!status)return;
-    const orphaned=[...budgetDrafts.entries()].filter(([key])=>key.startsWith('amount:')&&!S.expenses.some(e=>`amount:${e.id}`===key));
+    const orphaned=[...budgetDrafts.entries()].filter(([key])=>key.startsWith('amount:')&&(window.TSUKENYA_SERVER?budgetDrafts.get(key)?.missing:!S.expenses.some(e=>`amount:${e.id}`===key)));
     const failures=[...budgetDrafts.entries()].filter(([key,d])=>d.error&&!orphaned.some(([k])=>k===key)).map(([,d])=>d);
     status.textContent=budgetSaves.size?'Збереження…':budgetDrafts.size?'Є незбережені зміни. Перейдіть до іншого поля для збереження.':'Усі зміни збережено';
     error.textContent=failures.map(d=>`${d.label}: ${d.error}`).join(' ');
@@ -267,20 +269,31 @@
       if(draft?.error)el.setAttribute('aria-invalid','true');else el.removeAttribute('aria-invalid');
       el.disabled=budgetSaves.has(budgetKey(el))||!!el.dataset.exp&&window.LegacyEditors?.isPending('expenses',el.dataset.exp)||orphaned.some(([key])=>key===budgetKey(el));
     });
-    document.querySelectorAll('[data-del-exp]').forEach(el=>el.disabled=budgetSaves.has(`amount:${el.dataset.delExp}`)||window.LegacyEditors?.isPending('expenses',el.dataset.delExp)||!S.expenses.some(e=>e.id===el.dataset.delExp));
+    document.querySelectorAll('[data-del-exp]').forEach(el=>el.disabled=budgetSaves.has(`amount:${el.dataset.delExp}`)||window.LegacyEditors?.isPending('expenses',el.dataset.delExp)||!collectionRecord('expenses',el.dataset.delExp));
     document.querySelectorAll('[data-exp-cat],[data-legacy-edit=expenses]').forEach(el=>el.disabled=budgetSaves.has(`amount:${el.dataset.expCat||el.dataset.id}`)||window.LegacyEditors?.isPending('expenses',el.dataset.expCat||el.dataset.id));
   }
   function trackBudget(el){
     const key=budgetKey(el),previous=budgetDrafts.get(key);
-    const exists=!el.dataset.exp||S.expenses.some(e=>e.id===el.dataset.exp);
+    const exists=!el.dataset.exp||!!collectionRecord('expenses',el.dataset.exp);
     if(exists && el.value!=='' && Number(el.value)===budgetSavedValue(el) && el.checkValidity())budgetDrafts.delete(key);
-    else budgetDrafts.set(key,{baseline:previous?.baseline||structuredClone(S.expenses.find(e=>e.id===el.dataset.exp)),value:el.value,label:el.getAttribute('aria-label')||'Планова кількість магазинів',error:previous?.value===el.value?previous.error:''});
+    else {if(window.TSUKENYA_SERVER&&el.dataset.exp)window.PortalCollections.pin('expenses',el.dataset.exp);budgetDrafts.set(key,{baseline:previous?.baseline||structuredClone(collectionRecord('expenses',el.dataset.exp)),value:el.value,label:el.getAttribute('aria-label')||'Планова кількість магазинів',error:previous?.value===el.value?previous.error:''});}
+    if(!budgetDrafts.has(key)&&el.dataset.exp)window.PortalCollections?.unpin('expenses',el.dataset.exp);
     budgetStatus();
   }
+  async function checkBudgetDraftRecords(){
+    if(!window.TSUKENYA_SERVER||!window.TSUKENYA_NETWORK_OWNER)return;
+    await Promise.all([...budgetDrafts.entries()].filter(([key,d])=>key.startsWith('amount:')&&d.baseline&&!d.checking).map(async([key,d])=>{
+      d.checking=true;
+      try{await window.PortalApi.get('records/expenses/'+encodeURIComponent(d.baseline.id),v=>window.NativeLegacyEditor.decodeLegacyRecord(v,'expenses',d.baseline.id));if(budgetDrafts.get(key)===d)d.missing=false;}
+      catch(error){if(budgetDrafts.get(key)===d&&error.status===409&&error.code==='record_missing')d.missing=true;}
+      finally{d.checking=false;if(budgetDrafts.get(key)===d)budgetStatus();}
+    }));
+  }
+  window.addEventListener('tsukenya:data-changed',event=>{if(!event.detail?.domains||event.detail.domains.includes('expenses'))void checkBudgetDraftRecords();});
   async function saveBudget(el){
     const key=budgetKey(el);if(budgetSaves.has(key))return;
     trackBudget(el);const draft=budgetDrafts.get(key);if(!draft)return;
-    if(el.dataset.exp&&!S.expenses.some(e=>e.id===el.dataset.exp))return;
+    if(el.dataset.exp&&!collectionRecord('expenses',el.dataset.exp))return;
     if(!el.checkValidity()){
       draft.error=el.id==='stores'?'Введіть ціле число від 1 до 1000.':'Введіть суму від 0 до 99 999 999,99 грн, не більше двох знаків після коми.';
       budgetStatus();return;
@@ -295,14 +308,14 @@
     }catch(error){
       draft.error='Не вдалося підтвердити збереження. Чернетку залишено; повторіть збереження.';
     }finally{
-      budgetSaves.delete(key);budgetStatus();if(pending)render();
+      budgetSaves.delete(key);if(el?.dataset?.exp&&!budgetDrafts.has(key))window.PortalCollections?.unpin('expenses',el.dataset.exp);budgetStatus();if(pending)render();
     }
   }
   async function deleteBudget(id){
     const key=`amount:${id}`;if(budgetSaves.has(key))return;
     budgetSaves.add(key);budgetStatus();
-    try{const e=S.expenses.find(x=>x.id===id);if(await window.LegacyEditors.remove('expenses',e,()=>{budgetDrafts.delete(key);budgetStatus();}))budgetDrafts.delete(key);}
-    finally{budgetSaves.delete(key);budgetStatus();if(pending)render();}
+    try{const e=collectionRecord('expenses',id);if(await window.LegacyEditors.remove('expenses',e,()=>{budgetDrafts.delete(key);budgetStatus();}))budgetDrafts.delete(key);}
+    finally{budgetSaves.delete(key);if(!budgetDrafts.has(key))window.PortalCollections?.unpin('expenses',id);budgetStatus();if(pending)render();}
   }
   const inlineFields = '#newWork,#newWorkDue,#newTask,#newTaskStage,#newIdea,[data-newexp]';
   const fieldKey = el => el.id || `expense:${el.dataset.newexp}`;
@@ -348,17 +361,26 @@
   /* ---------- header + path ---------- */
   function renderPath(){
     $("#chainName").textContent = S.settings.chainName || "Мережа солодощів";
-    const cur = S.project.stage || 1;
-    const html = STAGES.map(st=>{
-      const ts = developmentTasks().filter(t=>t.stage===st.n), d = ts.filter(t=>t.status==="done").length;
-      const cls = st.n<cur ? "done" : st.n===cur ? "now" : "";
-      const meta = ts.length ? `${d} з ${ts.length} задач` : "ще не почато";
-      return `<li class="stage ${cls}"><span class="stage-num" aria-hidden="true">${st.n<cur?"✓":st.n}</span>
-        <div><div class="stage-name">${esc(st.name)}</div><div class="stage-meta">${st.n===cur?"зараз тут · ":""}${meta}</div></div></li>`;
-    }).join("");
-    $("#stages").innerHTML = html;
-    const all = developmentTasks().length, done = developmentTasks().filter(t=>t.status==="done").length;
-    $("#overall").textContent = all ? `Виконано ${done} з ${all} задач` : "";
+    let summaryRead=null,pathNotice=$('#developmentSummaryNotice');
+    if(window.TSUKENYA_SERVER){
+      if(!pathNotice){pathNotice=document.createElement('div');pathNotice.id='developmentSummaryNotice';$('#stages').before(pathNotice);}
+      if(window.TSUKENYA_ROLE!=='owner'||workspace!=='development'||tab==='ideas'){
+        pathNotice.innerHTML='';$('#stages').innerHTML='';$('#overall').textContent='';$('#next').hidden=true;$('#updated').textContent='';return;
+      }
+      summaryRead=collectionSummary('development');pathNotice.innerHTML=collectionSummaryNotice(summaryRead);
+    }
+    const summary=summaryRead?.value,cur=S.project.stage||1;
+    const html=STAGES.map(st=>{
+      const ts=window.TSUKENYA_SERVER?null:developmentTasks().filter(t=>t.stage===st.n);
+      const total=window.TSUKENYA_SERVER?summary?.stages[String(st.n)]:ts.length;
+      const done=window.TSUKENYA_SERVER?summary?.stageDone[String(st.n)]:ts.filter(t=>t.status==='done').length;
+      const cls=st.n<cur?'done':st.n===cur?'now':'';
+      const meta=total===undefined?'Підсумок ще не підтверджено':total?`${done} з ${total} задач`:'ще не почато';
+      return `<li class="stage ${cls}" data-development-stage="${st.n}"><span class="stage-num" aria-hidden="true">${st.n<cur?'✓':st.n}</span><div><div class="stage-name">${esc(st.name)}</div><div class="stage-meta">${st.n===cur?'зараз тут · ':''}${meta}</div></div></li>`;
+    }).join('');
+    $('#stages').innerHTML=html;
+    const all=window.TSUKENYA_SERVER?summary?.total:developmentTasks().length,done=window.TSUKENYA_SERVER?summary?.statuses.done:developmentTasks().filter(t=>t.status==='done').length;
+    $('#overall').textContent=all===undefined?'Підсумок ще не підтверджено':all?`Виконано ${done} з ${all} задач${summary?.stages.unknown?' · '+summary.stages.unknown+' без визначеного етапу':''}`:'';
     const nt = S.project.nextStep;
     $("#next").hidden = !nt; $("#nextText").textContent = nt || "";
     const u = S.project.updatedAt;
@@ -376,6 +398,7 @@
     if(inlineSaves.size||budgetSaves.size){pending=true;return;}
     if (!force && a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
     pending = false;
+    window.PortalCollections?.begin();
     applyPortalRole();
     if(['tasks','ideas','devOverview'].includes(tab) && window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner'){
       window.Trade?.leave();window.ReactCatalog?.leave();window.ReactLabels?.leave();
@@ -403,6 +426,7 @@
     const m = $("#main"),openPanels=[...m.querySelectorAll("[data-disclosure][open]")].map(el=>el.dataset.disclosure),scrolls=[...m.querySelectorAll(".pick,.field-list")].map(el=>[el.className,el.scrollTop,el.scrollLeft]);
     const drafts=inlineDrafts(),focus=m.contains(a)&&a!==m?focusKey(a):null;
     m.innerHTML = ({overview, devOverview, work, tasks, ideas, products, tags, expenses})[tab]();
+    window.PortalCollections?.end();
     window.BusinessInitiatives?.mount();
     if(tab==='expenses'){
       m.querySelectorAll(budgetFields).forEach(el=>{const draft=budgetDrafts.get(budgetKey(el));if(draft)el.value=draft.value;});
@@ -416,7 +440,7 @@
     if (tab==="tags") renderPreview();
   }
   // Re-rendering #main replaces its controls; keyboard focus returns to the same control (same action and record).
-  const FOCUS_ATTRS = ['id','name','href','data-act','data-create-exact','data-create-identity','data-create-compare','data-create-new','data-create-cancel','data-alert-id','data-alert-action','data-cycle','data-del-task','data-react','data-v','data-idea-task','data-exp','data-exp-cat','data-del-exp','data-g','data-newexp','data-budget-discard','data-edit-product','data-promotion','data-page','data-f','data-fclear','data-ddtoggle','data-tag','data-qty','data-store','data-style','data-prop','data-field','data-field-visible','data-edit-field','data-go','data-pf','data-id'];
+  const FOCUS_ATTRS = ['data-collection-filter','data-collection-value','data-collection-page','data-collection-key','data-collections-retry','id','name','href','data-act','data-create-exact','data-create-identity','data-create-compare','data-create-new','data-create-cancel','data-alert-id','data-alert-action','data-cycle','data-del-task','data-react','data-v','data-idea-task','data-exp','data-exp-cat','data-del-exp','data-g','data-newexp','data-budget-discard','data-edit-product','data-promotion','data-page','data-f','data-fclear','data-ddtoggle','data-tag','data-qty','data-store','data-style','data-prop','data-field','data-field-visible','data-edit-field','data-go','data-pf','data-id'];
   function focusKey(el){
     const own=FOCUS_ATTRS.filter(name=>el.hasAttribute(name)).map(name=>[name,el.getAttribute(name)]),box=el.closest('[data-disclosure]')?.dataset.disclosure;
     return own.length||el.tagName==='SUMMARY'&&box ? {tag:el.tagName,own,box,selection:el.tagName==='INPUT'||el.tagName==='TEXTAREA'?[el.selectionStart,el.selectionEnd]:null} : null;
@@ -474,6 +498,7 @@
     }
     if(next!==tab && budgetDrafts.size){
       if(!confirm('Відкинути незбережені зміни бюджету?')){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+      for(const key of budgetDrafts.keys())if(key.startsWith('amount:'))window.PortalCollections?.unpin('expenses',key.slice(7));
       budgetDrafts.clear();
     }
     const changed=next!==tab;
@@ -518,10 +543,10 @@
     return num(m.fixed)+num(m.variable)===0?'<p>План витрат дорівнює нулю.</p>':m.reason==='no_coverage'?'<p>Недостатньо даних: потрібні закупівельна ціна та ціна продажу.</p>':'<p>Середня маржа нульова або від’ємна. Продажі за таких цін не покриють планові витрати.</p>';
   }
   function serverOverview(){
-    loadPortalRead('portalOverview');const r=S.portalOverview,data=r?.state==='ready'?r.data:null,current=operationTasks().filter(t=>t.status!=='done');
+    loadPortalRead('portalOverview');const r=S.portalOverview,data=r?.state==='ready'?r.data:null,taskRead=collectionSummary('operations'),taskData=taskRead.value,current=taskData?.nearest.map(window.PortalCollections.flatten)||[];
     if(!data)return `<section class="panel">${portalReadStatus('portalOverview')}</section>${debtSummaryHtml()}`;
     const plan=data.plannedExpenses;
-    return `<section class="panel"><div class="stats"><div class="stat"><div class="l">Товарів у каталозі</div><div class="v num">${data.catalogCount}</div></div><div class="stat"><div class="l">Потребують ціни</div><div class="v num">${data.noPriceCount}</div></div><div class="stat"><div class="l">Поточні задачі</div><div class="v num">${current.length}</div></div>${window.TSUKENYA_NETWORK_OWNER?`<div class="stat"><div class="l">План витрат на місяць</div><div class="v num">${window.PortalApi.money(plan)} грн</div></div>`:''}</div></section>${debtSummaryHtml()}<section class="panel"><h3>Швидкі дії</h3><div class="quick-actions"><a href="#trade/purchases">Облік торгівлі<span>Закупівлі, склад і продажі</span></a><a href="#operations/products">Оновити каталог<span>Ціни, закупівля та націнка</span></a><a href="#operations/tags">Підготувати цінники<span>Макет, PDF і друк</span></a><a href="#operations/work">Запланувати роботу<span>Задачі та терміни</span></a></div></section><section class="panel"><div class="row between"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${data.noPriceCount?`${data.noPriceCount} товарів без ціни.`:'У всіх товарів є ціна.'} ${data.stalePriceCount?`${data.stalePriceCount} товарів мають застарілу дату ціни.`:''}</p><p class="muted">Стан на ${esc(new Date(data.generatedAt).toLocaleString('uk-UA'))}. Поріг — понад ${staleDays()} повних діб від дати ціни; кампанії не змінюють цей каталогний орієнтир.</p>${examplesNotice({examples:data.allExampleCount})}</section><section class="panel"><h3>Найближчі задачі</h3>${current.length?current.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')).slice(0,5).map(taskRow).join(''):'<p>Поточних задач немає.</p>'}</section>`;
+    return `<section class="panel">${collectionSummaryNotice(taskRead)}<div class="stats"><div class="stat"><div class="l">Товарів у каталозі</div><div class="v num">${data.catalogCount}</div></div><div class="stat"><div class="l">Потребують ціни</div><div class="v num">${data.noPriceCount}</div></div><div class="stat"><div class="l">Поточні задачі</div><div class="v num">${taskData?taskData.unfinished:'—'}</div></div>${window.TSUKENYA_NETWORK_OWNER?`<div class="stat"><div class="l">План витрат на місяць</div><div class="v num">${window.PortalApi.money(plan)} грн</div></div>`:''}</div></section>${debtSummaryHtml()}<section class="panel"><h3>Швидкі дії</h3><div class="quick-actions"><a href="#trade/purchases">Облік торгівлі<span>Закупівлі, склад і продажі</span></a><a href="#operations/products">Оновити каталог<span>Ціни, закупівля та націнка</span></a><a href="#operations/tags">Підготувати цінники<span>Макет, PDF і друк</span></a><a href="#operations/work">Запланувати роботу<span>Задачі та терміни</span></a></div></section><section class="panel"><div class="row between"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${data.noPriceCount?`${data.noPriceCount} товарів без ціни.`:'У всіх товарів є ціна.'} ${data.stalePriceCount?`${data.stalePriceCount} товарів мають застарілу дату ціни.`:''}</p><p class="muted">Стан на ${esc(new Date(data.generatedAt).toLocaleString('uk-UA'))}. Поріг — понад ${staleDays()} повних діб від дати ціни; кампанії не змінюють цей каталогний орієнтир.</p>${examplesNotice({examples:data.allExampleCount})}</section><section class="panel"><h3>Найближчі задачі</h3>${!taskData?collectionReadStatus(taskRead):current.length?current.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')).slice(0,5).map(taskRow).join(''):'<p>Поточних задач немає.</p>'}</section>`;
   }
   async function cleanupExamples(){
     if(!canClearExamples())return;
@@ -607,13 +632,43 @@
     <section class="panel"><div class="row between gap-lg"><h3>Контроль цін</h3><a class="btn soft" href="#operations/products">Переглянути товари</a></div><p>${noPrice?`${noPrice} товарів без ціни. Заповніть ціну перед друком.`:'У всіх товарів є ціна.'} ${stale?`${stale} товарів мають застарілу дату ціни.`:''}</p>${examplesNotice(t)}</section>
     <section class="panel"><div class="row between gap-lg"><h3>Найближчі задачі</h3><a class="btn soft" href="#operations/work">Усі поточні задачі</a></div>${current.length?current.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')).slice(0,5).map(taskRow).join(''):'<div class="empty">Поточних задач немає. Додайте першу справу магазину.</div>'}</section>`;
   }
+  const collectionFilters=new Map();
+  let collectionIdentity='';
+  window.addEventListener('tsukenya:data-changed',()=>{const next=window.TSUKENYA_ROLE+'|'+window.TSUKENYA_SCOPE_STORE;if(collectionIdentity&&collectionIdentity!==next)render(true);collectionIdentity=next;});
+  function collectionSummary(section){return window.PortalCollections.view('summary',{section});}
+  function collectionReadStatus(state){return `<p class="muted" role="${state.state==='error'?'alert':'status'}">${state.state==='error'?esc(state.error):'Завантажуємо доступні записи…'}</p>${state.state==='error'?'<button type="button" class="btn soft" data-collections-retry>Повторити читання</button>':''}`;}
+  function collectionSummaryNotice(read){return `${read.state!=='ready'?collectionReadStatus(read):''}${read.value?`<p class="muted">${read.state!=='ready'?'Попередні підтверджені підсумки':'Підсумки'} на ${esc(new Date(read.value.generatedAt).toLocaleString('uk-UA'))}.${read.state!=='ready'?' Оновлення ще не підтверджено.':''}</p>`:''}`;}
+  function collectionList(name,kind,row){
+    const key=name+':'+kind,filter=collectionFilters.get(key)||{page:1,q:'',value:'all'};collectionFilters.set(key,filter);
+    const field=name==='tasks'?(kind==='operations'?'status':'stage'):name==='ideas'?'reaction':'group';
+    const params={q:filter.q,page:String(filter.page),...(name==='tasks'?{space:kind,[field]:filter.value}:name==='ideas'?{reaction:filter.value}:{group:kind})};
+    const read=window.PortalCollections.view(name,params),value=read.value;
+    const opts=name==='tasks'?kind==='operations'?[['all','Усі статуси'],['todo','Не почато'],['doing','В роботі'],['done','Готово']]:[['all','Усі етапи'],...STAGES.map(st=>[String(st.n),st.n+'. '+st.name]),['unknown','Без визначеного етапу']]:name==='ideas'?[['all','Усі ідеї'],['awaiting','На розгляді'],['yes','Обрані'],['no','Відкладені']]:[];
+    const tabs=opts.map(([v,label])=>`<button type="button" class="btn soft" data-collection-key="${key}" data-collection-filter="${field}" data-collection-value="${v}" aria-pressed="${filter.value===v}">${esc(label)}</button>`).join('');
+    const rows=value?.items.map(window.PortalCollections.flatten)||[];
+    const pageRows=rows.map(row).join('');
+    const offpage=name==='expenses'?[...budgetDrafts.values()].map(d=>d.baseline).filter(e=>e&&e.group===kind&&!rows.some(r=>r.id===e.id)):name==='tasks'?(window.ManagedAlerts?.pinned()||[]).map(id=>collectionRecord('tasks',id)).filter(t=>t&&(t.scope==='operations')===(kind==='operations')&&!rows.some(r=>r.id===t.id)):[];
+    return `<div class="portal-collection" data-collection="${key}">${tabs?`<div class="collection-filters" aria-label="Фільтри списку">${tabs}</div>`:''}<form data-collection-search="${key}" class="row gap-lg"><label class="form-field grow">Пошук у всьому доступному списку<input name="q" maxlength="250" value="${esc(filter.q)}" autocomplete="off"></label><button class="btn soft" type="submit">Знайти</button></form>${read.state!=='ready'?collectionReadStatus(read):''}${value?`<p class="muted">Знайдено ${value.total}. Сторінка ${value.page} із ${value.pages}. Підсумки та кожна сторінка — окремі поточні читання.${read.state==='error'?' Показано попередній підтверджений список.':''}</p>${pageRows||'<p class="empty">За цими умовами записів немає.</p>'}<nav class="row gap-lg" aria-label="Сторінки списку"><button class="btn soft" type="button" data-collection-key="${key}" data-collection-page="${value.page-1}" ${value.page<=1?'disabled':''}>Попередня</button><span role="status">${value.page} / ${value.pages}</span><button class="btn soft" type="button" data-collection-key="${key}" data-collection-page="${value.page+1}" ${value.page>=value.pages?'disabled':''}>Наступна</button></nav>`:''}${offpage.length?`<section class="panel"><h4>${name==='tasks'?'Незавершені дії поза сторінкою':'Чернетки поза поточною сторінкою'}</h4><p class="muted">Відсутність у цій сторінці не означає видалення. Початкові версії й введення збережено.</p>${offpage.map(row).join('')}</section>`:''}</div>`;
+  }
+  function serverWork(){
+    const read=collectionSummary('operations'),v=read.value,canCreate=['owner','manager'].includes(window.TSUKENYA_ROLE);
+    return `<section class="panel"><h3>Справи магазину</h3>${collectionSummaryNotice(read)}${v?`<p class="muted">${v.unfinished} незавершених у доступному наборі · ${v.activeConditions} активних облікових умов</p>`:''}${collectionList('tasks','operations',taskRow)}</section>${canCreate?`<section class="panel"><h3 class="gap-lg">Нова поточна задача</h3><div class="row"><label class="form-field grow">Що зробити<input id="newWork" type="text" maxlength="250" placeholder="Наприклад, оновити цінники…" autocomplete="off"></label><label class="form-field">Термін<input id="newWorkDue" type="date"></label><button class="btn rasp" data-act="addWork">Додати задачу</button></div>${createRecovery('addWork')}</section>`:''}`;
+  }
+  function serverTasks(){return `<section class="panel"><p class="muted">План розвитку. «Без визначеного етапу» містить старі задачі з невідомим етапом.</p>${collectionList('tasks','development',taskRow)}</section><section class="panel"><h3>Додати задачу</h3><div class="row"><label class="form-field grow">Назва<input id="newTask" type="text" maxlength="250" placeholder="Що треба зробити…"></label><label class="form-field">Етап<select id="newTaskStage">${STAGES.map(st=>`<option value="${st.n}">${st.n}. ${esc(st.name)}</option>`).join('')}</select></label><button class="btn" data-act="addTask">Додати</button></div>${createRecovery('addTask')}</section>`;}
+  function serverIdeas(){return `<section class="panel"><p class="muted">Ідеї розвитку бізнесу та програмних інструментів. З обраної ідеї можна створити проєкт або окрему задачу.</p>${collectionList('ideas','development',ideaCard)}</section><section class="panel"><h3>Своя ідея</h3><div class="row"><label class="form-field grow">Нова ідея<input id="newIdea" type="text" maxlength="250" placeholder="Коротко опишіть ідею…"></label><button class="btn" data-act="addIdea">Записати</button></div>${createRecovery('addIdea')}</section>`;}
+  function serverDevelopment(){const read=collectionSummary('development'),v=read.value;return `<section class="panel">${collectionSummaryNotice(read)}${v?`<div class="stats">${[['Ідей на розгляді',v.reactions.awaiting],['Обраних ідей',v.reactions.yes],['Задач у реалізації',v.statuses.doing],['Виконаних задач',v.statuses.done]].map(([label,count])=>`<div class="stat"><div class="l">${label}</div><div class="v num">${count}</div></div>`).join('')}</div>`:''}</section><section class="panel" data-initiatives></section><section class="panel"><h3>Від ідеї до результату</h3><div class="quick-actions"><a href="#development/ideas">Ідеї<span>Записати та обрати</span></a><a href="#development/tasks">План<span>Етапи й виконання</span></a></div></section><section class="panel"><div class="row between"><h3>Зараз у реалізації</h3><a class="btn soft" href="#development/tasks">Усі задачі</a></div>${v?v.nearest.length?v.nearest.map(window.PortalCollections.flatten).map(taskRow).join(''):'<p class="empty">Активних задач поки немає.</p>':collectionReadStatus(read)}</section>`;}
+  document.addEventListener('submit',event=>{const form=event.target.closest('[data-collection-search]');if(!form)return;event.preventDefault();const filter=collectionFilters.get(form.dataset.collectionSearch);filter.q=form.elements.q.value;filter.page=1;render(true);});
+  document.addEventListener('click',event=>{const button=event.target.closest('[data-collection-key],[data-collections-retry]');if(!button)return;if(button.hasAttribute('data-collections-retry')){void window.PortalCollections.retry().catch(()=>{});return;}const filter=collectionFilters.get(button.dataset.collectionKey);if(button.dataset.collectionPage)filter.page=Number(button.dataset.collectionPage);else{filter.value=button.dataset.collectionValue;filter.page=1;}render(true);});
+
   function devOverview(){
+    if(window.TSUKENYA_SERVER)return serverDevelopment();
     const list=developmentTasks(), active=list.filter(t=>t.status==='doing'), accepted=S.ideas.filter(i=>i.reaction==='yes'), awaiting=S.ideas.filter(i=>!i.reaction);
     return `<section class="panel"><div class="stats"><div class="stat"><div class="l">Ідей на розгляді</div><div class="v num">${awaiting.length}</div></div><div class="stat"><div class="l">Обраних ідей</div><div class="v num">${accepted.length}</div></div><div class="stat"><div class="l">Задач у реалізації</div><div class="v num">${active.length}</div></div><div class="stat"><div class="l">Виконаних задач</div><div class="v num">${list.filter(t=>t.status==='done').length}</div></div></div></section>
     ${window.TSUKENYA_SERVER?'<section class="panel" data-initiatives></section>':''}<section class="panel"><h3 class="gap-lg">Від ідеї до результату</h3><div class="quick-actions"><a href="#development/ideas">1. Записати ідею<span>Можливість для бізнесу або новий інструмент</span></a><a href="#development/ideas">2. Обрати для реалізації<span>Оцінити пропозицію й визначити пріоритет</span></a><a href="#development/tasks">3. Виконати план<span>Конкретні задачі та їхній стан</span></a></div></section>
     <section class="panel"><div class="row between gap-lg"><h3>Зараз у реалізації</h3><a class="btn soft" href="#development/tasks">План реалізації</a></div>${active.length?active.map(taskRow).join(''):'<div class="empty">Активних задач розвитку поки немає.</div>'}</section>`;
   }
   function work(){
+    if(window.TSUKENYA_SERVER)return serverWork();
     const list=operationTasks(),canCreate=!window.TSUKENYA_SERVER||['owner','manager'].includes(window.TSUKENYA_ROLE);
     return `<section class="panel"><div class="row between gap-lg"><h3>Справи магазину</h3><span class="muted">${list.filter(t=>t.status!=='done').length} незавершених · ${list.filter(t=>t._alertActive).length} активних облікових умов</span></div>${['doing','todo','done'].map(status=>{const group=list.filter(t=>(t.status||'todo')===status);return group.length?`<div class="stage-block"><h3>${ST_LABEL[status]}</h3>${group.map(taskRow).join('')}</div>`:''}).join('')||`<div class="empty">${canCreate?'Додайте задачу: перевірити ціни, замовити товар або підготувати цінники.':'Поточних задач поки немає.'}</div>`}</section>${canCreate?`<section class="panel"><h3 class="gap-lg">Нова поточна задача</h3><div class="row"><label class="form-field grow">Що зробити<input id="newWork" type="text" maxlength="250" placeholder="Наприклад, оновити цінники…" autocomplete="off"></label><label class="form-field">Термін<input id="newWorkDue" type="date"></label><button class="btn rasp" data-act="addWork">Додати задачу</button></div>${createRecovery('addWork')}</section>`:''}`;
   }
@@ -622,13 +677,14 @@
   const ST_LABEL = {todo:"Не почато", doing:"В роботі", done:"Готово"};
   const ST_NEXT = {todo:"doing", doing:"done", done:"todo"};
   function taskRow(t){
-    const s = t.status || "todo";
+    const rawStatus=t.status||"todo",known=Object.hasOwn(ST_LABEL,rawStatus),s=known?rawStatus:"unknown",statusLabel=known?ST_LABEL[s]:"Невідомий статус";
     const canEdit=t.permissions?.canEdit??!window.TSUKENYA_SERVER,canDelete=t.permissions?.canDelete??!window.TSUKENYA_SERVER;
-    const status=canEdit&&!window.ManagedAlerts?.system(t)?`<button class="chip ${s}" data-cycle="${esc(t.id)}" aria-label="${esc(t.title)}: ${ST_LABEL[s]}. Змінити на ${ST_LABEL[ST_NEXT[s]]}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>`:`<span class="chip ${s}">${ST_LABEL[s]}</span>`;
+    const status=canEdit&&known&&!window.ManagedAlerts?.system(t)?`<button class="chip ${s}" data-cycle="${esc(t.id)}" aria-label="${esc(t.title)}: ${ST_LABEL[s]}. Змінити на ${ST_LABEL[ST_NEXT[s]]}" title="Натисніть, щоб змінити статус">${statusLabel}</button>`:`<span class="chip ${s}">${statusLabel}</span>`;
     const context=t._alertKey?'Системне нагадування':t.scope==='operations'&&!t.store?'Задача мережі':'';
     return `<div class="task ${s}" data-task-id="${esc(t.id)}" tabindex="-1">${status}<span class="t">${esc(t.title)}${context?`<small class="task-date">${context}${!canEdit?' · лише перегляд':''}</small>`:''}${t._alertNote?`<small class="task-date">${esc(t._alertNote)}${t._alertNoteAt?' · '+esc(new Date(t._alertNoteAt).toLocaleString('uk-UA')):''}${t._alertCycle>1?' · цикл '+esc(t._alertCycle):''}</small>`:''}${window.ManagedAlerts?.row(t)||''}${window.BusinessInitiatives?.taskLink(t.initiative)||''}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span>${canEdit&&!window.ManagedAlerts?.system(t)?`<button class="btn soft" data-legacy-edit="tasks" data-id="${esc(t.id)}">Редагувати</button>`:''}${canDelete?`<button class="x" data-del-task="${esc(t.id)}" aria-label="Видалити задачу: ${esc(t.title)}">×</button>`:''}</div>`;
   }
   function tasks(){
+    if(window.TSUKENYA_SERVER)return serverTasks();
     const opts = STAGES.map(s=>`<option value="${s.n}">${s.n}. ${esc(s.name)}</option>`).join("");
     return `<section class="panel"><p class="muted gap-lg">Натискайте на статус задачі, щоб перемкнути його: не почато → в роботі → готово.</p>
       ${STAGES.map(st=>{
@@ -643,12 +699,13 @@
 
   /* ---------- ideas ---------- */
   function ideaCard(i){
-    const r = i.reaction, linked=developmentTasks().find(t=>t.ideaId===i.id);
+    const r = i.reaction, linked=window.TSUKENYA_SERVER?i.hasDevelopmentTask:developmentTasks().find(t=>t.ideaId===i.id);
     return `<article class="idea ${r||""}"><h3>${esc(i.title)}</h3><p class="muted">${esc(i.text)}</p>
       <div class="acts">${i.permissions?.canEdit?`<button class="btn soft" data-legacy-edit="ideas" data-id="${esc(i.id)}">Редагувати</button>`:''}${r ? `<span class="muted">${r==="yes"?"Обрано для реалізації":"Відкладено"}</span><button class="btn soft" data-react="${i.id}" data-v="">Змінити</button>`
         : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Обрати</button><button class="btn soft" data-react="${i.id}" data-v="no">Відкласти</button>`}${window.TSUKENYA_SERVER&&(i.initiative||r==='yes')?(i.initiative?window.BusinessInitiatives?.taskLink(i.initiative)||'':`<button class="btn rasp" data-initiative-create="${esc(i.id)}">Створити проєкт</button>`):''}${r==='yes'?(linked?'<a class="btn soft" href="#development/tasks">Перейти до плану</a>':`<button class="btn" data-idea-task="${esc(i.id)}">Створити задачу</button>`):''}</div>${createRecovery('ideaTask:'+i.id)}</article>`;
   }
   function ideas(){
+    if(window.TSUKENYA_SERVER)return serverIdeas();
     return `<section class="panel"><p class="muted gap-lg">Зберігайте ідеї розвитку бізнесу та програмних інструментів. З обраної ідеї можна створити окремий проєкт із планом та результатом. Стара задача залишається окремим варіантом.</p>
       ${S.ideas.length?`<div class="ideas">${S.ideas.map(ideaCard).join("")}</div>`:`<div class="empty">Ідей поки немає</div>`}</section>
     <section class="panel"><h3 class="gap-lg">Своя ідея</h3><div class="row"><input id="newIdea" type="text" aria-label="Нова ідея" placeholder="Коротко опишіть ідею…" style="flex:1;min-width:200px"><button class="btn" data-act="addIdea">Записати</button></div>${createRecovery('addIdea')}</section>`;
@@ -1531,11 +1588,11 @@
     const f=S.budgetFact, head='<h3>Поточний орієнтир і факт місяця</h3><p class="muted">План — поточні налаштування орієнтира за каталогом, без історії місяців. Категорії визначаються старим текстовим довідником. Для збереженого плану за місяцем і ERP-магазином відкрийте «Бюджет місяця».</p>';
     if(!f||f.state==="loading")return `<section class="panel budget-fact">${head}<p class="muted" role="status">Завантажуємо фактичні витрати…</p></section>`;
     if(f.state==="error")return `<section class="panel budget-fact">${head}<p class="muted">Не вдалося завантажити фактичні витрати.</p><button class="btn soft" type="button" data-act="reloadBudgetFact">Повторити</button></section>`;
-    const plan=Object.fromEntries(f.categories.map(c=>[c,0]));S.expenses.forEach(e=>{plan[budgetCategory(e)]+=num(e.amount);});
+    const plans=collectionSummary('budget');if(!plans.value)return `<section class="panel budget-fact">${head}${collectionSummaryNotice(plans)}</section>`;const plan=Object.fromEntries(f.categories.map(c=>[c,num(plans.value.byCategory[c])]));
     const share=f.days_passed/f.days_total, rows=f.categories.filter(c=>plan[c]||num(f.facts[c])).map(c=>{const p=plan[c],a=num(f.facts[c]),used=p?a/p:null,over=p?a>p:a>0,ahead=!over&&p&&used>share+0.1;
-      return `<tr><th scope="row">${esc(c)}</th><td class="num" data-col="План">${money(p)} грн</td><td class="num" data-col="Факт">${money(a)} грн</td><td class="num" data-col="Використано">${used===null?'—':Math.round(used*100)+'%'}</td><td data-col="Стан">${over?'<span class="be-gap">Перевищено на '+money(a-p)+' грн</span>':ahead?'<span class="muted">Витрачається швидше за місяць</span>':'<span class="muted">У межах плану</span>'}</td></tr>`;});
+      return `<tr><th scope="row">${esc(c)}</th><td class="num" data-col="План">${window.PortalApi.money(plans.value.byCategory[c])} грн</td><td class="num" data-col="Факт">${money(a)} грн</td><td class="num" data-col="Використано">${used===null?'—':Math.round(used*100)+'%'}</td><td data-col="Стан">${over?'<span class="be-gap">Перевищено на '+money(a-p)+' грн</span>':ahead?'<span class="muted">Витрачається швидше за місяць</span>':'<span class="muted">У межах плану</span>'}</td></tr>`;});
     const totalPlan=Object.values(plan).reduce((s,v)=>s+v,0), totalFact=f.categories.reduce((s,c)=>s+num(f.facts[c]),0);
-    return `<section class="panel budget-fact">${head}<p class="muted">Минуло ${f.days_passed} із ${f.days_total} днів (${Math.round(share*100)}% місяця). Факт — витрати й нарахована зарплата за обліковими датами до сьогодні. Сторно віднімається у місяці скасування за київською датою; мережеві витрати входять до загального факту. Категорію статті бюджету можна змінити в її рядку.</p>${rows.length?`<div class="budget-fact-wrap"><table class="budget-fact-table"><thead><tr><th scope="col">Категорія</th><th scope="col">План</th><th scope="col">Факт</th><th scope="col">Використано</th><th scope="col">Стан</th></tr></thead><tbody>${rows.join('')}</tbody><tfoot><tr><th scope="row">Разом</th><td class="num" data-col="План">${money(totalPlan)} грн</td><td class="num" data-col="Факт">${money(totalFact)} грн</td><td class="num" data-col="Використано">${totalPlan?Math.round(totalFact/totalPlan*100)+'%':'—'}</td><td></td></tr></tfoot></table></div>`:'<p class="muted">Ні плану, ні фактичних витрат за цей місяць немає.</p>'}</section>`;
+    return `<section class="panel budget-fact">${head}${collectionSummaryNotice(plans)}<p class="muted">Минуло ${f.days_passed} із ${f.days_total} днів (${Math.round(share*100)}% місяця). Факт — витрати й нарахована зарплата за обліковими датами до сьогодні. Сторно віднімається у місяці скасування за київською датою; мережеві витрати входять до загального факту. Категорію статті бюджету можна змінити в її рядку.</p>${rows.length?`<div class="budget-fact-wrap"><table class="budget-fact-table"><thead><tr><th scope="col">Категорія</th><th scope="col">План</th><th scope="col">Факт</th><th scope="col">Використано</th><th scope="col">Стан</th></tr></thead><tbody>${rows.join('')}</tbody><tfoot><tr><th scope="row">Разом</th><td class="num" data-col="План">${window.PortalApi.money(plans.value.plannedTotal)} грн</td><td class="num" data-col="Факт">${money(totalFact)} грн</td><td class="num" data-col="Використано">${totalPlan?Math.round(totalFact/totalPlan*100)+'%':'—'}</td><td></td></tr></tfoot></table></div>`:'<p class="muted">Ні плану, ні фактичних витрат за цей місяць немає.</p>'}</section>`;
   }
   function expRow(e){
     const category=budgetCategory(e);
@@ -1547,7 +1604,7 @@
     const t = totals(), stores=budgetStores(), fx = S.expenses.filter(e=>e.group==="fixed"), vr = S.expenses.filter(e=>e.group!=="fixed");
     if(!window.TSUKENYA_SERVER||window.MonthlyBudgets?.catalogVisible()){loadSalesFacts();if(window.TSUKENYA_SERVER&&window.TSUKENYA_NETWORK_OWNER)loadPortalRead('portalModel');}
     const block = (title, hint, list, g, sum) => `<div class="expense-group"><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
-      ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
+      ${window.TSUKENYA_SERVER?collectionList('expenses',g,expRow):list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
       <div class="expense-add"><input type="text" placeholder="Нова стаття" maxlength="250" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>${createRecovery('addExp:'+g)}
       <div class="total"><span>Разом на місяць</span><span class="num">${window.TSUKENYA_SERVER&&t.model?window.PortalApi.money(t.model[g]):money(sum)} грн</span></div></div>`;
     const legacy = `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Орієнтир за каталогом</h2>
@@ -1586,7 +1643,7 @@
   document.addEventListener("click", e=>{
     if(e.target.closest(".skip-link")){e.preventDefault();$("#main").focus();return;}
     if (S.openF && !e.target.closest(".dd")){ S.openF = null; refreshFilters(); }
-    const recordEdit=e.target.closest('[data-legacy-edit]');if(recordEdit){const collection=recordEdit.dataset.legacyEdit,id=recordEdit.dataset.id;window.LegacyEditors.edit(collection,S[collection].find(x=>x.id===id));return;}
+    const recordEdit=e.target.closest('[data-legacy-edit]');if(recordEdit){const collection=recordEdit.dataset.legacyEdit,id=recordEdit.dataset.id;window.LegacyEditors.edit(collection,collectionRecord(collection,id));return;}
     const field=e.target.closest('#individualPreview [data-field]');if(field){selectField(field.dataset.field);return;}
     const t = e.target.closest("button"); if(!t) return;
     if(t.dataset.createExact){void retryCreate(t.dataset.createExact);return;}
@@ -1598,18 +1655,18 @@
     if(t.dataset.page){S.catalogPage=Number(t.dataset.page);refreshFilters();$("#prodList").scrollIntoView({block:"start"});return;}
     if(t.dataset.editField){selectField(t.dataset.editField);return;}
     if(t.dataset.editProduct){openProduct(t.dataset.editProduct);return;}
-    if(t.dataset.ideaTask){const idea=S.ideas.find(i=>i.id===t.dataset.ideaTask);if(idea&&!developmentTasks().some(x=>x.ideaId===idea.id)){void createIdeaTask(idea,t);}return;}
+    if(t.dataset.ideaTask){const idea=collectionRecord('ideas',t.dataset.ideaTask);if(idea&&!(window.TSUKENYA_SERVER?idea.hasDevelopmentTask:developmentTasks().some(x=>x.ideaId===idea.id))){void createIdeaTask(idea,t);}return;}
     if (t.dataset.go){ navigate(t.dataset.go); return; }
     if (t.dataset.gsid){ gsPick(t.dataset.gsid, t.dataset.gst, t.dataset.gsu); return; }
     if (t.dataset.ddtoggle!==undefined){ const k = t.dataset.ddtoggle; S.openF = S.openF===k ? null : k; refreshFilters({t:k}); return; }
     if (t.dataset.fclear!==undefined){ S.catalogPage=1;curF()[t.dataset.fclear].clear(); refreshFilters({t:t.dataset.fclear}); return; }
     if (t.dataset.alertAction){void window.ManagedAlerts?.handle(t);return;}
-    if (t.dataset.cycle){ const k=S.tasks.find(x=>x.id===t.dataset.cycle); void window.LegacyEditors.update('tasks',k,{status:ST_NEXT[k.status||'todo']}); return; }
-    if (t.dataset.delTask){const k=S.tasks.find(x=>x.id===t.dataset.delTask);void window.LegacyEditors.remove('tasks',k);return;}
-    if (t.dataset.react!==undefined && t.dataset.react){const i=S.ideas.find(x=>x.id===t.dataset.react);void window.LegacyEditors.update('ideas',i,{reaction:t.dataset.v||null});return;}
+    if (t.dataset.cycle){ const k=collectionRecord('tasks',t.dataset.cycle); void window.LegacyEditors.update('tasks',k,{status:ST_NEXT[k.status||'todo']}); return; }
+    if (t.dataset.delTask){const k=collectionRecord('tasks',t.dataset.delTask);void window.LegacyEditors.remove('tasks',k);return;}
+    if (t.dataset.react!==undefined && t.dataset.react){const i=collectionRecord('ideas',t.dataset.react);void window.LegacyEditors.update('ideas',i,{reaction:t.dataset.v||null});return;}
     if (t.dataset.delProd){ if(confirm("Видалити товар?")) del("products",t.dataset.delProd,"Товар видалено"); return; }
     if (t.dataset.delExp){void deleteBudget(t.dataset.delExp);return;}
-    if(t.dataset.budgetDiscard){budgetDrafts.delete(t.dataset.budgetDiscard);budgetStatus();return;}
+    if(t.dataset.budgetDiscard){budgetDrafts.delete(t.dataset.budgetDiscard);window.PortalCollections?.unpin('expenses',t.dataset.budgetDiscard.slice(7));budgetStatus();return;}
     const a = t.dataset.act;
     if(a==='retry-budget'){document.querySelectorAll(budgetFields).forEach(el=>{if(budgetDrafts.has(budgetKey(el)))void saveBudget(el);});return;}
     if(a==='retryTagSave'){if(S.tagSaveFailed)saveTag({});return;}
@@ -1691,7 +1748,7 @@
       else if (el.dataset.pf==="markup") upd("products",p.id,{markup:v,manualPrice:false,price:null,priceAt:today()});
       else upd("products",p.id,{cost:v,priceAt:today()}); return; }
     if (el.dataset.exp){ void saveBudget(el); return; }
-    if (el.dataset.expCat){ const e=S.expenses.find(x=>x.id===el.dataset.expCat);if(!e)return;void window.LegacyEditors.update('expenses',e,{category:el.value}); return; }
+    if (el.dataset.expCat){ const e=collectionRecord('expenses',el.dataset.expCat);if(!e)return;void window.LegacyEditors.update('expenses',e,{category:el.value}); return; }
     if (el.dataset.qty){ const id = el.dataset.qty, v = Math.round(num(el.value));
       if (v <= 0){ S.tagSel.delete(id); S.tagQty[id] = 1; } else { S.tagQty[id] = Math.min(500, v); S.tagSel.add(id); }
       syncChecks(); renderPreview(); return; }
@@ -1746,15 +1803,15 @@
     const sub = (col, key, sort) => db.collection(col).onSnapshot(s=>{
       S[key] = s.docs.map(x=>({id:x.id, ...x.data(),...(['tasks','ideas','expenses'].includes(col)?{revision:x.revision,permissions:x.permissions?.(),initiative:x.initiative}: {})})).sort(sort); render();
     }, ()=>{});
-    sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
-    sub("ideas","ideas",byOrder);
+    if(!window.TSUKENYA_SERVER)sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
+    if(!window.TSUKENYA_SERVER)sub("ideas","ideas",byOrder);
     if(!window.TSUKENYA_SERVER)db.collection("products").onSnapshot(s=>{
       const firstProducts = !S.productsLoaded;
       S.allProducts = s.docs.map(x=>({id:x.id, ...x.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name),"uk"));
       S.allProducts.forEach(p=>served.add(p)); S.productRevisions = new Map(s.docs.map(x=>[x.id,x.revision]));
       S.products = S.allProducts.filter(p=>!p.hidden); S.productsLoaded=true; render(); if(firstProducts) syncSetup();
     }, ()=>{});
-    sub("expenses","expenses",byOrder);
+    if(!window.TSUKENYA_SERVER)sub("expenses","expenses",byOrder);
     db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};if(!S.tagSaving)S.settingsRevision=s.revision;S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;S.settingsLoaded=true;render();syncSetup(); }, ()=>{});
     db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{});
   }).catch(()=>{ $("#noDb").hidden=false; });

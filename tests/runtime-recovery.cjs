@@ -6,9 +6,8 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../server/runtime.js'), 'utf8');
 
 function payload(role = 'manager') {
-  return { contract:'portal-metadata-v1',networkOwner:role==='owner',role, csrf: 'isolated-csrf', labelRevision: 'label-revision', data: {
-    tasks: [{ id: 'existing', data: { title: 'Cached task', scope: 'operations' }, permissions: { canEdit: true, canDelete: true } }],
-    ideas:[],expenses:[],'project/state':{},
+  return { contract:'portal-metadata-v2',scopeStore:null,networkOwner:role==='owner',role, csrf: 'isolated-csrf', labelRevision: 'label-revision', data: {
+    'project/state':{},
     'settings/main': { chainName: 'Cached chain' },
   } };
 }
@@ -40,7 +39,7 @@ function runtime() {
 }
 function cached(db, collection) {
   let snapshot;
-  const off = db.collection(collection).onSnapshot(value => { snapshot = value; });
+  const off = (collection.includes('/')?db.doc(collection):db.collection(collection)).onSnapshot(value => { snapshot = value; });
   off();
   return snapshot;
 }
@@ -48,7 +47,7 @@ function cached(db, collection) {
 (async () => {
   {
     const r = runtime(), db = await r.db(), snapshots = [];
-    db.collection('tasks').onSnapshot(s => snapshots.push(s));
+    db.doc('settings/main').onSnapshot(s => snapshots.push(s));
     let confirmed=null;r.queue.push(response(200, createAck('saved',{title:'New task',scope:'operations'})), ()=>{assert.equal(confirmed,'saved','strict ACK confirms ID before post-write GET');return response(503, { error: 'private downstream detail' });});
     const saved = await db.collection('tasks').add({ title: 'New task', scope: 'operations' },{createKey:'synthetic-uuid',onConfirmed:ack=>confirmed=ack.id});
     assert.equal(saved.id, 'saved', 'confirmed POST returns document even when subsequent GET fails');
@@ -58,15 +57,15 @@ function cached(db, collection) {
     assert.match(r.notices[0].message, /Не вдалося оновити дані/);
     assert(!JSON.stringify(r.notices).includes('private'), 'failure event contains no response detail');
     assert.equal(snapshots.length, 1, 'failed refresh does not notify a fabricated optimistic state');
-    const requests = r.calls.length, old = cached(db, 'tasks').docs[0];
+    const requests = r.calls.length, old = cached(db, 'settings/main');
     assert.equal(r.calls.length, requests, 'subscribing to cached snapshot does not write or fetch');
-    assert.equal(old.data().title, 'Cached task');
-    assert.deepEqual(old.permissions(), { canEdit: true, canDelete: true });
+    assert.equal(old.data().chainName, 'Cached chain');
+    assert.throws(()=>db.collection('tasks').onSnapshot(()=>{}),/unavailable/,'full collection snapshot is explicitly unavailable');
     const incoming = payload();
-    incoming.data.tasks.push({ id: 'saved', data: { title: 'New task', scope: 'operations' }, permissions: { canEdit: true, canDelete: true } });
+    incoming.data['settings/main'].chainName='Confirmed state';
     r.queue.push(response(200, incoming));
     await r.window.TSUKENYA_REFRESH();
-    assert.equal(cached(db, 'tasks').docs.length, 2);
+    assert.equal(cached(db, 'settings/main').data().chainName, 'Confirmed state');
     assert.equal(r.recoveries.length, 2, 'successful retry announces banner recovery');
     assert.equal(r.calls.filter(c => c.method !== 'GET').length, 1, 'refresh retry only reads');
     assert.equal(r.calls.at(-1).method, 'GET');
@@ -89,8 +88,8 @@ function cached(db, collection) {
       r.queue.push(response(200, bad));
       await assert.rejects(r.window.TSUKENYA_REFRESH(), /Invalid database response/);
       assert.equal(r.window.TSUKENYA_ROLE, 'manager', 'malformed GET cannot replace role with owner');
-      assert.equal(cached(db, 'tasks').docs[0].id, 'existing');
-      assert.deepEqual(cached(db, 'tasks').docs[0].permissions(), { canEdit: true, canDelete: true });
+      assert.equal(cached(db, 'settings/main').exists, true);
+      assert.equal(cached(db, 'settings/main').data().chainName,'Cached chain');
     }
     r.queue.push(new Error('private server hostname and customer data'));
     await assert.rejects(r.window.TSUKENYA_REFRESH(), /private server/);
@@ -103,14 +102,13 @@ function cached(db, collection) {
   }
   {
     const r = runtime(), initial = payload('cashier');
-    initial.data.tasks[0].permissions = { canEdit: false, canDelete: false };
     const db = await r.db(initial);
     r.queue.push(response(503, {}));
     await assert.rejects(r.window.TSUKENYA_REFRESH());
     assert.equal(r.window.TSUKENYA_ROLE, 'cashier');
-    assert.deepEqual(cached(db, 'tasks').docs[0].permissions(), { canEdit: false, canDelete: false });
+    assert.throws(()=>db.collection('tasks').onSnapshot(()=>{}),/unavailable/);
     let notifications = 0;
-    db.collection('tasks').onSnapshot(() => notifications++);
+    db.doc('settings/main').onSnapshot(() => notifications++);
     r.queue.push(response(200, { ...initial, role: 'manager' }));
     await r.window.TSUKENYA_REFRESH();
     assert.equal(notifications, 2, 'role-only change notifies existing subscribers');
@@ -135,7 +133,7 @@ function cached(db, collection) {
     let release;
     r.queue.push(() => new Promise(resolve => { release = resolve; }));
     const first = r.window.TSUKENYA_REFRESH(), second = r.window.TSUKENYA_REFRESH();
-    assert.equal(r.calls.filter(c => c.url === '/api/v1/portal/state').length, 4, 'concurrent refresh callers share one request');
+    assert.equal(r.calls.filter(c => c.url === '/api/v1/portal/metadata').length, 4, 'concurrent refresh callers share one request');
     release(response(200, payload()));
     await Promise.all([first, second]);
     assert.equal(r.queue.length, 0);
@@ -143,12 +141,12 @@ function cached(db, collection) {
   {
     // A GET already in flight when a write is confirmed may predate it: the write waits for a fresh GET.
     const r = runtime(), db = await r.db(), seen = [];
-    db.collection('tasks').onSnapshot(s => seen.push(s.docs.map(d => d.id)));
+    db.doc('settings/main').onSnapshot(s => seen.push(s.data().chainName));
     let releaseStale;
     r.queue.push(() => new Promise(resolve => { releaseStale = resolve; }));
     const stale = r.window.TSUKENYA_REFRESH();
     const fresh = payload();
-    fresh.data.tasks.push({ id: 'saved', data: { title: 'New task', scope: 'operations' }, permissions: { canEdit: true, canDelete: true } });
+    fresh.data['settings/main'].chainName='Confirmed state';
     r.queue.push(response(200, createAck('saved',{title:'New task',scope:'operations'})), response(200, fresh));
     let added = false;
     const write = db.collection('tasks').add({ title: 'New task', scope: 'operations' }).then(ref => { added = true; return ref; });
@@ -159,7 +157,7 @@ function cached(db, collection) {
     await stale;
     assert.equal((await write).id, 'saved');
     assert.deepEqual(r.calls.map(c => c.method), ['GET', 'GET', 'POST', 'GET'], 'a fresh GET is chained after the stale one');
-    assert.deepEqual(seen.at(-1), ['existing', 'saved'], 'saved document is visible when the write resolves');
+    assert.equal(seen.at(-1), 'Confirmed state', 'fresh metadata state is visible when the write resolves; collection read barrier has separate bounded tests');
     assert.equal(r.queue.length, 0);
     // A GET that starts after the confirmed write is fresh and is shared, not repeated.
     let releaseWrite, releaseRead;
@@ -177,7 +175,7 @@ function cached(db, collection) {
   {
     // An explicit refresh (after a catalogue/import write through another API) does not reuse a background poll.
     const r = runtime(), db = await r.db(), fresh = payload();
-    fresh.data.tasks[0].data.title = 'Saved elsewhere';
+    fresh.data['settings/main'].chainName = 'Saved elsewhere';
     let releasePoll;
     r.queue.push(() => new Promise(resolve => { releasePoll = resolve; }), response(200, fresh));
     r.intervals[0]();
@@ -188,7 +186,7 @@ function cached(db, collection) {
     releasePoll(response(200, payload()));
     await Promise.all([explicit, shared]);
     assert.equal(r.calls.length, 3, 'explicit callers share one read started after the poll');
-    assert.equal(cached(db, 'tasks').docs[0].data().title, 'Saved elsewhere');
+    assert.equal(cached(db, 'settings/main').data().chainName, 'Saved elsewhere');
     assert.equal(r.queue.length, 0);
   }
   {

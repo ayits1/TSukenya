@@ -131,3 +131,6 @@
 .portal-release p { margin:8px 0; }
 .portal-release code { overflow-wrap:anywhere;word-break:break-word; }
 @media(max-width:600px) { .portal-release summary { display:grid;grid-template-columns:16px minmax(0,1fr);gap:4px 8px;padding-block:8px; } .portal-release summary::before { grid-row:1/3;align-self:center; } .portal-release summary span { grid-column:2; } }
+/* Bounded legacy collections share native controls; no second select implementation. */
+.collection-filters{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.collection-filters [aria-pressed="true"]{border-color:var(--accent,#2868ad);box-shadow:inset 0 -2px var(--accent,#2868ad)}.portal-collection form{flex-wrap:wrap;align-items:end;margin-block:16px}.portal-collection nav{flex-wrap:wrap;align-items:center;margin-block:16px}.portal-collection input{max-width:100%;min-width:0}.portal-collection .form-field{min-width:min(100%,180px)}
+@media(max-width:600px){.task{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}.task>.chip{grid-column:1;justify-self:start}.task>.t{grid-column:1/-1;min-width:0;overflow-wrap:break-word}.task>[data-legacy-edit]{grid-column:1;justify-self:start}.task>.x{grid-column:2;grid-row:1;align-self:start}}

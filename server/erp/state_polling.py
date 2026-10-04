@@ -83,7 +83,7 @@ def can_validate():
     return isolation in {'repeatable read','serializable'} and readonly=='on'
 
 
-def state_response(request, user, build_state, *, metadata=False):
+def state_response(request, user, build_state, *, metadata=False, contract=None):
     from .labels import revision as label_revision
     csrf=request.portal_session.csrf
     conditional=can_validate()
@@ -92,7 +92,7 @@ def state_response(request, user, build_state, *, metadata=False):
     if conditional:
         day=kyiv_day()
         token, domains=versions(user,csrf,day)
-        if metadata:token=token.replace("tsukenya-state-v1-","tsukenya-portal-v1-")
+        if metadata:token=token.replace("tsukenya-state-v1-","tsukenya-portal-v2-" if contract else "tsukenya-portal-v1-")
         if request.headers.get('If-None-Match')==token:
             result=HttpResponse(status=304)
             result['ETag']=token
@@ -102,12 +102,13 @@ def state_response(request, user, build_state, *, metadata=False):
         day=kyiv_day()
         if conditional:
             token,domains=versions(user,csrf,day)
-            if metadata:token=token.replace("tsukenya-state-v1-","tsukenya-portal-v1-")
+            if metadata:token=token.replace("tsukenya-state-v1-","tsukenya-portal-v2-" if contract else "tsukenya-portal-v1-")
         document=Document.objects.filter(pk='settings/main').first()
         payload={'data':build_state(user,effective_day=day),'csrf':csrf,'role':user.profile.role,
             'networkOwner':user.profile.role=='owner' and user.profile.store_id is None,
             'labelRevision':label_revision(document.data if document else {})}
-        if metadata:payload['contract']='portal-metadata-v1'
+        if metadata:payload['contract']=contract or 'portal-metadata-v1'
+        if contract:payload['scopeStore']=user.profile.store_id
         if conditional:payload['stateVersions']=domains
     result=JsonResponse(payload, json_dumps_params={'ensure_ascii':False,'sort_keys':True})
     if conditional:result['ETag']=token

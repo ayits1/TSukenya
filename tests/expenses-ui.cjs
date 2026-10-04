@@ -160,16 +160,16 @@ u=User.objects.create_user(username='budget_manager',password='isolated-budget-p
   try{const login=await restricted.request.post(base+'/api/login',{headers:{Origin:base},data:{username:'budget_manager',password}});assert.equal(login.status(),200);const manager=await restricted.newPage();await manager.route('https://fonts.googleapis.com/**',r=>r.abort());await manager.route('https://fonts.gstatic.com/**',r=>r.abort());await manager.goto(base+'/#operations/expenses');await manager.getByText('Бюджет витрат доступний власнику мережі.',{exact:true}).waitFor();assert.equal(await manager.locator('[data-exp],#stores,[data-newexp]').count(),0,'non-owner sees no unavailable edit controls');assert.equal(await manager.locator('.tab[data-tab=expenses]').isHidden(),true);}
   finally{await restricted.close();}
   // Strict compact metadata and authoritative model DTO; never fake a full product snapshot.
-  const realState=await(await page.request.get(base+'/api/v1/portal/state')).json();
+  const realState=await(await page.request.get(base+'/api/v1/portal/metadata')).json();
   const realModel=await(await page.request.get(base+'/api/v1/portal/catalogue-model')).json();
   for(const [cost,price,expense,message] of [[10,20,0,'План витрат дорівнює нулю'],[0,20,10,'Недостатньо даних'],[30,20,10,'Середня маржа нульова або від’ємна']]){
-    const fixture=structuredClone(realState);fixture.data.expenses=[{id:'qa_analytical',data:{name:'Оренда',group:'fixed',amount:expense}}];
+    const fixture=structuredClone(realState); // Compact metadata never carries fake full expenses; model-only states below retain their authoritative formula DTO.
     const coverage=cost>0?1:0,margin=coverage?(price-cost)/price:0;
     const model={...realModel,catalogCount:1,noPriceCount:0,stalePriceCount:0,exampleCount:0,allExampleCount:0,fixed:String(expense),variable:'0',plannedExpenses:String(expense),coverage,equalWeightMargin:String(margin),marginPercent:String(margin*100),breakEvenRevenue:margin>0?String(expense/margin):null,breakEvenDaily:margin>0?String(expense/margin/30):null,breakEvenPerStore:margin>0?String(expense/margin/30):null,reason:margin>0?'ready':coverage?'nonpositive_margin':'no_coverage'};
-    await page.route('**/api/v1/portal/state',route=>route.fulfill({json:fixture}));
+    await page.route('**/api/v1/portal/metadata',route=>route.fulfill({json:fixture}));
     await page.route('**/api/v1/portal/catalogue-model',route=>route.fulfill({json:model}));
     await page.reload();await page.locator('[data-budget-mode=catalog]').click();await until(async()=>(await page.locator('.be').innerText()).includes(message),'correct analytical state: '+message);
-    await page.unroute('**/api/v1/portal/state');await page.unroute('**/api/v1/portal/catalogue-model');
+    await page.unroute('**/api/v1/portal/metadata');await page.unroute('**/api/v1/portal/catalogue-model');
   }
   page.off('request',onRequest);
   assert.deepEqual(errors, []);

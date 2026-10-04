@@ -17,7 +17,7 @@ const dialog=()=>page.locator('.trade-dialog[open]');
  const row=()=>page.locator(`[data-task-id="${id}"]`);await row().waitFor();assert.match(await row().innerText(),/Облікова умова активна/);
  if(process.env.QA_ALERTS_FROM==='read'){
   let confirmed=false,failed=false,posts=0;
-  await page.route('**/api/v1/portal/state',route=>{if(confirmed&&!failed){failed=true;return route.fulfill({status:503,contentType:'application/json',body:'{"error":"isolated read failure"}'});}return route.continue();});
+  await page.route('**/api/v1/portal/metadata',route=>{if(confirmed&&!failed){failed=true;return route.fulfill({status:503,contentType:'application/json',body:'{"error":"isolated read failure"}'});}return route.continue();});
   await page.route('**/api/erp/alerts/tasks/*/actions',async route=>{posts++;const response=await route.fetch();confirmed=true;return route.fulfill({response});});
   await row().locator('[data-alert-action=accept]').focus();await page.keyboard.press('Enter');
   await row().getByText('Дію підтверджено сервером.',{exact:false}).waitFor();assert.equal(posts,1);assert.equal(failed,true);

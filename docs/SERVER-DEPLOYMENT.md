@@ -390,3 +390,31 @@ Authenticated production UI не перевіряли; mutation-тестів, п
 після healthy web перебудувати worker попереднього сумісного коду. БД не
 відновлювати поверх нових записів. Локальні журнали релізу:
 `/tmp/tsukenya-release-237ef06-web.log`, `/tmp/tsukenya-release-237ef06-worker.log`.
+
+
+## Реліз прихованих товарів #74 · 04.10.2026
+
+Опубліковано прийнятий main `9174b00e16c55e74d0229a56e0bff87c6d50a444`.
+Exact-head frontend/server/PostgreSQL CI успішні. Каталог отримав окремий список
+прихованих товарів, приховування/відновлення та узгодження конфліктів без
+збереження інших незавершених полів. Collections і ABC до архіву не входили.
+Canonical checkout синхронізовано fast-forward. Чернетки після reload — ще B06.
+
+Immutable git archive, штатний release.py --check та web release успішні.
+Перед заміною коду зупинено import-worker; після web health перебудовано worker
+тієї самої SHA. Web `3a6584f8e68f`, worker `894683fe05d3` healthy; PostgreSQL
+`8b74e7132c36` не перезапускався. Compose/env/gateway не замінювали.
+Публічний health показує SHA та imports.available; сусідній сайт HTTPS200.
+
+Backup: `backups/tsukenya-crm-20261004T130215Z.dump`, checksum та
+pg_restore --list PASS. Попередній код: `releases/pre-20261004T130214Z.tar.gz`.
+Read-only reconcile exit0/issues0; до/після 90 Document, 0 Voucher/StockEntry/
+CashEntry, 28 AuditEvent, importRuns0. Digest документів незмінний:
+`a85eef4aa5063ec958c3a1e0b8e515ef595e4a09e2e9bd319d285e17a16573df`.
+Нових міграцій немає. Production mutation-тестів, повної локальної регресії,
+offsite0.1 чи authenticated UI перевірки цього разу не виконували.
+
+Відкат коду: scoped stop worker; release.py з pre-20261004T130214Z.tar.gz;
+після healthy web перебудувати worker попереднього сумісного коду. БД не
+відновлювати поверх нових записів. Локальні журнали:
+`/tmp/tsukenya-release-9174b00-web.log`, `/tmp/tsukenya-release-9174b00-worker.log`.

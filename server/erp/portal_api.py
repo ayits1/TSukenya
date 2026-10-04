@@ -237,6 +237,16 @@ def handle_portal(request,user):
         if record:
             from .legacy_records import read_record
             return response(read_record(user,*record.groups()))
+        if path=='/api/v1/portal/metadata':
+            from .state_polling import state_response
+            from .portal_collections import metadata
+            return state_response(request,user,metadata,metadata=True,contract='portal-metadata-v2')
+        if path.startswith('/api/v1/portal/collections/'):
+            from .portal_collections import page,task,summary as collection_summary
+            name=path.removeprefix('/api/v1/portal/collections/')
+            if name=='summary':return response(collection_summary(user,request.GET))
+            if name.startswith('tasks/'):return response(task(user,name.removeprefix('tasks/')))
+            if name in {'tasks','ideas','expenses'}:return response(page(user,name,request.GET))
         if path=='/api/v1/portal/state':
             from .state_polling import state_response
             return state_response(request,user,lambda actor,effective_day:legacy_state(actor,effective_day,include_products=False),metadata=True)
