@@ -266,3 +266,10 @@ localApply/Save. Виторг незалежний; однаковий ordered U
 і MONTHLY-BUDGET-RECOVERY.md. Repeated/lostACK/403/503/malformed/cancel/lateGET, max200,
 точні decimals та keyboard/320 перевірені цільово. Післяreload intent неpersisted;
 це відкрита окрема вимога, а не заявлена готовність усього B06/плану.
+
+
+PR #69 прийнято exacthead9b0f1a9 після frontend/server/PostgreSQL SUCCESS; main merge
+`24b5e0c2da48f4d7bbfa885cf297ede7ace59207`, canonical checkout синхронізовано clean
+fast-forward. Planning пакет перебазовано на цей main; source/tests/contracts/build inputs
+порівняно з перевіреним integration tree — без відмінностей. Production залишено на
+прийнятому #68/94dece2; #69 і цей наступний пакет ще не розгорнуто.
