@@ -18,6 +18,12 @@ from server.erp.replenishment import on_order
 
 
 class OrderReservationTests(TransactionTestCase):
+    def assertQuantity(self, actual, expected):
+        # SUM may omit trailing zeroes on SQLite; retain exact Decimal and wire-type checks.
+        self.assertIsInstance(actual,str)
+        self.assertRegex(actual,r'^[0-9]+(?:\.[0-9]{1,3})?$')
+        self.assertEqual(Decimal(actual),Decimal(expected))
+
     v=AccountingFixture.v;sale=AccountingFixture.sale;cash_start=AccountingFixture.cash_start
     def setUp(self):
         AccountingFixture.setUp(self);self.d=date.fromisoformat(self.today)
@@ -34,9 +40,9 @@ class OrderReservationTests(TransactionTestCase):
         counts=(StockEntry.objects.count(),CashEntry.objects.count(),Voucher.objects.count());lots=list(StockLot.objects.values_list('quantity','value'))
         data=self.reserve()['order'];self.assertEqual([r['code'] for r in data['reservations']],['EARLY','LATE']);self.assertEqual([r['quantity'] for r in data['reservations']],['5.000','1.000'])
         self.assertEqual(counts,(StockEntry.objects.count(),CashEntry.objects.count(),Voucher.objects.count()));self.assertEqual(lots,list(StockLot.objects.values_list('quantity','value')))
-        self.assertEqual(stock(self.u)['totals'][0]['available'],'4.000');self.assertEqual(stock(self.u)['totals'][0]['reserved'],'6.000')
+        self.assertEqual(stock(self.u)['totals'][0]['available'],'4.000');self.assertQuantity(stock(self.u)['totals'][0]['reserved'],'6.000')
         sold=self.fulfill(2);self.assertEqual(sold.cost,10);self.assertEqual(sold.stock_entries.get().lot.code,'EARLY');self.assertEqual(ReservationUse.objects.get(line__voucher=sold).quantity,2)
-        data=order_json(self.order,self.u);self.assertEqual(data['state'],'partial');self.assertEqual(data['lines'][0]['remaining'],'4.000');self.assertEqual(data['lines'][0]['reserved'],'4.000')
+        data=order_json(self.order,self.u);self.assertEqual(data['state'],'partial');self.assertEqual(data['lines'][0]['remaining'],'4.000');self.assertQuantity(data['lines'][0]['reserved'],'4.000')
         other=self.sale(4,12);self.assertEqual(other.cost,28);self.assertTrue(all(e.lot.code=='LATE' for e in other.stock_entries.all()))
         with self.assertRaises(BusinessError):self.sale(1,12)
         sold=self.fulfill(4);self.assertEqual(sold.cost,22);self.assertEqual(order_json(self.order,self.u)['state'],'fulfilled');self.assertEqual(stock(self.u)['totals'][0]['quantity'],'0.000')
@@ -49,7 +55,7 @@ class OrderReservationTests(TransactionTestCase):
             reverse_voucher(self.u,sold.pk,'Після строку')
         first=StockReservation.objects.get(lot__code='EARLY');self.assertEqual((first.used,first.released),(0,5));self.assertTrue(ReservationUse.objects.get().released_on_reverse);self.assertIsNotNone(ReservationUse.objects.get().reversed_at)
     def test_active_reversal_restores_own_hold_and_lifecycle_then_closed_reversal_releases(self):
-        self.reserve();sold=self.fulfill(2);reverse_voucher(self.u,sold.pk,'Помилка');data=order_json(self.order,self.u);self.assertEqual(data['state'],'approved');self.assertEqual(data['lines'][0]['reserved'],'6.000')
+        self.reserve();sold=self.fulfill(2);reverse_voucher(self.u,sold.pk,'Помилка');data=order_json(self.order,self.u);self.assertEqual(data['state'],'approved');self.assertQuantity(data['lines'][0]['reserved'],'6.000')
         sold=self.fulfill(1);self.act('close',reason='Решта не потрібна');reverse_voucher(self.u,sold.pk,'Після закриття');self.assertEqual(order_json(self.order,self.u)['state'],'closed');self.assertEqual(sum(held_quantities(list(StockLot.objects.values_list('pk',flat=True))).values()),0)
         with self.assertRaises(BusinessError):self.fulfill(1)
         with self.assertRaises(BusinessError):self.reserve('1')
@@ -57,7 +63,7 @@ class OrderReservationTests(TransactionTestCase):
     def test_partial_release_expiry_validation_and_atomic_failures(self):
         with self.assertRaises(BusinessError):self.act('reserve',expires_on=str(self.d+timedelta(days=8)),lines=[{'line':self.order.lines.get().pk,'quantity':'1'}])
         self.assertEqual(StockReservation.objects.count(),0);self.reserve();first=StockReservation.objects.get(lot__code='EARLY')
-        self.act('release',reservation=first.pk,quantity='1.500',reason='Змінився попит');self.assertEqual(order_json(self.order,self.u)['lines'][0]['reserved'],'4.500')
+        self.act('release',reservation=first.pk,quantity='1.500',reason='Змінився попит');self.assertQuantity(order_json(self.order,self.u)['lines'][0]['reserved'],'4.500')
         for quantity in ('5','1e0','NaN'):
             with self.assertRaises(BusinessError):self.act('release',reservation=first.pk,quantity=quantity,reason='Помилка')
         first.refresh_from_db();self.assertEqual(first.released,Decimal('1.5'))
@@ -130,7 +136,7 @@ class OrderReservationTests(TransactionTestCase):
                 if triggered:return result
                 triggered.append(True);thread=Thread(target=lambda:self.thread_reserve(body));thread.start();thread.join(timeout=15);self.assertFalse(thread.is_alive());return result
             with patch('server.erp.orders.remaining_lines',side_effect=changed):data=self.client.get(f'/api/erp/orders/{self.order.pk}').json()
-            self.assertEqual(data['order']['revision'],1);self.assertEqual(data['order']['lines'][0]['reserved'],'0');self.assertEqual(order_json(self.order,self.u)['lines'][0]['reserved'],'1.000')
+            self.assertEqual(data['order']['revision'],1);self.assertEqual(data['order']['lines'][0]['reserved'],'0');self.assertQuantity(order_json(self.order,self.u)['lines'][0]['reserved'],'1.000')
         else:self.assertEqual(post(body).status_code,200)
         self.assertEqual(post({**body,'idempotencyKey':str(uuid.uuid4())}).status_code,409)
         cashier=User.objects.create(username='api-cashier');Profile.objects.create(user=cashier,role='cashier',store=self.store);login(cashier)
@@ -138,7 +144,7 @@ class OrderReservationTests(TransactionTestCase):
         foreign=Store.objects.create(name='Foreign');manager=User.objects.create(username='foreign-manager');Profile.objects.create(user=manager,role='manager',store=foreign);login(manager);self.assertEqual(self.client.get(url).status_code,403)
         login(self.u);line=self.order.lines.get();lot=StockLot.objects.first()
         StockReservation.objects.bulk_create([StockReservation(order_line=line,lot=lot,owner=self.u,expires_on=self.d,quantity=1,released=1) for _ in range(55)])
-        data=self.client.get(f'/api/erp/orders/{self.order.pk}?page=2').json()['order'];self.assertEqual(data['history']['total'],56);self.assertEqual(len(data['reservations']),6);self.assertEqual(data['lines'][0]['reserved'],'1.000')
+        data=self.client.get(f'/api/erp/orders/{self.order.pk}?page=2').json()['order'];self.assertEqual(data['history']['total'],56);self.assertEqual(len(data['reservations']),6);self.assertQuantity(data['lines'][0]['reserved'],'1.000')
     def thread_reserve(self,body):
         close_old_connections()
         try:mutate(User.objects.get(pk=self.u.pk),self.order.pk,body)
@@ -152,7 +158,7 @@ class OrderReservationTests(TransactionTestCase):
         with self.assertRaises(BusinessError):self.v('production',lines=[{'product':'out','quantity':'1'}])
         self.assertFalse(StockLot.objects.filter(product=out).exists());sold=self.fulfill(2);returned=self.v('customer_return',1,999,party=self.customer.pk,reference=sold.pk)
         with self.assertRaises(BusinessError):reverse_voucher(self.u,sold.pk,'Спочатку повернення')
-        self.assertEqual(order_json(self.order,self.u)['lines'][0]['reserved'],'4.000');reverse_voucher(self.u,returned.pk,'Помилка');reverse_voucher(self.u,sold.pk,'Помилка');self.assertEqual(order_json(self.order,self.u)['lines'][0]['reserved'],'6.000')
+        self.assertQuantity(order_json(self.order,self.u)['lines'][0]['reserved'],'4.000');reverse_voucher(self.u,returned.pk,'Помилка');reverse_voucher(self.u,sold.pk,'Помилка');self.assertQuantity(order_json(self.order,self.u)['lines'][0]['reserved'],'6.000')
         with patch('server.erp.reservations.kyiv_day',return_value=self.d+timedelta(days=3)):
             self.v('writeoff',5,lines=[{'product':'p','quantity':'5','lot':'EARLY'}])
         self.assertEqual(StockLot.objects.get(code='EARLY').quantity,0);self.assertEqual(StockReservation.objects.get(lot__code='EARLY').used,0)
@@ -160,7 +166,7 @@ class OrderReservationTests(TransactionTestCase):
         from server.erp.business_audit import snapshot
         value={'state':'approved','revision':1,'password':'secret','lines':[{'line':1,'name':'Кава','unit':'шт','quantity':'1','fulfilled':'0','remaining':'1','reserved':'0','session':'secret'}],'reservations':[{'password':'secret'}],'canManage':True}
         safe=snapshot('order',value);self.assertNotIn('password',safe);self.assertNotIn('reservations',safe);self.assertNotIn('canManage',safe);self.assertNotIn('session',safe['order_lines'][0]);self.assertEqual(safe['order_lines'][0]['unit'],'шт')
-        self.reserve('1');event=AuditEvent.objects.filter(action='order_reserve').latest('pk');self.assertEqual(event.user,self.u);self.assertEqual(event.detail['before']['order_lines'][0]['reserved'],'0');self.assertEqual(event.detail['after']['order_lines'][0]['reserved'],'1.000');uuid.UUID(event.detail['request_id']);self.assertEqual(event.detail['expires_on'],str(self.d+timedelta(days=2)))
+        self.reserve('1');event=AuditEvent.objects.filter(action='order_reserve').latest('pk');self.assertEqual(event.user,self.u);self.assertEqual(event.detail['before']['order_lines'][0]['reserved'],'0');self.assertQuantity(event.detail['after']['order_lines'][0]['reserved'],'1.000');uuid.UUID(event.detail['request_id']);self.assertEqual(event.detail['expires_on'],str(self.d+timedelta(days=2)))
         row=StockReservation.objects.first();self.act('release',reservation=row.pk,quantity='0.500',reason='Попит змінився');event=AuditEvent.objects.filter(action='order_release').latest('pk');self.assertEqual(event.detail['before']['reservation']['released'],'0.000');self.assertEqual(event.detail['after']['reservation']['released'],'0.500');self.assertEqual(event.detail['after']['reservation']['unit'],'шт');self.assertEqual(event.detail['reason'],'Попит змінився')
 
     def test_maximum_date_rejected_before_reservation_or_audit(self):
