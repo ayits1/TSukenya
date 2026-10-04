@@ -419,7 +419,8 @@ def handle_catalog(request, user):
         if request.method == 'GET': return get_references(user)
         if request.method == 'POST': return create_reference(request, user)
     if path == '/api/v1/session' and request.method == 'GET':
-        return response({'role': user.profile.role, 'csrf': request.portal_session.csrf})
+        from .draft_sessions import session_reply
+        return session_reply(request,user)
     if path == collection + '/price-preview' and request.method == 'POST':
         from .catalog_price_preview import preview_product_price
         return preview_product_price(request, user)
