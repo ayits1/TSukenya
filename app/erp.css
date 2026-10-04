@@ -115,3 +115,42 @@
 .trade-toolbar>:is(label,.trade-directory-field){flex:1 1 14rem;min-width:min(100%,14rem);max-width:100%}
 .trade-toolbar>:is(label,.trade-directory-field)>:is(input,select){width:100%}
 @media(max-width:600px){.trade-toolbar>:is(label,.trade-directory-field){flex-basis:100%;width:100%}}
+
+/* Document composition: captions, controls and help own separate shared rows.
+   Subgrid keeps a wrapped caption or directory hint from shifting nearby inputs. */
+.trade-line{align-items:start;row-gap:0}
+.trade-line>.line-field{
+  display:grid;grid-template-rows:subgrid;grid-row:span 5;grid-column:auto;
+  row-gap:0;min-width:0;align-items:start;font-size:13px;font-weight:500;
+}
+.trade-line>.line-field>span{grid-row:1;margin-bottom:6px}
+.trade-line>.line-field>:is(input,select,button){grid-row:2;grid-column:1;align-self:start}
+.trade-line .line-product :is(.trade-directory-host,.tk-directory-control,.tk-field){
+  display:grid;grid-template-rows:subgrid;grid-row:1/6;row-gap:0;min-width:0;
+}
+.trade-line .line-product .tk-label{grid-row:1;margin-bottom:6px}
+.trade-line .line-product .tk-combo-group{grid-row:2}
+.trade-line .line-product .tk-field>.tk-help{grid-row:3;margin:6px 0 0}
+.trade-line .line-product .tk-field>.tk-error{grid-row:4;margin:6px 0 0}
+.trade-line .line-product .trade-directory-host>.tk-error{grid-row:5;margin:6px 0 0}
+.trade-line .line-remove>[data-trade=remove-line]{grid-column:1;grid-row:2;align-self:start}
+.trade-line .line-origin{grid-column:1/-1;margin:0 0 8px}
+.trade-line-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.trade-line-actions>.btn{min-height:44px;max-width:100%;white-space:normal}
+@media(max-width:900px){
+  .trade-line>:is(.line-quantity,.line-price,.line-lot,.line-expiry){padding-top:12px}
+  .trade-line>.line-product{grid-column:1/4}
+  .trade-line>.line-remove{grid-column:4;grid-row:1/span 5}
+  .trade-line:has(>.line-origin)>.line-remove{grid-row:2/span 5}
+  .trade-line>.line-quantity{grid-column:1}
+  .trade-line>.line-price{grid-column:2}
+  .trade-line>.line-lot{grid-column:3}
+  .trade-line>.line-expiry{grid-column:1/3}
+}
+@media(max-width:600px){
+  .trade-line>.line-product{grid-column:1/3}
+  .trade-line>.line-remove{grid-column:3}
+  .trade-line>.line-price{grid-column:2/-1}
+  .trade-line>.line-lot{grid-column:1}
+  .trade-line>.line-expiry{grid-column:2/-1}
+}
