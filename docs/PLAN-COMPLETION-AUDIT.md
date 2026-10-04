@@ -79,6 +79,10 @@
 5. **B09 працівник касової зміни / B20 немає project / B30 немає rename/archive:** matching current source й цільові тести вже є.
 6. **B25 «немає звірки боргів»:** B15 додає allocation/source/advance checks. Незакриті closed-period invariants і operations schedule не зникають через це.
 
+## Захисний follow-up, який не доводить green CI
+
+`catalog_import.commit_import` перевіряє EDIT_ROLES перед `ledger_lock`, але не перечитує is_active/profile після очікування блокади. Так само `catalog_pricing.commit_pricing` і `catalog.save_product`. Для порівняння B30 `catalog_reference_management.commit` явно refresh-ить актора/профіль та повторно перевіряє policy після lock. Source підтверджує відсутність цієї повторної перевірки; цей аудит не відтворював гонку й не називає її перевіреним exploit. Перед наступним import/job пакетом потрібен один isolated cached-actor/ledger-wait сценарій зі зміною ролі й atomic no-write/no-audit очікуванням; перевірка ролі на початку HTTP не є matching доказом цього випадку.
+
 ## Три наступні роботи без нового бізнес-рішення
 
 1. **B21 · durable import history та великий job.** Спочатку persistent run/list/detail/row results і UI журнал з доступом поточного актора; зберегти existing small atomic endpoint/receipt. Великий immutable plan має row revisions, whole-file duplicates, deterministic IDs, bounded chunks, lease/progress/status і exact retry/recovery без повторного audit. Не прирівнювати chunk progress до whole-file atomicity; явно показати committed/conflicted/failed rows. Worker і обмеження ресурсів — технічний контракт, deployment окремо. Приймання: >1000рядків, restart/lostACK між chunks, stale row, one user cannot read another user's run, no duplicate writes та memory bounded.
