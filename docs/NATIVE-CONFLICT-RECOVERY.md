@@ -122,3 +122,5 @@ Native test створює власну SQLite та синтетичні зап�
 тимчасовий каталог ОС `tsukenya-entity-conflict-proof`. Два нові API-тести також пройдено
 на окремій PostgreSQL базі: stale save→read без аудиту→окреме збереження; неактивний працівник
 із повними умовами та актуальна відмова ролі. Повний набір не запускався.
+
+Root integration: TypeScript/Vite build PASS; `QA_ENTITY_OPEN_ONLY=1 QA_OUTPUT_DIR=/tmp/tsukenya-root-entity-open` native PASS підтверджує завантажений adapter, видиму відмову відкрити owner employee з неповними умовами та ігнорування initial opening read після закриття/навігації. Обидва author actual comparison PNG1440/320 переглянуті root. Ширші native докази повторно використовуються для незмінених inputs. Entity сценарій зареєстрований один раз у full entrypoint; partial flags entity/initiative/directories та їхні output paths очищаються перед явним full pass. Виконано лише `test:full -- --plan` для перевірки реєстру, без повної регресії.
