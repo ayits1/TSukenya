@@ -62,7 +62,10 @@ class LegacyFinancialScopeTests(TestCase):
         self.user.profile.save(update_fields=['role', 'store'])
 
     def write(self, method, path, value=None, **headers):
-        return getattr(self.client, method)(path, value, content_type='application/json', **(self.headers | headers))
+        from server.erp.managed_alerts import task_revision
+        doc=Document.objects.filter(pk=path.removeprefix('/api/docs/')).first() if path.startswith(('/api/docs/tasks/','/api/docs/ideas/','/api/docs/expenses/')) else None
+        observed={'HTTP_IF_MATCH':task_revision(doc)} if doc else {}
+        return getattr(self.client, method)(path, value, content_type='application/json', **(self.headers | observed | headers))
 
     def test_scoped_owner_read_dto_is_nonmutating_and_shared_catalog_survives(self):
         from server.erp.labels import revision

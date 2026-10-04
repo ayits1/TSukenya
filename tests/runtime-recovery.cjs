@@ -124,7 +124,7 @@ function cached(db, collection) {
     const r = runtime(), db = await r.db();
     for (const [method, operation] of [
       ['PUT', () => db.doc('settings/main').set({ chainName: 'Changed' })],
-      ['DELETE', () => db.collection('tasks').doc('existing').delete()],
+      ['DELETE', () => db.collection('tasks').doc('existing').delete({revision:'captured-task-revision'})],
     ]) {
       r.queue.push(response(200, { ok: true }), response(503, {}));
       assert.equal((await operation()).ok, true);

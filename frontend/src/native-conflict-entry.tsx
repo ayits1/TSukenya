@@ -12,10 +12,12 @@ import {
 } from './shared/native/workShift';
 import './shared/ui/controls.css';
 import * as entityEditor from './shared/native/entity';
+import * as legacyEditor from './shared/native/legacy';
 
 declare global {
   interface Window {
     NativeEntityEditor?: typeof entityEditor;
+    NativeLegacyEditor?: typeof legacyEditor;
     NativeWorkShiftEditor?: {
       captureWorkShiftDraft: typeof captureWorkShiftDraft;
       decodeWorkShift: typeof decodeWorkShift;
@@ -30,6 +32,7 @@ declare global {
   }
 }
 window.NativeEntityEditor = entityEditor;
+window.NativeLegacyEditor = legacyEditor;
 window.NativeWorkShiftEditor = {
   captureWorkShiftDraft,
   decodeWorkShift,

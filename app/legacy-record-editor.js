@@ -1,0 +1,65 @@
+/* Existing portal records: frozen opening baseline, shared review, explicit local Apply/Save. */
+(()=>{'use strict';
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let active=null;
+const adapter=()=>{if(!window.NativeLegacyEditor)throw Error('Редактор ще не завантажений. Повторіть дію.');return window.NativeLegacyEditor;};
+function snapshot(collection,item){const{id,revision,permissions,initiative,...data}=structuredClone(item);return adapter().decodeLegacyRecord({collection,id,revision,data,permissions,initiative:initiative||null,managed:collection==='tasks'&&window.ManagedAlerts?.system(item)||false},collection,id);}
+async function request(record,method='GET',patch,signal){
+ const session=await window.PortalApi.session(signal),url=method==='GET'?'/api/v1/portal/records/'+record.collection+'/'+record.id:'/api/docs/'+record.collection+'/'+record.id;
+ let r;try{r=await fetch(url,{method,signal,credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf,...(method!=='GET'?{'If-Match':record.revision}:{})},body:patch===undefined?undefined:JSON.stringify(patch)});}catch(e){if(e.name==='AbortError')throw e;throw Object.assign(Error('Результат не підтверджено. Прочитайте поточний запис; чернетка збережена.'),{uncertain:method!=='GET'});}
+ let value;try{value=await r.json();}catch{throw Object.assign(Error('Некоректна відповідь сервера. Повторіть читання.'),{uncertain:method!=='GET'});}
+ if(!value||typeof value!=='object'||Array.isArray(value))throw Object.assign(Error('Некоректна відповідь сервера. Повторіть читання.'),{uncertain:method!=='GET'});
+ if(!r.ok)throw Object.assign(Error(typeof value.error==='string'?value.error:'Дія недоступна.'),{status:r.status,code:typeof value.code==='string'?value.code:undefined,uncertain:r.status>=500&&method!=='GET'});
+ if(method==='GET')return adapter().decodeLegacyRecord(value,record.collection,record.id);
+ if(!value||value.ok!==true||value.id!==record.id||method!=='DELETE'&&!(typeof value.revision==='string'&&/^[a-f0-9]{32}$/.test(value.revision)))throw Object.assign(Error('Результат запису не підтверджено. Повторіть читання.'),{uncertain:true});
+ await window.TSUKENYA_REFRESH_AFTER_WRITE?.().catch(()=>{});return value;
+}
+const pending=new Map();
+const announce=()=>window.dispatchEvent(new Event('tsukenya:legacy-pending'));
+async function update(collection,item,patch,onConfirmed){
+ let record;try{record=snapshot(collection,item);}catch(error){openError(error);return false;}
+ const key=collection+':'+record.id;if(pending.has(key))return false;pending.set(key,true);announce();
+ try{adapter().legacyPatch(record,{...adapter().legacyProjection(record),...patch});await request(record,'PATCH',patch);onConfirmed?.();return true;}
+ catch(error){open(record,{patch,needsReview:error.status===409||error.status===428||error.status===403||error.uncertain,message:error.message,onConfirmed});return false;}
+ finally{pending.delete(key);announce();}
+}
+function openError(error){window.alert(error.message);}
+function edit(collection,item,onConfirmed){try{open(snapshot(collection,item),{onConfirmed});}catch(error){openError(error);}}
+async function remove(collection,item,onConfirmed){let record;try{record=snapshot(collection,item);}catch(error){openError(error);return false;}if(!record.permissions.canDelete){openError(Error('Видалення цього запису недоступне.'));return false;}if(!confirm('Видалити запис «'+(record.data.title||record.data.name)+'»?'))return false;const key=collection+':'+record.id;if(pending.has(key))return false;pending.set(key,true);announce();try{await request(record,'DELETE');onConfirmed?.();return true;}catch(error){open(record,{deleting:true,needsReview:true,message:error.message,onConfirmed});return false;}finally{pending.delete(key);announce();}}
+function open(record,{patch={},needsReview=false,message='',deleting=false,onConfirmed}={}){
+ if(active?.open){active.focus();return;}
+ if(!record.permissions.canEdit||record.managed){openError(Error('Цей запис змінюється в окремому робочому процесі.'));return;}
+ const a=adapter(),opener=document.activeElement,d=document.createElement('dialog');active=d;d.className='trade-dialog';d.setAttribute('aria-labelledby','legacyEditorTitle');
+ let baseline=structuredClone(record),draft={...a.legacyProjection(record),...patch},review=needsReview,busy=false,reading=false,handle=null,controller=null,sequence=0;
+ const title={tasks:'Задача',ideas:'Ідея',expenses:'Стаття витрат'}[record.collection];
+ const field=(name,label,type='text',max=250)=>`<label>${label}<input name="${name}" type="${type}" ${name==='amount'?'inputmode="decimal"':''} maxlength="${max}" ${name==='title'||name==='name'?'required':''}></label>`;
+ const select=(name,label,choices)=>`<label>${label}<select name="${name}"><option value="" ${['status','stage','group'].includes(name)?'disabled':''}>Не задано</option>${choices.map(([id,label])=>`<option value="${id}">${esc(label)}</option>`).join('')}</select></label>`;
+ let fields=record.collection==='expenses'?field('name','Назва статті')+select('group','Група',[['fixed','Постійна'],['variable','Змінна']])+field('amount','Сума на місяць, грн','text')+select('category','Категорія',a.categories.map(c=>[c,c])):field('title','Назва');
+ if(record.collection==='tasks')fields+=select('status','Статус',[['todo','Не почато'],['doing','В роботі'],['done','Готово']])+field('dueDate','Термін','date')+(record.data.scope!=='operations'?select('stage','Етап розвитку',[1,2,3,4].map(n=>[n,'Етап '+n])):'');
+ if(record.collection==='ideas')fields+='<label>Опис<textarea name="text" maxlength="4000" rows="3"></textarea></label>'+select('reaction','Рішення',[['yes','Обрано для реалізації'],['no','Відкладено']]);
+ d.innerHTML=`<div class="trade-dialog-head"><h2 id="legacyEditorTitle">${title} · редагування</h2><button class="btn soft" type="button" data-close>Закрити</button></div><div class="trade-dialog-body"><form id="legacyRecordForm"><div class="trade-form-grid">${fields}</div><div class="row trade-section-title"><button class="btn" type="submit">Зберегти</button></div></form><section class="legacy-record-recovery"><p class="trade-error" role="alert" tabindex="-1" data-error></p><p class="trade-caption" role="status" aria-live="polite" data-status></p><div class="row"><button type="button" class="btn soft" data-read>Порівняти з поточною версією</button><button type="button" class="btn soft" data-cancel hidden>Скасувати читання</button></div><div data-comparison></div></section>${deleting?'<button type="button" class="btn" data-delete disabled>Підтвердити видалення поточної версії</button>':''}</div>`;
+ d.dataset.legacyDirty=Object.keys(patch).length?'1':'';document.body.append(d);const form=d.querySelector('form'),error=d.querySelector('[data-error]'),status=d.querySelector('[data-status]'),save=form.querySelector('[type=submit]'),read=d.querySelector('[data-read]'),cancel=d.querySelector('[data-cancel]'),host=d.querySelector('[data-comparison]'),deleteButton=d.querySelector('[data-delete]');
+ form.addEventListener('input',()=>d.dataset.legacyDirty='1');form.addEventListener('change',()=>d.dataset.legacyDirty='1');
+ const live=n=>d.open&&active===d&&sequence===n;
+ const fill=()=>{for(const[key,value]of Object.entries(draft))if(form.elements[key])form.elements[key].value=value??'';};
+ const collect=()=>{const values=Object.fromEntries(new FormData(form));draft=Object.fromEntries(Object.entries(values).map(([key,value])=>[key,value===''?(key==='text'&&a.legacyProjection(baseline).text!==null?'':null):key==='stage'?Number(value):key==='amount'?a.legacyMoney(value.replace(',','.')):value]));a.legacyPatch(baseline,draft);if(!form.reportValidity())throw Error('Перевірте поля чернетки.');};
+ const sync=()=>{form.querySelectorAll('input,select,textarea').forEach(el=>el.disabled=busy||reading);save.disabled=busy||reading||review||deleting;read.hidden=!review||reading;read.disabled=busy;cancel.hidden=!reading||!!handle;d.querySelector('[data-close]').disabled=busy;if(deleteButton)deleteButton.disabled=busy||reading||review||!baseline.permissions.canDelete;};
+ const stop=()=>{++sequence;controller?.abort();controller=null;handle?.unmount();handle=null;host.replaceChildren();reading=false;sync();};
+ const close=()=>{if(busy)return;collectSafe();if(d.dataset.legacyDirty==='1'&&!confirm('Закрити редактор? Незбережене введення буде відкинуто.'))return;d.close();};
+ const collectSafe=()=>{if(!reading)try{collect();}catch{}};
+ d.querySelector('[data-close]').onclick=close;d.addEventListener('cancel',event=>{event.preventDefault();close();});d.addEventListener('close',()=>{stop();const owned=active===d;if(owned)active=null;d.remove();if(owned&&opener?.isConnected)opener.focus();},{once:true});
+ cancel.onclick=()=>{stop();status.textContent='Чернетка збережена.';read.focus();};
+ read.onclick=async()=>{
+  if(busy||reading)return;try{collect();}catch(e){error.textContent=e.message;return;}
+  const local=structuredClone(draft),n=++sequence;controller=new AbortController();reading=true;sync();error.textContent='';status.textContent='Читаємо поточний запис…';
+  try{const latest=await request(baseline,'GET',undefined,controller.signal);if(!live(n))return;if(!latest.permissions.canEdit||latest.managed||!a.legacyIdentityMatches(baseline,latest))throw Error('Права або джерело запису змінилися. Чернетка збережена; узгодження недоступне.');status.textContent='Порівняння готове. Узгодьте зміни; збереження виконується окремо.';
+   handle=window.NativeConflictComparison.mount(host,{base:a.legacyProjection(baseline),mine:local,server:a.legacyProjection(latest),fields:a.legacyFields(latest),title:'Узгодити зміни запису',onCancel:()=>{if(live(n)){stop();status.textContent='Чернетка збережена.';read.focus();}},onApply:merged=>{if(!live(n))return;try{a.legacyPatch(latest,merged);}catch(e){error.textContent=e.message;error.focus();return;}error.textContent='';stop();baseline=latest;draft=merged;d.dataset.legacyDirty='1';review=false;fill();sync();status.textContent=deleting?'Поточна версія перевірена. Видалення потребує нового підтвердження.':'Зміни узгоджено лише в чернетці. Натисніть «Зберегти».';(deleting?deleteButton:save).focus();}});sync();
+  }catch(e){if(!live(n)||e.name==='AbortError')return;stop();error.textContent=e.message;status.textContent='Поточну версію не підтверджено.';read.focus();}
+ };
+ async function write(method){if(busy||reading||review)return;let value;try{collect();value=a.legacyPatch(baseline,draft);}catch(e){error.textContent=e.message;error.focus();return;}if(method==='DELETE'&&(!baseline.permissions.canDelete||!confirm('Видалити перевірену поточну версію запису?')))return;busy=true;sync();error.textContent='';status.textContent='Збереження…';try{await request(baseline,method,method==='PATCH'?value:undefined);busy=false;onConfirmed?.();d.close();}catch(e){review=e.status===409||e.status===428||e.status===403||e.uncertain;error.textContent=e.message;status.textContent='Чернетка збережена.';}finally{busy=false;if(d.open)sync();}}
+ form.onsubmit=e=>{e.preventDefault();void write('PATCH');};if(deleteButton)deleteButton.onclick=()=>write('DELETE');
+ fill();sync();error.textContent=message;d.showModal();if(review)read.focus();else form.querySelector('input').focus();
+}
+window.addEventListener('beforeunload',event=>{if(pending.size||active?.open&&active.dataset.legacyDirty==='1'){event.preventDefault();event.returnValue='';}});
+window.LegacyEditors={snapshot,edit,update,remove,isPending:(collection,id)=>pending.has(collection+':'+id),pending:()=>pending.size>0||!!active?.open,canLeave:()=>{if(pending.size)return false;if(active?.open){active.querySelector('[data-close]').click();return !active.open;}return true;}};
+})();

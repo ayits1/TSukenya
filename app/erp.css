@@ -99,3 +99,5 @@
 .trade-report-fields>.btn{min-height:44px}
 @media(max-width:480px){.trade-report-fields>label,.trade-report-fields>.trade-report-store{flex-basis:100%}}
 }
+
+@layer legacy { .legacy-record-recovery { display:grid; gap:12px; margin-top:16px; } .legacy-record-recovery p:empty,.legacy-record-recovery .row:not(:has(button:not([hidden]))),.legacy-record-recovery [data-comparison]:empty { display:none; } }

@@ -25,7 +25,10 @@ class BudgetTests(TestCase):
         self.headers = {'HTTP_ORIGIN': 'http://testserver', 'HTTP_X_CSRF_TOKEN': 'budget-csrf'}
 
     def write(self, method, path, value):
-        return getattr(self.client, method)(path, value, content_type='application/json', **self.headers)
+        from server.erp.managed_alerts import task_revision
+        document = Document.objects.filter(pk=path.removeprefix('/api/docs/')).first() if path.startswith('/api/docs/expenses/') else None
+        observed = {'HTTP_IF_MATCH': task_revision(document)} if document else {}
+        return getattr(self.client, method)(path, value, content_type='application/json', **self.headers, **observed)
 
     def settings(self, **patch):
         data = {'stores': 7, 'storeNames': ['Цінник A'], 'chainName': 'Мережа',
@@ -60,8 +63,11 @@ class BudgetTests(TestCase):
         patched = self.write('patch', '/api/docs/' + path, {'amount': 12.09})
         self.assertEqual(patched.status_code, 200)
         self.assertEqual(Document.objects.get(pk=path).data, {'name': 'Оренда', 'group': 'fixed', 'amount': 12.09})
+        adapted = self.write('patch', '/api/docs/' + path, {'amount': '12.10'})
+        self.assertEqual(adapted.status_code, 200, adapted.content)
+        self.assertEqual(Document.objects.get(pk=path).data, {'name': 'Оренда', 'group': 'fixed', 'amount': 12.10})
         original = Document.objects.get(pk=path).data
-        for value in [{'amount': -1}, {'amount': .001}, {'amount': 1.234}, {'amount': True}, {'amount': '12.09'},
+        for value in [{'amount': -1}, {'amount': .001}, {'amount': 1.234}, {'amount': True}, {'amount': '12.091'},
                       {'amount': float('inf')}, {'amount': float('nan')}, {'amount': 100000000},
                       {'name': ' '}, {'name': 'x' * 251}, {'group': 'other'}, {'group': []}]:
             with self.subTest(value=value):

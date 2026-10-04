@@ -144,3 +144,29 @@ export const EmployeePayTerms: Story = {
     await expect(args.onApply).toHaveBeenCalledWith({ ...args.mine, name: args.server.name });
   },
 };
+
+export const LegacyExpenseTerms: Story = {
+  args: {
+    base: { amount: '21.99', group: 'fixed', category: 'Інше' },
+    mine: { amount: '30.00', group: 'fixed', category: 'Інше' },
+    server: { amount: '21.99', group: 'variable', category: 'Оренда' },
+    fields: [
+      {
+        id: 'financialTerms',
+        label: 'Сума та класифікація витрати',
+        keys: ['amount', 'group', 'category'],
+        decimals: ['amount'],
+        labels: { amount: 'Сума, грн', group: 'Група', category: 'Категорія' },
+        valueLabels: { fixed: 'Постійна', variable: 'Змінна' },
+      },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const c = within(canvasElement);
+    await expect(c.getByRole('button', { name: 'Застосувати узгоджені зміни' })).toBeDisabled();
+    await userEvent.tab();
+    await userEvent.keyboard(' ');
+    await userEvent.click(c.getByRole('button', { name: 'Застосувати узгоджені зміни' }));
+    await expect(args.onApply).toHaveBeenCalledWith(args.mine);
+  },
+};

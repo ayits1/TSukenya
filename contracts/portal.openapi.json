@@ -318,6 +318,54 @@
           }
         }
       }
+    },
+    "/api/v1/portal/records/{collection}/{id}": {
+      "get": {
+        "operationId": "portalLegacyRecord",
+        "description": "Read-only exact record in a current permission/store snapshot. No writes or audit. Managed/linked tasks cannot use the generic editor.",
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tasks",
+                "ideas",
+                "expenses"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,120}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyRecord"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role/store denied"
+          },
+          "409": {
+            "description": "Record no longer exists"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -817,6 +865,66 @@
           "promotion"
         ],
         "additionalProperties": false
+      },
+      "LegacyRecord": {
+        "type": "object",
+        "required": [
+          "collection",
+          "id",
+          "revision",
+          "data",
+          "permissions",
+          "managed",
+          "initiative"
+        ],
+        "properties": {
+          "collection": {
+            "type": "string",
+            "enum": [
+              "tasks",
+              "ideas",
+              "expenses"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "data": {
+            "type": "object",
+            "description": "Original fields with optional grandfather fields left absent. Expense amount is an exact decimal string in detail responses. Unknown metadata is preserved by server PATCH.",
+            "additionalProperties": true
+          },
+          "permissions": {
+            "type": "object",
+            "required": [
+              "canEdit",
+              "canDelete"
+            ],
+            "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
+              "canDelete": {
+                "type": "boolean"
+              }
+            }
+          },
+          "managed": {
+            "type": "boolean"
+          },
+          "initiative": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
       }
     },
     "securitySchemes": {
