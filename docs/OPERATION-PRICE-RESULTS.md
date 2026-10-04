@@ -67,3 +67,13 @@ Readonly creator results — доступний шлях identity/result recover
 - TSC, scoped ESLint/Prettier, `makemigrations --check --dry-run` та diff whitespace перевірені. Shared control/rendering не змінювалися: Storybook/native/PDF до цього backend пакета не запускалися.
 
 Межі: немає claim про physical print, mobile RAM,100000-row SLA, production rollout, durable browser Studio draft reload чи завершення issue3.3. Перед пакетом2 узгодити priceContext з parallel schema/parser/export changes у catalog-import.js; пакетом3 користувач явно вибирає каталожну закупівлю при multi-lot invoice, без вигаданого average/last/landed policy.
+
+### CI follow-up
+
+Перший PostgreSQL CI #80 виконав758 сценаріїв із одним збоєм: старий
+`LegacyFinancialScopeTests` огортав actual pricing preview у writable TestCase
+transaction. Переведено цю fixture на TransactionTestCase без послаблення
+production READ ONLY/RR guard. Локально повторено лише affected price-preview
+метод: PASS0.142с, `/tmp/tsukenya-price-scope-fixture-pg.log`.
+Залежний перший server/PG CI #81 зупинено після встановлення причини; завершений
+frontend залишився успішним. Повного локального повтору не було.
