@@ -184,6 +184,88 @@ describe('voucher recovery contract', () => {
     ).toThrow();
     expect(() => validateVoucherMerge(voucherProjection({ ...request, store: 2 }), row)).toThrow();
   });
+  it('accepts only documented source-derived ACK fields and keeps explicit lineage and writable terms strict', () => {
+    const request = { ...captureVoucherDraft({ ...raw, reference: 22 }), idempotency_key: key };
+    const saved = {
+      ...raw,
+      reference: 22,
+      request_key: key,
+      lines: [{ ...raw.lines[0], reference_line: 55 }],
+    };
+    expect(decodeVoucherAck(saved, request).lines[0]?.reference_line).toBe(55);
+    expect(() =>
+      decodeVoucherAck(saved, {
+        ...request,
+        lines: [{ ...request.lines[0]!, reference_line: 56 }],
+      }),
+    ).toThrow();
+    expect(() =>
+      decodeVoucherAck({ ...saved, lines: [{ ...saved.lines[0], quantity: '3' }] }, request),
+    ).toThrow();
+    expect(() =>
+      decodeVoucherAck({ ...saved, lines: [{ ...saved.lines[0], price: '6' }] }, request),
+    ).toThrow();
+    const returned = {
+      ...saved,
+      kind: 'supplier_return',
+      lines: [{ ...saved.lines[0], price: '6', lot: 'SOURCE', expiry: '2026-10-10' }],
+    };
+    const returnRequest = {
+      ...captureVoucherDraft({
+        ...raw,
+        kind: 'supplier_return',
+        reference: 22,
+        lines: [{ ...raw.lines[0], lot: '', expiry: '' }],
+      }),
+      idempotency_key: key,
+    };
+    expect(decodeVoucherAck(returned, returnRequest).lines[0]?.lot).toBe('SOURCE');
+    expect(() =>
+      decodeVoucherAck(returned, {
+        ...returnRequest,
+        lines: [{ ...returnRequest.lines[0]!, lot: 'OTHER' }],
+      }),
+    ).toThrow();
+    expect(() => decodeVoucherAck({ ...returned, reference: 23 }, returnRequest)).toThrow();
+  });
+  it('supports bound category captions up to160 and current renames without weakening category identity', () => {
+    const expense = {
+      ...raw,
+      kind: 'expense',
+      lines: [],
+      payload: { expense_scope: 'store', category_id: key, category: 'А'.repeat(160) },
+    };
+    const request = { ...captureVoucherDraft(expense), idempotency_key: key };
+    expect(decodeVoucher(expense, { id: 1, kind: 'expense' }).payload.category).toHaveLength(160);
+    expect(
+      decodeVoucherAck(
+        { ...expense, request_key: key, payload: { ...expense.payload, category: 'Чинна назва' } },
+        request,
+      ).id,
+    ).toBe(1);
+    expect(() =>
+      captureVoucherDraft({
+        ...expense,
+        payload: { ...expense.payload, category: 'А'.repeat(161) },
+      }),
+    ).toThrow();
+    expect(() =>
+      captureVoucherDraft({
+        ...expense,
+        payload: { expense_scope: 'store', category: 'А'.repeat(101) },
+      }),
+    ).toThrow();
+    expect(() =>
+      decodeVoucherAck(
+        {
+          ...expense,
+          request_key: key,
+          payload: { ...expense.payload, category_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+        },
+        request,
+      ),
+    ).toThrow();
+  });
   it('preserves stable lineage and validates allocation/source IDs and scale', () => {
     const body = captureVoucherDraft(raw);
     expect(body.lines[0]?.line_key).toBe(key);

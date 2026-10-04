@@ -212,3 +212,16 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B06 recipes:** інтегровано для PR/CI. Frozen first approval UUID/body, exact retry після lost ACK, current-policy readonly comparison, local Apply/separate Save, immutable saved versions. Root review виправило inconsistent pagination, phone ingredient geometry та isolated harness lifecycle. Targeted unit/build/lint/PG2/native paging/layout PASS; author compatibility та незмінені API/concurrency/story/native докази звірено й перевикористано. [NATIVE-CONFLICT-RECOVERY.md](NATIVE-CONFLICT-RECOVERY.md).
 - **B06 voucher/payment:** independent review знайшло втрату першого intent після ambiguous retry4xx, semantic ACK binding, aggregate Decimal bounds і production UUID binding; comprehensive fix проходить повторне вузьке рев’ю. Monthly/template recovery, entity creation receipt та legacy creation identity ще не прийняті. Reload survival не заявляється поточними recovery пакетами.
 - Повний regression, deployment, production capacity, зовнішні інтеграції та виключений0.1 не виконані. Увесь GitHub-план не завершено.
+
+
+## Після прийняття #65 та окремого релізу · mainb7ee71d · 04.10.2026
+
+- **B06 recipes:** #65 MERGED; exacthead5ff7e36 frontend/server/PostgreSQL CI SUCCESS; canonical clone clean fast-forwardb7ee71d. Voucher/payment, template/monthly та entity creation boundaries лишаються наступними пакетами.
+- **Доручений реліз:** acceptedmain65 розгорнуто на VPS. Штатний backup/checksum/list, code rollback archive, міграції0003–0019 та exactSHA health успішні; readonly reconcile0, документи та financial/audit counts незмінні. Empty import queue перевірено перед окремо дозволеним worker startup; imports.available і всі три TSukenya services healthy. [SERVER-DEPLOYMENT.md](SERVER-DEPLOYMENT.md).
+- Це не production mutation regression, full local pass, capacity або offsite restore доказ. Backup0.1 лишається виключеним, решта GitHub-плану активна. Нові pending PR автоматично не розгортаються цим разовим дорученням.
+
+
+## Наступний B06 пакет · документи та оплати · 04.10.2026
+
+- Voucher/payment recovery інтегровано для PR/CI: frozen UUID/body, guarded readonly identity, strict semantic ACK, current-policy comparison, local Apply та окремий Save/Post. Root review виправило source-derived normalization і bound category caption160 без послаблення explicit IDs/quantity/headers. Unit9/PG3/build/lint/combined production Apply та actual receipt/category cases PASS; незмінені matching author API/story/native докази перевикористано. [VOUCHER-PAYMENT-CONFLICT-RECOVERY.md](VOUCHER-PAYMENT-CONFLICT-RECOVERY.md).
+- Template budget count та entity CREATE receipts отримано для незалежного рев'ю. Monthly recovery, legacy CREATE identity, reload survival та інші відкриті межі ще не завершені. Цей voucher пакет не розгорнуто на VPS; production лишається acceptedmain65. Full registry тільки dry-run,0.1 виключено.

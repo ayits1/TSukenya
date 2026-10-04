@@ -206,7 +206,7 @@ export function captureVoucherDraft(value: unknown): VoucherBody {
     if (p[key] !== undefined)
       body.payload[key] = text(
         p[key],
-        key === 'fiscal_ref' ? 160 : key === 'discount_reason' ? 300 : 100,
+        key === 'fiscal_ref' ? 160 : key === 'discount_reason' ? 300 : p.category_id ? 160 : 100,
       );
   if (body.payload.discount_reason)
     body.payload.discount_reason = String(body.payload.discount_reason).trim();
@@ -500,9 +500,33 @@ export function decodeVoucherAck(value: unknown, request: VoucherBody, id?: numb
   const r = object(value);
   if (r.request_key !== request.idempotency_key) return fail();
   const row = decodeVoucher(value, { kind: request.kind, ...(id ? { id } : {}) }, false);
+  const expected = structuredClone(request);
+  // A bound category caption is a current server snapshot, not the category identity.
+  if (expected.payload.category_id && expected.payload.category_id === row.payload.category_id)
+    expected.payload.category = row.payload.category;
+  if (
+    expected.reference &&
+    expected.reference === row.reference &&
+    ['receipt', 'sale', 'customer_return', 'supplier_return'].includes(expected.kind)
+  ) {
+    for (const line of expected.lines) {
+      const saved = row.lines.find((candidate) => candidate.line_key === line.line_key);
+      if (!saved || saved.product !== line.product || !saved.reference_line) return fail();
+      // The server resolves an omitted source only when this SKU has one source line.
+      // Explicit source IDs remain part of the strict comparison.
+      if (line.reference_line === null) line.reference_line = saved.reference_line;
+      if (['customer_return', 'supplier_return'].includes(expected.kind)) line.price = saved.price;
+      if (expected.kind === 'supplier_return') {
+        if (line.lot && line.lot !== saved.lot) return fail();
+        line.lot = saved.lot;
+        line.expiry = saved.expiry;
+      }
+    }
+  }
   if (
     row.status !== 'draft' ||
-    canonical(voucherProjection(voucherBodyFromRecord(r))) !== canonical(voucherProjection(request))
+    canonical(voucherProjection(voucherBodyFromRecord(r))) !==
+      canonical(voucherProjection(expected))
   )
     return fail();
   return row;
