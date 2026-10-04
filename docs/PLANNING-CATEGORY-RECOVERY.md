@@ -28,3 +28,28 @@ Native adapter `MonthlyBudgetCategories.mount(host,{categories,onSaved})` не �
 - Unit `planningCategory.test.ts`:3 PASS: semantic ACK, strict current/identity та independent name/active merge. Типи `tsc --noEmit` PASS.
 - Незмінені monthly formula/history/alias/cash/posting сценарії не повторювались. Широкого/full прогону немає.
 - Native/Storybook докази доповнюються після actual consumer integration; цей backend етап сам не оголошує UI пакет завершеним.
+
+## Завершення category consumer QA
+
+Actual consumer hook взято з робочого `app/monthly-budget.js` + `NativeMonthlyBudgetEditor` іншого агента `/tmp/tsukenya-monthly-budget-recovery-next` лише як QA dependency. Власні коміти цього пакета не включають його плановий controller/adapter/entry export; root інтегрує обидві доставки. Category dialog і його mount adapter — власний production source, не тестовий макет.
+
+Точні команди (з ізольованим Python):
+
+```sh
+npm run test --workspace frontend -- src/shared/native/planningCategory.test.ts
+npm run test:components --workspace frontend -- src/shared/native/PlanningCategory.stories.tsx
+npm exec --workspace frontend -- tsc --noEmit
+npm exec --workspace frontend -- eslint src/shared/native/planningCategory.ts src/shared/native/planningCategory.test.ts src/shared/native/PlanningCategory.stories.tsx src/native-conflict-entry.tsx
+npm run build --workspace frontend
+PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/planning-category-recovery-ui.cjs
+PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/planning-category-recovery-ui.cjs --scope-only
+PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/planning-category-recovery-ui.cjs --ack-repeat-only
+```
+
+Native primary PASS: реальний CREATE committed/lost ACK → стороннє редагування → exact409 з тим самим UUID/body попри нове порожнє ім’я → identity підтверджує лише ID → current GET503 → independent name/active comparison → keyboard Apply без PUT → окремий Save. Незбережений виторг `777.77` лишається у плані. Known PUT409 + скасований запізнілий GET не приймають baseline. Wrong semantic ACK відхилений.
+
+Scoped tail PASS: власник одного магазину створює shared category, план `555.55` збережений локально; current manager403 відмовляє Save, readonly current не стає writable baseline. ACK repeat tail PASS: старий meaningful malformed `{}` case перенесено на actual dialog; invalid newer input не блокує exact original success, одна стаття/один audit, confirmedID не підміняє revision.
+
+Артефакти: `/private/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-planning-category-proof/`: `report.json`, `scope-report.json`, `ack-repeat-report.json`, `category-comparison-1440.png`, `category-comparison-320.png`. Обидва PNG переглянуті; горизонтального обрізання немає, labels вибору≥44 px. Storybook2 PASS. Попередні два Storybook attempts не зібрали жодної історії через зовнішній symlink setup URL; після приватної копії залежностей виконані саме ці дві історії, не весь набір.
+
+`tests/monthly-budget-recovery-ui.cjs` змінено лише category block: assertions one record/audit/exact body збережені; решту monthly cases адаптує власник plan package. Дев’ять старих сімейств або повна регресія цим доказом не оголошуються виконаними. Physical deletion/creator/rollback/RR перевірені серверними цільовими тестами; реальна фізична роздруківка, screen reader та capacity не перевірялися.
