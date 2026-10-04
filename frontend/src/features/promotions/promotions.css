@@ -136,3 +136,97 @@
 .tk-promotion-check {
   overflow-wrap: anywhere;
 }
+
+/* The desktop Studio reserves a context slot in its single command row. */
+.tk-pricing-context-info {
+  position: relative;
+  flex: none;
+}
+.tk-pricing-context-info > summary {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--tk-muted);
+  font-size: 20px;
+  border-radius: 6px;
+}
+.tk-pricing-context-info > summary::-webkit-details-marker {
+  display: none;
+}
+.tk-pricing-context-info > summary:focus-visible {
+  outline: 3px solid var(--tk-focus);
+  outline-offset: -3px;
+}
+.tk-pricing-context-info[open] > .tk-help {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  width: min(320px, calc(100vw - 64px));
+  padding: 16px;
+  margin: 4px 0 0;
+  border: 1px solid var(--tk-line);
+  border-radius: 6px;
+  background: var(--tk-paper);
+  box-shadow: 0 8px 24px #20272c14;
+}
+@media (min-width: 1200px) and (min-height: 720px) {
+  body[data-layout='studio'] #react-labels {
+    position: relative;
+  }
+  body[data-layout='studio'] #react-labels > .tk-pricing-context--toolbar[data-blocked='false'] {
+    position: absolute;
+    z-index: 5;
+    top: 7px;
+    left: 8px;
+    width: 280px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    gap: 4px;
+    overflow: visible;
+    max-height: none;
+    background: transparent;
+  }
+  body[data-layout='studio']
+    #react-labels
+    > .tk-pricing-context--toolbar[data-blocked='false']
+    > .tk-field {
+    display: block;
+    flex: 1;
+    min-width: 0;
+  }
+  body[data-layout='studio']
+    #react-labels
+    > .tk-pricing-context--toolbar[data-blocked='false']
+    > .tk-field
+    > .tk-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  body[data-layout='studio']
+    #react-labels:has(> .tk-pricing-context--toolbar[data-blocked='false'])
+    .tk-studio-commandbar {
+    padding-left: 300px;
+    min-height: 58px;
+  }
+  body[data-layout='studio']
+    #react-labels:has(> .tk-pricing-context--toolbar[data-blocked='false'])
+    .tk-studio-save
+    > [role='status'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
