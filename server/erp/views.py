@@ -296,12 +296,20 @@ def entity_save(user,name,value):
     else:require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав.')
     model=allowed[name]
     obj=get(model,value['id'],'Запис') if value.get('id') else model()
+    # Read-directory scope also governs writes, using the actor refreshed after the ledger lock.
+    # Shared counterparties have no store identity and retain their existing global contract.
+    if name=='stores':
+        if obj.pk:scope(user,obj)
+        else:require(user.profile.store_id is None,'Нові магазини може створювати лише власник мережі.')
+    elif name in {'warehouses','accounts','employees'} and obj.pk:
+        scope(user,obj.store)
     if obj.pk:require_revision(obj,value.get('revision'))
     before = audit_snapshot('entity', obj) if obj.pk else None
     obj.name=str(value.get('name','')).strip()
     require(0<len(obj.name)<=160,'Вкажіть назву (до 160 символів).')
     if name in {'warehouses','accounts','employees'}:
         obj.store=get(Store,value.get('store'),'Магазин')
+        scope(user,obj.store)
         if obj.pk:
             require(obj.store_id==model.objects.get(pk=obj.pk).store_id,'Магазин існуючого запису змінити не можна.')
     if name in {'parties','accounts'}:
