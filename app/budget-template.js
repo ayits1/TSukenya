@@ -6,6 +6,7 @@
     opening = 0,
     registered = false,
     warm = false,
+    lastAuthorization = null,
     restoreSignal = null;
   const foundation = () => window.NativeDraftRecovery;
   const codec = () => window.NativeTemplatePersistence;
@@ -149,6 +150,11 @@
       return false;
     await request("GET", undefined, signal, undefined, session); // Current actor/RR scalar access; never adopts revision.
     if (signal.aborted) throw canceled();
+    lastAuthorization = {
+      id: codec().decodeTemplateState(p.baseline).recordId,
+      signal,
+      session,
+    };
     return true;
   }
   function register() {
@@ -168,7 +174,17 @@
       decode: codec().decodeTemplatePayload,
       authorize,
       restore: async (p, signal) => {
-        await open(codec().decodeTemplatePayload(p), signal);
+        const authorized = lastAuthorization;
+        if (
+          authorized?.signal !== signal ||
+          authorized.id !== codec().decodeTemplateState(p.baseline).recordId
+        )
+          throw canceled();
+        await open(
+          codec().decodeTemplatePayload(p),
+          signal,
+          authorized.session,
+        );
         if (!signal.aborted) restoreSignal = signal;
       },
       suspend: hide,
@@ -196,18 +212,26 @@
         warm = false;
         return;
       }
-      const pending = stored
+      if (!stored && !a.binding) {
+        a.retryOpen();
+        warm = false;
+        return;
+      }
+      let generation = a.generation;
+      const route = location.hash,
+        current = () =>
+          live(a) &&
+          generation === a.generation &&
+          route === location.hash &&
+          document.visibilityState !== "hidden",
+        pending = stored
           ? f.controller.verify(a.id)
-          : request("GET", undefined, undefined, () => live(a)),
-        generation = a.generation;
+          : request("GET", undefined, undefined, current, a.binding);
+      // verify() synchronously suspends the old view before its first await.
+      generation = a.generation;
       void pending
         .then((result) => {
-          if (
-            generation !== a.generation ||
-            !live(a) ||
-            document.visibilityState === "hidden"
-          )
-            return;
+          if (!current()) return;
           if (result) {
             if (!a.initialized) {
               a.retryOpen();
@@ -218,7 +242,7 @@
             a.closeDenied();
         })
         .catch((error) => {
-          if (!stored && live(a) && [401, 403].includes(error.status))
+          if (!stored && current() && [401, 403].includes(error.status))
             void f.controller
               .check(false)
               .then(() => {
@@ -230,10 +254,11 @@
     });
     registered = true;
   }
-  async function open(restored = null, externalSignal) {
+  async function open(restored = null, externalSignal, restoredSession) {
     register();
     if (!registered)
       throw Error("Модуль чернеток ще не готовий. Повторіть відкриття.");
+    if (restored && (!restoredSession || !externalSignal)) throw canceled();
     if (active?.d.open) {
       if (restored)
         throw Error("Спочатку закрийте поточний редактор кількості.");
@@ -274,6 +299,7 @@
       input,
       id: "template_" + key,
       p,
+      binding: restoredSession,
       hidden: true,
       generation: 0,
       guarding: true,
@@ -282,8 +308,12 @@
       closeDenied: () => d.close(),
       initialized: false,
       retryOpen: () => {
+        d.addEventListener(
+          "close",
+          () => void open().catch((error) => window.alert(error.message)),
+          { once: true },
+        );
         d.close();
-        void open().catch((error) => window.alert(error.message));
       },
     });
     const valid = (n) => Number.isSafeInteger(n) && n >= 1 && n <= 1000;
@@ -640,7 +670,9 @@
     sync();
     try {
       const requestId = sequence,
-        session = restored ? null : await foundation().controller.check(false);
+        session = restored
+          ? restoredSession
+          : await foundation().controller.check(false);
       if (
         externalSignal?.aborted ||
         openingId !== opening ||
@@ -648,6 +680,7 @@
         !live(a)
       )
         throw canceled();
+      a.binding = session;
       controller = new AbortController();
       const signal = externalSignal
         ? AbortSignal.any([controller.signal, externalSignal])
