@@ -5928,6 +5928,11 @@
             "type": "integer",
             "minimum": 0,
             "description": "Optional durable count of indexed catalogue paths, distinct from imported file row progress."
+          },
+          "worker": {
+            "$ref": "#/components/schemas/CatalogImportWorker",
+            "readOnly": true,
+            "description": "Present in GET detail/history. One shared snapshot per history page; control receipts may omit it."
           }
         },
         "description": "Creator-only durable job. Counts describe actual outcomes; planned is separate. No whole-file atomicity: worker commits batches separately. Old atomic receipts may have a technical journal creation time and null startedAt/finishedAt."
@@ -6369,6 +6374,37 @@
           "pages": {
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "CatalogImportWorker": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Technical process liveness, independent of private run progress. GET is read-only. Optional profile unavailable is not a web outage.",
+        "required": [
+          "status",
+          "lastSeen",
+          "staleAfterSeconds"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "stale",
+              "unavailable"
+            ]
+          },
+          "lastSeen": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "staleAfterSeconds": {
+            "type": "integer",
+            "const": 45
           }
         }
       }

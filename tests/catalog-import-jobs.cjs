@@ -5,6 +5,10 @@ const limits={maxRows:100000,uploadRows:200,workerRows:100,maxEntryBytes:16384,m
 const uuid='00000000-0000-4000-8000-000000000001',hex='a'.repeat(64),stamp='2026-10-04T09:00:00Z';
 const row={ordinal:1,line:2,status:'planned',action:'create',id:null,revision:null,currentRevision:null,values:{name:'Кава'},regularPrice:'10.00',salePrice:'10.00',error:null};
 const baseRun={id:uuid,mode:'chunked',fileName:'synthetic.csv',expectedRows:1001,uploadedRows:0,inputBytes:0,inputHash:null,sourceHash:hex,defaultMarkup:'30',genericAs:'cost',planRevision:null,status:'uploading',phase:'uploading',progress:{done:0,total:1001},counts:{created:0,updated:0,skipped:0,conflicted:0,failed:0,invalid:0,pending:1001},planned:{create:0,update:0,skip:0},canApply:false,canResume:false,canCancel:true,createdAt:stamp,updatedAt:stamp,startedAt:null,finishedAt:null,error:null,limits};
+const worker={status:'available',lastSeen:stamp,staleAfterSeconds:45};assert.equal(api.decodeWorker(worker).status,'available');
+for(const patch of [{status:['available']},{status:'secret'},{lastSeen:'SQL secret'},{lastSeen:null},{staleAfterSeconds:'45'}])assert.throws(()=>api.decodeWorker({...worker,...patch}));
+assert.equal(api.decodeRun({...baseRun,worker}).worker.status,'available');
+assert.throws(()=>api.decodeRun({...baseRun,worker:{...worker,status:'bad'}}));
 assert.equal(api.decodeRun(structuredClone(baseRun)).status,'uploading');assert.equal(api.decodeRow(row).line,2);
 assert.equal(api.decodeAck(baseRun,'cancel',{},uuid).id,uuid);for(const kind of ['cancel','resume'])assert.throws(()=>api.decodeAck({...baseRun,id:'00000000-0000-4000-8000-000000000002'},kind,{},uuid));
 for(const patch of [{status:['ready']},{counts:{...baseRun.counts,pending:'1001'}},{mode:['chunked']},{sourceHash:'bad'},{genericAs:['cost']},{progress:{done:2,total:1}},{canApply:1},{createdAt:'secret'}])assert.throws(()=>api.decodeRun({...baseRun,...patch}));

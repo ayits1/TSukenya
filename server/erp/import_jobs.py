@@ -191,7 +191,9 @@ def handle(request,user):
                 check(request.GET['mode'] in {'atomic','chunked'},'Некоректний режим.');query=query.filter(mode=request.GET['mode'])
             if 'status' in request.GET:
                 check(request.GET['status'] in STATUSES,'Некоректний стан.');query=query.filter(status=request.GET['status'])
-            return response(page(query,request.GET.get('page','1'),30,public))
+            from .service_health import import_worker_status
+            worker=import_worker_status()
+            return response(page(query,request.GET.get('page','1'),30,lambda run:{**public(run),'worker':worker}))
         if path==prefix+'/runs' and request.method=='POST':return response(create(user,import_body(request)))
         match=re.fullmatch(re.escape(prefix)+r'/runs/('+UUID_PATTERN+r')(?:/(rows|chunks|seal|apply|resume|cancel))?',path)
         if match:
@@ -199,7 +201,9 @@ def handle(request,user):
             if request.method=='GET' and action in {None,'rows','chunks'}:
                 run=get_run(user,identifier)
                 if action is None:
-                    check(not request.GET,'Невідомий фільтр імпорту.');return response(public(run))
+                    check(not request.GET,'Невідомий фільтр імпорту.')
+                    from .service_health import import_worker_status
+                    return response({**public(run),'worker':import_worker_status()})
                 if action=='chunks':
                     check(not(set(request.GET)-{'page'}),'Невідомий фільтр пакетів.')
                     return response(page(CatalogImportChunk.objects.filter(run=run).order_by('offset'),request.GET.get('page','1'),100,lambda item:item.receipt))

@@ -262,3 +262,7 @@ Backup: `backups/tsukenya-crm-20261003T024358Z.dump`; checksum і `pg_restore --
 Live readonly PASS: exact SHA256 compiled catalogue/labels/CSS/lazy output та `erp-finance.js`; реальний затриманий GET каталогу й Studio1440/320 підтвердив disabled старих категорій/пакування та відновлення після відповіді. Журнал320: original JSON/disclosure, Enter/Escape,44px/no overflow. Бюджет зі скриншота1440/768/390/320: читабельна «Оренда», окремі назва/сума, no page overflow; PNG1440/320 переглянуто. `writes=[]`, page errors=[], digest `/api/state.data` до/після незмінний; єдиний POST — вхід. Web/PG healthy, свій health200, сусідній HTTPS200.
 
 Артефакти: `/tmp/tsukenya-live-final-ui-results.json`, `/tmp/tsukenya-live-final-{products,tags}-{1440,320}.png`, `/tmp/tsukenya-live-final-audit-320.png`, `/tmp/tsukenya-live-final-budget-{1440,768,390,320}.png`. Фінальна звірка — [UI-UX-AUDIT-COMPLETION.md](UI-UX-AUDIT-COMPLETION.md); вузькі локальні докази — [FILTERS-AND-AUDIT-QA.md](FILTERS-AND-AUDIT-QA.md). Повна регресія не запускалась.
+
+## Керований worker імпорту (код, ще не розгорнуто)
+
+Opt-in profile `imports`, continuous runner, heartbeat та порядок окремого stop/update/restart worker описано в [CATALOG-IMPORT-WORKER.md](CATALOG-IMPORT-WORKER.md). `release.py` оновлює лише web; вже увімкнений worker слід окремо зупинити до релізу й перебудувати після migration/health. Цей запис не підтверджує запуск profile на VPS.
