@@ -42,6 +42,8 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 
 ## Позначення
 
+Оновлення після main95d42c0: **#53 MERGED**, exact-head frontend/server/PostgreSQL CI успішні; B21 operational worker/service й production capacity залишаються відкритими. Наступний B24 document-detail пакет інтегрований для PR/CI: bounded DTO aggregates/receipt lineage, independent parity/security/retry checks, PostgreSQL root3+agent6 та local1/5/10 posting evidence. [B24-DOCUMENT-POSTING.md](B24-DOCUMENT-POSTING.md). Це не закриває решту bootstrap/migration або release/full/0.1.
+
 - **C — завершено узгоджену реалізацію:** правило є в authoritative source, matching цільове покриття й опис результату існують. Явні implementation defaults не є новими рішеннями власника.
 - **I — незавершено:** частина вимоги реалізована; наведено конкретний залишок.
 - **M — відсутнє:** потрібної моделі/контракту/шляху немає.

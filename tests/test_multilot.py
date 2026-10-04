@@ -96,12 +96,13 @@ class MultilotTests(AccountingFixture):
         rows=self.rows()
         for row in rows: row['line_key']=str(uuid.uuid4())
         r=self.save(lines=rows,idempotency_key='stable-b11')
-        ids=list(r.lines.values_list('id',flat=True))
+        ids_by_key=dict(r.lines.values_list('line_key','id'))
+        ids=[ids_by_key[uuid.UUID(row['line_key'])] for row in rows]
         retry=self.save(lines=rows,idempotency_key='stable-b11')
         self.assertEqual(retry.pk,r.pk)
         body={'kind':'receipt','date':self.today,'store':self.store.pk,'warehouse':self.wh.pk,'party':self.party.pk,'lines':list(reversed(rows)), 'revision':r.revision}
         r=save_voucher(self.u,body,r.pk)
-        self.assertEqual(list(r.lines.values_list('id',flat=True)),ids)
+        self.assertEqual(dict(r.lines.values_list('line_key','id')),ids_by_key)
         body['lines']=rows[1:];body['revision']=r.revision
         r=save_voucher(self.u,body,r.pk)
         self.assertEqual(r.lines.get().pk,ids[1])

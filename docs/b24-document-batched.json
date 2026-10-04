@@ -1,0 +1,1887 @@
+{
+  "git_head": "f6689d0756cca390a646230a7ec60901a06ed025",
+  "accounting_baseline": "be48a4a",
+  "source_files_sha256": {
+    "server/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "server/auth.py": "b9da894df338866eb83d7ecaa61d78f693d820e3349ed836b0d7669f6f0d7fa0",
+    "server/erp/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "server/erp/alert_models.py": "72ec4befdabdca2cf747851ae56884b511a91f9987e3574bb9c836577cde3c1c",
+    "server/erp/alerts.py": "52358a61591b86a4a6a54b4d2f7050af0dd0d0a69e74a906edac832924b99b05",
+    "server/erp/apps.py": "6d7672a653e75df9b4c0b0921f6bf0bf4e7c00e72401974c56ad4fcc9e718c37",
+    "server/erp/assortment.py": "bf65dd806a7b2f162bdf48104d4402eb9a0767ba423f26b3f6feb6dc7cc335d5",
+    "server/erp/browsing.py": "1b75fa6d095420c3bf4412a49808eea7d69ac328c423317451939cc497980ae7",
+    "server/erp/budget.py": "323104aadea2d7af85c8f0742005daa2f59c2f9c2b6926f26fb1fad77366eb6e",
+    "server/erp/budget_models.py": "b8c45844a86fb0f608e83c3c9f9d35703e32e472a768cc27c26b09d123106e1b",
+    "server/erp/business_audit.py": "f3945ed399109180a5ff6f992041afa9d17110329182ef6f2ae88f5908a8807c",
+    "server/erp/catalog.py": "9e34baff08a349e0212fa922ea0af9ff72ab845f31fc54c43a0ebef02cfbb9e2",
+    "server/erp/catalog_access.py": "045a5ea21b73226302e8b9d41c36e489252d704ded2844951d86ca12630cf1fd",
+    "server/erp/catalog_import.py": "0c83cf143417e9261189b9652ced3534d7d3eb2d9d5c15e64801c7b900eb8ad7",
+    "server/erp/catalog_price_preview.py": "bbcc10ae6a1104edba8acfdc59c2e3222f597f9d1a5c41f8c7731d2af98352c0",
+    "server/erp/catalog_pricing.py": "e91700a77ae6f08a9ad23f8e2a8b2d0ef4fce9f88cac7c760c513b081f065be9",
+    "server/erp/catalog_reference_management.py": "db952268a9123557c16de1424a393a9eeb4597865abb19fda1287d866f1f1c1b",
+    "server/erp/catalog_references.py": "9dbd5f7f3463a7faf3837b1eb468d65471502d1454c7de87ca28f81717848c34",
+    "server/erp/csv_format.py": "a91a0bd7deff79d093705ba9e068bede1b63014ff91bef586b13066f0efb34e5",
+    "server/erp/customers.py": "f40dc1a7a5775cc7647eb7f5d68adbaaf54f6b737c0fede7d3689c00d8dd14a5",
+    "server/erp/financial_browsing.py": "b9d25342fddd001ba889dc85ad83a1f6f6cfc8c24aa25e0db3b61f9a69bee453",
+    "server/erp/financial_scope.py": "3c32dd91e2113c92da6a483315e8a66a6605184ab9a30a5e4c0c23f14cf1239a",
+    "server/erp/historical_reports.py": "347c317348784c0d2ef164f0d74c75debfbb046697b079ab081f668b03a305a9",
+    "server/erp/idea_models.py": "a63f94997a4288c2971b153c05d66e897e58133fa837984c4a7aa3d1aac79331",
+    "server/erp/initiatives.py": "f38c5accd89b8666b0b9a2a1c31ef49ad81a2c6ee62c9fe07e9fbea551d10318",
+    "server/erp/labels.py": "5be385567a2c957fa1debd04f54b6ec1e5ee766078d8e35d9e287f6ebf3040a8",
+    "server/erp/legacy_settings.py": "5bf0203f9cef00bbae45e272e9dbd110c1edd00e74ecc826a1ee7f382c10949f",
+    "server/erp/managed_alerts.py": "85f691674304510436393e84031fad2fd95aa64f5de9f66645daee6471b339f1",
+    "server/erp/management/commands/alerts.py": "597d54059ab7ab7041fdc5023b10af546d54ed8bef6372593ec4f67c6e8f0584",
+    "server/erp/management/commands/bootstrap.py": "527a72187313a05f6010463f1d7dd2aeae25145496cc4886542310e3ab5c471d",
+    "server/erp/management/commands/reconcile.py": "cb452311b2b6f402a2cfc1e7a00ddb9ca4a2fb85119767c56396efc8dccd4d70",
+    "server/erp/management/commands/seed_catalog_references.py": "e0584f61d9ffea49b3cdf7ddddb6935e0ab06737448f733d7865e91800c05429",
+    "server/erp/middleware.py": "720a8119cebfe69ecdf371b5afe18f969d77de090d73264d3a9850ff8409f247",
+    "server/erp/migrations/0001_initial.py": "0968458637537f9ba5453962bf720ccb928e73b491fa6b8bafe61ca2dd5c40a6",
+    "server/erp/migrations/0002_loginthrottle_alter_voucher_kind.py": "15645b9e8244c9cb42827d44f2ba1126fd71c684c779fb78a8fbea93e7c3fd8d",
+    "server/erp/migrations/0003_voucher_cash_difference.py": "948a2c6523bbd3609354cdd0b13cfed9e9cb40e2f94bcc80f18797171eea08f3",
+    "server/erp/migrations/0004_voucher_revision.py": "27bcc243c02f2e63a853d37191a5845fac39f6beef567ff442872241c2c5e723",
+    "server/erp/migrations/0005_assortment.py": "91175a8ad81d9417cdd6992bd323e61789df135338014da3397c6881d3c8b77a",
+    "server/erp/migrations/0006_legacy_create_receipt.py": "19d35f157a40ebfe4b6f9738a8e565d41dab45078219266d8db36b7f573df2e5",
+    "server/erp/migrations/0007_multilot_lines.py": "6e28ba38082fe64cf2e015f590056582393550421bc97d4c9c79441385040cc6",
+    "server/erp/migrations/0008_promotion_campaigns.py": "00bd16ad83c36f288bc6d8c2e18bd7551e756b7ce792695a5581550ef42ecfa5",
+    "server/erp/migrations/0009_payment_allocations.py": "63a16dfbe0ce2ba9ee855c8abe322f76a0f1c00cdc895ae8caf34264c846b54e",
+    "server/erp/migrations/0010_monthly_budgets.py": "7c37027f88c1c958bc5650597fbf50614e2e6a53d0c9459e3542c099206169ce",
+    "server/erp/migrations/0011_order_reservations.py": "a30187c3c056baa6cb331df0d8fa2a06fa4d58b86f11c2a8c545bffd618a7787",
+    "server/erp/migrations/0012_recipe_versions.py": "e8e6f18b08c17cac2bfa4dc29673742c9629d69c076ff85f2ad91fa1b028ccda",
+    "server/erp/migrations/0013_idea_projects.py": "9ed3873598ff96b4845298e25177b0dc1f53021e1028957ca2a68219d40c0186",
+    "server/erp/migrations/0014_managed_alerts.py": "356170a17cc363727f4a2b1041b069bb58ff6debb7ebe32f49bc885b5582be32",
+    "server/erp/migrations/0015_state_versions.py": "6d93ddbf958209987dc976ffad1cf0f934f60ef815ef510720b01134bcbe7a32",
+    "server/erp/migrations/0016_multiple_daily_work_shifts.py": "0ad82fe4fc5fdd294bfa12f7787dac2f50186c59016054a1baec2d35e4f144cb",
+    "server/erp/migrations/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "server/erp/models.py": "b2a1db2f9dfdd829b36df42613087bb96de5f0818a8f6d5dd25a3300f9372503",
+    "server/erp/monthly_budgets.py": "3d30747af3b2c9685f89834c253a1320ef92e1ab41c72441890512ed819369be",
+    "server/erp/order_models.py": "565bece8004ba7e126e7ea5b6142aab25c972d77aae811be796acdbf2e624556",
+    "server/erp/orders.py": "8ef4755b24c691a16265264f0861d3646db57ae80244ca6e8a077d8953119618",
+    "server/erp/party_finance.py": "83b6fbfd6266aa4ba2ed42507c688829319003b86d611fbae416b971fa98a69e",
+    "server/erp/payroll_chronology.py": "be38b67c857c6a71030ae6e43139ce1eb5dd399a3f84eb0909204d7d12680289",
+    "server/erp/production.py": "2e32f7e6856ceba31547b8e4819da89729d66a31c4dfe1ba6dae52d1857e8260",
+    "server/erp/production_models.py": "8e63cb4cfb9b9841c1361cac0bfba4bd222e6438b0914a15e2d6664ec94b64f2",
+    "server/erp/promotion_history.py": "84db3389d265856063554c78fb8a149eadbb0411536405bf14431c2fccf7d6ec",
+    "server/erp/promotion_models.py": "151644307518a64c21a9867b91ac67fa5b4e234306f4bb6e43ec18439606e4c2",
+    "server/erp/promotion_prices.py": "7cc23bfe5f799199e0a60ec941d4f3b5d487a175cd4f6f3a181ad225b2af83bd",
+    "server/erp/promotions.py": "dcc4694d61b6487149ea54d2bd3b4e045c02eff503efac4e30fadea07f21c84d",
+    "server/erp/recipes_versions.py": "8c16cd7e753c04490807b8af316c57fc4fbc10f1ec13051b8ac9d009fc52830d",
+    "server/erp/reconcile.py": "1c535a3223ee526db4c78061a41d6dd88f8baa4fb74d417e5f9af4e092265990",
+    "server/erp/replenishment.py": "4fee59276ddbc7ba165196f077a72cb4fbe8ff5e96dd1702ddb607eda9a74a08",
+    "server/erp/report_contributions.py": "544a4b81ae47866a6cf00dd230a2fcb88518533dae21870bf7eea9a56114eeca",
+    "server/erp/report_drilldown.py": "f9ac6ec75799859046e3fe59b7e04cb9d1fe9dc58146ab02237c9068d3be5f78",
+    "server/erp/reporting.py": "210b486e1847c6cc6acc7a35e91d0d0078a7d82a3997caf049efeff6961affc6",
+    "server/erp/reservations.py": "50bfe0ab849f878cb487866ae9591aeec44615c346975b00bc86a644c3bbcc66",
+    "server/erp/services.py": "23b928495e49e0f4d547292df2c37b01efabc0806587e74646f022f08cefe7a2",
+    "server/erp/settlements.py": "8a1c9dd09a8951cbddc285e52da69badeb9de99efd45083f9afb3d9ae9d1209d",
+    "server/erp/shift_browsing.py": "6caa945f02efdced4b2f0459463615f7354366d6828dc483af8410bc8b9e3f2f",
+    "server/erp/state_polling.py": "747a9081014b43fbf6a20e13a3aeb6319e4050d60067481bc40b6e1a83b50948",
+    "server/erp/state_version_models.py": "c58ffdf44c8973d1033360e69a705b37c5edf6b7484371cfa5c096f624261820",
+    "server/erp/state_version_sql.py": "432849e31ae83904104ac921cda96fffd6ce860abb26f06d7bed30556f14bc74",
+    "server/erp/state_version_sqlite.py": "ae4248f627a13999054a36e951c4e88fbd9daba54f5c6e0fa8e8c58d7415b526",
+    "server/erp/task_scope.py": "5a5a527e24aedf60d849cb2cb50166e31dd5384c19f3656868982c7e8092473f",
+    "server/erp/views.py": "34917f5189ecdce7a0aa6cfc0ea839ba2e56bb30e1cdfdc1850121300d145d41",
+    "server/main.py": "2504b79f8387b63aa3caa74e36887dd61ca9a14b590fe0605abbe8c71ceec3a0",
+    "server/settings.py": "36ab624ac53bda085b083f18139e96ed56e01d40afd9d77888fc3ee1a1f451f5",
+    "server/urls.py": "fadda1be1a77cb7b4bd21d45d06c93c1f5fd5571b37d3a6bbba4908f8e37badb",
+    "server/wsgi.py": "74bc5828521fc9f5e1a4a5a3317d3809447f60c5f7fdf033f014ba94651d4c2c",
+    "scripts/benchmark_voucher_posting.py": "f72575315ee0e9ccd5f85ea7d0c1870a12772904d127aaf06c914d5e788a0a7e"
+  },
+  "python": "3.14.7",
+  "django": "5.2.17",
+  "postgres_version": 180006,
+  "qa_database": "qa_tsukenya_b24_document_16ce0e49740d",
+  "method": "Real Django Client HTTP middleware/handlers in one process, persistent thread-local PG connections, no browser/Gunicorn/Caddy/external network. Actual seeded receipt/sale services. Shared server quiet window coordinated.",
+  "detail_samples": 5,
+  "posting_lines": 30,
+  "detail": [
+    {
+      "kind": "receipt",
+      "role": "owner",
+      "lines": 1,
+      "summary": {
+        "samples": 5,
+        "statuses": [
+          200
+        ],
+        "queries": [
+          10
+        ],
+        "bytes": [
+          1160
+        ],
+        "elapsed_ms": {
+          "median": 6.811,
+          "p95": 7.106,
+          "max": 7.106
+        },
+        "sql_ms": {
+          "median": 4.483,
+          "p95": 4.936,
+          "max": 4.936
+        },
+        "service_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "outside_service_ms": {
+          "median": 6.811,
+          "p95": 7.106,
+          "max": 7.106
+        },
+        "ledger_select_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "service_less_ledger_select_ms": {
+          "median": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "observed_lock_wait_requests": 0,
+        "lock_wait_samples": 0,
+        "tables": {
+          "erp_profile": 1,
+          "erp_portalsession": 1,
+          "auth_user": 2,
+          "erp_voucher": 4,
+          "erp_store": 1,
+          "erp_paymentallocation": 1,
+          "erp_voucherline": 2,
+          "erp_stocklot": 1,
+          "erp_stockentry": 1,
+          "erp_cashentry": 1
+        }
+      },
+      "raw": [
+        {
+          "queries": 10,
+          "sql_ms": 3.4101679921150208,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 5.651625004247762,
+          "status": 200,
+          "bytes": 1160,
+          "outside_service_ms": 5.651625004247762,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "74dd42054093704d6cce10359e6e2f1f33c473bbe486266e1f76f45bb431518f"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 3.262789992731996,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 5.468999996082857,
+          "status": 200,
+          "bytes": 1160,
+          "outside_service_ms": 5.468999996082857,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "74dd42054093704d6cce10359e6e2f1f33c473bbe486266e1f76f45bb431518f"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.768041995703243,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 6.9524999998975545,
+          "status": 200,
+          "bytes": 1160,
+          "outside_service_ms": 6.9524999998975545,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "74dd42054093704d6cce10359e6e2f1f33c473bbe486266e1f76f45bb431518f"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.482748001464643,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 6.811083003412932,
+          "status": 200,
+          "bytes": 1160,
+          "outside_service_ms": 6.811083003412932,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "74dd42054093704d6cce10359e6e2f1f33c473bbe486266e1f76f45bb431518f"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.935794000630267,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 7.1060830014175735,
+          "status": 200,
+          "bytes": 1160,
+          "outside_service_ms": 7.1060830014175735,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "74dd42054093704d6cce10359e6e2f1f33c473bbe486266e1f76f45bb431518f"
+        }
+      ]
+    },
+    {
+      "kind": "sale",
+      "role": "owner",
+      "lines": 1,
+      "summary": {
+        "samples": 5,
+        "statuses": [
+          200
+        ],
+        "queries": [
+          10
+        ],
+        "bytes": [
+          1455
+        ],
+        "elapsed_ms": {
+          "median": 6.997,
+          "p95": 8.696,
+          "max": 8.696
+        },
+        "sql_ms": {
+          "median": 4.588,
+          "p95": 6.337,
+          "max": 6.337
+        },
+        "service_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "outside_service_ms": {
+          "median": 6.997,
+          "p95": 8.696,
+          "max": 8.696
+        },
+        "ledger_select_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "service_less_ledger_select_ms": {
+          "median": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "observed_lock_wait_requests": 0,
+        "lock_wait_samples": 0,
+        "tables": {
+          "erp_profile": 1,
+          "erp_portalsession": 1,
+          "auth_user": 2,
+          "erp_voucher": 4,
+          "erp_store": 1,
+          "erp_paymentallocation": 1,
+          "erp_voucherline": 2,
+          "erp_stocklot": 1,
+          "erp_stockentry": 1,
+          "erp_cashentry": 1
+        }
+      },
+      "raw": [
+        {
+          "queries": 10,
+          "sql_ms": 4.694834002293646,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 6.949499998881947,
+          "status": 200,
+          "bytes": 1455,
+          "outside_service_ms": 6.949499998881947,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "89281e8ee853d8b29f500c6736d5f1070ca6fbe59c473818c385fd672f2a60a9"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.21341599576408,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 6.487749997177161,
+          "status": 200,
+          "bytes": 1455,
+          "outside_service_ms": 6.487749997177161,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "89281e8ee853d8b29f500c6736d5f1070ca6fbe59c473818c385fd672f2a60a9"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.47337499645073,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 6.997458003752399,
+          "status": 200,
+          "bytes": 1455,
+          "outside_service_ms": 6.997458003752399,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "89281e8ee853d8b29f500c6736d5f1070ca6fbe59c473818c385fd672f2a60a9"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.588083997077774,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 7.324291000259109,
+          "status": 200,
+          "bytes": 1455,
+          "outside_service_ms": 7.324291000259109,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "89281e8ee853d8b29f500c6736d5f1070ca6fbe59c473818c385fd672f2a60a9"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 6.337374994473066,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 8.696125005371869,
+          "status": 200,
+          "bytes": 1455,
+          "outside_service_ms": 8.696125005371869,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "89281e8ee853d8b29f500c6736d5f1070ca6fbe59c473818c385fd672f2a60a9"
+        }
+      ]
+    },
+    {
+      "kind": "sale",
+      "role": "cashier",
+      "lines": 1,
+      "summary": {
+        "samples": 5,
+        "statuses": [
+          200
+        ],
+        "queries": [
+          10
+        ],
+        "bytes": [
+          1402
+        ],
+        "elapsed_ms": {
+          "median": 5.785,
+          "p95": 6.196,
+          "max": 6.196
+        },
+        "sql_ms": {
+          "median": 3.493,
+          "p95": 3.909,
+          "max": 3.909
+        },
+        "service_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "outside_service_ms": {
+          "median": 5.785,
+          "p95": 6.196,
+          "max": 6.196
+        },
+        "ledger_select_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "service_less_ledger_select_ms": {
+          "median": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "observed_lock_wait_requests": 0,
+        "lock_wait_samples": 0,
+        "tables": {
+          "erp_profile": 1,
+          "erp_portalsession": 1,
+          "auth_user": 2,
+          "erp_voucher": 4,
+          "erp_store": 1,
+          "erp_paymentallocation": 1,
+          "erp_voucherline": 2,
+          "erp_stocklot": 1,
+          "erp_stockentry": 1,
+          "erp_cashentry": 1
+        }
+      },
+      "raw": [
+        {
+          "queries": 10,
+          "sql_ms": 3.378166009497363,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 5.5923749969224446,
+          "status": 200,
+          "bytes": 1402,
+          "outside_service_ms": 5.5923749969224446,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "75bc285d2743c1b9c75aac57b9ff2fc1b58b540d8713b0031858ced07093053a"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 3.327539991005324,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 5.530334005015902,
+          "status": 200,
+          "bytes": 1402,
+          "outside_service_ms": 5.530334005015902,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "75bc285d2743c1b9c75aac57b9ff2fc1b58b540d8713b0031858ced07093053a"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 3.49345901486231,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 5.784667002444621,
+          "status": 200,
+          "bytes": 1402,
+          "outside_service_ms": 5.784667002444621,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "75bc285d2743c1b9c75aac57b9ff2fc1b58b540d8713b0031858ced07093053a"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 3.7882099859416485,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 6.19583300431259,
+          "status": 200,
+          "bytes": 1402,
+          "outside_service_ms": 6.19583300431259,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "75bc285d2743c1b9c75aac57b9ff2fc1b58b540d8713b0031858ced07093053a"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 3.90870599221671,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 6.144209000922274,
+          "status": 200,
+          "bytes": 1402,
+          "outside_service_ms": 6.144209000922274,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "75bc285d2743c1b9c75aac57b9ff2fc1b58b540d8713b0031858ced07093053a"
+        }
+      ]
+    },
+    {
+      "kind": "receipt",
+      "role": "owner",
+      "lines": 30,
+      "summary": {
+        "samples": 5,
+        "statuses": [
+          200
+        ],
+        "queries": [
+          10
+        ],
+        "bytes": [
+          15314
+        ],
+        "elapsed_ms": {
+          "median": 11.852,
+          "p95": 14.235,
+          "max": 14.235
+        },
+        "sql_ms": {
+          "median": 5.064,
+          "p95": 6.81,
+          "max": 6.81
+        },
+        "service_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "outside_service_ms": {
+          "median": 11.852,
+          "p95": 14.235,
+          "max": 14.235
+        },
+        "ledger_select_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "service_less_ledger_select_ms": {
+          "median": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "observed_lock_wait_requests": 0,
+        "lock_wait_samples": 0,
+        "tables": {
+          "erp_profile": 1,
+          "erp_portalsession": 1,
+          "auth_user": 2,
+          "erp_voucher": 4,
+          "erp_store": 1,
+          "erp_paymentallocation": 1,
+          "erp_voucherline": 2,
+          "erp_stocklot": 1,
+          "erp_stockentry": 1,
+          "erp_cashentry": 1
+        }
+      },
+      "raw": [
+        {
+          "queries": 10,
+          "sql_ms": 6.809957005316392,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 14.235208996979054,
+          "status": 200,
+          "bytes": 15314,
+          "outside_service_ms": 14.235208996979054,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "24c0ad48e34e8d1c9ccb50eea46284f38226388cc3307cdbc6e25738569266d2"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 5.0642909918678924,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 13.839833001838997,
+          "status": 200,
+          "bytes": 15314,
+          "outside_service_ms": 13.839833001838997,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "24c0ad48e34e8d1c9ccb50eea46284f38226388cc3307cdbc6e25738569266d2"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 5.597667004622053,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 11.85191699914867,
+          "status": 200,
+          "bytes": 15314,
+          "outside_service_ms": 11.85191699914867,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "24c0ad48e34e8d1c9ccb50eea46284f38226388cc3307cdbc6e25738569266d2"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.263877002813388,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 10.62458300293656,
+          "status": 200,
+          "bytes": 15314,
+          "outside_service_ms": 10.62458300293656,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "24c0ad48e34e8d1c9ccb50eea46284f38226388cc3307cdbc6e25738569266d2"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 3.8090020025265403,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 9.773707999556791,
+          "status": 200,
+          "bytes": 15314,
+          "outside_service_ms": 9.773707999556791,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "24c0ad48e34e8d1c9ccb50eea46284f38226388cc3307cdbc6e25738569266d2"
+        }
+      ]
+    },
+    {
+      "kind": "sale",
+      "role": "owner",
+      "lines": 30,
+      "summary": {
+        "samples": 5,
+        "statuses": [
+          200
+        ],
+        "queries": [
+          10
+        ],
+        "bytes": [
+          19519
+        ],
+        "elapsed_ms": {
+          "median": 12.084,
+          "p95": 13.116,
+          "max": 13.116
+        },
+        "sql_ms": {
+          "median": 4.802,
+          "p95": 5.835,
+          "max": 5.835
+        },
+        "service_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "outside_service_ms": {
+          "median": 12.084,
+          "p95": 13.116,
+          "max": 13.116
+        },
+        "ledger_select_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "service_less_ledger_select_ms": {
+          "median": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "observed_lock_wait_requests": 0,
+        "lock_wait_samples": 0,
+        "tables": {
+          "erp_profile": 1,
+          "erp_portalsession": 1,
+          "auth_user": 2,
+          "erp_voucher": 4,
+          "erp_store": 1,
+          "erp_paymentallocation": 1,
+          "erp_voucherline": 2,
+          "erp_stocklot": 1,
+          "erp_stockentry": 1,
+          "erp_cashentry": 1
+        }
+      },
+      "raw": [
+        {
+          "queries": 10,
+          "sql_ms": 3.7367080003605224,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 9.667915997852106,
+          "status": 200,
+          "bytes": 19519,
+          "outside_service_ms": 9.667915997852106,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "7faec76eaa4d309b99aed91fcb577c439e03d50900f14f7ac22846ae1c1ba447"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 5.835086005390622,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 12.676708996878006,
+          "status": 200,
+          "bytes": 19519,
+          "outside_service_ms": 12.676708996878006,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "7faec76eaa4d309b99aed91fcb577c439e03d50900f14f7ac22846ae1c1ba447"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 5.0567090074764565,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 12.08358300209511,
+          "status": 200,
+          "bytes": 19519,
+          "outside_service_ms": 12.08358300209511,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "7faec76eaa4d309b99aed91fcb577c439e03d50900f14f7ac22846ae1c1ba447"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.407291999086738,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 11.97912500356324,
+          "status": 200,
+          "bytes": 19519,
+          "outside_service_ms": 11.97912500356324,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "7faec76eaa4d309b99aed91fcb577c439e03d50900f14f7ac22846ae1c1ba447"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.8017090011853725,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 13.115583002218045,
+          "status": 200,
+          "bytes": 19519,
+          "outside_service_ms": 13.115583002218045,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "7faec76eaa4d309b99aed91fcb577c439e03d50900f14f7ac22846ae1c1ba447"
+        }
+      ]
+    },
+    {
+      "kind": "sale",
+      "role": "cashier",
+      "lines": 30,
+      "summary": {
+        "samples": 5,
+        "statuses": [
+          200
+        ],
+        "queries": [
+          10
+        ],
+        "bytes": [
+          18421
+        ],
+        "elapsed_ms": {
+          "median": 12.143,
+          "p95": 13.774,
+          "max": 13.774
+        },
+        "sql_ms": {
+          "median": 4.117,
+          "p95": 6.427,
+          "max": 6.427
+        },
+        "service_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "outside_service_ms": {
+          "median": 12.143,
+          "p95": 13.774,
+          "max": 13.774
+        },
+        "ledger_select_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "service_less_ledger_select_ms": {
+          "median": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "observed_lock_wait_requests": 0,
+        "lock_wait_samples": 0,
+        "tables": {
+          "erp_profile": 1,
+          "erp_portalsession": 1,
+          "auth_user": 2,
+          "erp_voucher": 4,
+          "erp_store": 1,
+          "erp_paymentallocation": 1,
+          "erp_voucherline": 2,
+          "erp_stocklot": 1,
+          "erp_stockentry": 1,
+          "erp_cashentry": 1
+        }
+      },
+      "raw": [
+        {
+          "queries": 10,
+          "sql_ms": 4.1169580072164536,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 11.993665997579228,
+          "status": 200,
+          "bytes": 18421,
+          "outside_service_ms": 11.993665997579228,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "570a2c12012b087ce88bb8de0a8c5b2d75e9b0a2b8b3f18deb4c816eede94000"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 4.034123005112633,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 10.198959003901109,
+          "status": 200,
+          "bytes": 18421,
+          "outside_service_ms": 10.198959003901109,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "570a2c12012b087ce88bb8de0a8c5b2d75e9b0a2b8b3f18deb4c816eede94000"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 5.356876012228895,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 12.142750005295966,
+          "status": 200,
+          "bytes": 18421,
+          "outside_service_ms": 12.142750005295966,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "570a2c12012b087ce88bb8de0a8c5b2d75e9b0a2b8b3f18deb4c816eede94000"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 6.427459004044067,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 13.773708997177891,
+          "status": 200,
+          "bytes": 18421,
+          "outside_service_ms": 13.773708997177891,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "570a2c12012b087ce88bb8de0a8c5b2d75e9b0a2b8b3f18deb4c816eede94000"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 3.90566598798614,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 13.32962499873247,
+          "status": 200,
+          "bytes": 18421,
+          "outside_service_ms": 13.32962499873247,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "570a2c12012b087ce88bb8de0a8c5b2d75e9b0a2b8b3f18deb4c816eede94000"
+        }
+      ]
+    },
+    {
+      "kind": "receipt",
+      "role": "owner",
+      "lines": 100,
+      "summary": {
+        "samples": 5,
+        "statuses": [
+          200
+        ],
+        "queries": [
+          10
+        ],
+        "bytes": [
+          49687
+        ],
+        "elapsed_ms": {
+          "median": 16.952,
+          "p95": 17.589,
+          "max": 17.589
+        },
+        "sql_ms": {
+          "median": 7.292,
+          "p95": 8.147,
+          "max": 8.147
+        },
+        "service_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "outside_service_ms": {
+          "median": 16.952,
+          "p95": 17.589,
+          "max": 17.589
+        },
+        "ledger_select_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "service_less_ledger_select_ms": {
+          "median": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "observed_lock_wait_requests": 0,
+        "lock_wait_samples": 0,
+        "tables": {
+          "erp_profile": 1,
+          "erp_portalsession": 1,
+          "auth_user": 2,
+          "erp_voucher": 4,
+          "erp_store": 1,
+          "erp_paymentallocation": 1,
+          "erp_voucherline": 2,
+          "erp_stocklot": 1,
+          "erp_stockentry": 1,
+          "erp_cashentry": 1
+        }
+      },
+      "raw": [
+        {
+          "queries": 10,
+          "sql_ms": 6.647041016549338,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 16.598249996604864,
+          "status": 200,
+          "bytes": 49687,
+          "outside_service_ms": 16.598249996604864,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "76ceefc546831b38ec9e3ad798d2cbc827f0346cb844f27d05d40d6676500024"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 7.292249989404809,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 17.58887500182027,
+          "status": 200,
+          "bytes": 49687,
+          "outside_service_ms": 17.58887500182027,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "76ceefc546831b38ec9e3ad798d2cbc827f0346cb844f27d05d40d6676500024"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 7.810916984453797,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 17.211792001035064,
+          "status": 200,
+          "bytes": 49687,
+          "outside_service_ms": 17.211792001035064,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "76ceefc546831b38ec9e3ad798d2cbc827f0346cb844f27d05d40d6676500024"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 7.263958999828901,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 16.95162499527214,
+          "status": 200,
+          "bytes": 49687,
+          "outside_service_ms": 16.95162499527214,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "76ceefc546831b38ec9e3ad798d2cbc827f0346cb844f27d05d40d6676500024"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 8.147039006871637,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 14.117458995315246,
+          "status": 200,
+          "bytes": 49687,
+          "outside_service_ms": 14.117458995315246,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "76ceefc546831b38ec9e3ad798d2cbc827f0346cb844f27d05d40d6676500024"
+        }
+      ]
+    },
+    {
+      "kind": "sale",
+      "role": "owner",
+      "lines": 100,
+      "summary": {
+        "samples": 5,
+        "statuses": [
+          200
+        ],
+        "queries": [
+          10
+        ],
+        "bytes": [
+          63333
+        ],
+        "elapsed_ms": {
+          "median": 16.253,
+          "p95": 17.345,
+          "max": 17.345
+        },
+        "sql_ms": {
+          "median": 6.853,
+          "p95": 8.863,
+          "max": 8.863
+        },
+        "service_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "outside_service_ms": {
+          "median": 16.253,
+          "p95": 17.345,
+          "max": 17.345
+        },
+        "ledger_select_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "service_less_ledger_select_ms": {
+          "median": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "observed_lock_wait_requests": 0,
+        "lock_wait_samples": 0,
+        "tables": {
+          "erp_profile": 1,
+          "erp_portalsession": 1,
+          "auth_user": 2,
+          "erp_voucher": 4,
+          "erp_store": 1,
+          "erp_paymentallocation": 1,
+          "erp_voucherline": 2,
+          "erp_stocklot": 1,
+          "erp_stockentry": 1,
+          "erp_cashentry": 1
+        }
+      },
+      "raw": [
+        {
+          "queries": 10,
+          "sql_ms": 6.4574999996693805,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 14.215208997484297,
+          "status": 200,
+          "bytes": 63333,
+          "outside_service_ms": 14.215208997484297,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "8e45945e6b3a4055ca0d0290fb7d3646da6a0ab1cef26a520fd6d61ac9c74b29"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 8.071416981692892,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 13.284291999298148,
+          "status": 200,
+          "bytes": 63333,
+          "outside_service_ms": 13.284291999298148,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "8e45945e6b3a4055ca0d0290fb7d3646da6a0ab1cef26a520fd6d61ac9c74b29"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 6.617042003199458,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 16.343833995051682,
+          "status": 200,
+          "bytes": 63333,
+          "outside_service_ms": 16.343833995051682,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "8e45945e6b3a4055ca0d0290fb7d3646da6a0ab1cef26a520fd6d61ac9c74b29"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 8.86295699456241,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 17.344500003673602,
+          "status": 200,
+          "bytes": 63333,
+          "outside_service_ms": 17.344500003673602,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "8e45945e6b3a4055ca0d0290fb7d3646da6a0ab1cef26a520fd6d61ac9c74b29"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 6.852999002148863,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 16.252667002845556,
+          "status": 200,
+          "bytes": 63333,
+          "outside_service_ms": 16.252667002845556,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "8e45945e6b3a4055ca0d0290fb7d3646da6a0ab1cef26a520fd6d61ac9c74b29"
+        }
+      ]
+    },
+    {
+      "kind": "sale",
+      "role": "cashier",
+      "lines": 100,
+      "summary": {
+        "samples": 5,
+        "statuses": [
+          200
+        ],
+        "queries": [
+          10
+        ],
+        "bytes": [
+          59714
+        ],
+        "elapsed_ms": {
+          "median": 15.586,
+          "p95": 16.299,
+          "max": 16.299
+        },
+        "sql_ms": {
+          "median": 6.701,
+          "p95": 9.238,
+          "max": 9.238
+        },
+        "service_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "outside_service_ms": {
+          "median": 15.586,
+          "p95": 16.299,
+          "max": 16.299
+        },
+        "ledger_select_ms": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 0.0
+        },
+        "service_less_ledger_select_ms": {
+          "median": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "observed_lock_wait_requests": 0,
+        "lock_wait_samples": 0,
+        "tables": {
+          "erp_profile": 1,
+          "erp_portalsession": 1,
+          "auth_user": 2,
+          "erp_voucher": 4,
+          "erp_store": 1,
+          "erp_paymentallocation": 1,
+          "erp_voucherline": 2,
+          "erp_stocklot": 1,
+          "erp_stockentry": 1,
+          "erp_cashentry": 1
+        }
+      },
+      "raw": [
+        {
+          "queries": 10,
+          "sql_ms": 6.526914003188722,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 16.252667002845556,
+          "status": 200,
+          "bytes": 59714,
+          "outside_service_ms": 16.252667002845556,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "4e97cff2ce295048b717916234b132a4fd53fc7324a9afea713cba4568fdafd4"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 6.4699990034569055,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 15.585708999424241,
+          "status": 200,
+          "bytes": 59714,
+          "outside_service_ms": 15.585708999424241,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "4e97cff2ce295048b717916234b132a4fd53fc7324a9afea713cba4568fdafd4"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 6.703083992761094,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 16.29862499976298,
+          "status": 200,
+          "bytes": 59714,
+          "outside_service_ms": 16.29862499976298,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "4e97cff2ce295048b717916234b132a4fd53fc7324a9afea713cba4568fdafd4"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 6.700915000692476,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 14.89574999868637,
+          "status": 200,
+          "bytes": 59714,
+          "outside_service_ms": 14.89574999868637,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "4e97cff2ce295048b717916234b132a4fd53fc7324a9afea713cba4568fdafd4"
+        },
+        {
+          "queries": 10,
+          "sql_ms": 9.237750993634108,
+          "service_ms": 0.0,
+          "ledger_select_ms": 0.0,
+          "ledger_selects": 0,
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_store": 1,
+            "erp_paymentallocation": 1,
+            "erp_voucherline": 2,
+            "erp_stocklot": 1,
+            "erp_stockentry": 1,
+            "erp_cashentry": 1
+          },
+          "lock_wait_samples": 0,
+          "elapsed_ms": 13.836750003974885,
+          "status": 200,
+          "bytes": 59714,
+          "outside_service_ms": 13.836750003974885,
+          "service_less_ledger_select_ms": 0,
+          "sampled_lock_span_ms": null,
+          "dto_sha256": "4e97cff2ce295048b717916234b132a4fd53fc7324a9afea713cba4568fdafd4"
+        }
+      ]
+    }
+  ],
+  "concurrency": [],
+  "invariants": {
+    "unique_created_documents": true,
+    "exact_retry_no_extra_lines_movements_audit": true,
+    "same_posted_at_and_line_dto": true,
+    "cashier_redaction": true
+  }
+}
