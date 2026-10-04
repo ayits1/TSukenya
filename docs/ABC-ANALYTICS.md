@@ -51,3 +51,21 @@ ORM/aggregation O(внескових рядків), disk O(SKU); сортува�
 - Final classC keyboard/filter і readable viewport coverage/row layout1440/320/200% PASS до косметичного узгодження CSV-link зі спільними токенами: `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-abc-proof-PV7F9q/report.json`. Після цієї зміни повторено тільки affected layout-stage: `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-abc-proof-Ccdzdw/report.json` PASS. Підписи/кнопки/стрілки й coverage/рядки переглянуті через PNG; звіти не є виміром фізичного мобільного пристрою.
 
 Native harness зареєстровано в explicit `npm run test:full`, але його не запускали. Успішні stages перевикористовуються за незмінних входів; повтор відбувався лише для невдалого або affected підетапу.
+
+
+## Root інтеграція та незалежне рев’ю
+
+Незалежне read-only рев’ю exact author e68e625: PASS, п'ять finding закрито
+(CSV scope formula, передача from/to, malformed JSON protocol, class counts,
+SQL hidden scalar). Фінансові формули й source після інтеграції з accepted #74
+не змінилися; source diff порівняння порожнє. Root tsc/Vite build PASS.
+Один affected actual layout tail після інтеграції PASS: classC через клавіатуру,
+повні denominator/buckets, 1440/320/200% та coverage/rows viewport screenshots.
+Артефакти: `tsukenya-abc-proof-yuzBki` у системному tmp; root переглянув320 PNG.
+Незмінні PG/unit/Story/інших native докази повторно використано.
+
+Harness очищає connection/credential/settings variables до password helper,
+пінує isolated settings/SQLite, відхиляє невідомий stage, рано помічає exit
+серверу і чекає його зупинки. Full registry містить base+layout (late/recovery
+вже входять до base), очищає QA_ABC_FROM/PORT. Syntax і dryrun перевірені;
+фактичного test:full, production чи Sheet змін не було.
