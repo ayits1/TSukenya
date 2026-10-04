@@ -102,6 +102,8 @@ B19 прийнято в #41: активна облікова умова окре
 
 B24: виміряний N+1 списку документів усунено в #42 (page30:63→5SQL); формули й DTO збережені. План conditional polling, межі синтетичних замірів і не підтверджена місткість VPS — docs/API-GROWTH-BASELINE.md.
 
+B24 conditional polling реалізовано наступним пакетом: durable scoped revisions, cheap304 без товарного scan, selective runtime/React invalidation і commit-safe campaign keys. Новий synthetic baseline —3SQL/304/0raw bytes; це не місткість VPS. Докази й межі — [B24-CONDITIONAL-POLLING.md](B24-CONDITIONAL-POLLING.md). Bounded entities/stock/assortment/delta ще не завершені.
+
 B26: перший CRM етап реалізовано — React клієнтська база на `#trade/customers`, paging30/пошук, історія, середній чек, повторні покупки та борги з серверного обліку. Докази й незавершені етапи — [CRM-CUSTOMERS.md](CRM-CUSTOMERS.md). Лояльність і повідомлення залежать від правил власника; весь B26 не завершений.
 
 На запит «рішення про бекапи» підготовлено [пропозицію0.1](BACKUP-DECISION-PROPOSAL.md): локальні14днів + зовнішній Storage Box/restic, пробне відновлення та окреме зберігання ключа. Це не прийняте рішення власника; відкладення до після10.10, замовлення сховища й команда на виконання залишаються чинними.
