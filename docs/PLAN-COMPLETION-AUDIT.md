@@ -355,4 +355,25 @@ confirmation та privacy/lifetime fences. Root рев’ю виправило �
 
 Це основа, а не виконання всього B06. Робочі native/React редактори й окремі actions
 P1–P3 потребують власних codecs та actual reload/identity/GET-barrier перевірок.
-На VPS цей пакет не опубліковано; там залишається функціональний реліз1021ae2.
+P0 прийнято в #79 після exact-head CI; на VPS він входить до релізу404149c (#81).
+
+## Незмінні результати цін та схема каталогу · #80–81
+
+#80 прийнято з exact head44744e9 як maind8416de. Незмінні price tuples/context,
+atomic/durable receipts і readonly paging реалізовані; preview має current actor,
+спільний PostgreSQL snapshot та один день. Стару transactional test fixture
+виправлено без послаблення production guard; final frontend/server/PG CI SUCCESS.
+Це лише package1 issue1 §3.3; actual completed pricing/import→Studio і явний
+receipt price review лишаються наступними пакетами.
+
+#81 прийнято з exact head3d3c9b7 як main404149c. Registry/parser/export/current
+XLSX/actual download узгоджені, історичні файли незмінні. Fractional markup,
+reordered marker і legacy VM dependency виправлені; final frontend/server/PG CI
+SUCCESS. Matching combined native download/preview і PG roundtrip PASS,
+320px/workbook PNG переглянуті. Докази й межі — CATALOG-SCHEMA.md.
+
+Обидва пакети й P0 розгорнуто як404149c. Health/worker/migration0023/readonly
+reconcile/backup checksum+list PASS, business digest незмінний. Canonical clone
+синхронізовано. B06 consumers, вся CRM migration, capacity, зовнішні залежності
+та весь початковий план не закриті. Повний локальний набір не запускався;0.1
+виключено. Наступні P1 та price-package2 розробляються в окремих clone.

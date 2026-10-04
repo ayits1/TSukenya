@@ -141,7 +141,7 @@ B21 пакет прийнято в [#53](https://github.com/ayits1/TSukenya/pull
 Наступний report пакет інтегровано для рев’ю/CI: bounded pages і full server CSV; [B24-BOUNDED-REPORTS.md](B24-BOUNDED-REPORTS.md). Legacy record recovery проходить рев’ю, voucher/payment і recipe пакети реалізуються окремо. Це не закриває весь B06/B24, повну React/CRM міграцію, release/full gate, production capacity чи зовнішні інтеграції; deployment і0.1 зберігають попередній режим.
 
 
-## Поточний прийнятий стан · 04.10.2026, main #77
+## Прийнятий стан перед #79–81 · 04.10.2026, main #77
 
 - #65–70: рецептури, документи/оплати, довідники та legacy CREATE, місячний
   план/статті/шаблон мають узгодження конфліктів, окреме Apply/Save і захист
@@ -163,3 +163,18 @@ B21 пакет прийнято в [#53](https://github.com/ayits1/TSukenya/pull
 - Повна React trading міграція/versioned mutation contracts, накладна → список
   фактично змінених цін → Studio, єдина схема обміну, зовнішні інтеграції та
   операційні приймання залишаються в початковому scope. Backup0.1 виключено.
+
+## Поточний прийнятий і опублікований стан · main #81
+
+- #79: прийнята спільна основа reload recovery. B06 залишається відкритим:
+  P1 підключення робочих native-форм виконується, P2/P3 потребують окремих доказів.
+- #80: незмінні результати зміни цін до/після для pricing та обох імпортерів,
+  явний магазин, creator-scoped GET по100 рядків. Це пакет1 сценарію
+  накладна → ціни → цінники; actual CTA→Studio та receipt review ще потрібні.
+- #81: спільна схема CSV/XLSX, актуальний14-column template з інтерфейсу імпорту,
+  automatic/manual/promotion/readonly/zero правила та сумісні історичні профілі.
+  Живу Google-таблицю цей пакет не змінює.
+- На VPS працює `404149c`, health та worker успішні; backup перевірено,
+  дані до/після незмінні. Деталі — [SERVER-DEPLOYMENT.md](SERVER-DEPLOYMENT.md).
+- Повний початковий план, React trading migration, capacity/SLA і зовнішні
+  інтеграції залишаються відкритими. Backup0.1 виключено.

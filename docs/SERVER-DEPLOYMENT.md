@@ -449,3 +449,39 @@ pg_restore --list PASS. Першу checksum команду виконано з �
 після healthy web перебудувати worker сумісної попередньої версії. БД не
 відновлювати поверх нових записів. Локальні журнали:
 `/tmp/tsukenya-release-1021ae2-web.log`, `/tmp/tsukenya-release-1021ae2-worker.log`.
+
+## Реліз #79–81 · 04.10.2026
+
+За дорученням власника опубліковано прийнятий main
+`404149cf4603808f88bbb873cdc4b09b9d9c94bc`. #79 — спільна основа recovery,
+#80 — незмінні результати зміни цін, #81 — узгоджена схема CSV/XLSX та актуальний
+шаблон у реальному інтерфейсі імпорту. Робоче відновлення всіх форм після reload
+та CTA результатів до Studio ще розробляються окремо й не оголошуються готовими.
+Фінальні frontend/server/PostgreSQL CI обох нових PR успішні; canonical checkout
+Documents/Projects/TSukenya синхронізовано fast-forward.
+
+Immutable git archive та release.py того самого коміту, `--check` PASS. Scoped stop
+worker, штатний backup/web build/health, потім rebuild/restart worker тієї самої SHA.
+Застосовано лише additive erp0023 (nullable price context/results, без backfill).
+Web/worker/PostgreSQL healthy; public health показує404149c й imports.available.
+PostgreSQL не перезапускався; Compose/env/gateway і сусідній бізнес не змінювали.
+Сусідній HTTPS200.
+
+Backup: `backups/tsukenya-crm-20261004T145336Z.dump`; checksum і
+`pg_restore --list` PASS. Read-only SSH перевірка затрималася без виводу;
+повтор з connect/keepalive timeout виконано без відновлення БД чи копіювання
+backup на клієнт. Попередній код: `releases/pre-20261004T145336Z.tar.gz`.
+Read-only reconcile exit0/issues0. До/після90Document/0Voucher/0StockEntry/
+0CashEntry/28AuditEvent, importRuns0; однакова контрольна сума canonical JSON:
+`6358ba98ea6873884bdef41adb4c2846cfd3877ffb6e55b972802dd6036b4f59`.
+
+Production mutation-тестів, повної локальної регресії та offsite0.1 не виконували.
+Авторизовані production екрани цим smoke не перевіряли; matching local browser
+download/preview і layout докази наведено в CATALOG-SCHEMA.md. Відкриття сайту
+в панелі Codex поставлено в чергу; це не підтвердження входу користувача.
+
+Відкат коду: scoped stop worker; release.py з pre-20261004T145336Z.tar.gz;
+після healthy web перебудувати worker попереднього сумісного коду. БД поверх
+нових записів не відновлювати, nullable erp0023/receipts не видаляти. Локальні
+журнали: `/tmp/tsukenya-release-404149c-web.log` і
+`/tmp/tsukenya-release-404149c-worker.log`.
