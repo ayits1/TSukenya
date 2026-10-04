@@ -158,3 +158,18 @@ Frontend та його build inputs не змінені цим пакетом; m
 monthly build використовується повторно. Native transport доказ вище та
 PG/fanout/source review proofs мають незмінні settlement inputs.
 Повну регресію та розгортання цього пакета не виконано.
+
+### Legacy expense scope SQL follow-up
+
+Finance migration source analysis виявив inherited SQL NULL defect у active
+voucher list: manager втрачав expense із missing expense_scope.
+services.expense_permission трактує missing як store і забороняє тільки
+точне network. Негативний JSON predicate замінено scalar Coalesce alias
+у WHERE; payload не обирається, foreign store scope та page30 збережено.
+Один affected testcase PASS у SQLite та ізольованому PostgreSQL18:
+37 allowed missing/null/store через дві сторінки, network/foreign виключені,
+після актуальної зміни ролі accountant бачить39/network. Незалежне source
+review PASS. Перша підготовка QA env не знайшла explicit POSTGRES_USER і
+зупинилася до тесту; використано чинний default QA user та повторено тільки
+цей testcase. Full/fanout/native/build не повторювали: changed inputs лише
+permission predicate. Жодного production mutation або deployment цього пакета.

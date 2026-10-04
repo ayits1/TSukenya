@@ -36,6 +36,28 @@ class SettlementReadTests(TransactionTestCase):
         return Voucher.objects.create(kind=kind,total=Decimal(total),status='posted',date=self.today,
             store=kw.pop('store',self.store),party=kw.pop('party',self.supplier),created_by=self.user,**kw)
 
+    def test_manager_legacy_expense_scope_matches_permission_and_page_totals(self):
+        from server.erp.services import expense_permission
+        old=[self.v('expense',payload={}) for _ in range(35)]
+        store=self.v('expense',payload={'expense_scope':'store'})
+        null=self.v('expense',payload={'expense_scope':None})
+        network=self.v('expense',payload={'expense_scope':'network'})
+        foreign=self.v('expense',store=self.foreign,payload={})
+        Profile.objects.filter(user=self.user).update(role='manager',store=self.store)
+        manager=User.objects.select_related('profile').get(pk=self.user.pk)
+        for row in (old[0],store,null):expense_permission(manager,row)
+        with self.assertRaises(BusinessError):expense_permission(manager,network)
+        first=reads.vouchers(self.user,{'kind':'expense'})
+        second=reads.vouchers(self.user,{'kind':'expense','page':'2'})
+        self.assertEqual((first['total'],first['pages'],len(first['items'])),(37,2,30))
+        ids={row['id'] for row in first['items']+second['items']}
+        self.assertEqual(ids,{row.pk for row in old+[store,null]})
+        self.assertNotIn(network.pk,ids);self.assertNotIn(foreign.pk,ids)
+        Profile.objects.filter(user=self.user).update(role='accountant',store=None)
+        allowed=reads.vouchers(self.user,{'kind':'expense'})
+        self.assertEqual(allowed['total'],39)
+        self.assertIn(network.pk,{row['id'] for row in allowed['items']})
+
     def test_payment_refs_debts_advances_and_summary_equal_unchanged_oracles(self):
         sources=[self.v('receipt',payload={'due_date':(self.today+timedelta(days=i%14)).isoformat()}) for i in range(65)]
         customer=self.v('sale','200',party=self.customer,payload={'payments':[{'amount':'2.05'}]})

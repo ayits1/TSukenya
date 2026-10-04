@@ -3,8 +3,9 @@ import json
 from collections import defaultdict
 from decimal import Decimal
 
-from django.db.models import Q, Exists, OuterRef, Sum, F, Value, DecimalField, Subquery
+from django.db.models import Q, Exists, OuterRef, Sum, F, Value, DecimalField, Subquery, TextField
 from django.db.models.functions import Coalesce
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.expressions import RawSQL
 from django.db.models import BooleanField
 from django.db import connection
@@ -237,7 +238,9 @@ def vouchers(user,params):
     with read_snapshot():
         user=current_actor(user)
         query=scoped(Voucher.objects.select_related('created_by'),user).filter(kind__in=ROLE_KINDS[user.profile.role])
-        if user.profile.role not in {'owner','accountant'}:query=query.exclude(kind='expense',payload__expense_scope='network')
+        if user.profile.role not in {'owner','accountant'}:
+            # Missing legacy scope is a store expense, as expense_permission defines.
+            query=query.alias(read_expense_scope=Coalesce(KeyTextTransform('expense_scope','payload'),Value('store'),output_field=TextField())).exclude(kind='expense',read_expense_scope='network')
         if params.get('kind'):query=query.filter(kind__in=params['kind'].split(','))
         if params.get('status'):query=query.filter(status=params['status'])
         if params.get('party'):
