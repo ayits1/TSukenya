@@ -81,7 +81,7 @@ def duplicate_name(data, old, path):
         return False  # Existing duplicates stay editable until renamed.
     # Whole documents decode names alike on every backend (SQLite turns "123" into a number).
     documents = Document.objects.filter(path__startswith='products/').exclude(pk=path).values_list('data', flat=True)
-    return any(isinstance(item, dict) and name_key(item.get('name')) == key for item in documents)
+    return any(isinstance(item, dict) and name_key(item.get('name')) == key for item in documents.iterator(chunk_size=200))
 
 
 DUPLICATE_NAME = {'error': 'Товар із такою назвою вже є в каталозі. Змініть назву або відкрийте наявний товар.', 'code': 'duplicate_name'}
@@ -275,7 +275,7 @@ def unit_in_use(path, data):
         return 'для товару задано рецептуру'
     identifier = path.split('/', 1)[1]
     recipes = Document.objects.filter(path__startswith='products/').exclude(pk=path).values_list('data', flat=True)
-    if any(isinstance(item, dict) and isinstance(item.get('recipe'), list) and any(isinstance(row, dict) and str(row.get('product')) == identifier for row in item['recipe']) for item in recipes):
+    if any(isinstance(item, dict) and isinstance(item.get('recipe'), list) and any(isinstance(row, dict) and str(row.get('product')) == identifier for row in item['recipe']) for item in recipes.iterator(chunk_size=200)):
         return 'товар використовується як інгредієнт у рецептурі'
     return None
 
@@ -368,6 +368,9 @@ def handle_catalog(request, user):
     if path in {'/api/v1/catalog/pricing/preview', '/api/v1/catalog/pricing/commit'} and request.method == 'POST':
         from .catalog_pricing import preview_pricing, commit_pricing
         return preview_pricing(request, user) if path.endswith('/preview') else commit_pricing(request, user)
+    if path == '/api/v1/catalog/import/history' or path == '/api/v1/catalog/import/runs' or path.startswith('/api/v1/catalog/import/runs/'):
+        from .import_jobs import handle
+        return handle(request, user)
     if path in {'/api/v1/catalog/import/preview', '/api/v1/catalog/import/commit'} and request.method == 'POST':
         from .catalog_import import preview_import, commit_import
         return preview_import(request, user) if path.endswith('/preview') else commit_import(request, user)

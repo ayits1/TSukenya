@@ -37,10 +37,10 @@ def keys(item):
     return result
 
 
-def reference_records():
+def reference_records(*, legacy_values=None, explicit_records=None):
     """Read only. Explicit tombstones suppress legacy/default choices; unknown IDs do not."""
     records, claimed = {}, set()
-    for doc in Document.objects.filter(path__startswith='catalog_refs/').order_by('path'):
+    for doc in (explicit_records if explicit_records is not None else Document.objects.filter(path__startswith='catalog_refs/').order_by('path').iterator(chunk_size=200)):
         data = doc.data
         if not isinstance(data, dict): continue
         field, text, parent = data.get('field'), data.get('value'), data.get('parentType', '')
@@ -65,7 +65,7 @@ def reference_records():
                     if alias not in item['aliases']: item['aliases'].append(alias)
                 item['parentType'] = parent['value']
                 claimed.update(keys(item))
-    for doc in Document.objects.filter(path__startswith='products/').order_by('path').only('data'):
+    for doc in (legacy_values if legacy_values is not None else Document.objects.filter(path__startswith='products/').order_by('path').only('data').iterator(chunk_size=200)):
         if not isinstance(doc.data, dict): continue
         parent = doc.data.get('type', '')
         parent = parent if isinstance(parent, str) else ''
