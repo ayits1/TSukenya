@@ -1,6 +1,6 @@
 # B06 P1: manifest native редакторів і reload transitions
 
-Власна база `1a62781` (root committed P0 integration). Це manifest імплементації; **P1 загалом ще не завершено**. P2/P3 не підмінюються цим пакетом.
+Початкова база реалізації — `1a62781` (P0 integration); пакет інтегровано поверх `db76a37` з виправленням початкового завантаження порталу. Це manifest імплементації; **P1 загалом ще не завершено**. P2/P3 не підмінюються цим пакетом.
 
 | Реальний consumer | Whitelist capture / identity | Restore / read / confirmation boundary | Стан та докази |
 | --- | --- | --- | --- |
@@ -56,13 +56,23 @@ Backend: `tests.test_voucher_drafts` initial PG2 PASS (0.301s); changed future-d
 
 Typed raw/domain decoder initial4 PASS; new rejected-proof/key/MAX_SAFE_INTEGER test PASS; after stricter key binding affected ACK fixture retargeted and single ACK test PASS (other4 earlier successful inputs reused). Shared async renderer and warm verify denial/cancel/session-change targeted2 PASS. TypeScript, changed TS lint, generated trading types, own matching Vite build, JS syntax and diff checks PASS. P0 RecoveryPanel visual states unchanged; reused P0 Storybook/keyboard proof, no repeat of unchanged broad family.
 
-Native commands (each disposable SQLite18273, own matching build; Chrome closed and server awaited/removed in finally):
+Native commands (disposable SQLite18273, matching frontend build; bundled Chromium Playwright headless, без channel/executablePath; browser/server закриваються у finally):
 
 ```sh
 PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python QA_OUTPUT_DIR=/private/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-native-draft-proof node tests/native-draft-reload-ui.cjs
 # Affected independent stages; validate before creating temp/server:
-QA_NATIVE_DRAFT_FROM=barriers # or payment/post/privacy/cold/production/validation/postDraft
+QA_NATIVE_DRAFT_FROM=barriers # or payment/post/privacy/cold/production/validation/postDraft/opening
 # same command with that explicit variable; tail is legacy partial-family option.
 ```
 
-Для explicit full registry root може додати base + independent barriers/cold/production/validation/postDraft stages, scrub `QA_NATIVE_DRAFT_FROM` після кожного; це не вимога запускати full у звичайній розробці. Unchanged money/ledger/concurrency/posting tests reused; algorithms/locks не змінювалися. P1 entity/workShift/recipe editor/category/monthly/template та P2/P3 **залишаються відкритими**; shared codec enrollment цих сімей не замінює.
+В explicit full registry додано base та незалежні barriers/cold/production/validation/postDraft/opening stages. Успадкований `QA_NATIVE_DRAFT_FROM` видаляється; кожен окремий stage отримує власне значення. План перевірено через `npm run test:full -- --plan`; повну регресію під час цієї інтеграції не запускали. Unchanged money/ledger/concurrency/posting tests reused; algorithms/locks не змінювалися. P1 entity/workShift/recipe editor/category/monthly/template та P2/P3 **залишаються відкритими**; shared codec enrollment цих сімей не замінює.
+
+
+## Інтеграційне рев’ю · 04.10.2026
+
+- Знайдено й усунено гонку звичайного New/Edit: `voucherForm` зберігає контекст маршруту/покоління/modal **до** перевірки сесії та відкидає застаріле відкриття після відповіді. Це також захищає payment delegation. Cold restore зберігає перевірку abort signal.
+- `opening`: сценарій із затриманою сесією та переходом Фінанси → Закупівлі відтворив дефект до правки (1 зайва modal); після правки PASS, бізнес-запитів на запис 0. Артефакти `/tmp/tsukenya-native-integration-opening{,-before}/`. Незалежне рев’ю підтвердило закриття зауваження.
+- Поточні scoped unit: 19 тестів voucherPersistence/recovery PASS; TypeScript і matching Vite build PASS. PostgreSQL `tests.test_voucher_drafts`: 3 PASS на окремій тестовій базі.
+- Browser-policy: 193 файли PASS, жодного системного Chrome. Report записує actual git HEAD та ознаку незакомічених змін замість застарілої константи бази.
+- Інтегрований `cold-report.json` PASS: відновлення з огляду, bootstrap503 та скасування пізнього монтування. `/tmp/tsukenya-native-integration-cold/`.
+- Інтегрований `primary-partial.json`: 4 завершені кейси витрати/платежу/exact retry/GET-Apply-Save/posted-once. Фінальний privacy case зупинився через дві тестові чернетки; його ізоляцію виправлено, окремий `privacy-report.json` PASS (3 кейси, 1440/320, GET-only retry, session401). Повторно успішні фінансові кейси не запускали; **цілий primary run не оголошується PASS**. Артефакти `/tmp/tsukenya-native-integration-primary/` та `/tmp/tsukenya-native-integration-privacy/`; обидва актуальні PNG оглянуто.
