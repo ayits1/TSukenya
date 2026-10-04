@@ -10,7 +10,7 @@ import type { CatalogApi, Filters, Product } from '../catalog/api';
 import { StudioView } from './StudioView';
 import type { StudioOutputState, StudioTab, StudioViewProps } from './StudioView';
 import type { LabelOutputProgress } from './output';
-import { PrintPages } from './Label';
+import { ReviewPages } from './ReviewPages';
 import {
   adaptLabelProduct,
   clippedLabel,
@@ -62,60 +62,6 @@ function outputWait<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
       },
     );
   });
-}
-
-function ReviewPages({
-  proof,
-  copies,
-  onMeasured,
-}: {
-  proof: Proof;
-  copies: LabelProduct[];
-  onMeasured: (snapshot: string, clipped: string[]) => void;
-}) {
-  const host = useRef<HTMLDivElement>(null),
-    viewport = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState(1);
-  useLayoutEffect(() => {
-    const element = viewport.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setZoom(Math.min(1, entry.contentRect.width / ((210 * 96) / 25.4)));
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  useEffect(() => {
-    let active = true;
-    const measure = () => {
-      if (active && host.current)
-        onMeasured(proof.snapshot, [
-          ...new Set(
-            [...host.current.querySelectorAll<HTMLElement>('.tk-label.tag')]
-              .filter(clippedLabel)
-              .map((element) => element.dataset.product || ''),
-          ),
-        ]);
-    };
-    void document.fonts.ready.then(measure);
-    const timer = requestAnimationFrame(measure);
-    return () => {
-      active = false;
-      cancelAnimationFrame(timer);
-    };
-  }, [proof, copies, onMeasured, zoom]);
-  return (
-    <div className="tk-studio-proof-viewport" ref={viewport}>
-      <div className="tk-studio-proof-pages" ref={host} style={{ zoom }}>
-        <PrintPages
-          products={copies}
-          config={proof.config}
-          settings={proof.settings}
-          date={proofDate(proof)}
-        />
-      </div>
-    </div>
-  );
 }
 
 export function Studio({
@@ -939,7 +885,16 @@ function StudioWorkspace({
       onCsv={() => void output('csv')}
       review={
         proof ? (
-          <ReviewPages proof={proof} copies={copies} onMeasured={measured} />
+          <ReviewPages
+            key={proof.snapshot}
+            snapshot={proof.snapshot}
+            products={copies}
+            config={proof.config}
+            settings={proof.settings}
+            date={proofDate(proof)}
+            onMeasured={measured}
+            isDisabled={outputBusy}
+          />
         ) : (
           <p role="status">
             {preparing

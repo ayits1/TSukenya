@@ -1,4 +1,5 @@
 """Read-only catalogue import plans and bounded, retry-safe atomic commits."""
+from .catalog_access import revalidate_actor
 from .business_audit import snapshot as audit_snapshot, change as audit_change
 import hashlib
 import hmac
@@ -153,6 +154,7 @@ def commit_import(request, user):
     digest = hashlib.sha256(canonical(payload).encode()).hexdigest()
     run_path = 'import_runs/' + payload['idempotencyKey']
     ledger_lock()
+    revalidate_actor(user, EDIT_ROLES, 'Недостатньо прав для імпорту каталогу.')
     previous = Document.objects.filter(pk=run_path).first()
     if previous:
         if previous.data.get('owner') != user.pk or previous.data.get('payloadHash') != digest:

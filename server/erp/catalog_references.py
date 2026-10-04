@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 from django.db import transaction
+from .catalog_access import revalidate_actor
 from .models import Document
 from .services import audit, ledger_lock, require
 
@@ -133,6 +134,7 @@ def create_reference(request, user):
     from .views import body, response
     require(user.profile.role in EDIT_ROLES, 'Недостатньо прав для редагування довідників.')
     ledger_lock()
+    revalidate_actor(user, EDIT_ROLES, 'Недостатньо прав для редагування довідників.')
     payload = body(request)
     require(not (set(payload) - {'field', 'value', 'parentType'}), 'Запит містить невідомі поля довідника.')
     field = payload.get('field')
