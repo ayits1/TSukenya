@@ -240,9 +240,11 @@ class PaymentMigrationTests(TransactionTestCase):
             cash=old.get_model('erp','CashEntry');cash.objects.create(voucher=payment,account=account,amount=-20);cash.objects.create(voucher=payment,account=account,amount=20,is_reversal=True)
             before=list(cash.objects.values_list('pk','voucher_id','account_id','amount','is_reversal'))
             executor=MigrationExecutor(connection);executor.migrate([('erp','0009_payment_allocations')])
-            allocation=PaymentAllocation.objects.get();self.assertEqual((allocation.settlement_id,allocation.payment_id,allocation.source_id,allocation.amount),(payment.pk,payment.pk,source.pk,Decimal(20)))
-            self.assertEqual(list(CashEntry.objects.values_list('pk','voucher_id','account_id','amount','is_reversal')),before)
-            saved=Voucher.objects.get(pk=payment.pk);self.assertEqual(saved.reference_id,source.pk);self.assertEqual(saved.status,'reversed');self.assertEqual(saved.date,day)
+            # The test deliberately stops at0009; live models may contain later additive columns.
+            migrated=executor.loader.project_state([('erp','0009_payment_allocations')]).apps
+            allocation=migrated.get_model('erp','PaymentAllocation').objects.get();self.assertEqual((allocation.settlement_id,allocation.payment_id,allocation.source_id,allocation.amount),(payment.pk,payment.pk,source.pk,Decimal(20)))
+            self.assertEqual(list(migrated.get_model('erp','CashEntry').objects.values_list('pk','voucher_id','account_id','amount','is_reversal')),before)
+            saved=migrated.get_model('erp','Voucher').objects.get(pk=payment.pk);self.assertEqual(saved.reference_id,source.pk);self.assertEqual(saved.status,'reversed');self.assertEqual(saved.date,day)
         finally:
             executor=MigrationExecutor(connection)
             executor.migrate(executor.loader.graph.leaf_nodes('erp'))
