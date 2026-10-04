@@ -236,3 +236,8 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 
 - Immutable creator-bound entity receipts і current-policy readonly identity інтегровано для PR/CI. Exact frozen request працює попри invalid newer input; confirmed ID не Savebaseline, current GET/Apply/UPDATE окремі. Нових blockers незалежного рев'ю немає. Root combinedbuild/lint/PG2/actual keyboard-layout1440/320 PASS, matching author evidence reused. [ENTITY-CREATE-RECOVERY.md](ENTITY-CREATE-RECOVERY.md).
 - Міграція0020 після0019; safe legacy CREATE snapshot планується0021, planning/category receipts0022 наступні. Budgettemplate PR67 окремий; monthly UI ще не реалізовано. Reload survival/full/capacity/0.1 залишаються відкритими. Production все ще окремий main65b7ee71d реліз.
+
+## Після прийняття #67 · main301cdd0 · 04.10.2026
+
+- **Budget template:** #67 MERGED, exacthead da7031d frontend/server/PostgreSQL CI SUCCESS; canonical clone clean fast-forward301cdd0. Єдине старе pricing settings fixture очікування доповнено inferred budgetStores1 без послаблення refusal/audit/revision guards, targeted SQLite1/PG1 PASS. [BUDGET-TEMPLATE-RECOVERY.md](BUDGET-TEMPLATE-RECOVERY.md).
+- Entity CREATE інтеграція перебазована на main67, combinedbuild/all namespace exports та registry dry-run PASS, готується окремий PR. Наступні safe legacy snapshot0021, planning/category0022 та monthly UI виконуються окремими пакетами. Реліз сайту лишається main65b7ee71d; ці нові PR на VPS не розгорнуті. Весь план активний,0.1/full/capacity не виконані.
