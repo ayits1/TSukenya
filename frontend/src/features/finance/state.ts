@@ -14,12 +14,14 @@ export type Options = {
   onAdvance: (
     kind: 'advance_allocation' | 'payment_refund',
     row: Pages['advances']['items'][number],
+    opener?: Element,
   ) => void | Promise<void>;
   onStatement: (
     party: number,
     store: number | null,
     context: { isCurrent: () => boolean; onDenied: (error: unknown) => void },
   ) => void | Promise<void>;
+  runNativeAction?: (action: () => void | Promise<void>, opener?: Element) => void | Promise<void>;
   onDrafts: () => void;
   onRefresh: () => Promise<void>;
 };
@@ -229,43 +231,47 @@ export class FinanceModel {
       this.state.policy !== null
     );
   }
-  async action(fn: () => void | Promise<void>) {
+  async action(fn: () => void | Promise<void>, opener?: Element) {
     if (!this.ready()) return;
     const token = this.generation;
     this.emit({ actionBusy: true, error: '' });
     try {
-      await fn();
+      if (this.options?.runNativeAction) await this.options.runNativeAction(fn, opener);
+      else await fn();
     } catch (e) {
       if (this.isCurrent(token)) this.error(e);
     } finally {
       if (this.isCurrent(token)) this.emit({ actionBusy: false });
     }
   }
-  async payDebt(row: Pages['debts']['items'][number]) {
+  async payDebt(row: Pages['debts']['items'][number], opener?: Element) {
     if (!this.result('debts')?.items.some((x) => x === row)) return;
-    await this.action(() => this.options?.onPayDebt(row.id));
+    await this.action(() => this.options?.onPayDebt(row.id), opener);
   }
   async advance(
     kind: 'advance_allocation' | 'payment_refund',
     row: Pages['advances']['items'][number],
+    opener?: Element,
   ) {
     if (!this.result('advances')?.items.some((x) => x === row)) return;
-    await this.action(() => this.options?.onAdvance(kind, row));
+    await this.action(() => this.options?.onAdvance(kind, row), opener);
   }
-  async statement() {
+  async statement(opener?: Element) {
     const party = this.state.filters.advances.party;
     if (!party) {
       this.emit({ error: 'Виберіть контрагента для звірки.' });
       return;
     }
     const token = this.generation;
-    await this.action(() =>
-      this.options?.onStatement(party, this.state.store, {
-        isCurrent: () => this.isCurrent(token),
-        onDenied: (error) => {
-          if (this.isCurrent(token)) this.error(error);
-        },
-      }),
+    await this.action(
+      () =>
+        this.options?.onStatement(party, this.state.store, {
+          isCurrent: () => this.isCurrent(token),
+          onDenied: (error) => {
+            if (this.isCurrent(token)) this.error(error);
+          },
+        }),
+      opener,
     );
   }
   async reload() {

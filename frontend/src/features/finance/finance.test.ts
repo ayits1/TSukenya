@@ -125,4 +125,25 @@ describe('Finance authoritative read boundary', () => {
       status: 403,
     });
   });
+  it('native action bridge receives the captured opener while duplicate action stays blocked', async () => {
+    const model = new FinanceModel(fixtureApi()),
+      gate = deferred<void>();
+    const opener = {} as Element;
+    const call = vi.fn(async () => {
+      await gate.promise;
+    });
+    const bridge = vi.fn(async (action: () => void | Promise<void>, target?: Element) => {
+      expect(target).toBe(opener);
+      expect(model.state.actionBusy).toBe(true);
+      await action();
+    });
+    await model.activate({ ...options, runNativeAction: bridge });
+    const first = model.action(call, opener);
+    await model.action(call, opener);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(bridge).toHaveBeenCalledTimes(1);
+    gate.resolve();
+    await first;
+    expect(model.state.actionBusy).toBe(false);
+  });
 });

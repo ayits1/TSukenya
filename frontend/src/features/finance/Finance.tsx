@@ -58,7 +58,9 @@ function Results({ model }: { model: FinanceModel }) {
                 <Button
                   isDisabled={disabled}
                   aria-label={'Редагувати рахунок: ' + r.name}
-                  onPress={() => void model.action(() => model.options?.onEditAccount(r.id))}
+                  onPress={(event) =>
+                    void model.action(() => model.options?.onEditAccount(r.id), event.target)
+                  }
                 >
                   Редагувати
                 </Button>
@@ -111,7 +113,7 @@ function Results({ model }: { model: FinanceModel }) {
                 <Button
                   isDisabled={disabled}
                   aria-label={'Оплатити борг № ' + r.number}
-                  onPress={() => void model.payDebt(r)}
+                  onPress={(event) => void model.payDebt(r, event.target)}
                 >
                   Оплатити борг
                 </Button>
@@ -142,7 +144,7 @@ function Results({ model }: { model: FinanceModel }) {
         </p>
         <Button
           isDisabled={disabled || s.filters.advances.party === null}
-          onPress={() => void model.statement()}
+          onPress={(event) => void model.statement(event.target)}
         >
           Управлінська звірка
         </Button>
@@ -167,14 +169,14 @@ function Results({ model }: { model: FinanceModel }) {
                   <Button
                     isDisabled={disabled}
                     aria-label={'Використати аванс № ' + r.number}
-                    onPress={() => void model.advance('advance_allocation', r)}
+                    onPress={(event) => void model.advance('advance_allocation', r, event.target)}
                   >
                     Використати
                   </Button>
                   <Button
                     isDisabled={disabled}
                     aria-label={'Повернути аванс № ' + r.number}
-                    onPress={() => void model.advance('payment_refund', r)}
+                    onPress={(event) => void model.advance('payment_refund', r, event.target)}
                   >
                     Повернути
                   </Button>
@@ -210,7 +212,9 @@ function Results({ model }: { model: FinanceModel }) {
               <Button
                 isDisabled={disabled}
                 aria-label={'Відкрити документ № ' + r.number}
-                onPress={() => void model.action(() => model.options?.onViewDocument(r.voucher))}
+                onPress={(event) =>
+                  void model.action(() => model.options?.onViewDocument(r.voucher), event.target)
+                }
               >
                 Документ
               </Button>
@@ -242,7 +246,9 @@ function Results({ model }: { model: FinanceModel }) {
             <Button
               isDisabled={disabled}
               aria-label={'Відкрити ' + kinds[r.kind] + ' № ' + r.number}
-              onPress={() => void model.action(() => model.options?.onViewDocument(r.id))}
+              onPress={(event) =>
+                void model.action(() => model.options?.onViewDocument(r.id), event.target)
+              }
             >
               Відкрити
             </Button>
@@ -305,7 +311,9 @@ export function Finance({ model }: { model: FinanceModel }) {
               <Button
                 key={k}
                 isDisabled={disabled}
-                onPress={() => void model.action(() => options.onCreateDocument(k))}
+                onPress={(event) =>
+                  void model.action(() => options.onCreateDocument(k), event.target)
+                }
               >
                 + {kinds[k]}
               </Button>
@@ -451,7 +459,9 @@ export function Finance({ model }: { model: FinanceModel }) {
                 {state.view === 'accounts' && state.policy?.canManageAccounts ? (
                   <Button
                     isDisabled={!model.ready()}
-                    onPress={() => void model.action(() => options.onEditAccount(null))}
+                    onPress={(event) =>
+                      void model.action(() => options.onEditAccount(null), event.target)
+                    }
                   >
                     Додати рахунок
                   </Button>
