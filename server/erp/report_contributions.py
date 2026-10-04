@@ -1,5 +1,6 @@
 """One financial contribution formula shared by period totals and their source rows."""
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from .services import BusinessError
 
 ZERO = Decimal('0')
 PROFIT_WEIGHTS = {'revenue': 1, 'cogs': -1, 'expenses': -1, 'payroll': -1, 'writeoffs': -1,
@@ -8,6 +9,16 @@ GROSS_WEIGHTS = {'revenue': 1, 'cogs': -1}
 
 
 def voucher_contributions(voucher, sign, *, scoped=False):
+    try:
+        result = _voucher_contributions(voucher, sign, scoped=scoped)
+        if not all(value.is_finite() for value in result.values()):
+            raise InvalidOperation
+        return result
+    except (AttributeError, KeyError, TypeError, ValueError, InvalidOperation):
+        raise BusinessError(f'Документ {voucher.pk} має некоректні реквізити показника; перевірте регістри.') from None
+
+
+def _voucher_contributions(voucher, sign, *, scoped=False):
     """Network expense is a separate network contribution; a selected store excludes it."""
     total, cost = sign * voucher.total, sign * voucher.cost
     if voucher.kind == 'sale': return {'revenue': total, 'cogs': cost}

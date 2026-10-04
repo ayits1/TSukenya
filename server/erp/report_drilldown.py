@@ -17,6 +17,8 @@ FORMULAS = {'gross_profit':'Виторг − собівартість', 'profit'
 
 
 def source(user, voucher, metric, contribution, date, sign, *, entry=None, visible_store=None):
+    require(voucher.kind != 'expense' or isinstance(voucher.payload, dict),
+            f'Документ {voucher.pk} має некоректні реквізити витрати; перевірте регістри.')
     readable = (voucher.kind in ROLE_KINDS[user.profile.role]
                 and (not user.profile.store_id or user.profile.store_id == voucher.store_id)
                 and not (voucher.kind == 'expense' and voucher.payload.get('expense_scope') == 'network' and user.profile.role == 'manager'))
