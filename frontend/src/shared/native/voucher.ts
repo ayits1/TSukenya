@@ -339,11 +339,13 @@ export function decodeVoucher(
     typeof r.status !== 'string'
   )
     return fail();
+  array(r.lines, 200);
   if (lineKinds.has(kind))
     for (const value of array(r.lines, 200)) {
       const line = object(value);
       text(line.name, 250);
       text(line.unit, 30);
+      if (line.reference_line !== null) positive(line.reference_line);
       if (typeof line.quantity !== 'string' || typeof line.price !== 'string') return fail();
       if (line.cost !== undefined) decimal(line.cost);
     }
@@ -380,7 +382,7 @@ export function decodeVoucher(
   if (policy) {
     const e = object(r.editing),
       role = text(e.role, 20),
-      storeId = identifier(e.storeId),
+      storeId = e.storeId === null ? null : positive(e.storeId),
       closedThrough = e.closedThrough === null ? null : day(e.closedThrough);
     if (
       !(role in roles) ||

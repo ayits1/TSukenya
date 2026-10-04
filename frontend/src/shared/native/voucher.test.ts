@@ -57,6 +57,9 @@ describe('voucher recovery contract', () => {
       { lines: [{ ...raw.lines[0], price: '1.00001' }] },
       { lines: [{ ...raw.lines[0], line_key: 'wrong' }] },
       { editing: { ...raw.editing, storeId: 9 } },
+      { editing: { ...raw.editing, storeId: undefined } },
+      { editing: { ...raw.editing, storeId: '1' } },
+      { lines: [{ ...raw.lines[0], reference_line: '4' }] },
       { editing: { ...raw.editing, role: 'cashier' } },
       { editing: { ...raw.editing, closedThrough: '2026-10-04' } },
     ])
