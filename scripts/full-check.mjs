@@ -165,6 +165,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/catalog-schema.cjs']);
     await run('node', ['tests/catalog-schema-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-import-jobs.cjs']);
+    await run('node', ['tests/catalog-import-recovery.cjs']);
     await run('node', ['tests/csv-format.cjs']);
     await run('node', ['tests/csv-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-pricing-contract.cjs']);
@@ -203,6 +204,8 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/catalog-hidden-ui.cjs'], { env: { ...browserEnv, QA_HIDDEN_STAGE: 'tail' } });
     await run('node', ['tests/catalog-hidden-ui.cjs'], { env: { ...browserEnv, QA_HIDDEN_STAGE: 'layout' } });
     await run('node', ['tests/labels-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/price-label-handoff-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/price-label-handoff-tail-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/labels-output-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/portal-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/portal-metadata-ui.cjs'], { env: browserEnv });

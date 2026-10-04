@@ -63,6 +63,7 @@ export type StudioViewProps = {
   onCompare?: (trigger: HTMLButtonElement) => void;
   comparisonBusy?: boolean;
   comparison?: ReactNode;
+  operationReview?: ReactNode;
   canUndo?: boolean;
   onUndo?: () => void;
   canRedo?: boolean;
@@ -284,6 +285,7 @@ export function StudioView(props: StudioViewProps) {
   }));
   return (
     <section className="tk-root tk-studio" aria-label="Студія цінників">
+      {props.operationReview}
       <Tabs
         ref={tabsRef}
         selectedKey={selectedTab}

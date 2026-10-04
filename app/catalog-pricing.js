@@ -4,6 +4,8 @@
   const formatter=new Intl.NumberFormat('uk-UA',{minimumFractionDigits:2,maximumFractionDigits:2}),money=value=>formatter.format(value);
   let getConfig = () => ({markup:30,rounding:.5,categories:[],selectIds:() => []}), state = null;
   let draft = {markup:null,scope:'',resetManualPrices:false,updateDefault:true,rounding:null};
+  const confirmed = () => !!(state?.completed||state?.recoveredOperation);
+  const context = () => {if(!window.CatalogPriceWorkflow)throw Error('Модуль цінників ще не завантажено.');return window.CatalogPriceWorkflow.context();};
   const locked = () => !!(state?.saving || state?.uncertain);
   const button = (action,title,disabled=false) => `<button type="button" class="btn soft" data-catalog-pricing="${action}" ${disabled?'disabled':''}>${title}</button>`;
   function render(focus) {
@@ -18,12 +20,12 @@
     const cards=entries.slice((page-1)*20,page*20).map(entry=>`<li class="pricing-item ${entry.action==='error'?'warn':''}"><div class="row"><strong>${esc(entry.name)}</strong><span class="badge">${labels[entry.action]}</span>${entry.hidden?'<span class="badge">Прихований</span>':''}</div><dl class="pricing-comparison"><div><dt>Звичайна ціна</dt><dd>${money(entry.before.regularPrice)} → <strong>${money(entry.after.regularPrice)} грн</strong></dd></div><div><dt>Діюча ціна</dt><dd>${money(entry.before.salePrice)} → <strong>${money(entry.after.salePrice)} грн</strong></dd></div></dl>${entry.error?`<p role="alert">${esc(entry.error)}</p>`:''}</li>`).join('');
     const settings=preview?.settings,scope=preview?.scope;
     const detail=scope?.kind==='filter'?` · ${scope.count} відповідних товарів · ${scope.storeName||'Мережева ціна'}${scope.filters.category?' · Категорія: '+scope.filters.category:''}${scope.filters.promotion?' · Акція: '+(scope.filters.promotion==='yes'?'Так':'Ні'):''}`:'';
-    return `<h3 tabindex="-1" id="pricingReviewTitle">${state.payload.kind==='markup'?'Перевірка націнки':'Перевірка округлення'}</h3><p class="muted">${esc(state.scopeLabel+detail)}${state.payload.kind==='markup'?` · Націнка ${esc(state.payload.markup)}% · ${state.payload.resetManualPrices?'Ручні ціни буде перераховано':'Ручні ціни зберігаються'}`:''}</p>
-      <p role="status" aria-live="polite">${state.saving?'Зберігаємо зміни цін…':state.loading?'Розраховуємо зміни на сервері…':state.completed?`Зміни збережено. Цін змінено: ${state.completed.summary.changedPrices}.`:summary?`Товарів у перегляді: ${summary.candidates} · Цін зміниться: ${summary.changedPrices} · Ручних цін збережено: ${summary.skippedManual} · Помилок: ${summary.errors}`:'Потрібно розрахувати зміни.'}</p>
+    return `<h3 tabindex="-1" id="pricingReviewTitle">${state.payload.kind==='markup'?'Перевірка націнки':'Перевірка округлення'}</h3><p class="muted">${esc(state.scopeLabel+detail+(preview?.priceContext?' · '+(preview.priceContext.storeName||'Мережа — загальні ціни'):''))}${state.payload.kind==='markup'?` · Націнка ${esc(state.payload.markup)}% · ${state.payload.resetManualPrices?'Ручні ціни буде перераховано':'Ручні ціни зберігаються'}`:''}</p>
+      <p role="status" aria-live="polite">${state.saving?'Зберігаємо зміни цін…':state.loading?'Розраховуємо зміни на сервері…':state.completed?`Зміни збережено. Змінено звичайні / діючі пари: ${state.completed.summary.changedPrices}.`:state.recoveredOperation?'Підтверджений результат операції прочитано.':summary?`Товарів у перегляді: ${summary.candidates} · Цін зміниться: ${summary.changedPrices} · Ручних цін збережено: ${summary.skippedManual} · Помилок: ${summary.errors}`:'Потрібно розрахувати зміни.'}</p>
       ${settings?`<p class="muted">Націнка нових товарів: ${esc(settings.before.defaultMarkup)} → ${esc(settings.after.defaultMarkup)}%. Округлення: ${money(settings.before.rounding)} → ${money(settings.after.rounding)} грн.</p>`:''}
       ${state.failure?`<p class="form-error" role="alert" tabindex="-1" id="pricingError">${esc(state.failure)}</p>`:''}
       ${cards?`<ul class="pricing-list">${cards}</ul><nav class="catalog-import-pagination" aria-label="Сторінки зміни цін">${button('previous','Попередня',page<=1||busy)}<span>${page} / ${pages}</span>${button('next','Наступна',page>=pages||busy)}</nav>`:''}
-      <div class="row pricing-actions">${state.completed?(state.refreshFailed?button('refresh','Оновити каталог',busy):''):button(state.uncertain?'commit':state.conflict||!preview?.valid?'preview':'commit',state.uncertain?'Перевірити результат / повторити':state.conflict?'Оновити попередній перегляд':preview?.valid?'Зберегти зміни':'Розрахувати повторно',busy)}${button('reset',state.completed?'Завершити':'Змінити параметри',locked())}</div>`;
+      <div class="row pricing-actions">${confirmed()?(state.refreshFailed?button('refresh','Оновити каталог',busy):'')+button('labels','Переглянути цінники зі зміненими цінами',busy):button(state.uncertain?'commit':state.conflict||!preview?.valid?'preview':'commit',state.uncertain?'Перевірити результат / повторити':state.conflict?'Оновити попередній перегляд':preview?.valid?'Зберегти зміни':'Розрахувати повторно',busy)}${state.uncertain?button('read-result','Прочитати результат початкової операції',busy):''}${state.uncertain&&state.loading?button('stop-read','Скасувати читання результату'):''}${button('reset',confirmed()?'Завершити':'Змінити параметри',locked())}</div>`;
   }
   function validDecimal(value){return typeof value==='string'&&/^\d+(?:\.\d+)?$/.test(value)&&Number.isFinite(Number(value));}
   function decode(data,path,payload) {
@@ -35,6 +37,7 @@
     const consistent=entriesValid&&summaryValid&&summary.candidates===data.entries.length&&new Set(data.entries.map(entry=>entry.id)).size===data.entries.length&&summary.changedPrices<=summary.candidates&&summary.changedRecords<=summary.candidates&&summary.skippedManual<=summary.candidates&&(path!=='preview'||summary.errors===data.entries.filter(entry=>entry.action==='error').length&&data.valid===(summary.errors===0));
     const scopeValid=!payload.selection||path!=='preview'||data.scope?.kind==='filter'&&Number.isInteger(data.scope.count)&&data.scope.count>=0&&data.scope.count<=1000&&(data.scope.storeName===null||typeof data.scope.storeName==='string')&&data.scope.filters&&Object.keys(payload.selection).every(k=>data.scope.filters[k]===payload.selection[k]);
     if(!scopeValid||!summaryValid||!settingsValid||!valid||!consistent||data.kind!==payload.kind)throw Error('Сервер повернув некоректний результат розрахунку. Повторіть спробу.');
+    if(payload.priceContext!==undefined){const c=data.priceContext;if(!c||typeof c!=='object'||Array.isArray(c)||!(c.storeId===null||Number.isSafeInteger(c.storeId)&&c.storeId>0)||!(c.storeName===null||typeof c.storeName==='string'&&!!c.storeName)||(c.storeId===null)!==(c.storeName===null)||c.storeId!==payload.priceContext.storeId)throw Error('Сервер повернув інший або некоректний контекст ціни.');}
     return data;
   }
   async function request(path,payload,signal){
@@ -46,7 +49,7 @@
     return decode(data,path,payload);
   }
   async function preview(){
-    if(!state||state.loading||locked()||state.completed)return;
+    if(!state||state.loading||locked()||confirmed())return;
     const current=state;current.preview=null;current.failure='';current.conflict=false;current.loading=true;current.page=1;current.controller=new AbortController();current.commitPayload=null;render();
     const timer=setTimeout(()=>current.controller.abort(),30000);
     try{current.preview=await request('preview',current.payload,current.controller.signal);}
@@ -55,23 +58,31 @@
   }
   async function start(payload,scopeLabel){
     if(locked()||window.CatalogImport?.dirty())return;
+    try{payload={...payload,priceContext:context()};}catch(error){window.alert(error.message);return;}
     state?.controller?.abort();state={payload:structuredClone(payload),scopeLabel,page:1};await preview();
   }
   async function refresh(){
-    if(!state?.completed||state.loading)return;const current=state;current.loading=true;render();
+    if(!confirmed()||state.loading)return;const current=state;current.loading=true;render();
     try{await window.TSUKENYA_REFRESH();current.refreshFailed=false;current.failure='';}
     catch(_){current.refreshFailed=true;current.failure='Зміни цін збережено. Каталог не оновився — повторіть лише оновлення.';}
     finally{current.loading=false;if(state===current)render(current.failure?'#pricingError':'#pricingReviewTitle');}
   }
   async function commit(){
-    if(!state?.preview?.valid||state.loading||state.saving||state.completed||state.conflict)return;
+    if(!state?.preview?.valid||state.loading||state.saving||confirmed()||state.conflict)return;
     if(window.CatalogImport?.dirty()){window.alert('Спершу перевірте результат незавершеного імпорту.');return;}
-    const current=state;current.commitPayload||={...structuredClone(current.payload),snapshot:current.preview.snapshot,idempotencyKey:crypto.randomUUID()};current.saving=true;current.failure='';render();
+    const current=state,wasUncertain=!!current.uncertain;current.commitPayload||={...structuredClone(current.payload),snapshot:current.preview.snapshot,idempotencyKey:crypto.randomUUID()};current.saving=true;current.failure='';render();
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
     try{current.completed=await request('commit',current.commitPayload,controller.signal);current.uncertain=false;}
-    catch(error){if(error.status>=400&&error.status<500){current.uncertain=false;current.conflict=true;current.failure=error.message+' Зміни не збережено.';}else{current.uncertain=true;current.failure='Немає підтвердження запису. Перевірте результат / повторіть із тим самим пакетом; повтор не змінить ціни вдруге.';}}
+    catch(error){if(error.status>=400&&error.status<500&&!wasUncertain){current.uncertain=false;current.conflict=true;current.failure=error.message+' Цей запит відхилено.';}else if(error.status>=400&&error.status<500){current.uncertain=true;current.failure=error.message+' Результат попереднього запису лишається невідомим. Номер і початковий пакет збережено; прочитайте результат.';}else{current.uncertain=true;current.failure='Немає підтвердження запису. Перевірте результат / повторіть із тим самим пакетом; повтор не змінить ціни вдруге.';}}
     finally{clearTimeout(timer);current.saving=false;if(state===current)render(current.failure?'#pricingError':'#pricingReviewTitle');}
     if(current.completed)await refresh();
+  }
+  async function readResult(){
+    if(!state?.uncertain||state.loading||state.saving||!state.commitPayload)return;
+    const current=state;current.loading=true;current.failure='';current.controller=new AbortController();render();const timer=setTimeout(()=>current.controller.abort(),30000);
+    try{if(!window.CatalogPriceWorkflow)throw Error('Модуль цінників ще не завантажено.');await window.CatalogPriceWorkflow.read('pricing',current.commitPayload.idempotencyKey,current.controller.signal);if(state!==current)return;current.recoveredOperation=current.commitPayload.idempotencyKey;current.uncertain=false;current.conflict=false;}
+    catch(error){if(state===current)current.failure=error.message+' Відсутня відповідь не доводить скасування початкового запису.';}
+    finally{clearTimeout(timer);current.loading=false;if(state===current)render(current.failure?'#pricingError':'#pricingReviewTitle');}
   }
   const api={configure:callback=>getConfig=callback,html,pending:()=>!!state?.saving,dirty:()=>!!(state?.saving||state?.uncertain),decode};
   if(typeof window!=='undefined')window.CatalogPricing=api;
@@ -93,7 +104,7 @@
     });
     document.addEventListener('click',event=>{
       const target=event.target.closest('[data-catalog-pricing]');if(!target||target.disabled)return;const action=target.dataset.catalogPricing;
-      if(action==='preview')void preview();else if(action==='commit')void commit();else if(action==='refresh')void refresh();
+      if(action==='preview')void preview();else if(action==='commit')void commit();else if(action==='refresh')void refresh();else if(action==='read-result')void readResult();else if(action==='stop-read'&&state?.uncertain)state.controller?.abort();else if(action==='labels'&&confirmed())window.CatalogPriceWorkflow?.open('pricing',state.completed?.idempotencyKey||state.recoveredOperation);
       else if(action==='reset'&&!locked()){state?.controller?.abort();state=null;render('#bulkM');}
       else if(state&&['previous','next'].includes(action)){state.page=Math.max(1,(state.page||1)+(action==='next'?1:-1));render('[data-catalog-pricing='+action+']');}
     });

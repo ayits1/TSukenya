@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Select } from '../../shared/ui/Select';
 import { Button } from '../../shared/ui/Button';
 import { createCatalogApi, type CatalogApi } from '../catalog/api';
@@ -9,15 +9,19 @@ import './promotions.css';
 export function PricingContext({
   children,
   api: supplied,
+  onState,
 }: {
   children: (
     catalog: CatalogApi,
     store: number | null,
     context: PromotionContext,
     promotions: PromotionApi,
+    controls: { adopt: (context: PromotionContext) => void },
   ) => ReactNode;
   api?: PromotionApi;
+  onState?: (value: { context: PromotionContext | null; blocked: boolean }) => void;
 }) {
+  const client = useQueryClient();
   const [api] = useState(() => supplied || createPromotionApi());
   const [selected, setSelected] = useState<number | null | undefined>(undefined);
   // Keep the last authoritative context independently of a pending/failed query.
@@ -43,6 +47,16 @@ export function PricingContext({
     () => createCatalogApi(context?.storeId, context?.csrf),
     [context?.storeId, context?.csrf],
   );
+  const blocked =
+    !confirmed || query.isPending || query.isError || selected !== confirmed.requested;
+  useLayoutEffect(() => {
+    onState?.({ context: confirmed?.context ?? null, blocked });
+  }, [onState, confirmed, blocked]);
+  const adopt = (context: PromotionContext) => {
+    client.setQueryData(['promotion-context', context.storeId], context);
+    setSelected(context.storeId);
+    setConfirmed({ context, requested: context.storeId });
+  };
   if (!confirmed)
     return (
       <section className="tk-root tk-pricing-context">
@@ -57,7 +71,6 @@ export function PricingContext({
       </section>
     );
   const current = confirmed.context;
-  const blocked = query.isPending || query.isError || selected !== confirmed.requested;
   const selectedStore = selected === undefined ? current.storeId : selected;
   return (
     <>
@@ -98,7 +111,7 @@ export function PricingContext({
         </p>
       </section>
       <div className="tk-pricing-workspace" inert={blocked} aria-busy={blocked}>
-        {children(catalog, current.storeId, current, api)}
+        {children(catalog, current.storeId, current, api, { adopt })}
       </div>
     </>
   );

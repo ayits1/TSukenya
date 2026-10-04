@@ -5,6 +5,7 @@ import { Catalog } from './features/catalog/Catalog';
 import { emptyFilters, type Filters } from './features/catalog/api';
 import './shared/ui/controls.css';
 import { PricingContext } from './features/promotions/PricingContext';
+import type { PromotionContext } from './features/promotions/api';
 
 declare global {
   interface Window {
@@ -13,6 +14,7 @@ declare global {
       leave: () => void;
       dirty: () => boolean;
       filters: () => Filters;
+      priceContext: () => { context: PromotionContext | null; blocked: boolean };
       pricingFilter: () => Pick<Filters, 'q' | 'type' | 'category' | 'pack' | 'promotion'> & {
         store: string;
       };
@@ -26,6 +28,13 @@ let container: HTMLElement | undefined;
 let dirty = false;
 let filters = emptyFilters;
 let pricingStore: number | null = null;
+let confirmedContext: { context: PromotionContext | null; blocked: boolean } = {
+  context: null,
+  blocked: true,
+};
+const onContextState = (value: typeof confirmedContext) => {
+  confirmedContext = value;
+};
 const onFiltersChanged = (value: Filters) => {
   filters = value;
 };
@@ -40,12 +49,13 @@ window.ReactCatalog = {
     if (container === element && root) return;
     root?.unmount();
     dirty = false;
+    confirmedContext = { context: null, blocked: true };
     container = element;
     root = createRoot(element);
     root.render(
       <I18nProvider locale="uk-UA">
         <QueryClientProvider client={client}>
-          <PricingContext>
+          <PricingContext onState={onContextState}>
             {(api, store, context, promotions) => {
               pricingStore = store;
               return (
@@ -70,10 +80,12 @@ window.ReactCatalog = {
     root?.unmount();
     root = undefined;
     container = undefined;
+    confirmedContext = { context: null, blocked: true };
     dirty = false;
   },
   dirty: () => dirty,
   filters: () => filters,
+  priceContext: () => confirmedContext,
   pricingFilter: () => ({
     q: filters.q,
     type: filters.type,
