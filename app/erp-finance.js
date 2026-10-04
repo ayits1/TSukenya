@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const actions = {posted:'Проведення документа',reversed:'Скасування проведення',draft_saved:'Збереження чернетки',draft_deleted:'Видалення чернетки',catalog_changed:'Зміна товару',catalog_reference_created:'Новий запис довідника товарів',legacy_changed:'Зміна даних порталу',entity_saved:'Зміна довідника обліку',label_layout_changed:'Зміна макета цінника',shift_opened:'Відкриття касової зміни',shift_closed:'Закриття касової зміни',work_shift_saved:'Зміна табеля',user_saved:'Зміна доступу користувача',password_changed:'Зміна пароля',period_changed:'Зміна облікового періоду',fiscal_mode_changed:'Зміна режиму ПРРО',recipe_saved:'Зміна рецептури',alerts_updated:'Оновлення контролю операцій'};
-  let activeAudit = null;
+  let activeAudit = null, activeSources = null;
   function create({api,esc,amount,name,table,option,kinds,getState}) {
     function auditSummary(event) {
       const detail=event.detail;
@@ -22,8 +22,40 @@
       }
       return 'Опис події доступний у технічних подробицях.';
     }
+    const businessLabels={name:'Назва',kind:'Вид документа',status:'Стан',date:'Облікова дата',store_id:'Магазин',warehouse_id:'Склад',target_id:'Склад призначення',party_id:'Контрагент',employee_id:'Працівник',account_id:'Рахунок',shift_id:'Касова зміна',cash_shift_id:'Касова зміна',reference_id:'Документ-підстава',total:'Сума, грн',cost:'Собівартість, грн',note:'Примітка',revision:'Версія',posted_at:'Час проведення',reversed_at:'Час скасування',type:'Група',category:'Категорія',pack:'Фасування',size:'Розмір',unit:'Одиниця',barcode:'Штрихкод',markup:'Націнка, %',price:'Звичайна ціна, грн',manualPrice:'Ручна ціна',promotion:'Акція',promotionPrice:'Акційна ціна, грн',priceAt:'Дата перегляду ціни',minStock:'Мінімальний залишок',hidden:'Приховано',active:'Активний',shift_rate:'Ставка за зміну, грн',bonus_percent:'Бонус, %',bonus_basis:'База бонусу',units:'Кількість змін',payroll_id:'Нарахування',basis_amount:'Сума бази бонусу, грн',accrued:'Нараховано, грн',lines:'Рядки документа',allocations:'Розподіли платежу',payload:'Умови документа',defaultMarkup:'Типова націнка, %',rounding:'Крок округлення',budgetStores:'Магазинів у бюджеті',stores:'Магазини (старе налаштування)',storeNames:'Назви магазинів',staleDays:'Строк перевірки ціни',group:'Група витрат',amount:'Сума, грн'};
+    function businessValue(key,value) {
+      if(value===undefined||value===null)return '—';
+      if(typeof value==='boolean')return value?'Так':'Ні';
+      if(key==='kind')return kinds[value]||({supplier:'Постачальник',customer:'Покупець',cash:'Готівка',bank:'Банк',terminal:'Термінал'})[value]||String(value);
+      if(key==='bonus_basis')return ({store:'Виторг магазину',personal:'Особистий виторг',profit:'Валовий прибуток магазину'})[value]||String(value);
+      if(key==='group')return ({fixed:'Постійні',variable:'Змінні'})[value]||String(value);
+      if(key==='status')return ({draft:'Чернетка',posted:'Проведено',reversed:'Скасовано'})[value]||String(value);
+      const refs={store_id:'stores',warehouse_id:'warehouses',target_id:'warehouses',party_id:'parties',employee_id:'employees',account_id:'accounts'};
+      if(refs[key])return name(refs[key],value)||String(value);
+      if(key==='lines'&&Array.isArray(value))return value.map(row=>`${row.name||'Товар'}: ${row.quantity||'0'} ${row.unit||''} × ${row.price||'0'} грн; сума ${row.amount||'0'} грн; собівартість ${row.cost||'0'} грн${row.lot?'; партія '+row.lot:''}${row.expiry?'; придатний до '+row.expiry:''}${row.reference_line_id?'; вихідний рядок № '+row.reference_line_id:''}`).join('\n')||'Немає рядків';
+      if(key==='allocations'&&Array.isArray(value))return value.map(row=>`Документ № ${row.source_id}: ${row.amount} грн із платежу № ${row.payment_id}`).join('\n')||'Немає розподілів';
+      if(key==='payload'&&typeof value==='object') {
+        const terms={category:'Стаття витрат',expense_scope:'Належність витрати',due_date:'Строк оплати',discount_reason:'Причина знижки',additional_cost:'Додаткові витрати',difference:'Касове розходження',fiscal_ref:'Номер чека'};
+        const lines=Object.entries(terms).filter(([field])=>Object.hasOwn(value,field)).map(([field,label])=>`${label}: ${field==='expense_scope'?(value[field]==='network'?'Мережа':'Магазин'):value[field]}`);
+        if(Array.isArray(value.payments))lines.push(...value.payments.map(row=>`Оплата: ${name('accounts',row.account)||'Рахунок'} — ${row.amount} грн`));
+        if(Array.isArray(value.differences))lines.push(...value.differences.map(row=>`Складське коригування: ${row.quantity} од.; ${row.value} грн`));
+        if(Array.isArray(value.calculation))lines.push(...value.calculation.map(row=>`Нарахування за ${row.date}: ${row.units} змін × ${row.rate} грн, ${row.percent}% від ${row.basis_amount} грн; разом ${row.accrued} грн`));
+        return lines.join('\n')||'Немає додаткових умов';
+      }
+      if(Array.isArray(value))return value.join(', ');
+      if(typeof value==='object')return '—';
+      return String(value);
+    }
+    function businessChanges(detail) {
+      if(!detail||(!Object.hasOwn(detail,'before')&&!Object.hasOwn(detail,'after')))return '';
+      const before=detail.before||{},after=detail.after||{};
+      const numeric=new Set(['total','cost','markup','price','promotionPrice','minStock','shift_rate','bonus_percent','units','basis_amount','accrued','defaultMarkup','rounding','amount']);
+      const changed=key=>numeric.has(key)&&before[key]!==undefined&&after[key]!==undefined&&decimalKey(before[key])!==null&&decimalKey(after[key])!==null?decimalKey(before[key])!==decimalKey(after[key]):['lines','allocations'].includes(key)?businessValue(key,before[key])!==businessValue(key,after[key]):JSON.stringify(before[key])!==JSON.stringify(after[key]);
+      const rows=Object.entries(businessLabels).filter(([key])=>changed(key)).map(([key,label])=>[esc(label),`<span class="trade-business-value">${esc(businessValue(key,before[key]))}</span>`,`<span class="trade-business-value">${esc(businessValue(key,after[key]))}</span>`]);
+      return `<div data-business-changes><p><strong>${detail.before===null?'Створено запис':detail.after===null?'Видалено запис':'Зміни бізнесових даних'}</strong></p>${rows.length?table(['Поле','Було','Стало'],rows):'<p class="muted">Бізнесові поля не змінилися.</p>'}${detail.reason?`<p>Причина: ${esc(detail.reason)}</p>`:''}${detail.observed_revision!==undefined?`<p class="muted">Зміна спиралася на перевірену версію запису.</p>`:''}</div>`;
+    }
     function auditDetails(event) {
-      return `<div data-audit-summary>${esc(auditSummary(event))}</div><details data-audit-technical><summary aria-label="Технічні подробиці події № ${esc(event.id)}" style="min-height:44px;padding:10px 0;box-sizing:border-box;cursor:pointer;scroll-margin-block:8px">Технічні подробиці</summary><div class="trade-history" style="text-align:left">Дія: ${esc(event.action)}</div><pre class="trade-history" style="margin:8px 0 0;text-align:left;font:12px/1.5 ui-monospace,monospace">${esc(JSON.stringify(event.detail,null,2))}</pre></details>`;
+      return `${businessChanges(event.detail)}<div data-audit-summary>${esc(auditSummary(event))}</div><details data-audit-technical><summary aria-label="Технічні подробиці події № ${esc(event.id)}" style="min-height:44px;padding:10px 0;box-sizing:border-box;cursor:pointer;scroll-margin-block:8px">Технічні подробиці</summary><div class="trade-history" style="text-align:left">Дія: ${esc(event.action)}</div><pre class="trade-history" style="margin:8px 0 0;text-align:left;font:12px/1.5 ui-monospace,monospace">${esc(JSON.stringify(event.detail,null,2))}</pre></details>`;
     }
     function auditAction(event) {
       const label=Object.hasOwn(actions,event.action)?actions[event.action]:event.action==='catalog_pricing_changed'?'Групова зміна цін':'Інша подія';
@@ -113,8 +145,36 @@
       d.querySelector('[data-finance-close]').onclick=()=>d.close();d.addEventListener('click',event=>{if(event.target!==d)return;const rect=d.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)d.close();});
       d.addEventListener('close',()=>{control.cancel();if(activeAudit===d)activeAudit=null;d.remove();if(opener?.isConnected)opener.focus({preventScroll:true});},{once:true});formFocus(d);
     }
+    const sourceLabels={revenue:'Виторг',cogs:'Собівартість',expenses:'Витрати',payroll:'Зарплата',writeoffs:'Списання',inventory_adjustment:'Інвентаризація',supplier_return_variance:'Повернення постачальнику',cash_difference:'Касове розходження',cash_net:'Рух коштів',unallocated_expenses:'Мережеві витрати',stock:'Товар',cash:'Кошти'};
+    const decimalKey=value=>{const match=/^(-?)(\d+)(?:\.(\d+))?$/.exec(String(value));if(!match)return null;return (match[1]&&BigInt(match[2]+(match[3]||''))!==0n?'-':'')+match[2].replace(/^0+(?=\d)/,'')+'.'+(match[3]||'').replace(/0+$/,'');};
+    function sourceData(data) {
+      const positive=value=>Number.isSafeInteger(value)&&value>0;
+      if(!data||data.snapshot!=='current'||typeof data.title!=='string'||typeof data.formula!=='string'||typeof data.snapshot_notice!=='string'||typeof data.amount!=='string'||decimalKey(data.amount)===null||!positive(data.page)||!positive(data.pages)||!Number.isSafeInteger(data.total)||data.total<0||!Array.isArray(data.items)||data.items.length>30||!data.items.every(row=>row&&['voucher','aggregate'].includes(row.type)&&typeof row.amount==='string'&&decimalKey(row.amount)!==null&&typeof row.metric==='string'&&typeof row.canOpen==='boolean'&&(row.type==='aggregate'?typeof row.label==='string'&&!row.canOpen:typeof row.kind==='string'&&typeof row.date==='string'&&typeof row.reversal==='boolean'&&(!row.canOpen||positive(row.voucher)&&typeof row.number==='string'))))throw Error('Сервер повернув некоректну розшифровку. Повторіть завантаження.');
+      return data;
+    }
+    function reportSources(params,expected,onOpen) {
+      activeSources?.close();const opener=document.activeElement,d=document.createElement('dialog');d.className='trade-dialog';d.dataset.reportSources='';d.setAttribute('aria-labelledby','tradeReportSourcesTitle');
+      d.innerHTML='<div class="trade-dialog-head"><h2 id="tradeReportSourcesTitle" tabindex="-1">Розшифровка показника</h2><button class="btn soft" type="button" data-source-close>Закрити</button></div><div class="trade-dialog-body"><p role="alert" tabindex="-1" data-source-error class="trade-error"></p><div data-source-content></div><div class="trade-pagination"><span role="status" aria-live="polite" tabindex="-1" data-source-status></span><div class="row"><button class="btn soft" type="button" data-source-page="prev">Назад</button><button class="btn soft" type="button" data-source-page="next">Далі</button></div></div></div>';
+      document.body.append(d);activeSources=d;d.showModal();d.querySelector('h2').focus();
+      const content=d.querySelector('[data-source-content]'),status=d.querySelector('[data-source-status]'),error=d.querySelector('[data-source-error]');let page=1,pages=1,controller,generation=0,busy=false,failed=false;
+      const live=()=>d.open&&d.isConnected&&activeSources===d;
+      const paging=()=>d.querySelectorAll('[data-source-page]').forEach(button=>button.disabled=busy||failed||(button.dataset.sourcePage==='prev'?page<=1:page>=pages));
+      async function load(focus=false) {
+        controller?.abort();controller=new AbortController();const token=++generation;busy=true;failed=false;content.setAttribute('aria-busy','true');content.innerHTML='';error.textContent='';status.textContent='Завантажуємо джерела…';paging();
+        try {
+          const data=sourceData(await api('report/drilldown?'+new URLSearchParams({...params,page:String(page)}),'GET',undefined,controller.signal));
+          if(!live()||token!==generation)return;page=data.page;pages=data.pages;d.querySelector('h2').textContent=data.title+' — джерела';
+          const changed=decimalKey(expected)!==null&&decimalKey(expected)!==decimalKey(data.amount);
+          content.innerHTML=`<p><strong>Поточна сума: ${amount(data.amount)} грн</strong></p>${changed?`<p class="trade-source-changed" role="status">Дані змінилися: у відкритому звіті було ${amount(expected)} грн. Оновіть звіт для актуальних показників.</p>`:''}<p>${esc(data.formula)}</p><p class="trade-caption">${esc(data.snapshot_notice)} Сторно враховано київською датою скасування. Знак суми показує внесок у вибраний показник.</p>${table(['Джерело / дата','Складова','Внесок','Дія'],data.items.map(row=>[row.type==='aggregate'?esc(row.label):`${esc(kinds[row.kind]||'Документ')}${row.number?' № '+esc(row.number):''}<span class="muted">${esc(row.date)}${row.reversal?' · скасування':''}</span>`,esc(sourceLabels[row.metric]||row.metric),amount(row.amount)+' грн',row.canOpen?`<button class="btn soft" type="button" data-source-voucher="${row.voucher}" aria-label="Відкрити документ № ${esc(row.number)}">Документ</button>`:'<span class="muted">Сукупна сума або обмежений доступ</span>']))}`;
+          status.textContent=data.total?`Сторінка ${page} з ${pages} · джерел ${data.total}`:'За умовами немає джерел.';if(focus)status.focus({preventScroll:true});
+        }catch(e){if(e.name==='AbortError'||!live()||token!==generation)return;failed=true;error.textContent=e.message;content.innerHTML='<button class="btn soft" type="button" data-source-retry>Завантажити повторно</button>';status.textContent='Не вдалося завантажити джерела.';if(focus)error.focus({preventScroll:true});}
+        finally {if(live()&&token===generation){busy=false;content.removeAttribute('aria-busy');paging();}}
+      }
+      d.addEventListener('click',event=>{const button=event.target.closest('button');if(!button||button.disabled)return;if(button.hasAttribute('data-source-close'))d.close();else if(button.hasAttribute('data-source-retry'))void load(true);else if(button.hasAttribute('data-source-page')){page+=button.dataset.sourcePage==='next'?1:-1;void load(true);}else if(button.hasAttribute('data-source-voucher')){const id=Number(button.dataset.sourceVoucher);d.close();void onOpen(id);}});
+      d.addEventListener('close',()=>{controller?.abort();generation++;if(activeSources===d)activeSources=null;d.remove();if(opener?.isConnected)opener.focus({preventScroll:true});},{once:true});void load();
+    }
     const formFocus=d=>d.querySelector('[name=q]').focus();
-    return {shell,mount,audit,closeAudit(){activeAudit?.close();}};
+    return {shell,mount,audit,reportSources,closeAudit(){activeAudit?.close();activeSources?.close();}};
   }
   window.TradeFinance={create};
 })();

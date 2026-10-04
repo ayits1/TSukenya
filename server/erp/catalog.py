@@ -1,4 +1,5 @@
 """Versioned catalogue boundary over existing documents; posting remains in ERP services."""
+from .business_audit import snapshot as audit_snapshot, change as audit_change
 import hashlib
 import hmac
 from django.conf import settings
@@ -220,12 +221,14 @@ def save_product(request, user, identifier=None):
     config = defaults()
     if 'pricingRevision' in value and (not isinstance(value['pricingRevision'], str) or value['pricingRevision'] != pricing_revision(config)):
         return response({'error': 'Налаштування ціни вже змінено. Оновіть попередній розрахунок перед збереженням.', 'code': 'pricing_revision_conflict'}, 409)
+    before = None
     if identifier:
         document = Document.objects.filter(pk='products/' + identifier).first()
         if document is None: return response({'error': 'Товар не знайдено.', 'code': 'not_found'}, 404)
         if not isinstance(value.get('revision'), str) or value['revision'] != revision(document, config):
             return response({'error': 'Товар уже змінено з іншого пристрою. Оновіть дані перед збереженням.', 'code': 'revision_conflict'}, 409)
         data = dict(document.data)
+        before = audit_snapshot('product', data)
     else:
         identifier = secrets.token_urlsafe(18).replace('-', '_')
         document = Document(path='products/' + identifier)
@@ -236,7 +239,7 @@ def save_product(request, user, identifier=None):
         require(not PromotionPrice.objects.filter(product=document).exists(), 'Товар використовується в історії акцій. Приховайте його замість видалення.')
         require(not VoucherLine.objects.filter(product=document).exists() and not StockLot.objects.filter(product=document).exists(), 'Товар уже використовується в обліку. Його не можна видалити.')
         require(not any(any(str(row.get('product')) == identifier for row in item.data.get('recipe', [])) for item in Document.objects.filter(path__startswith='products/')), 'Товар використовується у рецептурі.')
-        subject = document.path; document.delete(); audit(user, 'catalog_changed', subject, {'method': 'DELETE', 'contract': 'v1'})
+        subject = document.path; document.delete(); audit(user, 'catalog_changed', subject, {'method': 'DELETE', 'contract': 'v1', **audit_change(before, None, observed=value.get('revision'))})
         return response({'ok': True})
     old = dict(data)
     data = normalise_product({key: item for key, item in value.items() if key not in {'revision', 'pricingRevision'}}, old, document.path, config=config, old_config=config)
@@ -245,7 +248,7 @@ def save_product(request, user, identifier=None):
     if old.get('name'):observe_prices(user,[document],'catalog','Редагування товару',seed=True)
     document.data = data; document.save()
     observe_prices(user,[document],'catalog','Редагування товару')
-    audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1'})
+    audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1', **audit_change(before, audit_snapshot('product', data), observed=value.get('revision'))})
     from .promotion_prices import PriceResolver, context_store
     return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')), product_paths=[document.path])), 200 if old.get('name') else 201)
 

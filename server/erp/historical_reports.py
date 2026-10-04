@@ -13,6 +13,7 @@ from django.utils import timezone
 from .models import CashAccount, CashEntry, Employee, StockEntry, Store, Voucher
 from .services import ZERO, day, money, obligation, require
 from .browsing import positive_integer
+from .report_contributions import profit as profit_amount, voucher_contributions
 
 KYIV = ZoneInfo('Europe/Kyiv')
 ROLES = {'owner', 'manager', 'accountant'}
@@ -81,7 +82,7 @@ def metrics():
 
 def totals(row):
     gross = row['revenue'] - row['cogs']
-    profit = gross - row['expenses'] - row['payroll'] - row['writeoffs'] + row['inventory_adjustment'] + row['supplier_return_variance'] + row['cash_difference']
+    profit = profit_amount(row)
     return {**{key: str(money(value)) for key, value in row.items()}, 'gross_profit': str(money(gross)), 'profit': str(money(profit))}
 
 
@@ -116,20 +117,13 @@ def period(user, params):
         sign = period_sign(voucher, start, end)
         if not sign: continue
         row = rows[voucher.store_id]; total, cost = sign * voucher.total, sign * voucher.cost
-        if voucher.kind == 'sale': row['revenue'] += total; row['cogs'] += cost
-        elif voucher.kind == 'customer_return': row['revenue'] -= total; row['cogs'] -= cost
-        elif voucher.kind == 'expense':
+        for key, amount in voucher_contributions(voucher, sign, scoped=scoped).items():
+            if key == 'unallocated_expenses': unallocated += amount
+            else: row[key] += amount
+        if voucher.kind == 'expense':
             network = voucher.payload.get('expense_scope', 'store') == 'network'
-            if network:
-                if not scoped: unallocated += total
-            else: row['expenses'] += total
             if not network or not scoped:
                 expenses_by_category[(None if network else voucher.store_id, voucher.payload.get('category', 'Інше'))] += total
-        elif voucher.kind == 'payroll': row['payroll'] += total
-        elif voucher.kind == 'writeoff': row['writeoffs'] += cost
-        elif voucher.kind == 'supplier_return': row['supplier_return_variance'] += total - cost
-        elif voucher.kind == 'inventory': row['inventory_adjustment'] += sign * sum((Decimal(item['value']) for item in voucher.payload.get('differences', [])), ZERO)
-        elif voucher.kind == 'cash_difference': row['cash_difference'] += sign * Decimal(voucher.payload.get('difference', '0'))
         for line in voucher.lines.all():
             if voucher.kind not in {'sale', 'customer_return', 'writeoff', 'inventory'}: continue
             product = products.setdefault(line.product_id, {'product': line.product_id.split('/', 1)[1], 'name': line.name, 'unit': line.unit,
