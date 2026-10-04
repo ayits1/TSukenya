@@ -8,17 +8,17 @@ let server,browser,page;const wait=async(fn,label='Timed out')=>{for(let i=0;i<1
 (async()=>{
  try{await fetch(base+'/health');throw Error('QA port occupied')}catch(e){if(!e.cause)throw e}
  server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
- browser=await chromium.launch({headless:true,...(process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[],stateResponses=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.url()===base+'/api/v1/portal/state')stateResponses.push(r.status())});
+ browser=await chromium.launch({headless:true,...(process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[],stateResponses=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.url()===base+'/api/v1/portal/metadata')stateResponses.push(r.status())});
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());await require('./browser-login.cjs')(page,base,password);
  await page.goto(base+'/#operations/work');await page.locator('#newWork').waitFor();
  await page.evaluate(()=>window.TSUKENYA_REFRESH());assert(stateResponses.includes(304),'real unchanged fetch returns304');
  // Keep a genuine old304 poll pending until POST has committed; post-write GET must follow it.
  let release,held=false,writes=0,savedTitle='QA conditional confirmed write';const gate=new Promise(resolve=>release=resolve);let hold=true;
- await page.route('**/api/v1/portal/state',async route=>{if(hold && route.request().headers()['if-none-match']){hold=false;const old=await route.fetch();assert.equal(old.status(),304);held=true;await gate;await route.fulfill({response:old})}else await route.continue()});
+ await page.route('**/api/v1/portal/metadata',async route=>{if(hold && route.request().headers()['if-none-match']){hold=false;const old=await route.fetch();assert.equal(old.status(),304);held=true;await gate;await route.fulfill({response:old})}else await route.continue()});
  await page.evaluate(()=>{void window.TSUKENYA_REFRESH()});await wait(()=>held,'old poll started');
  await page.route('**/api/tasks',async route=>{writes++;const reply=await route.fetch();assert.equal(reply.status(),200);await route.fulfill({response:reply});release()});
  await page.locator('#newWork').fill(savedTitle);await page.locator('#newWork').press('Enter');await page.locator('.task .t').filter({hasText:savedTitle}).waitFor();assert.equal(writes,1);assert.equal(await page.locator('#newWork').inputValue(),'');
- await page.unroute('**/api/v1/portal/state');await page.unroute('**/api/tasks');
+ await page.unroute('**/api/v1/portal/metadata');await page.unroute('**/api/tasks');
  // Real React editor stays mounted and keeps an unsaved field through304 and task-only200.
  await page.goto(base+'/#operations/products');await page.getByRole('button',{name:'Додати товар',exact:true}).waitFor();await page.getByRole('button',{name:'Додати товар',exact:true}).click();
  const name=page.getByRole('textbox',{name:'Назва товару',exact:true});await name.fill('QA unsaved React draft');

@@ -34,7 +34,7 @@
     if (loading) return loading.catch(() => {}).then(() => refresh(after));
     const id = loadingId = ++started;
     loading = (async () => {
-      const response = await fetch("/api/v1/portal/state", { credentials: "same-origin", cache: "no-store", headers: stateETag ? { "If-None-Match": stateETag } : {} });
+      const response = await fetch("/api/v1/portal/metadata", { credentials: "same-origin", cache: "no-store", headers: stateETag ? { "If-None-Match": stateETag } : {} });
       if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
       if (response.status === 304) {
         if (!data || !stateETag || response.headers?.get("ETag") !== stateETag) throw new Error("Invalid database validator");
@@ -48,16 +48,17 @@
           (result.labelRevision !== undefined && typeof result.labelRevision !== 'string')) {
         throw new Error('Invalid database response');
       }
-      try { window.PortalApi.decodeState(result); } catch (_) { throw new Error('Invalid database response'); }
+      try { window.PortalApi.decodeMetadata(result); } catch (_) { throw new Error('Invalid database response'); }
       const etag = response.headers?.get("ETag") || "";
       const validVersions = result.stateVersions && typeof result.stateVersions === "object" && !Array.isArray(result.stateVersions) &&
         Object.keys(result.stateVersions).length === domains.length && domains.every(name => typeof result.stateVersions[name] === "string" && /^[a-f0-9]{64}$/.test(result.stateVersions[name]));
-      if (etag && (!/^"tsukenya-portal-v1-[a-f0-9]{64}"$/.test(etag) || !validVersions)) throw new Error("Invalid database validator");
+      if (etag && (!/^"tsukenya-portal-v2-[a-f0-9]{64}"$/.test(etag) || !validVersions)) throw new Error("Invalid database validator");
       const changedPaths = etag && stateVersions ? domains.filter(name => stateVersions[name] !== result.stateVersions[name]) : null;
       const changed = changedPaths ? changedPaths.length > 0 : JSON.stringify(data) !== JSON.stringify(result.data) || window.TSUKENYA_ROLE !== result.role;
       data = result.data;
       window.TSUKENYA_ROLE = result.role;
       window.TSUKENYA_NETWORK_OWNER = result.networkOwner === true;
+      window.TSUKENYA_SCOPE_STORE = result.scopeStore;
       csrf = result.csrf;
       labelRevision = result.labelRevision || "";
       stateETag = etag;
@@ -106,7 +107,7 @@
     if (path === '/api/docs/settings/main' && typeof result?.revision === 'string') labelRevision = result.revision;
     // The server already confirmed this write. A failed read is a separate UI
     // recovery state; retrying the write could create a second document.
-    await refresh(after).catch(() => {});
+    await refresh(after).then(async()=>{try{await window.PortalCollections?.refreshVisible();}catch(_){window.dispatchEvent(new CustomEvent("tsukenya:refresh-failed",{detail:{message:"Не вдалося оновити список. Повторіть лише читання."}}));}}).catch(() => {});
     return result;
   }
 
@@ -114,11 +115,19 @@
     const id = path.split("/").at(-1);
     return {
       id,
-      async get() { await refresh(); return snapshot(path); },
+      async get() {
+        if(/^(tasks|ideas|expenses)\//.test(path)){
+          const collection=path.split('/')[0];
+          const item=await window.PortalApi.get('records/'+path,v=>window.NativeLegacyEditor.decodeLegacyRecord(v,collection,id));
+          return {id,exists:true,data:()=>structuredClone(item.data),revision:item.revision,permissions:()=>structuredClone(item.permissions)};
+        }
+        await refresh();return snapshot(path);
+      },
       set(value, options) { return mutate("PUT", `/api/docs/${path}`, value, options); },
       update(value, options) { return mutate("PATCH", `/api/docs/${path}`, value, options); },
       delete(options) { return mutate("DELETE", `/api/docs/${path}`, undefined, options); },
       onSnapshot(callback) {
+        if(/^(tasks|ideas|expenses)\//.test(path))throw new Error('Record subscription is unavailable; read its current revision explicitly');
         const set = listeners.get(path) || new Set(); set.add(callback); listeners.set(path, set);
         if (data) callback(snapshot(path));
         return () => { set.delete(callback); if (!set.size) listeners.delete(path); };
@@ -151,7 +160,7 @@
           }
         },
         onSnapshot(callback) {
-          if(name==='products')throw new Error('Full catalogue subscription is unavailable; use catalogue search or explicit export');
+          if(['products','tasks','ideas','expenses'].includes(name))throw new Error('Full collection subscription is unavailable; use bounded search or explicit export');
           const set = listeners.get(name) || new Set(); set.add(callback); listeners.set(name, set);
           if (data) callback(snapshot(name));
           return () => { set.delete(callback); if (!set.size) listeners.delete(name); };
@@ -173,8 +182,8 @@
 
   // Explicit refreshes follow writes made through other APIs (catalogue, import, pricing): a background
   // poll that is already in flight may predate them, so it is followed by a new read instead of shared.
-  window.TSUKENYA_REFRESH_AFTER_WRITE = () => refresh(started);
-  window.TSUKENYA_REFRESH = () => refresh(loading && loadingId === polled ? loadingId : undefined);
+  window.TSUKENYA_REFRESH_AFTER_WRITE = () => refresh(started).then(()=>window.PortalCollections?.refreshVisible());
+  window.TSUKENYA_REFRESH = () => refresh(loading && loadingId === polled ? loadingId : undefined).then(()=>window.PortalCollections?.refreshVisible());
   window.TSUKENYA_SERVER = true;
   window.claude = {
     use(name) {

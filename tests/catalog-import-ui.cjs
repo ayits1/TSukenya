@@ -60,10 +60,10 @@ const wait=async(fn,message='Timed out')=>{for(let i=0;i<120;i++){if(await fn())
  await button('commit').click();await page.getByText(/Каталог або налаштування цін уже змінено/).waitFor();assert.equal((await state()).data.products.find(p=>p.id===identifier).data.cost,11);
  await button('preview').click();await button('commit').waitFor();
  // Save and subsequent read have separate outcomes; refresh retry must not issue another POST.
- let commits=0,failRefresh=true;await page.route('**/api/v1/portal/state',async route=>{if(failRefresh)await route.fulfill({status:503,contentType:'application/json',body:'{"error":"isolated refresh failure"}'});else await route.continue();});
+ let commits=0,failRefresh=true;await page.route('**/api/v1/portal/metadata',async route=>{if(failRefresh)await route.fulfill({status:503,contentType:'application/json',body:'{"error":"isolated refresh failure"}'});else await route.continue();});
  await page.route('**/api/v1/catalog/import/commit',async route=>{commits++;await route.continue();});
  await button('commit').click();await page.getByText(/Імпорт збережено. Каталог поки не оновився/).waitFor();assert.equal(commits,1);assert.equal((await state()).data.products.find(p=>p.id===identifier).data.cost,12);
- failRefresh=false;await button('refresh').click();await wait(async()=>await button('refresh').count()===0);assert.equal(commits,1);await page.unroute('**/api/v1/portal/state');await page.unroute('**/api/v1/catalog/import/commit');await button('reset').click();
+ failRefresh=false;await button('refresh').click();await wait(async()=>await button('refresh').count()===0);assert.equal(commits,1);await page.unroute('**/api/v1/portal/metadata');await page.unroute('**/api/v1/catalog/import/commit');await button('reset').click();
  // During commit, route changes cannot hide the pending result or launch a second write.
  await upload('Назва;Закупівля\nQA pending;10');await button('commit').waitFor();let release;const gate=new Promise(r=>release=r);await page.route('**/api/v1/catalog/import/commit',async route=>{await gate;await route.continue();});
  await button('commit').click();await page.getByText('Зберігаємо весь пакет…',{exact:true}).waitFor();await page.evaluate(()=>location.hash='operations/work');await wait(async()=>new URL(page.url()).hash==='#operations/products');assert(await button('commit').isDisabled());release();await page.getByText('Імпорт збережено: додано 1, оновлено 0.',{exact:true}).waitFor();

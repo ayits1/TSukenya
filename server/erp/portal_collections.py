@@ -59,7 +59,7 @@ def context(user,collection,params):
 
 
 def documents(collection):
-    # Exact finite legacy numeric order; malformed values have the former zero fallback.
+    # Stable plain-decimal legacy order (<=250 digits per part); other encodings use explicit zero fallback.
     number=Case(When(data__order__regex=r'^[+-]?[0-9]{1,250}(?:\.[0-9]{1,250})?$',then=Cast(KeyTextTransform('order','data'),FloatField())),default=Value(0.),output_field=FloatField())
     return Document.objects.filter(path__startswith=collection+'/').annotate(portal_order=number).order_by('portal_order','path')
 
@@ -77,7 +77,7 @@ def matches(data,ctx):
         if ctx['status']!='all' and (data.get('status') or 'todo')!=ctx['status']:return False
         stage=data.get('stage');valid=type(stage) is int and 1<=stage<=4
         if ctx['stage']=='unknown' and valid:return False
-        if ctx['stage'] not in {'all','unknown'} and stage!=int(ctx['stage']):return False
+        if ctx['stage'] not in {'all','unknown'} and (not valid or stage!=int(ctx['stage'])):return False
     elif ctx['collection']=='ideas':
         reaction=data.get('reaction');selected=ctx['reaction']
         if selected=='awaiting' and reaction:return False
@@ -147,7 +147,7 @@ def summary(user,params):
             for doc in documents('expenses').iterator(chunk_size=200):
                 data=doc.data;amount=legacy_number(data.get('amount'));group='fixed' if data.get('group')=='fixed' else 'variable';by_category[category(data)]+=amount
                 if group in totals:totals[group]+=amount;counts[group]+=1
-            return {**result,'totals':{k:format(v,'f') for k,v in totals.items()},'byCategory':{k:format(v,'f') for k,v in by_category.items()},'counts':counts}
+            return {**result,'plannedTotal':format(sum(totals.values(),Decimal(0)),'f'),'totals':{k:format(v,'f') for k,v in totals.items()},'byCategory':{k:format(v,'f') for k,v in by_category.items()},'counts':counts}
         statuses={'todo':0,'doing':0,'done':0};stages={str(i):0 for i in range(1,5)}|{'unknown':0};active=0;nearest=[];total=0;unfinished=0;unknown_status=0
         ctx=context(user,'tasks',{'space':section})
         for doc in documents('tasks').iterator(chunk_size=200):

@@ -1841,6 +1841,10 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "plannedTotal": {
+            "type": "string",
+            "pattern": "^-?\\d+(?:\\.\\d+)?$"
           }
         }
       }

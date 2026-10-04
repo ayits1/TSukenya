@@ -25,7 +25,7 @@ class PortalCollectionsTests(TransactionTestCase):
         r=self.get('tasks',page='2');self.assertEqual(r.status_code,200);v=r.json();self.assertEqual((v['total'],v['page'],v['pages'],len(v['items'])),(65,2,3,30));self.assertEqual(v['items'][0]['id'],'t030')
         self.assertEqual(self.get('tasks',page='99').json()['items'][0]['id'],'t060')
         self.assertEqual(self.get('ideas',q='Ідея 64').json()['total'],1)
-        result=self.get('summary',section='budget').json();self.assertEqual(result['totals']['fixed'],'65.65');self.assertEqual(result['byCategory']['Оренда'],'65.65')
+        result=self.get('summary',section='budget').json();self.assertEqual(result['plannedTotal'],'65.65');self.assertEqual(result['totals']['fixed'],'65.65');self.assertEqual(result['byCategory']['Оренда'],'65.65')
         result=self.get('summary').json();self.assertEqual(result['statuses']['todo'],65);self.assertEqual(len(result['nearest']),5)
         for bad in ('0','-1','²','1.2'):self.assertEqual(self.get('tasks',page=bad).status_code,400)
     def test_visibility_managed_permissions_and_legacy_development(self):
