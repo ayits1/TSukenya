@@ -66,8 +66,9 @@
       const validVersions = result.stateVersions && typeof result.stateVersions === "object" && !Array.isArray(result.stateVersions) &&
         Object.keys(result.stateVersions).length === domains.length && domains.every(name => typeof result.stateVersions[name] === "string" && /^[a-f0-9]{64}$/.test(result.stateVersions[name]));
       const etag = metadataVersion(wireETag) && validVersions ? wireETag : "";
-      const changedPaths = etag && stateVersions ? domains.filter(name => stateVersions[name] !== result.stateVersions[name]) : null;
-      const changed = changedPaths ? changedPaths.length > 0 : JSON.stringify(data) !== JSON.stringify(result.data) || window.TSUKENYA_ROLE !== result.role;
+      const identityChanged = window.TSUKENYA_ROLE !== result.role || window.TSUKENYA_SCOPE_STORE !== result.scopeStore || window.TSUKENYA_NETWORK_OWNER !== result.networkOwner;
+      const changedPaths = etag && stateVersions && !identityChanged ? domains.filter(name => stateVersions[name] !== result.stateVersions[name]) : null;
+      const changed = identityChanged || (changedPaths ? changedPaths.length > 0 : JSON.stringify(data) !== JSON.stringify(result.data));
       data = result.data;
       window.TSUKENYA_ROLE = result.role;
       window.TSUKENYA_NETWORK_OWNER = result.networkOwner === true;

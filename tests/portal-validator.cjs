@@ -42,6 +42,12 @@ function setup() {
   r.reply(200, '', { ...body, data: { ...body.data, 'settings/main': { chainName: 'Новий стан' } } });
   await r.window.TSUKENYA_REFRESH();
   assert.equal(failedCalls, 1, 'a failed initial callback is not left subscribed');
+  let scopeEvents = 0;
+  r.window.addEventListener('tsukenya:data-changed', () => scopeEvents++);
+  const scoped = { ...body, networkOwner: false, scopeStore: 1 };
+  r.reply(200, '"unknown-tag"', scoped); await r.window.TSUKENYA_REFRESH();
+  r.reply(200, '"unknown-tag"', { ...scoped, scopeStore: 2 }); await r.window.TSUKENYA_REFRESH();
+  assert.equal(scopeEvents, 2, 'fallback announces scope changes even with identical document data');
   assert(r.calls.every(call => !call.method), 'all recovery requests are GET');
   console.log('PASS compressed/weak validators, origin 304, mismatch rejection, unknown-validator full GET and strict body validation');
 })().catch(error => { console.error(error); process.exitCode = 1; });
