@@ -1,0 +1,87 @@
+.tk-receipt-review {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.tk-receipt-review h3,
+.tk-receipt-review h4,
+.tk-receipt-review p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.tk-receipt-review header,
+.tk-receipt-review section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.tk-receipt-card {
+  border: 1px solid var(--tk-line);
+  border-radius: var(--tk-radius);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  background: var(--tk-paper);
+  min-width: 0;
+}
+.tk-receipt-card details {
+  border-top: 1px solid var(--tk-line);
+  padding-top: 8px;
+  overflow-wrap: anywhere;
+}
+.tk-receipt-card summary {
+  min-height: 44px;
+  display: list-item;
+  cursor: pointer;
+  padding: 10px 0;
+}
+.tk-receipt-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.tk-receipt-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tk-receipt-review label.tk-checkbox {
+  flex-direction: row;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.tk-receipt-review .tk-checkbox:before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--tk-input-line);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.tk-receipt-review .tk-checkbox[data-selected]:before {
+  content: '✓';
+  background: var(--tk-brand);
+  color: white;
+  text-align: center;
+}
+.tk-receipt-review .tk-checkbox[data-disabled] {
+  opacity: 0.65;
+  cursor: default;
+}
+@media (max-width: 600px) {
+  .tk-receipt-fields {
+    grid-template-columns: 1fr;
+  }
+  .tk-receipt-card {
+    padding: 12px;
+  }
+  .tk-receipt-actions .tk-button {
+    max-width: 100%;
+    white-space: normal;
+  }
+}

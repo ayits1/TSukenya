@@ -1,0 +1,807 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya explicit invoice catalogue price review",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/receipt-pricing/{id}": {
+      "get": {
+        "operationId": "receiptPriceCurrent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "description": "ERP ID або network; за відсутності магазин накладної"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Перевірені дані",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Current"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректна пропозиція"
+          },
+          "403": {
+            "description": "Поточні права чи контекст не дозволяють доступ"
+          },
+          "409": {
+            "description": "Джерело, план або ключ повтору змінено"
+          }
+        }
+      }
+    },
+    "/api/v1/receipt-pricing/{id}/preview": {
+      "post": {
+        "operationId": "receiptPricePreview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Proposal"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Перевірені дані",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректна пропозиція"
+          },
+          "403": {
+            "description": "Поточні права чи контекст не дозволяють доступ"
+          },
+          "409": {
+            "description": "Джерело, план або ключ повтору змінено"
+          }
+        }
+      }
+    },
+    "/api/v1/receipt-pricing/{id}/commit": {
+      "post": {
+        "operationId": "receiptPriceCommit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Перевірені дані",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректна пропозиція"
+          },
+          "403": {
+            "description": "Поточні права чи контекст не дозволяють доступ"
+          },
+          "409": {
+            "description": "Джерело, план або ключ повтору змінено"
+          }
+        }
+      }
+    },
+    "/api/v1/receipt-pricing/{id}/results/{key}": {
+      "get": {
+        "operationId": "receiptPriceResult",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Перевірені дані",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректна пропозиція"
+          },
+          "403": {
+            "description": "Поточні права чи контекст не дозволяють доступ"
+          },
+          "409": {
+            "description": "Джерело, план або ключ повтору змінено"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SourceLine": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "lineKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)?$"
+          },
+          "price": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)?$"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,2})?$"
+          },
+          "landedAmount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d{1,2})?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lot": {
+            "type": "string"
+          },
+          "expiry": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lineKey",
+          "product",
+          "name",
+          "unit",
+          "quantity",
+          "price",
+          "amount",
+          "landedAmount",
+          "lot",
+          "expiry"
+        ]
+      },
+      "ReceiptSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "enum": ["draft", "posted", "reversed"]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,2})?$"
+          },
+          "additionalCost": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,2})?$"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceLine"
+            },
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "status",
+          "date",
+          "store",
+          "storeName",
+          "total",
+          "additionalCost",
+          "lines"
+        ]
+      },
+      "PriceContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "storeId": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "storeName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["storeId", "storeName"]
+      },
+      "SourceBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "lineKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["id", "lineKey"]
+      },
+      "PriceValues": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cost": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,2})?$"
+          },
+          "markup": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)?$"
+          },
+          "manualPrice": {
+            "type": "boolean"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+(\\.\\d{1,2})?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceReviewed": {
+            "type": "boolean"
+          }
+        },
+        "required": ["cost", "markup", "manualPrice", "price", "priceReviewed"]
+      },
+      "ProposalEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "sourceLine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "values": {
+            "$ref": "#/components/schemas/PriceValues"
+          }
+        },
+        "required": ["id", "revision", "sourceLine", "values"]
+      },
+      "Proposal": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sourceRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "sourceSnapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "priceContext": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "storeId": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["storeId"]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProposalEntry"
+            },
+            "maxItems": 200
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "sourceRevision",
+          "sourceSnapshot",
+          "priceContext",
+          "entries",
+          "reason"
+        ]
+      },
+      "CommitRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sourceRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "sourceSnapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "priceContext": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "storeId": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["storeId"]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProposalEntry"
+            },
+            "maxItems": 200
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "snapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "sourceRevision",
+          "sourceSnapshot",
+          "priceContext",
+          "entries",
+          "reason",
+          "snapshot",
+          "idempotencyKey"
+        ]
+      },
+      "Current": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/ReceiptSource"
+          },
+          "sourceSnapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext"
+          },
+          "effectiveDay": {
+            "type": "string",
+            "format": "date"
+          },
+          "csrf": {
+            "type": "string"
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "canSelectNetwork": {
+            "type": "boolean"
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "./catalog.openapi.json#/components/schemas/Product"
+            },
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "source",
+          "sourceSnapshot",
+          "priceContext",
+          "effectiveDay",
+          "csrf",
+          "canEdit",
+          "canSelectNetwork",
+          "products"
+        ]
+      },
+      "PreviewEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "sourceLine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "values": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "cost": {
+                    "type": "string",
+                    "pattern": "^\\d+(\\.\\d{1,2})?$"
+                  },
+                  "markup": {
+                    "type": "string",
+                    "pattern": "^\\d+(\\.\\d+)?$"
+                  },
+                  "manualPrice": {
+                    "type": "boolean"
+                  },
+                  "price": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d+(\\.\\d{1,2})?$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": ["cost", "markup", "manualPrice", "price"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceReviewed": {
+            "type": "boolean"
+          },
+          "comparison": {
+            "anyOf": [
+              {
+                "$ref": "./catalog.openapi.json#/components/schemas/OperationPriceComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "sourceLine",
+          "values",
+          "priceReviewed",
+          "comparison",
+          "error"
+        ]
+      },
+      "Preview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/ReceiptSource"
+          },
+          "sourceSnapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext"
+          },
+          "effectiveDay": {
+            "type": "string",
+            "format": "date"
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PreviewEntry"
+            },
+            "maxItems": 200
+          },
+          "snapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "source",
+          "sourceSnapshot",
+          "priceContext",
+          "effectiveDay",
+          "valid",
+          "entries",
+          "snapshot"
+        ]
+      },
+      "CommitEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "action": {
+            "enum": ["update"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "priceResult": {
+            "$ref": "./catalog.openapi.json#/components/schemas/OperationPriceResult"
+          }
+        },
+        "required": ["line", "action", "id", "revision", "priceResult"]
+      },
+      "Receipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReceiptSource"
+          },
+          "sourceSnapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext"
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "created": {
+                "const": 0
+              },
+              "updated": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 200
+              },
+              "errors": {
+                "const": 0
+              }
+            },
+            "required": ["created", "updated", "errors"]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitEntry"
+            },
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "ok",
+          "idempotencyKey",
+          "source",
+          "sourceSnapshot",
+          "priceContext",
+          "counts",
+          "entries"
+        ]
+      }
+    }
+  }
+}
