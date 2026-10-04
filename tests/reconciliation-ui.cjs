@@ -20,8 +20,8 @@ for n in range(30):record(uuid.uuid4(),'manual',base,now,now)
 report=copy.deepcopy(base);report['checks']['lot_balance']['issues']=[{'check':'lot_balance','subject':f'stocklot/{n}','message':'Синтетична розбіжність кількості','expected':'100.001','actual':'99.999'} for n in range(205)];report['issues']=205
 saved=record(uuid.uuid4(),'scheduler',report,now,now)
 print(json.dumps({'id':str(saved.pk),'counts':[Voucher.objects.count(),StockEntry.objects.count(),CashEntry.objects.count(),AuditEvent.objects.count()]}))`));
- const chrome=process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined);
- browser=await chromium.launch({headless:true,...(chrome?{executablePath:chrome}:{})});
+
+ browser=await chromium.launch({ headless: true });
  const context=await browser.newContext({viewport:{width:320,height:1000}}),page=await context.newPage();const errors=[],methods=[];
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/reconciliation-runs'))methods.push(r.method());});
  await require('./browser-login.cjs')(page,base,password);await page.goto(base+'/#trade/setup');const opener=page.locator('[data-trade=reconciliation]');await opener.waitFor();await opener.focus();await page.keyboard.press('Enter');

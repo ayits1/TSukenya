@@ -8,7 +8,7 @@ const server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});le
 const wait=async(fn,label='Timed out')=>{for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw Error(label);};
 (async()=>{
  await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
- browser=await chromium.launch({headless:true,...(process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
+ browser=await chromium.launch({ headless: true });page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  await require('./browser-login.cjs')(page,base,password);await page.goto(base+'/#operations/work');await page.locator('#newWork').waitFor();
  let failRead=false,writes=0;await page.route('**/api/v1/portal/metadata',async route=>{if(failRead)await route.fulfill({status:503,contentType:'application/json',body:'{"error":"isolated read failure"}'});else await route.continue();});
  await page.route('**/api/tasks',async route=>{if(route.request().method()==='POST'){writes++;const response=await route.fetch();assert.equal(response.status(),200);failRead=true;await route.fulfill({response});}else await route.continue();});

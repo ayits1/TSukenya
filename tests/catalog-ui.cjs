@@ -18,7 +18,7 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
 (async () => {
  await until(async()=>{try{return (await fetch(base+'/health')).ok;}catch{return false;}},'server startup');
  const browserType=process.env.QA_BROWSER==='webkit'?webkit:chromium;
- browser=await browserType.launch(process.env.QA_BROWSER==='webkit'?{headless:true}:{headless:true,...(process.platform==='darwin'?{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
+ browser=await browserType.launch({headless:true});
  const page=await browser.newPage({viewport:{width:1440,height:1000}}), errors=[];page.on('pageerror',error=>errors.push(error.message));
  // Functional checks use the system-font fallback instead of waiting for an external font CDN.
  await page.route('https://fonts.googleapis.com/**', route=>route.abort());

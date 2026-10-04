@@ -25,7 +25,7 @@ async function geometry(page, context) {
 }
 
 (async () => {
-  const browser = await chromium.launch({executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true});
+  const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage(), errors = [], remote = [];
     page.on('pageerror', error => errors.push(error.message));

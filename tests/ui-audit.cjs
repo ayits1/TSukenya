@@ -9,7 +9,7 @@ let browser;
 const wait=async f=>{for(let i=0;i<120;i++){if(await f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
 (async()=>{
 await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
-browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined),headless:true});const ctx=await browser.newContext({viewport:{width:1440,height:1050}}),page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+browser=await chromium.launch({ headless: true });const ctx=await browser.newContext({viewport:{width:1440,height:1050}}),page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
 await require('./browser-login.cjs')(page,base,password);
 const api=(endpoint,method='GET',body)=>page.evaluate(async({endpoint,method,body})=>{const s=await(await fetch('/api/state')).json(),r=await fetch('/api/erp/'+endpoint,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:body===undefined?undefined:JSON.stringify(body)});return{status:r.status,data:await r.json()};},{endpoint,method,body});

@@ -27,7 +27,7 @@ store=Store.objects.first();account=CashAccount.objects.filter(store=store).firs
 manager=User.objects.create_user(username='settings_manager',password='${password}');Profile.objects.create(user=manager,role='manager',store=store)
 old=Voucher.objects.create(kind='expense',date=today-timedelta(days=1),store=store,account=account,total='1',note='Period blocking draft',created_by=owner)
 print(json.dumps({'store':store.pk,'account':account.pk,'manager':manager.pk,'draft':old.pk,'yesterday':str(today-timedelta(days=1))}))`));
- browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+ browser=await chromium.launch({ headless: true });
  const ctx=await browser.newContext({viewport:{width:320,height:1000}});page=await ctx.newPage();await noFonts(page);await require('./browser-login.cjs')(page,base,password);
  const csrf=async()=>{const r=await ctx.request.get(base+'/api/state');assert.equal(r.status(),200);return(await r.json()).csrf;};
  const api=async(method,url,data)=>ctx.request.fetch(base+url,{method,headers:{Origin:base,'X-CSRF-Token':await csrf()},data});
@@ -89,7 +89,7 @@ print(json.dumps({'store':store.pk,'account':account.pk,'manager':manager.pk,'dr
  }
  if(['all','zoom','detail-zoom'].includes(from)){
   zoomProfile=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-settings-zoom-'));fs.mkdirSync(path.join(zoomProfile,'Default'));fs.writeFileSync(path.join(zoomProfile,'Default','Preferences'),JSON.stringify({partition:{default_zoom_level:{x:Math.log(2)/Math.log(1.2)}}}));
-  zoomContext=await chromium.launchPersistentContext(zoomProfile,{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true,viewport:null,args:['--window-size=1440,1000']});const zoom=zoomContext.pages()[0];await noFonts(zoom);await require('./browser-login.cjs')(zoom,base,password);assert.equal(await zoom.evaluate(()=>devicePixelRatio),2);assert.equal(await zoom.evaluate(()=>innerWidth),720);
+  zoomContext=await chromium.launchPersistentContext(zoomProfile,{ headless: true, viewport:null, args:['--window-size=1440,1000'] });const zoom=zoomContext.pages()[0];await noFonts(zoom);await require('./browser-login.cjs')(zoom,base,password);assert.equal(await zoom.evaluate(()=>devicePixelRatio),2);assert.equal(await zoom.evaluate(()=>innerWidth),720);
   if(from!=='detail-zoom'){await newUser(zoom,'settings_manager');await submit(zoom,'/api/erp/users',409);await dialog(zoom).locator('#tradeFormError').filter({hasText:'Запис уже існує'}).waitFor();await fit(zoom,'users conflict200%');await zoomShot(zoom,'tsukenya-settings-users-200.png');await closeDirty(zoom);
   fixture(`from django.contrib.auth.models import User\nfrom server.erp.models import Voucher,Store,CashAccount\nVoucher.objects.create(kind='expense',date='${seed.yesterday}',store_id=${seed.store},account_id=${seed.account},total='1',note='Zoom period draft',created_by=User.objects.get(username='tester'))`);
   await go(zoom,'setup');await zoom.locator('[data-trade=period]').click();await dialog(zoom).locator('[name=date]').fill(seed.yesterday);await dialog(zoom).locator('[name=reason]').fill('Перевірка періоду при масштабі 200%');await submit(zoom,'/api/erp/period',400);await dialog(zoom).locator('#tradeFormError').filter({hasText:'У періоді є чернетки'}).waitFor();await fit(zoom,'period rejection200%');await zoomShot(zoom,'tsukenya-settings-period-200.png');await closeDirty(zoom);

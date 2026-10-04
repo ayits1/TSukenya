@@ -14,7 +14,7 @@ const wait=async(fn,label)=>{for(let i=0;i<120;i++){if(await fn())return;await n
 (async()=>{try{
  await wait(async()=>{if(server.exitCode!==null)throw Error(fs.readFileSync(path.join(data,'server.log'),'utf8').slice(-3000));try{return(await fetch(base+'/health')).ok;}catch{return false;}},'server start');
  script("from server.erp.models import Document\nDocument.objects.update_or_create(pk='settings/main',defaults={'data':{'stores':['ERP A','ERP B'],'storeNames':['Підпис цінника'],'private':'untouched'}})");
- browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH||process.platform==='darwin'?{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ browser=await chromium.launch({ headless: true });page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());await require('./browser-login.cjs')(page,base,password);
  await page.evaluate(()=>location.hash='#operations/expenses');await page.locator('[data-budget-mode=catalog]').click();await page.locator('[data-budget-template-edit]').waitFor();
  const url='**/api/v1/portal/budget-template';let posts=0,gets=0,mode='delay',release,readStarted;

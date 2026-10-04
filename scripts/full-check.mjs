@@ -112,13 +112,11 @@ try {
   await run('docker', ['info', '--format', '{{.ServerVersion}}'], { capture: true, timeout: 15_000 });
   await run(python, ['-c', 'import django, psycopg'], { capture: true, timeout: 15_000 });
   const { chromium, webkit } = await import('playwright');
-  const systemChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  const chromePath = process.env.CHROME_PATH || (existsSync(systemChrome) ? systemChrome : chromium.executablePath());
-  if (!existsSync(chromePath) || !existsSync(webkit.executablePath())) {
+  if (!existsSync(chromium.executablePath()) || !existsSync(webkit.executablePath())) {
     throw new Error('Install local browsers first: npm exec -- playwright install chromium webkit');
   }
   data = mkdtempSync(join(tmpdir(), 'tsukenya-full-check-'));
-  const browserEnv = { ...isolatedEnv, PYTHON_BIN: python, CHROME_PATH: chromePath };
+  const browserEnv = { ...isolatedEnv, PYTHON_BIN: python };
   await stage(0, () => run('bash', ['scripts/frontend-qa.sh', 'check']));
   await stage(1, async () => {
     postgresStarted = true;

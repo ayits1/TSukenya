@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const {chromium}=require('playwright');
 (async()=>{
- const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+ const browser=await chromium.launch({ headless: true });
  try {
   const page=await browser.newPage({viewport:{width:320,height:900}});
   const url=process.env.PROMOTION_STORYBOOK_URL||'http://127.0.0.1:61117';

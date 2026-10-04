@@ -21,7 +21,7 @@ async function until(fn,label){for(let n=0;n<150;n++){if(server?.exitCode!==null
  const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));env.PORT=String(port);const base=`http://localhost:${port}`;
  const fd=fs.openSync(path.join(proof,'server.log'),'a');server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:['ignore',fd,fd]});fs.closeSync(fd);
  await until(async()=>{try{return(await fetch(base+'/health')).ok;}catch{return false;}},'local startup');run(seed);
- browser=await chromium.launch({headless:true,...(process.platform==='darwin'?{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
+ browser=await chromium.launch({ headless: true });
  page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(15000);const errors=[],writes=[];
  page.on('pageerror',e=>errors.push(e.message));await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  await require('./browser-login.cjs')(page,base,password);

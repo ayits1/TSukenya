@@ -1,8 +1,5 @@
-import { existsSync } from 'node:fs';
 import { defineConfig } from 'playwright/test';
 
-const chrome =
-  process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -11,6 +8,7 @@ export default defineConfig({
   workers: 2,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
+    headless: true,
     baseURL: 'http://127.0.0.1:6007',
     locale: 'uk-UA',
     colorScheme: 'light',
@@ -26,7 +24,6 @@ export default defineConfig({
       use: {
         browserName: 'chromium',
         viewport: { width: 1440, height: 1000 },
-        launchOptions: existsSync(chrome) ? { executablePath: chrome } : {},
       },
     },
     {
@@ -35,7 +32,6 @@ export default defineConfig({
         browserName: 'chromium',
         viewport: { width: 390, height: 844 },
         hasTouch: true,
-        launchOptions: existsSync(chrome) ? { executablePath: chrome } : {},
       },
     },
     {

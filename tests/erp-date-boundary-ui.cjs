@@ -26,7 +26,7 @@ today=timezone.localdate();midnight=datetime.combine(today,time(),tzinfo=ZoneInf
 store=Store.objects.first();account=CashAccount.objects.filter(store=store).first()
 employee=Employee.objects.create(name='Синтетичний працівник меж дат',store=store,shift_rate='400',bonus_percent='0')
 print(json.dumps({'today':str(today),'yesterday':str(today-timedelta(days=1)),'previous':str(today-timedelta(days=2)),'tomorrow':str(today+timedelta(days=1)),'before':(midnight-timedelta(seconds=30)).isoformat(),'after':(midnight+timedelta(seconds=30)).isoformat(),'employee':employee.pk,'store':store.pk,'account':account.pk}))`));
- browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+ browser=await chromium.launch({ headless: true });
  const ctx=await browser.newContext({viewport:{width:320,height:1000},timezoneId:'America/Los_Angeles'});page=await ctx.newPage();
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.route('https://fonts.gstatic.com/**',route=>route.abort());
  const errors=[];page.on('pageerror',error=>errors.push(error.message));await page.clock.setFixedTime(new Date(seed.before));await require('./browser-login.cjs')(page,base,password);

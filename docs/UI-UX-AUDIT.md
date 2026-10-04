@@ -56,7 +56,7 @@ PYTHON_BIN=/path/to/prepared/python node tests/expenses-ui.cjs
 PYTHON_BIN=/path/to/prepared/python QA_OUTPUT_DIR=/tmp/tsukenya-ui-audit node tests/ui-audit.cjs
 ```
 
-На macOS сценарій використовує встановлений Google Chrome; `CHROME_PATH` дозволяє явно задати інший виконуваний файл. На інших платформах потрібен Chromium Playwright. Сценарій видаляє успадковані змінні PostgreSQL, створює окрему SQLite та видаляє її після завершення. Повна регресія не запускається цими командами.
+На всіх платформах сценарій використовує Chromium із Playwright у headless-режимі, без channel/executablePath. Сценарій видаляє успадковані змінні PostgreSQL, створює окрему SQLite та видаляє її після завершення. Повна регресія не запускається цими командами.
 
 ## Наступне покриття
 

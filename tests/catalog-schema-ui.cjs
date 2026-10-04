@@ -13,8 +13,7 @@ let browser;const report={stage:fractionOnly?'fraction':'download-preview',pass:
 (async()=>{try{
  let ready=false;for(let i=0;i<120;i++){if(server.exitCode!==null||server.signalCode!==null)throw Error('Isolated schema server exited before readiness');try{if((await fetch(base+'/health')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,100));}
  if(!ready)throw Error('Timed out isolated schema server readiness');
- const executablePath=process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined);
- browser=await chromium.launch({headless:true,...(executablePath?{executablePath}:{})});const page=await browser.newPage({viewport:{width:1440,height:1050}});page.setDefaultTimeout(20000);page.on('pageerror',error=>report.errors.push(error.message));
+ browser=await chromium.launch({ headless: true });const page=await browser.newPage({viewport:{width:1440,height:1050}});page.setDefaultTimeout(20000);page.on('pageerror',error=>report.errors.push(error.message));
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  await require('./browser-login.cjs')(page,base,password);await page.goto(base+'/#operations/products');
  const disclosure=page.locator('[data-disclosure=import]');await disclosure.locator('summary').focus();await page.keyboard.press('Enter');await page.getByRole('button',{name:'Обрати файл',exact:true}).focus();await page.keyboard.press('Tab');

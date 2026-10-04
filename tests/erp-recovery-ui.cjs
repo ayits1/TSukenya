@@ -20,7 +20,7 @@ Document.objects.create(path='products/recovery_ingredient',data={'name':'Інг
 Document.objects.create(path='products/recovery_a',data={'name':'Готовий A','unit':'шт','recipe':[{'product':'recovery_ingredient','quantity':'1'}]})
 Document.objects.create(path='products/recovery_b',data={'name':'Готовий B','unit':'шт','recipe':[{'product':'recovery_ingredient','quantity':'2'}]})
 Store.objects.filter(pk=Store.objects.first().pk).update(name='Магазин '+('Повна назва '*13))`);
- browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+ browser=await chromium.launch({ headless: true });
  const ctx=await browser.newContext({viewport:{width:320,height:1000}});page=await ctx.newPage();page.on('pageerror',error=>errors.push(error.message));
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.route('https://fonts.gstatic.com/**',route=>route.abort());
  await require('./browser-login.cjs')(page,base,password);

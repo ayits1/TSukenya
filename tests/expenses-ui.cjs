@@ -24,7 +24,7 @@ async function until(check, message) {
 }
 (async () => {
   await until(async () => { try { return (await fetch(base + '/health')).ok; } catch { return false; } }, 'isolated server startup');
-  browser = await chromium.launch({ headless: true, ...(process.platform === 'darwin' ? { executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' } : {}) });
+  browser = await chromium.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.route('https://fonts.googleapis.com/**', r => r.abort());

@@ -62,7 +62,7 @@ VOUCHER_QA_FROM=production PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node 
 QA_RECOVERY_FROM=documents PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/erp-recovery-ui.cjs
 ```
 
-`VOUCHER_QA_FROM` має `all` за замовчуванням та перелічені вище stage names. `VOUCHER_PROOF_DIR` змінює лише місце proof; `CHROME_PATH` має platform fallback. Partial JSON явно називає scope. Full registry належить root integration; не видаємо scoped pass за повну регресію.
+`VOUCHER_QA_FROM` має `all` за замовчуванням та перелічені вище stage names. `VOUCHER_PROOF_DIR` змінює лише місце proof; браузер — bundled Chromium Playwright, headless:true, без підміни executable. Partial JSON явно називає scope. Full registry належить root integration; не видаємо scoped pass за повну регресію.
 
 Після follow-up незмінені дев'ять попередніх сімейств не запускали повторно. Нові ambiguity/ACK/recipe-UUID boundaries мають власні matching proofs; решта результатів є збереженими доказами початкового пакета. Root combined production Apply після інтеграції нового recipe decoder signature пройшов: `/tmp/tsukenya-root-voucher-production/production-report.json`.
 

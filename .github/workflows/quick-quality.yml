@@ -9,6 +9,7 @@ on:
       - 'package-lock.json'
       - '.npmrc'
       - '.nvmrc'
+      - 'scripts/check-browser-policy.mjs'
       - '.github/workflows/quick-quality.yml'
   push:
     branches: [main, master]
@@ -20,6 +21,7 @@ on:
       - 'package-lock.json'
       - '.npmrc'
       - '.nvmrc'
+      - 'scripts/check-browser-policy.mjs'
       - '.github/workflows/quick-quality.yml'
 permissions:
   contents: read
@@ -39,6 +41,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Browser launch policy (static, no browser)
+        run: npm run check:browser-policy
       - name: Check generated API contract
         run: npm run generate:api && git diff --exit-code -- frontend/src/shared/api/generated.ts
       - run: npm run check:frontend

@@ -37,7 +37,7 @@ for action,subject,detail in values:
  e=AuditEvent.objects.create(user=u,action=action,subject=subject,detail=detail)
  result[subject]={'id':e.pk,'detail':detail}
 print(json.dumps(result))`));
- browser=await chromium.launch({headless:true,...(process.platform==='darwin'?{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
+ browser=await chromium.launch({ headless: true });
  const context=await browser.newContext({viewport:{width:1440,height:1000}});page=await context.newPage();page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(new URL(r.url()).pathname.startsWith('/api/erp/')&&r.method()!=='GET')writes++;});
  await require('./browser-login.cjs')(page,base,password);await go(page);await open(page);
  if(from!=='layout'){
@@ -66,7 +66,7 @@ print(json.dumps(result))`));
  results.push('Single long read503 at320, keyboard GET retry and status focus: PASS');
  if(process.platform==='darwin'){
   zoomProfile=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-audit-zoom-'));fs.mkdirSync(path.join(zoomProfile,'Default'));fs.writeFileSync(path.join(zoomProfile,'Default','Preferences'),JSON.stringify({partition:{default_zoom_level:{x:Math.log(2)/Math.log(1.2)}}}));
-  zoomContext=await chromium.launchPersistentContext(zoomProfile,{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true,viewport:null,args:['--window-size=1440,1000']});const zoom=zoomContext.pages()[0];zoom.setDefaultTimeout(12000);zoom.on('pageerror',e=>errors.push(e.message));await require('./browser-login.cjs')(zoom,base,password);assert.equal(await zoom.evaluate(()=>devicePixelRatio),2);assert.equal(await zoom.evaluate(()=>innerWidth),720);await go(zoom);await open(zoom);await filter(zoom,'audit-detail-unknown');await row(zoom,'audit-detail-unknown').locator('summary').focus();await zoom.keyboard.press('Enter');await geometry(zoom,'zoom200');await shot(zoom,'zoom200',true);await close(zoom);await zoomContext.close();zoomContext=null;fs.rmSync(zoomProfile,{recursive:true,force:true});zoomProfile=null;results.push('Actual Chrome200% expanded details geometry and Escape focus: PASS');
+  zoomContext=await chromium.launchPersistentContext(zoomProfile,{ headless: true, viewport:null, args:['--window-size=1440,1000'] });const zoom=zoomContext.pages()[0];zoom.setDefaultTimeout(12000);zoom.on('pageerror',e=>errors.push(e.message));await require('./browser-login.cjs')(zoom,base,password);assert.equal(await zoom.evaluate(()=>devicePixelRatio),2);assert.equal(await zoom.evaluate(()=>innerWidth),720);await go(zoom);await open(zoom);await filter(zoom,'audit-detail-unknown');await row(zoom,'audit-detail-unknown').locator('summary').focus();await zoom.keyboard.press('Enter');await geometry(zoom,'zoom200');await shot(zoom,'zoom200',true);await close(zoom);await zoomContext.close();zoomContext=null;fs.rmSync(zoomProfile,{recursive:true,force:true});zoomProfile=null;results.push('Actual Chrome200% expanded details geometry and Escape focus: PASS');
  }
  }
  assert.equal(writes,0,'audit UI sends no ERP mutation');assert.deepEqual(errors,[],'browser errors');const report={scope:from,results,screenshots};fs.writeFileSync(path.join(output,`results-${from}.json`),JSON.stringify(report,null,2));console.log('PASS:',JSON.stringify(report,null,2));

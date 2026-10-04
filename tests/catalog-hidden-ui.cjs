@@ -13,7 +13,7 @@ const proof=[];const mark=x=>{proof.push(x);console.log(x);};
 async function until(fn,label){for(let i=0;i<120;i++){if(server.exitCode!==null||server.signalCode!==null)throw Error('Isolated server exited before readiness');if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(label);}
 (async()=>{
  await until(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}},'startup');
- browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH||process.platform==='darwin'?{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
+ browser=await chromium.launch({ headless: true });
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(10000);
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  page.on('dialog',d=>d.accept());await require('./browser-login.cjs')(page,base,password);

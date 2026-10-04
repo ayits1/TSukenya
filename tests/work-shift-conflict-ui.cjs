@@ -28,7 +28,7 @@ const wait = async predicate => {
 };
 (async()=>{
   await wait(async()=>{try{return(await fetch(base+'/health')).ok;}catch{return false;}});
-  browser = await chromium.launch({executablePath:process.env.CHROME_PATH || (process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined),headless:true});
+  browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({viewport:{width:1440,height:1050}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await require('./browser-login.cjs')(page,base,password);

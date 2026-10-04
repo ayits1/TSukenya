@@ -89,8 +89,7 @@ for i,(key,value) in enumerate(rows):
     Document.objects.create(path='tasks/'+key,data={**value,'status':'todo','order':i})
 Document.objects.update_or_create(path='project/state',defaults={'data':{'stage':1,'nextStep':'Приватний наступний крок'}})
 `], { cwd: root, env, stdio: 'pipe' });
-  browser = await chromium.launch({ headless: true,
-    ...(process.platform === 'darwin' ? { executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' } : {}) });
+  browser = await chromium.launch({ headless: true });
   for (const role of (process.env.QA_ROLE ? process.env.QA_ROLE.split(',') : ['owner', 'manager', 'cashier'])) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = lastPage = await context.newPage();
