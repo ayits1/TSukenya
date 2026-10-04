@@ -498,7 +498,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -545,7 +545,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/legacy-record-editor.js','/portal-api.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/legacy-record-editor.js','/portal-api.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -736,6 +736,18 @@ def handle(request):
             observed={'expected_revision':value['revision']} if 'revision' in value else {}
             return response(voucher_json(post_voucher(user,pk,**observed),True,user=user))
         if action=='reverse' and request.method=='POST':return response(voucher_json(reverse_voucher(user,pk,body(request).get('reason','')),True,user=user))
+        if not action and request.method=='GET' and request.GET.get('purpose')=='recovery':
+            from .historical_reports import read_snapshot
+            with read_snapshot():
+                user=current_actor(user)
+                v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind);expense_permission(user,v)
+                result=voucher_json(v,True,user=user)
+                # The accounting lock owns the period; do not infer it from browser bootstrap.
+                closed=LedgerLock.objects.filter(pk=1).values_list('closed_through',flat=True).first()
+                allowed=v.status=='draft' and v.store.active and (closed is None or v.date>closed)
+                if v.kind=='production' and user.profile.role!='owner' and (v.payload.get('production',{}).get('expiryOverride') or dec(v.payload.get('additional_cost',0))!=ZERO):allowed=False
+                result['editing']={'role':user.profile.role,'storeId':user.profile.store_id,'closedThrough':closed.isoformat() if closed else None,'storeActive':v.store.active,'canEdit':bool(allowed)}
+                return response(result)
         if not action and request.method=='GET':
             expense_permission(user,v)
             return response(voucher_json(v,True,user=user))

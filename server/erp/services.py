@@ -337,7 +337,7 @@ def save_voucher(user, body, pk=None):
             require(previous.kind == kind, 'Ключ запиту вже використано для іншого документа.')
             # Documents saved before fingerprints keep the earlier kind-only retry rule.
             if previous.request_fingerprint and (previous.request_fingerprint != fingerprint or previous.revision != 1):
-                raise Conflict(f'Документ № {previous.pk:06d} уже створено попереднім запитом, але з іншим змістом. Відкрийте його та внесіть зміни там.', 'idempotency_conflict', id=previous.pk, revision=previous.revision, status=previous.status)
+                raise Conflict(f'Документ № {previous.pk:06d} уже створено попереднім запитом, але з іншим змістом. Відкрийте його та внесіть зміни там.', 'idempotency_conflict', id=previous.pk, revision=previous.revision, status=previous.status, original_request_confirmed=previous.request_fingerprint == fingerprint)
             return previous
         v = Voucher(kind=kind, created_by=user, idempotency_key=key, request_fingerprint=fingerprint)
     v.date, v.store = posting_day, store

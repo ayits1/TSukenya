@@ -57,13 +57,13 @@ Store.objects.filter(pk=Store.objects.first().pk).update(name='Магазин '+
    await page.locator(action==='entity'?'.customer-toolbar .tk-button--primary':'[data-trade=fiscal]').click();
    if(action==='entity')await dialog().locator('[name=name]').fill('Вже збережений клієнт');else await dialog().locator('[name=mode]').selectOption('required');
    // The customer editor refreshes its snapshot before opening. Fail only the read after confirmed save.
-   await page.route('**/api/erp/state',route=>{reads++;return reads===1?response(route,{error:'Не вдалося оновити після успішного запису'},503):route.continue();});
+   await page.route('**/api/v1/trading/bootstrap',route=>{reads++;return reads===1?response(route,{error:'Не вдалося оновити після успішного запису'},503):route.continue();});
    await dialog().locator('[type=submit]').click();await page.locator('[data-saved-refresh] [role=alert]').waitFor();
    assert.equal(await dialog().count(),0);assert.match(await page.locator('[data-saved-refresh]').innerText(),/збережено, але список/);assert.equal(await page.locator('[data-saved-refresh] [role=alert]').evaluate(e=>e===document.activeElement),true);
    if(action==='entity')assert.equal(await page.locator('[data-saved-refresh]').getAttribute('data-saved-id'),'999');
    await page.locator('[data-trade=refresh-saved]').focus();await page.keyboard.press('Enter');await page.locator('[data-saved-refresh] [role=status]').filter({hasText:'Список оновлено'}).waitFor();
    assert.equal(posts,1,'Read retry must never repeat POST');assert.equal(reads,2);assert.equal(await page.locator('[data-saved-refresh] [role=status]').evaluate(e=>e===document.activeElement),true);
-   await page.unroute('**/api/erp/state');await page.unroute('**/api/erp/'+endpoint);
+   await page.unroute('**/api/v1/trading/bootstrap');await page.unroute('**/api/erp/'+endpoint);
   }
   results.push('entity + simpleForm saved write / failed refresh / keyboard GET retry exactly one POST: PASS');
  }
@@ -76,11 +76,11 @@ store=Store.objects.first();account=CashAccount.objects.filter(store=store).firs
 rows=[Voucher.objects.create(kind='expense',date=date.today(),store=store,account=account,total='21.99',note='Recovery fixture '+str(i),created_by=owner) for i in range(4)]
 print(json.dumps([v.pk for v in rows]))`).toString());
   for(const [index,mode] of ['draft','save-post','post-reject','existing-post'].entries()){
-   await go('finance');const id=documents[index];let saves=0,posts=0,reads=0,posted=false;
-   await page.route('**/api/erp/vouchers',route=>{assert.equal(route.request().method(),'POST');saves++;assert.equal(route.request().postDataJSON().note,'Збережена чернетка документа');return response(route,{id});});
-   await page.route(`**/api/erp/vouchers/${id}/post`,route=>{posts++;if(mode==='post-reject')return response(route,{error:'Ізольоване відхилення проведення'},422);posted=true;return response(route,{id,status:'posted'});});
+   await go('finance');const id=documents[index],confirmedDto=await page.evaluate(async id=>(await(await fetch('/api/erp/vouchers/'+id)).json()),id);let saves=0,posts=0,reads=0,posted=false;
+   await page.route('**/api/erp/vouchers',route=>{assert.equal(route.request().method(),'POST');saves++;assert.equal(route.request().postDataJSON().note,'Збережена чернетка документа');return response(route,{...confirmedDto,note:'Збережена чернетка документа'});});
+   await page.route(`**/api/erp/vouchers/${id}/post`,route=>{posts++;if(mode==='post-reject')return response(route,{error:'Ізольоване відхилення проведення'},422);posted=true;return response(route,{...confirmedDto,note:'Збережена чернетка документа',status:'posted'});});
    await page.route(`**/api/erp/vouchers/${id}`,async route=>{const raw=await route.fetch(),dto=await raw.json();if(posted)dto.status='posted';return response(route,dto);});
-   await page.route('**/api/erp/state',route=>{reads++;return reads===1?response(route,{error:'Список документів тимчасово недоступний'},503):route.continue();});
+   await page.route('**/api/v1/trading/bootstrap',route=>{reads++;return reads===1?response(route,{error:'Список документів тимчасово недоступний'},503):route.continue();});
    if(mode==='existing-post'){
     await page.locator(`[data-trade=view][data-id="${id}"]`).click();await dialog().locator('[data-trade=post-voucher]').click();
    }else{
@@ -90,14 +90,14 @@ print(json.dumps([v.pk for v in rows]))`).toString());
    }
    if(mode==='post-reject'){
     await dialog().locator('#tradeFormError').filter({hasText:'Проведення не підтверджено'}).waitFor();assert.match(await dialog().locator('#tradeFormError').innerText(),new RegExp('Чернетку № '+id+' збережено'));assert.match(await dialog().locator('#tradeFormError').innerText(),/Ізольоване відхилення/);
-    assert.equal(reads,0,'A rejected post must not be presented as a complete success');assert.equal(saves,1);assert.equal(posts,1);assert.equal(await dialog().locator('[name=note]').inputValue(),'Збережена чернетка документа');assert.equal(await dialog().locator('[type=submit][value=post]').isEnabled(),true);assert.equal(await dialog().locator('#tradeFormError').evaluate(el=>el===document.activeElement),true);
+    assert.equal(reads,0,'A rejected post must not be presented as a complete success');assert.equal(saves,1);assert.equal(posts,1);assert.equal(await dialog().locator('[name=note]').inputValue(),'Збережена чернетка документа');assert.equal(await dialog().locator('[type=submit][value=post]').isDisabled(),true);assert.equal(await dialog().locator('[data-voucher-read]').isVisible(),true);assert.equal(await dialog().locator('#tradeFormError').evaluate(el=>el===document.activeElement),true);
     page.once('dialog',native=>native.accept());await page.keyboard.press('Escape');
    }else{
     await page.locator('[data-saved-refresh] [role=alert]').waitFor();assert.equal(await dialog().count(),0);assert.equal(await page.locator('[data-saved-refresh]').getAttribute('data-saved-id'),String(id));assert.match(await page.locator('[data-saved-refresh] [role=alert]').innerText(),mode==='draft'?/збережено/:/проведено/);assert.equal(await page.locator('[data-saved-refresh] [role=alert]').evaluate(el=>el===document.activeElement),true);
     await page.locator('[data-trade=refresh-saved]').press('Enter');await page.locator('[data-saved-refresh] [role=status]').filter({hasText:'Список оновлено'}).waitFor();
     assert.equal(reads,2);assert.equal(saves,mode==='existing-post'?0:1);assert.equal(posts,mode==='draft'?0:1,'Each document action has exactly one POST; recovery only reads');
    }
-   for(const url of ['**/api/erp/vouchers',`**/api/erp/vouchers/${id}/post`,`**/api/erp/vouchers/${id}`,'**/api/erp/state'])await page.unroute(url);
+   for(const url of ['**/api/erp/vouchers',`**/api/erp/vouchers/${id}/post`,`**/api/erp/vouchers/${id}`,'**/api/v1/trading/bootstrap'])await page.unroute(url);
   }
   results.push('documents draft save, save+post, separate post reject draft feedback, existing post action; failed refresh GET-only retry and exact write counts: PASS');
  }
