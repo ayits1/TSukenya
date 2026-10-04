@@ -485,3 +485,44 @@ download/preview і layout докази наведено в CATALOG-SCHEMA.md. �
 нових записів не відновлювати, nullable erp0023/receipts не видаляти. Локальні
 журнали: `/tmp/tsukenya-release-404149c-web.log` і
 `/tmp/tsukenya-release-404149c-worker.log`.
+
+## Реліз бюджету #83 · 04.10.2026
+
+За новим дорученням власника опубліковано прийнятий main
+`6a0f4dd400648442f216b949cd21bac82a1a80db`. Робочий бюджет показує каталоговий
+діапазон до появи продажів і пріоритет фактичної маржі; приватні фінансові
+читання повторно перевіряють користувача всередині snapshot. Незалежне рев’ю
+закрило знайдену прогалину cached-owner у sales_margin. Final head24d57c3:
+CI server/PostgreSQL37213480476 SUCCESS, вузький додатковий PG access test PASS;
+попередні незмінені math/native/keyboard/layout докази використано повторно.
+
+Immutable archive/check, scoped stop worker, backup/web release/health,
+rebuild/restart worker успішні. Web/worker/PostgreSQL healthy, public health
+показує6a0f4dd та imports.available. Нових міграцій немає. PostgreSQL працює
+без перезапуску; Compose/env/gateway не замінювали.
+
+Backup: `backups/tsukenya-crm-20261004T154143Z.dump`, checksum і
+pg_restore --list591 PASS. Попередній код: `releases/pre-20261004T154142Z.tar.gz`.
+Read-only reconcile до/після issues0.90Document/0VoucherStockCash/28AuditEvent,
+importRuns0; однакова контрольна сума canonical JSON ordered(path,data):
+`6358ba98ea6873884bdef41adb4c2846cfd3877ffb6e55b972802dd6036b4f59`.
+Canonical checkout синхронізовано. Authenticated production UI не перевіряли;
+відкриття бюджету в Codex поставлено в чергу. Full/production mutation/0.1
+не виконували. Незавершені P1/price-package2/React Stock у реліз не входили.
+
+Логи: `/tmp/tsukenya-release-6a0f4dd-{web,worker,final}.log`. Відкат: scoped stop
+worker, штатний release.py з pre-20261004T154142Z.tar.gz, після healthy web
+перебудувати worker сумісної версії. БД поверх нових записів не відновлювати.
+
+### Виправлення службового сокета Gunicorn
+
+Після релізу виявлено startup error `Control server error: Permission denied:
+/home/tsukenya`. HTTP та worker працювали, але Gunicorn26.2 за замовчуванням
+намагався створити службовий сокет у home користувача, створеного з no-create-home.
+Контейнерами керує Compose; gunicornc у штатному runbook не використовується.
+`server/start.sh` вимикає цей сокет явним `--no-control-socket`, без зміни
+користувача, HTTP bind, workers/threads/timeouts або прав файлової системи.
+Поведінку підтверджено встановленим gunicorn26.2 source/parser та
+[офіційною документацією](https://gunicorn.org/reference/settings/#control_socket_disable).
+Цільова перевірка: sh -n і розбір фактичного startup argv з assertions PASS.
+Розгортання цієї окремої правки звіряється за health.release і свіжим startup log.
