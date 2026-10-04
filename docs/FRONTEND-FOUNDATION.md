@@ -180,3 +180,10 @@ Playwright headless; виробничих записів і повної рег�
 поповнення з lazy деталями та явними частинами до 200 рядків. Чинні native
 редактори/деталі/проведення й receipt → price review працюють через callbacks.
 Контракт, цільові докази та межа — [REACT-PURCHASES.md](REACT-PURCHASES.md).
+
+## Продажі та касові зміни
+
+`#trade/sales` використовує реальний React workspace з вкладками документів і
+каси, спільними Aria controls, серверною пагінацією та scalar DTO. Native
+редактори й облікові дії збережені. Storybook `Trading/Sales`, focused native
+підтвердження та межа перенесення — [REACT-SALES.md](REACT-SALES.md).

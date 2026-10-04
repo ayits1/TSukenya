@@ -63,7 +63,7 @@ print(json.dumps({'store':store.pk,'account':account.pk,'manager':manager.pk,'dr
  if(['all','fiscal'].includes(from)){
   for(const mode of ['required','optional']){
    await go(page,'setup');await page.locator('[data-trade=fiscal]').click();await dialog(page).locator('[name=mode]').selectOption(mode);await submit(page,'/api/erp/fiscal',200);await dialog(page).waitFor({state:'hidden'});assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).fiscal_required,mode==='required');
-   await go(page,'sales');await page.locator('[data-trade=new-voucher][data-kind=sale]').click();const fiscal=dialog(page).locator('[name=fiscal_ref]');assert.equal(await fiscal.evaluate(input=>input.required),mode==='required');assert.equal(await fiscal.evaluate(input=>input.validity.valueMissing),mode==='required');if(mode==='required')assert.equal(await fiscal.isVisible(),true);await page.keyboard.press('Escape');
+   await go(page,'sales');await page.getByRole('button',{name:'+ Продаж',exact:true}).click();const fiscal=dialog(page).locator('[name=fiscal_ref]');assert.equal(await fiscal.evaluate(input=>input.required),mode==='required');assert.equal(await fiscal.evaluate(input=>input.validity.valueMissing),mode==='required');if(mode==='required')assert.equal(await fiscal.isVisible(),true);await page.keyboard.press('Escape');
    await go(page,'setup');await page.locator('[data-trade=fiscal]').click();assert.equal(await dialog(page).locator('[name=mode]').inputValue(),mode);await page.keyboard.press('Escape');
   }
   pass('fiscal real setting save required/optional, fresh sale required field/validity/display, reopened setting value: PASS');
@@ -72,7 +72,7 @@ print(json.dumps({'store':store.pk,'account':account.pk,'manager':manager.pk,'dr
   await go(page,'setup');assert.match(await page.locator('#main').innerText(),/Максимальна знижка касира: 10%/);await page.locator('[data-trade=discount-limit]').click();assert.equal(await dialog(page).locator('[name=percent]').inputValue(),'10');
   await dialog(page).locator('[name=percent]').fill('7.5');await submit(page,'/api/erp/discount-limit',200);await dialog(page).waitFor({state:'hidden'});assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).max_discount,'7.5');
   await go(page,'setup');assert.match(await page.locator('#main').innerText(),/Максимальна знижка касира: 7.5%/);await page.locator('[data-trade=discount-limit]').click();assert.equal(await dialog(page).locator('[name=percent]').inputValue(),'7.5');await page.keyboard.press('Escape');
-  await go(page,'sales');await page.locator('[data-trade=new-voucher][data-kind=sale]').click();assert.equal(await dialog(page).locator('[name=discount_reason]').isVisible(),true);await page.keyboard.press('Escape');
+  await go(page,'sales');await page.getByRole('button',{name:'+ Продаж',exact:true}).click();assert.equal(await dialog(page).locator('[name=discount_reason]').isVisible(),true);await page.keyboard.press('Escape');
   pass('discount limit owner setting save, refreshed value, audited by server, sale form reason field: PASS');
  }
  if(['all','detail'].includes(from)){

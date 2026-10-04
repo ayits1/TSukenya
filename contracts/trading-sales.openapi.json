@@ -1,0 +1,604 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya sales and cash workspace",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/sales/documents": {
+      "get": {
+        "operationId": "salesDocuments",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "draft",
+                "posted",
+                "reversed"
+              ]
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "sale",
+                "customer_return",
+                "customer_order"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded scalar snapshot with fresh policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesDocuments"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Current role denied"
+          },
+          "405": {
+            "description": "Read-only endpoint"
+          }
+        }
+      }
+    },
+    "/api/v1/trading/sales/cash-shifts": {
+      "get": {
+        "operationId": "salesCashShifts",
+        "parameters": [
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
+          },
+          {
+            "name": "employee",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "open",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded scalar snapshot with fresh policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShifts"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Current role denied"
+          },
+          "405": {
+            "description": "Read-only endpoint"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SalesQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "q",
+          "store",
+          "status",
+          "kind",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "",
+              "draft",
+              "posted",
+              "reversed"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "",
+              "sale",
+              "customer_return",
+              "customer_order"
+            ]
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      },
+      "CashShiftQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "store",
+          "employee",
+          "status",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "employee": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "",
+              "open",
+              "closed"
+            ]
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      },
+      "SalesPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "store",
+          "documentKinds"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "manager",
+              "cashier"
+            ]
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "documentKinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "sale",
+                "customer_return",
+                "customer_order"
+              ]
+            },
+            "minItems": 3,
+            "maxItems": 3
+          }
+        }
+      },
+      "SalesDocument": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "number",
+          "kind",
+          "status",
+          "date",
+          "store",
+          "storeName",
+          "party",
+          "partyName",
+          "employee",
+          "employeeName",
+          "total",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sale",
+              "customer_return",
+              "customer_order"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "posted",
+              "reversed"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "party": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "partyName": {
+            "type": "string"
+          },
+          "employee": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CashShift": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "storeName",
+          "account",
+          "accountName",
+          "employee",
+          "employeeName",
+          "openedAt",
+          "closedAt",
+          "openedBy",
+          "openingCash",
+          "expectedCash",
+          "countedCash",
+          "difference",
+          "canClose"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "account": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "accountName": {
+            "type": "string"
+          },
+          "employee": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "openedBy": {
+            "type": "string"
+          },
+          "openingCash": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "expectedCash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "countedCash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "difference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "canClose": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SalesDocuments": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "query",
+          "policy",
+          "fiscalRequired"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SalesDocument"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "const": 30
+          },
+          "query": {
+            "$ref": "#/components/schemas/SalesQuery"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/SalesPolicy"
+          },
+          "fiscalRequired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CashShifts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "query",
+          "policy"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CashShift"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "const": 30
+          },
+          "query": {
+            "$ref": "#/components/schemas/CashShiftQuery"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/SalesPolicy"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,217 @@
+.sales-workspace {
+  color: var(--tk-ink);
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  gap: 16px;
+}
+.sales-workspace > * {
+  min-width: 0;
+}
+.sales-workspace h2,
+.sales-workspace h3,
+.sales-workspace h4,
+.sales-workspace p {
+  margin: 0;
+}
+.sales-toolbar,
+.sales-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.sales-toolbar h2 {
+  font-size: 24px;
+}
+.sales-toolbar p {
+  color: var(--tk-muted);
+  margin-top: 4px;
+}
+.sales-create {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+/* Tabs tracks descendant focus; the actual tab/control keeps its own focus ring. */
+.sales-tab-layout {
+  outline: none;
+}
+.sales-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--tk-line);
+  margin-bottom: 16px;
+}
+.sales-tabs [role='tab'] {
+  padding: 12px 16px;
+  min-height: 44px;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  outline-offset: 2px;
+}
+.sales-tabs [data-selected] {
+  border-color: var(--tk-brand);
+  font-weight: 600;
+}
+.sales-tabs [data-focus-visible] {
+  outline: 2px solid var(--tk-focus);
+}
+.sales-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.sales-filters > .tk-button {
+  align-self: end;
+}
+.sales-workspace section {
+  min-width: 0;
+}
+.sales-section-heading {
+  margin-bottom: 12px;
+}
+.sales-section-heading h3 {
+  font-size: 18px;
+}
+.sales-table-wrap {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+  margin-top: 16px;
+}
+.sales-table {
+  min-width: 0;
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  font-size: 14px;
+}
+.sales-table th,
+.sales-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--tk-line);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.sales-table th {
+  position: static;
+  background: var(--tk-bg);
+  font-weight: 600;
+}
+.sales-table tr:last-child td {
+  border-bottom: 0;
+}
+.sales-table td > span,
+.sales-table td > strong {
+  display: block;
+}
+.sales-money {
+  font-variant-numeric: tabular-nums;
+}
+.sales-status {
+  border-radius: 5px;
+  padding: 4px 8px;
+  display: inline-block !important;
+  background: var(--tk-bg);
+}
+.sales-status.posted {
+  color: var(--tk-brand);
+}
+.sales-pager {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.sales-pager span {
+  font-size: 14px;
+}
+.sales-error {
+  padding: 16px;
+  background: var(--tk-bg);
+  border-left: 3px solid var(--tk-error);
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.sales-empty {
+  padding: 24px 0;
+}
+@media (max-width: 720px) {
+  .sales-table,
+  .sales-table tbody,
+  .sales-table tr,
+  .sales-table td {
+    display: block;
+    width: 100%;
+  }
+  .sales-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .sales-table tr {
+    padding: 12px;
+    border-bottom: 1px solid var(--tk-line);
+  }
+  .sales-table td {
+    padding: 6px 0;
+    border: 0;
+  }
+  .sales-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 12px;
+    color: var(--tk-muted);
+    margin-bottom: 4px;
+  }
+  .sales-table td > .tk-button {
+    width: 100%;
+  }
+  .sales-pager {
+    justify-content: space-between;
+  }
+  .sales-pager span {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
+  .sales-tabs [role='tab'] {
+    padding: 12px 10px;
+  }
+  .sales-create {
+    display: grid;
+  }
+}
+
+.sales-cash {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.sales-cash > div {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.sales-cash dt {
+  color: var(--tk-muted);
+  font-size: 12px;
+}
+.sales-cash dd {
+  margin: 0;
+}
+.sales-table td > .tk-button {
+  margin-top: 8px;
+}

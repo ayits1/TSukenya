@@ -58,7 +58,7 @@ async function closeMenu(input) {
 }
 async function inspectFields(form, label, width, scale) {
   const boxes = await form.locator('input[role=combobox]').evaluateAll(inputs => inputs.map(input => {
-    const rect = input.getBoundingClientRect(), control = input.closest('.tk-combo-group').getBoundingClientRect(), field = input.closest('.trade-directory-field').getBoundingClientRect(), caption = input.closest('.tk-field').querySelector('.tk-label').getBoundingClientRect(), style = getComputedStyle(input);
+    const rect = input.getBoundingClientRect(), control = input.closest('.tk-combo-group').getBoundingClientRect(), field = input.closest('.trade-directory-field,.tk-directory-control').getBoundingClientRect(), caption = input.closest('.tk-field').querySelector('.tk-label').getBoundingClientRect(), style = getComputedStyle(input);
     const canvas = document.createElement('canvas'), context = canvas.getContext('2d');
     context.font = style.font;
     return { label: input.getAttribute('aria-label'), placeholder: input.placeholder, value: input.value, x: rect.x, y: rect.y, width: rect.width, height: rect.height, controlWidth: control.width, fieldWidth: field.width, controlX: control.x, controlRight: control.right, labelControlGap: control.y - caption.bottom, textWidth: context.measureText(input.placeholder).width, contentWidth: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) };
@@ -105,7 +105,29 @@ async function inspectMenu(label, width, expectedNames) {
   measurements.push({ label, menu: geometry });
   await capture(label + '-popup');
 }
+async function exerciseSales(width,scale){
+ const label=`sales-${width}${scale===2?'-text200':''}`;
+ await page.setViewportSize({width,height:1050});await page.goto(base+'/#trade/sales');
+ const host=page.locator('[data-react-sales]');await host.getByRole('tab',{name:'Касові зміни',exact:true}).click();
+ const form=host.locator('form.sales-filters');await host.getByRole('heading',{name:'Касові зміни',exact:true}).waitFor();
+ for(const name of ['Магазин','Працівник']){const clear=form.getByRole('button',{name:'Очистити вибір: '+name,exact:true});if(await clear.count()){await clear.click();await wait(async()=>!(await form.getByRole('combobox',{name:'Працівник',exact:true}).isDisabled()),'React cleared filter');}}
+ const enlarged=scale===2?await page.addStyleTag({content:'html{font-size:32px!important}.sales-filters :is(.tk-label,.tk-combo-input,.tk-button,label,input){font-size:28px!important}.tk-popover--directory .tk-option{font-size:26px!important}'}):null;
+ await form.scrollIntoViewIfNeeded();await inspectFields(form,label,width,scale);await capture(label+'-toolbar');
+ const store=form.getByRole('combobox',{name:'Магазин',exact:true});await store.focus();await store.press('ArrowDown');
+ await inspectMenu(label,width,ids.stores.map(row=>row.name).sort((a,b)=>a.localeCompare(b,'uk')));
+ await store.fill('Тимчасовий пошук');await closeMenu(store);assert.equal(await store.inputValue(),'');
+ await store.fill('Центральний');await page.getByRole('option',{name:ids.stores[0].name,exact:true}).waitFor();
+ await store.press('ArrowDown');await store.press('Enter');await wait(async()=>!(await store.isDisabled())&&await store.inputValue()===ids.stores[0].name,'React committed store caption');
+ await store.fill('Незбережений текст');await closeMenu(store);assert.equal(await store.inputValue(),ids.stores[0].name);
+ const employee=form.getByRole('combobox',{name:'Працівник',exact:true});await employee.fill('Коваленко');await page.getByRole('option',{name:/Коваленко/}).waitFor();
+ const response=page.waitForResponse(r=>{const url=new URL(r.url());return url.pathname==='/api/v1/trading/sales/cash-shifts'&&url.searchParams.get('store')===String(ids.stores[0].id)&&url.searchParams.get('employee')===String(ids.employees[0].id);});
+ await employee.press('ArrowDown');await employee.press('Enter');assert.equal((await response).status(),200);
+ await wait(async()=>!(await employee.isDisabled()),'React filtered read complete');
+ assert.match(await employee.inputValue(),new RegExp(' · №'+ids.employees[0].id+'$'));measurements.push({label,committedQuery:{store:ids.stores[0].id,employee:ids.employees[0].id}});
+ stages.push(label+': React toolbar/menu/keyboard/temp search/committed IDs/filtered GET PASS');if(enlarged)await enlarged.evaluate(el=>el.remove());
+}
 async function exercise(tab, kind, width, scale = 1) {
+  if(kind==='cash')return exerciseSales(width,scale);
   const label = `${tab}-${width}${scale === 2 ? '-text200' : ''}`;
   await page.setViewportSize({ width, height: 1050 });
   await page.goto(base + '/#trade/' + tab);
@@ -180,16 +202,15 @@ print(json.dumps({'stores':[{'id':s.pk,'name':s.name} for s in [first,second,thi
   for (const width of [1440, 390]) {
     await page.setViewportSize({width, height: 1000});
     await page.goto(base + '/#trade/sales');
-    const history = page.locator('[data-shift-history=cash]');
+    const history = page.locator('[data-react-sales]');await history.getByRole('tab',{name:'Касові зміни',exact:true}).click();await history.getByRole('heading',{name:'Касові зміни',exact:true}).waitFor();
     const status = history.getByRole('button', {name: /Стан/});
     await status.waitFor();
     await status.click();
     await page.getByRole('option', {name: 'Закриті', exact: true}).click();
-    assert.equal(await history.locator('select[name=status]').inputValue(), 'closed');
-    const statusRequest = page.waitForResponse(r => new URL(r.url()).pathname === '/api/erp/shifts' && new URL(r.url()).searchParams.get('status') === 'closed');
-    await history.getByRole('button', {name: 'Показати', exact: true}).click();
+    const statusRequest = page.waitForResponse(r => new URL(r.url()).pathname === '/api/v1/trading/sales/cash-shifts' && new URL(r.url()).searchParams.get('status') === 'closed');
+    await history.getByRole('button', {name: 'Знайти', exact: true}).click();
     assert.equal((await statusRequest).status(), 200);
-    await page.locator('[data-trade=shift-open]').click();
+    await history.getByRole('button',{name:'Відкрити зміну',exact:true}).click();
     const dialog = page.locator('dialog[open]');
     const employee = dialog.getByRole('combobox', {name:'Працівник',exact:true});
     await employee.click();

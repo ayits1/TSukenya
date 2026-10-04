@@ -24,6 +24,7 @@ export default defineConfig({
         abc: resolve(import.meta.dirname, 'src/abc-entry.tsx'),
         stock: resolve(import.meta.dirname, 'src/stock-entry.tsx'),
         purchases: resolve(import.meta.dirname, 'src/purchases-entry.tsx'),
+        sales: resolve(import.meta.dirname, 'src/sales-entry.tsx'),
         receiptPricing: resolve(import.meta.dirname, 'src/receipt-pricing-entry.tsx'),
       },
     },
