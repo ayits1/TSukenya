@@ -33,7 +33,9 @@ def recovery_editing(user, voucher):
 
 def release_commit():
     # Written by deploy/release.py into the image; a checkout without it reports 'unknown'.
-    try:return json.loads((ROOT/'server'/'RELEASE').read_text())['commit']
+    try:
+        commit=json.loads((ROOT/'server'/'RELEASE').read_text())['commit']
+        return commit if isinstance(commit,str) and re.fullmatch(r'[0-9a-f]{40}',commit) else 'unknown'
     except (OSError,ValueError,KeyError,TypeError):return 'unknown'
 RELEASE=release_commit()
 OWNER=os.environ.get('OWNER_USERNAME','pavlo')
@@ -521,6 +523,8 @@ def handle(request):
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
         html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/planning-category-editor.js"></script><script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        if RELEASE!='unknown':
+            html=html.replace('id="applicationVersion">Локальна версія','id="applicationVersion">Версія '+RELEASE[:7],1).replace('id="applicationCommit">Невідомий','id="applicationCommit">'+RELEASE,1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())

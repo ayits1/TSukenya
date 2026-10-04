@@ -118,3 +118,16 @@
 .import-jobs .form-field select { width:100%; }
 .import-jobs .btn { white-space:normal;min-height:44px;max-width:100%; }
 #importJobError { overflow-wrap:anywhere; }
+
+/* Release identity stays outside route content and survives screen changes. */
+.portal-release { margin-top:32px;border-top:1px solid var(--ui-line);color:var(--ui-muted);font-size:12px; }
+.portal-release summary { display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:44px;cursor:pointer;list-style:none; }
+.portal-release summary::-webkit-details-marker { display:none; }
+.portal-release summary::before { content:"+";font-size:18px;flex:none; }
+.portal-release[open] summary::before { content:"−"; }
+.portal-release summary span { min-width:0;overflow-wrap:anywhere; }
+.portal-release summary span:first-of-type { flex:1; }
+.portal-release summary:focus-visible { outline:2px solid var(--ui-focus);outline-offset:2px; }
+.portal-release p { margin:8px 0; }
+.portal-release code { overflow-wrap:anywhere;word-break:break-word; }
+@media(max-width:600px) { .portal-release summary { display:grid;grid-template-columns:16px minmax(0,1fr);gap:4px 8px;padding-block:8px; } .portal-release summary::before { grid-row:1/3;align-self:center; } .portal-release summary span { grid-column:2; } }
