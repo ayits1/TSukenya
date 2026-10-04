@@ -309,6 +309,11 @@ function mount(select: HTMLSelectElement, type: DirectoryType) {
             type={type}
             query={query}
             label={label}
+            emptyLabel={
+              Array.from(input.options)
+                .find((option) => option.value === '')
+                ?.text.trim() || ''
+            }
             value={input.value}
             selected={pinned}
             disabled={input.matches(':disabled') || (!!input.value && !selected && !failed)}

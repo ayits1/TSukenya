@@ -8,8 +8,16 @@ const items: DirectoryItem[] = Array.from({ length: 67 }, (_, i) => ({
   name: `Довідник ${String(i).padStart(3, '0')} · довга українська назва для вибору магазину`,
   active: i !== 66,
 }));
-function Fixture({ failure = false }: { failure?: boolean }) {
-  const [selected, setSelected] = useState<DirectoryItem | null>(items[66] || null),
+function Fixture({
+  failure = false,
+  empty = false,
+  required = false,
+}: {
+  failure?: boolean;
+  empty?: boolean;
+  required?: boolean;
+}) {
+  const [selected, setSelected] = useState<DirectoryItem | null>(empty ? null : items[66] || null),
     [store, setStore] = useState(1);
   const api = useMemo(() => {
     const fail = new Set(failure ? [true] : []);
@@ -47,6 +55,8 @@ function Fixture({ failure = false }: { failure?: boolean }) {
         type="stores"
         query={{ store, purpose: 'filter' }}
         label="Магазин"
+        emptyLabel="Усі магазини"
+        required={required}
         value={selected?.id || ''}
         selected={selected}
         onCommit={setSelected}
@@ -137,4 +147,57 @@ export const NarrowPinnedInactive: Story = {
       <Fixture />
     </div>
   ),
+};
+
+export const OptionalEmpty: Story = {
+  render: () => <Fixture empty />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement),
+      body = within(document.body);
+    const input = canvas.getByRole('combobox', { name: 'Магазин' });
+    await expect(input).toHaveValue('');
+    await expect(input).toHaveAttribute('placeholder', 'Усі магазини');
+    await userEvent.click(input);
+    await waitFor(() => expect(body.getByText('67 записів · 1 / 3')).toBeVisible());
+    await userEvent.type(input, '001');
+    await waitFor(() => expect(body.getByRole('option', { name: /Довідник 001/ })).toBeVisible());
+    await userEvent.keyboard('{Escape}');
+    await expect(input).toHaveValue('');
+    await expect(canvas.getByText('Обрано: —')).toBeVisible();
+    await expect(input).toHaveAttribute('placeholder', 'Усі магазини');
+    await userEvent.click(input);
+    await userEvent.type(input, '001');
+    await waitFor(() => expect(body.getByRole('option', { name: /Довідник 001/ })).toBeVisible());
+    await waitFor(() => expect(body.getByText('1 записів · 1 / 1')).toBeVisible());
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect(canvas.getByText('Обрано: 2')).toBeVisible();
+    await userEvent.click(input);
+    await userEvent.clear(input);
+    await expect(input).toHaveAttribute('placeholder', 'Знайдіть запис…');
+    await userEvent.type(input, 'невідомий');
+    await userEvent.keyboard('{Escape}');
+    await expect(input).toHaveValue(items[1]!.name);
+    await userEvent.tab();
+    const clear = canvas.getByRole('button', { name: 'Очистити вибір: Магазин' });
+    clear.focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(canvas.getByText('Обрано: —')).toBeVisible();
+    await expect(input).toHaveValue('');
+    await expect(input).toHaveAttribute('placeholder', 'Усі магазини');
+  },
+};
+export const RequiredEmpty: Story = {
+  render: () => <Fixture empty required />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement),
+      input = canvas.getByRole('combobox', { name: 'Магазин' });
+    await expect(input).toHaveAttribute('placeholder', 'Оберіть або знайдіть запис…');
+    await expect(input).toHaveValue('');
+    await expect(
+      canvas.getByText('Оберіть запис зі списку. Введений текст ще не є вибором.'),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole('button', { name: 'Очистити вибір: Магазин' }),
+    ).not.toBeInTheDocument();
+  },
 };

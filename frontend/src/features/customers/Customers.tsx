@@ -210,6 +210,7 @@ export function Customers({
             type="stores"
             query={{ purpose: 'filter' }}
             label="Магазин для аналітики"
+            emptyLabel="Усі магазини"
             value={filters.store === null ? '' : String(filters.store)}
             selected={storeChoice?.id === String(filters.store) ? storeChoice : null}
             onCommit={(item) => {
