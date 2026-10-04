@@ -435,3 +435,8 @@ B26 loyalty — правил балів і каналів. Ці входи не 
 PlanningCategory/monthlyBudget/budgetTemplate, P2/P3, інші торговельні React-модулі
 й зовнішні входи залишаються відкритими. Весь B06 і план не оголошуються
 завершеними. Пункт0.1 виключений.
+
+## Після прийняття #103 · main2adc49f · 05.10.2026
+
+- **Рецептури:** #103 MERGED, final head134cf2a frontend/server/PostgreSQL CI PASS. Обидві локальні копії синхронізовані. Прийнятий main2adc49f опубліковано на VPS; код і frontend assets звірені, public health/status/import worker healthy, read-only reconcile без розбіжностей та before/after дані однакові. Production mutation, full suite й0.1 не виконували.
+- **Категорії витрат:** durable raw/first intent/identity/current/Apply/Save пакет інтегровано для PR. Незалежне review виправило last-awaited-session fetch fence та positive preflight identity confirmation; targeted integrated identity/current503/reload PASS. Докази й межі — CATEGORY-DRAFT-PERSISTENCE.md. Monthly/template та повна React trading міграція ще не завершені.

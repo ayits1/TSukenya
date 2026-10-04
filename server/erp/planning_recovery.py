@@ -123,3 +123,18 @@ def identity(user, resource, body):
             result['permissions'] = {'canEdit': True}
         if resource == 'monthly_budget': result.update(month=receipt.month.strftime('%Y-%m'), store=receipt.store_id)
         return result
+
+
+def category_context(user, params):
+    """Authorization of stored raw fields is independent of Save and mutable captions."""
+    with read_snapshot():
+        user = current_actor(user)
+        require(user.profile.role in {'owner', 'manager', 'accountant'}, 'Недостатньо прав.')
+        require(set(params) <= {'id'}, 'Невідомий параметр відновлення.')
+        raw = params.get('id')
+        key = str(helpers().identity(raw)) if raw else None
+        exists = ExpenseCategory.objects.filter(pk=key).exists() if key else None
+        return {'resource': 'category', 'id': key, 'exists': exists,
+                'role': user.profile.role, 'storeId': user.profile.store_id,
+                'networkOwner': user.profile.role == 'owner' and user.profile.store_id is None,
+                'canEdit': user.profile.role == 'owner'}

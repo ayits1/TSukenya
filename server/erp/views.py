@@ -526,7 +526,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/planning-category-editor.js"></script><script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-entity-persistence.js"></script><script src="/erp-workshift-persistence.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-draft-persistence.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/receipt-catalog-review.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/planning-category-persistence.js"></script><script src="/planning-category-editor.js"></script><script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-entity-persistence.js"></script><script src="/erp-workshift-persistence.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-draft-persistence.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/receipt-catalog-review.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         if RELEASE!='unknown':
             html=html.replace('id="applicationVersion">Локальна версія','id="applicationVersion">Версія '+RELEASE[:7],1).replace('id="applicationCommit">Невідомий','id="applicationCommit">'+RELEASE,1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
@@ -601,7 +601,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-entity-persistence.js','/erp-workshift-persistence.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-draft-persistence.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/receipt-catalog-review.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/planning-category-persistence.js','/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-entity-persistence.js','/erp-workshift-persistence.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-draft-persistence.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/receipt-catalog-review.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -709,6 +709,7 @@ def handle(request):
         from . import monthly_budgets as budgets
         from . import planning_recovery as recovery
         resource='category' if path.startswith('/api/erp/budget-categories') else 'monthly_budget'
+        if path=='/api/erp/budget-categories/recovery-context' and request.method=='GET':return response(recovery.category_context(user,request.GET))
         if path in {'/api/erp/budget-categories/identity','/api/erp/monthly-budgets/identity'} and request.method=='POST':return response(recovery.identity(user,resource,body(request)))
         recovery_match=re.fullmatch(r'/api/erp/(?:budget-categories|monthly-budgets)/([0-9a-fA-F-]{36})',path)
         if recovery_match and request.method=='GET':return response(recovery.current(user,resource,recovery_match[1]))
@@ -717,7 +718,19 @@ def handle(request):
             if request.method=='GET':return response(budgets.categories(user))
             if request.method=='POST':
                 if user.profile.role!='owner':return response({'error':'Лише власник може змінювати статті.'},403)
-                return response(budgets.save_category(user,body(request)),201)
+                value=body(request)
+                with transaction.atomic():
+                    try:
+                        result=budgets.save_category(user,value)
+                    except Conflict:
+                        raise
+                    except (BusinessError,ValidationError) as exc:
+                        message=' '.join(exc.messages) if isinstance(exc,ValidationError) else str(exc)
+                        if any(word in message for word in ('прав','роль','доступ','власник','не підтверджений')):raise
+                        key=value.get('id')
+                        proof={'write_rejected':True,'request_key':key,'resource':'category'} if isinstance(key,str) and re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',key) else {}
+                        return response({'error':message,**proof},400)
+                    return response(result,201)
         match=re.fullmatch(r'/api/erp/budget-categories/([0-9a-fA-F-]{36})',path)
         if match and request.method=='PUT':
             if user.profile.role!='owner':return response({'error':'Лише власник може змінювати статті.'},403)
