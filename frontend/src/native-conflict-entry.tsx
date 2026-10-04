@@ -15,10 +15,12 @@ import './shared/ui/controls.css';
 import * as budgetTemplateEditor from './shared/native/budgetTemplate';
 import * as entityEditor from './shared/native/entity';
 import * as legacyEditor from './shared/native/legacy';
+import * as planningCategoryEditor from './shared/native/planningCategory';
 import * as recipeEditor from './shared/native/recipe';
 
 declare global {
   interface Window {
+    NativePlanningCategoryEditor?: typeof planningCategoryEditor;
     NativeVoucherEditor?: typeof voucherEditor;
     NativeBudgetTemplateEditor?: typeof budgetTemplateEditor;
     NativeEntityEditor?: typeof entityEditor;
@@ -38,6 +40,7 @@ declare global {
   }
 }
 window.NativeBudgetTemplateEditor = budgetTemplateEditor;
+window.NativePlanningCategoryEditor = planningCategoryEditor;
 window.NativeEntityEditor = entityEditor;
 window.NativeLegacyEditor = legacyEditor;
 window.NativeRecipeEditor = recipeEditor;

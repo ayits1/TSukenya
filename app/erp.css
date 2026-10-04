@@ -106,3 +106,5 @@
 @layer legacy {
 @media(max-width:600px){.trade-recipe-row{grid-template-columns:minmax(0,1fr) 44px}.trade-recipe-row>:first-child{grid-column:1/-1}.trade-recipe-row>*{min-width:0}}
 }
+
+.planning-category-dialog input:not([type=checkbox]),.planning-category-dialog .btn{min-height:44px}.planning-category-dialog label.inl{flex-direction:row;align-items:center;min-height:44px}.planning-category-dialog .trade-dialog-body>label{margin-bottom:16px}
