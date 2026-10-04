@@ -58,3 +58,7 @@ docker compose -p tsukenya -f compose.production.yaml --profile imports exec imp
 - Runtime DTO/recovery Node tests PASS; OpenAPI generated, tsc PASS. Compose parser validation з `--no-env-resolution --quiet` PASS (без читання env/створення сервісів), Python/JS syntax і migration consistency PASS.
 
 Повна регресія, real container kill/power-loss,150s production shutdown, network/capacity/SLA й реальний телефон не перевірялись. Реліз worker ще не виконаний. Чинний bootstrap/trading контракт не змінено; new tests потрапляють у Django discovery, native lifecycle script залишається opt-in targeted QA.
+
+## Root інтеграція
+
+Root незалежно перевірив direct-command Compose boundary, internal-only мережу, окремі app/admin credentials у документації, stopped-instance heartbeat fence та best-effort shutdown/restart runbook. Виявлений targeted `--continuous --run` global-availability gap виправлено до delivery; чинний bounded `--run` збережений. На інтегрованому коді PostgreSQL **2 PASS** (GET-only creator/health/history privacy й один aggregate на30row page, future heartbeat/argument guard), strict DTO/recovery VM PASS. Actual320 viewport PNG і native report переглянуті; незмінені agent PG5/native1001 докази використано повторно. Native lifecycle script також зареєстровано в explicit `test:full`; перевірено синтаксис, повний прогін не запускався. Release/VPS/service activation/0.1 не виконані.

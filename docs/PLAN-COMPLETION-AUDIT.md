@@ -45,6 +45,12 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B24 document detail:** #54 MERGED, exact-head0498cf6 server/PostgreSQL CI успішні. DTO receipt lineage/remaining aggregates збережені;100-row detail309–409→10 SQL. Початковий старий multilot тест виправлено до line_key→PK identity без SQL ordering припущення. Production SLA, весь E/P bootstrap та global runtime snapshot не зараховано завершеними.
 - **B25 journal/closed periods:** пакет0a72e9c інтегрований для PR/CI. Root real PostgreSQL3 та strict DTO PASS, actual native320/1440 переглянуті; нові read-only сценарії зареєстровано в явному full entrypoint. Scheduler activation, retention й recovery/backup0.1 залишаються окремими межами. [RECONCILIATION-JOURNAL.md](RECONCILIATION-JOURNAL.md).
 
+## Після прийняття #55 · mainaa22d22 · 04.10.2026
+
+- **B25:** #55 MERGED, exacthead43eff70 server/PostgreSQL CI успішні. Code journal/known chronology/network-owner paging прийняті; scheduler activation й відновлення залишаються окремими межами,0.1 виключено.
+- **B21 operational worker:** own5b2e1c інтегровано для PR/CI. CLI continuous/heartbeat/opt-in Compose підготовлені, targeted `--run` не оголошує всім generic availability. RootPG2/VM і actual320PNG перевірено; actor/token/chunk/lostACK guards незмінні. [CATALOG-IMPORT-WORKER.md](CATALOG-IMPORT-WORKER.md). Реальне activation/deployment та capacity100000 не виконані.
+- **B24 решта:** bounded native directory migration та global portal metadata/summary/export migration активні. Не підміняти повний bootstrap/API scope уже прийнятими stock/detail пакетами.
+
 ## Позначення
 
 Оновлення після main95d42c0: **#53 MERGED**, exact-head frontend/server/PostgreSQL CI успішні; B21 operational worker/service й production capacity залишаються відкритими. Наступний B24 document-detail пакет інтегрований для PR/CI: bounded DTO aggregates/receipt lineage, independent parity/security/retry checks, PostgreSQL root3+agent6 та local1/5/10 posting evidence. [B24-DOCUMENT-POSTING.md](B24-DOCUMENT-POSTING.md). Це не закриває решту bootstrap/migration або release/full/0.1.
