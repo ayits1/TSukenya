@@ -122,7 +122,10 @@ export const RaceAndParent: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Інший магазин' }));
     await userEvent.click(input);
     await userEvent.clear(input);
-    await waitFor(() => expect(body.getByText('1 записів · 1 / 1')).toBeVisible());
+    await waitFor(() => {
+      expect(body.getAllByRole('option')).toHaveLength(1);
+      expect(body.queryByText('Шукаємо…')).not.toBeInTheDocument();
+    });
     await expect(body.queryByRole('option', { name: /Довідник 000/ })).not.toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(input).toHaveAttribute('aria-expanded', 'false'));
@@ -168,7 +171,10 @@ export const OptionalEmpty: Story = {
     await userEvent.click(input);
     await userEvent.type(input, '001');
     await waitFor(() => expect(body.getByRole('option', { name: /Довідник 001/ })).toBeVisible());
-    await waitFor(() => expect(body.getByText('1 записів · 1 / 1')).toBeVisible());
+    await waitFor(() => {
+      expect(body.getAllByRole('option')).toHaveLength(1);
+      expect(body.queryByText('Шукаємо…')).not.toBeInTheDocument();
+    });
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await expect(canvas.getByText('Обрано: 2')).toBeVisible();
     await userEvent.click(input);
@@ -239,5 +245,89 @@ export const CompactTriggerPagination: Story = {
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(input).toHaveAttribute('aria-expanded', 'false'));
     await expect(canvas.getByText('Обрано: —')).toBeVisible();
+  },
+};
+
+function CompactEmployees() {
+  const [dialog, setDialog] = useState<HTMLDialogElement | null>(null);
+  const [selected, setSelected] = useState<DirectoryItem | null>(null);
+  const api = useMemo(
+    () =>
+      ({
+        list: async () => ({
+          items: [
+            { id: '11', name: 'Марія Коваленко', store_id: 1, active: true },
+            { id: '12', name: 'Марія Коваленко', store_id: 2, active: true },
+          ],
+          total: 2,
+          pages: 1,
+          page: 1,
+          limit: 30,
+        }),
+        bootstrap: async () => {
+          throw Error('Unused synthetic bootstrap');
+        },
+        details: async () => {
+          throw Error('Unused synthetic details');
+        },
+        lookup: async () => {
+          throw Error('Unused synthetic lookup');
+        },
+      }) satisfies TradingApi,
+    [],
+  );
+  return (
+    <>
+      <button onClick={() => dialog?.showModal()}>Відкрити зміну</button>
+      <dialog
+        ref={setDialog}
+        style={{
+          width: 'min(600px, calc(100vw - 32px))',
+          padding: 24,
+          height: 300,
+          overflow: 'auto',
+        }}
+      >
+        <h2>Відкриття касової зміни</h2>
+        <DirectoryComboBox
+          api={api}
+          type="employees"
+          query={{ purpose: 'shift_open' }}
+          label="Працівник"
+          emptyLabel="Без працівника"
+          value={selected?.id || ''}
+          selected={selected}
+          {...(dialog ? { portalContainer: dialog } : {})}
+          onCommit={setSelected}
+        />
+        <button onClick={() => dialog?.close()}>Закрити</button>
+        <output>Працівник: {selected?.id || '—'}</output>
+      </dialog>
+    </>
+  );
+}
+export const CompactEmployeesInDialog: Story = {
+  render: () => <CompactEmployees />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement),
+      body = within(document.body);
+    await userEvent.click(canvas.getByRole('button', { name: 'Відкрити зміну' }));
+    const input = body.getByRole('combobox', { name: 'Працівник' });
+    await userEvent.click(input);
+    await waitFor(() => expect(body.getAllByRole('option')).toHaveLength(2));
+    await expect(body.queryByRole('button', { name: 'Далі' })).not.toBeInTheDocument();
+    const options = body.getAllByRole('option');
+    await expect(options[0]).toHaveTextContent('магазин №1 · №11');
+    await expect(options[1]).toHaveTextContent('магазин №2 · №12');
+    const bounds = body.getByRole('listbox').closest('.tk-popover')!.getBoundingClientRect();
+    const dialog = input.closest('dialog')!.getBoundingClientRect();
+    await expect(bounds.bottom).toBeLessThanOrEqual(dialog.bottom);
+    await expect(bounds.top).toBeGreaterThanOrEqual(dialog.top);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect(body.getByText('Працівник: 11')).toBeVisible();
+    await userEvent.click(input);
+    await userEvent.keyboard('{Escape}');
+    await expect(input.closest('dialog')).toHaveAttribute('open');
+    await userEvent.click(body.getByRole('button', { name: 'Закрити' }));
   },
 };

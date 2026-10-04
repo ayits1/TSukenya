@@ -1,5 +1,6 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { I18nProvider } from 'react-aria-components';
+import { syncShiftStatus, disposeShiftStatus } from './shared/native/shiftStatus';
 import { DirectoryComboBox } from './features/trading/DirectoryComboBox';
 import {
   createTradingApi,
@@ -356,6 +357,7 @@ function mount(select: HTMLSelectElement, type: DirectoryType) {
   render();
 }
 function scan(container: ParentNode = document) {
+  syncShiftStatus(container);
   for (const [input, control] of controls)
     if (!input.isConnected) {
       control.controller?.abort();
@@ -376,6 +378,7 @@ function sync(container: ParentNode = document) {
       control.render();
 }
 function dispose(container: Node) {
+  disposeShiftStatus(container);
   for (const [input, control] of controls)
     if (container.contains(input)) {
       control.controller?.abort();
@@ -462,8 +465,11 @@ const observer = new MutationObserver((records) => {
     scan();
   for (const record of records)
     if (record.type === 'attributes') {
-      if (record.target instanceof HTMLSelectElement) controls.get(record.target)?.render();
-      else if (record.target instanceof HTMLFieldSetElement) sync(record.target);
+      if (record.target instanceof HTMLSelectElement) {
+        controls.get(record.target)?.render();
+        if (record.target.dataset.statusMounted && record.target.parentElement)
+          syncShiftStatus(record.target.parentElement);
+      } else if (record.target instanceof HTMLFieldSetElement) sync(record.target);
     }
 });
 observer.observe(document.body, {

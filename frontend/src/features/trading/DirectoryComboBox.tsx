@@ -26,10 +26,11 @@ export type DirectoryComboBoxProps = {
   onCommit: (item: DirectoryItem | null) => void;
   onItems?: (items: DirectoryItem[]) => void;
 };
-const choice = (item: DirectoryItem): Choice => ({
+const choice = (item: DirectoryItem, type: DirectoryType): Choice => ({
   id: item.id,
   label:
     item.name +
+    (type === 'employees' ? ` · магазин №${item.store_id} · №${item.id}` : '') +
     (item.active === false ? ' · неактивний' : '') +
     (item.hidden ? ' · прихований' : '') +
     (item.unit ? ' · ' + item.unit : '') +
@@ -52,12 +53,12 @@ export function DirectoryComboBox({
 }: DirectoryComboBoxProps) {
   const signature = JSON.stringify([type, query]);
   const identity = signature + ':' + value;
-  const labelText = selected ? choice(selected).label : '';
+  const labelText = selected ? choice(selected, type).label : '';
   const [observedLabel, setObservedLabel] = useState(labelText);
   const [searchCommand, setSearchCommand] = useState(externalSearch?.id);
   const [observed, setObserved] = useState(identity);
   const [input, setInput] = useState(
-    externalSearch?.text ?? (selected ? choice(selected).label : ''),
+    externalSearch?.text ?? (selected ? choice(selected, type).label : ''),
   );
   const [page, setPage] = useState(1),
     [retry, setRetry] = useState(0);
@@ -78,7 +79,7 @@ export function DirectoryComboBox({
   }, [onItems]);
   if (observed !== identity) {
     setObserved(identity);
-    setInput(selected ? choice(selected).label : '');
+    setInput(selected ? choice(selected, type).label : '');
     setPage(1);
   }
   if (observedLabel !== labelText) {
@@ -90,7 +91,7 @@ export function DirectoryComboBox({
     setInput(externalSearch?.text || '');
     setPage(1);
   }
-  const committed = selected ? choice(selected) : null;
+  const committed = selected ? choice(selected, type) : null;
   const search = input === committed?.label ? '' : input;
   const current =
     result?.signature === signature && result.search === search && result.data.page === page
@@ -145,6 +146,7 @@ export function DirectoryComboBox({
   return (
     <div className="tk-directory-control" ref={host}>
       <ComboBox
+        widePopover
         {...(portalContainer ? { portalContainer } : {})}
         label={label}
         placeholder={
@@ -155,7 +157,7 @@ export function DirectoryComboBox({
               : 'Оберіть або знайдіть запис…'
         }
         onOpenChange={setActive}
-        options={current?.items.map(choice) || []}
+        options={current?.items.map((item) => choice(item, type)) || []}
         search="server"
         selectedOption={committed}
         selectedKey={value || null}
@@ -176,7 +178,7 @@ export function DirectoryComboBox({
           if (loading) return;
           const item = current?.items.find((item) => item.id === String(key));
           if (!item) return;
-          setInput(choice(item).label);
+          setInput(choice(item, type).label);
           onCommit(item);
         }}
         isLoading={loading}
@@ -197,44 +199,48 @@ export function DirectoryComboBox({
           }
         }}
         popoverFooter={
-          <div className="tk-directory-paging" data-directory-paging>
-            <span role="status">
-              {loading
-                ? 'Шукаємо…'
-                : current
-                  ? `${current.total} записів · ${current.page} / ${current.pages}`
-                  : error
-                    ? 'Читання не вдалося'
-                    : '0 записів'}
-            </span>
-            {error ? (
-              <Button
-                onPress={() => {
-                  setRetry((n) => n + 1);
-                  setPending(true);
-                  setError('');
-                }}
-              >
-                Повторити
-              </Button>
-            ) : (
-              <div>
+          error || loading || (current && current.pages > 1) ? (
+            <div className="tk-directory-paging" data-directory-paging>
+              <span role="status">
+                {loading
+                  ? 'Шукаємо…'
+                  : current
+                    ? `${current.total} записів · ${current.page} / ${current.pages}`
+                    : error
+                      ? 'Читання не вдалося'
+                      : '0 записів'}
+              </span>
+              {error ? (
                 <Button
-                  isDisabled={loading || !current || current.page <= 1}
-                  onPress={() => navigate(-1)}
+                  onPress={() => {
+                    setRetry((n) => n + 1);
+                    setPending(true);
+                    setError('');
+                  }}
                 >
-                  Назад
+                  Повторити
                 </Button>
-                <Button
-                  isDisabled={loading || !current || current.page >= current.pages}
-                  onPress={() => navigate(1)}
-                >
-                  Далі
-                </Button>
-              </div>
-            )}
-            <small>Alt + PageUp / PageDown — сторінки</small>
-          </div>
+              ) : result?.signature === signature && result.data.pages > 1 ? (
+                <div>
+                  <Button
+                    isDisabled={loading || !current || current.page <= 1}
+                    onPress={() => navigate(-1)}
+                  >
+                    Назад
+                  </Button>
+                  <Button
+                    isDisabled={loading || !current || current.page >= current.pages}
+                    onPress={() => navigate(1)}
+                  >
+                    Далі
+                  </Button>
+                </div>
+              ) : null}
+              {current && current.pages > 1 ? (
+                <small>Alt + PageUp / PageDown — сторінки</small>
+              ) : null}
+            </div>
+          ) : null
         }
       />
       {value && !required ? (
