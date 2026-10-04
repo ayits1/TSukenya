@@ -17,8 +17,13 @@ def posted_after(returned, payroll, *, attempt_at=None):
 
 
 def is_late_return(returned, payroll):
+    # payroll_amount excludes later accounting dates even when that return was
+    # already posted before a backdated accrual. Its paid basis still includes
+    # the sale. For returns inside the cutoff, actual later posting decides.
+    if returned.date > payroll.date:
+        return True
     known = posted_after(returned, payroll)
-    return known if known is not None else returned.date > payroll.date
+    return known if known is not None else False
 
 
 def return_order(returned):

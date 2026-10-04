@@ -174,3 +174,35 @@ class PayrollChronologyConcurrencyTests(ChronologyFixture, TransactionTestCase):
         self.check_order('payroll')
     def test_return_lock_first_is_included_once_in_final_bonus(self):
         self.check_order('customer_return')
+
+
+class BackdatedPayrollCutoffTests(AccountingFixture):
+    def test_previously_posted_return_after_accounting_cutoff_remains_visible(self):
+        import json
+        from server.erp.views import work_shift_save
+        sale_day = (timezone.localdate() - timedelta(days=2)).isoformat()
+        payroll_day = (timezone.localdate() - timedelta(days=1)).isoformat()
+        self.v('receipt', 20, 5, date=sale_day)
+        worker = Employee.objects.create(store=self.store, name='Cutoff worker', shift_rate=100, bonus_percent=10)
+        shift = CashShift.objects.create(store=self.store, account=self.cash, employee=worker,
+                                        opened_by=self.u, opening_cash=0)
+        CashShift.objects.filter(pk=shift.pk).update(opened_at=timezone.now() - timedelta(days=2))
+        shift.refresh_from_db()
+        sale = self.v('sale', 10, 100, date=sale_day, shift=shift.pk, employee=worker.pk,
+                       payload={'payments': [{'account': self.bank.pk, 'amount': '1000'}]})
+        shift.closed_at = timezone.now(); shift.expected_cash = shift.counted_cash = Decimal(0); shift.save()
+        work_id = json.loads(work_shift_save(self.u, {'employee': worker.pk, 'date': sale_day,
+                                'cash_shift': shift.pk, 'shift_rate': '100', 'bonus_percent': '10'}).content)['id']
+        returned = self.v('customer_return', 1, 100, reference=sale.pk,
+                          payload={'payments': [{'account': self.bank.pk, 'amount': '100'}]})
+        payroll = self.v('payroll', date=payroll_day, employee=worker.pk, payload={'shift_ids': [work_id]})
+        self.assertLess(returned.posted_at, payroll.posted_at)
+        self.assertGreater(returned.date, payroll.date)
+        work = WorkShift.objects.get(pk=work_id)
+        self.assertEqual((work.basis_amount, payroll.total), (Decimal('1000'), Decimal('200')))
+        row = report(self.u, {'from': self.today, 'to': self.today})['cashiers'][0]
+        self.assertEqual(row['late_return_bonus'], '10.00')
+        frozen = payroll.payload
+        reverse_voucher(self.u, returned.pk, 'Повернення скасовано без зміни остаточного бонусу')
+        self.assertEqual(report(self.u, {'from': self.today, 'to': self.today})['cashiers'][0]['late_return_bonus'], '0.00')
+        payroll.refresh_from_db(); self.assertEqual((payroll.total, payroll.payload), (Decimal('200'), frozen))
