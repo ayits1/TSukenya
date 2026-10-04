@@ -284,3 +284,22 @@ SERVER-DEPLOYMENT.md. Planning/category/monthly інтеграція прийн�
 не закриває B06 reload persistence, B24 capacity/fanout, external integrations
 або повну міграцію торговельних екранів React. Повного локального test:full
 і offsite0.1 не було. Hidden catalogue та bounded report children ще в роботі.
+
+
+## Original issue #1: видима версія і журнал змін
+
+Додано «Про застосунок» до спільної оболонки: справжній deployment SHA з
+server/RELEASE, короткий номер і повний коміт для повідомлення про помилку.
+Немає нового запиту/poll чи вигаданої версії checkout; без SHA явна локальна
+версія/невідомий коміт. RELEASE reader приймає лише40 lowercase hex, malformed
+JSON/markup/types не потрапляють у HTML. Artifact static fallback збережено.
+CHANGELOG.md містить перевірені прийняті main65/68/69/70 з датами GitHub;
+прийняття відокремлене від фактичного розгортання. Це не весь історичний журнал.
+
+Цільовий `tests.test_release_identity` SQLite2 PASS0.002s (pure reader/render,
+без DB write). Actual footer markup/CSS Playwright1440/320, Enter toggle/focus,
+44px і doubledtext PASS; після перегляду першого320 PNG виправлено stacking
+summary, повторено тільки цей layout випадок. Фінальний320 PNG переглянуто:
+`/tmp/tsukenya-release-layout/release-enlarged-320.png`; report.json поруч.
+Browser proof suppresses scripts і не є authenticated/full-portal/production
+перевіркою. Публікація цього UI ще не виконана; full локально не запускався.
