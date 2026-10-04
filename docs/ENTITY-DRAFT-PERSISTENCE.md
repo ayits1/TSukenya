@@ -115,3 +115,18 @@ wrong ACK refusal та deleted-original tombstone. Old primary/layout цілко
 
 Решта P1 native сімей, P2/P3 та browser-restart/cross-device persistence лишаються
 відкритими; source/proof цей follow-up не є їхнім completion.
+
+
+## Інтеграція з актуальним порталом
+
+Пакет інтегровано поверх accepted main `18b48b17`. Незалежне рев’ю
+`f3616f4` підтвердило сумісність native entry, редакторів та нових контролів.
+Повторено тільки залежні перевірки: build/TypeScript, scoped lint,22 unit tests,
+headless native READ privacy та CREATE recovery. Попередні незмінені server,
+keyboard/layout і codec докази використано повторно. Повної регресії не запускали.
+Інші сім’ї B06 та пункт0.1 цим пакетом не завершено.
+
+Під час інтеграційного CREATE сценарію виправлено застарілу тестову вимогу:
+після503 приватна форма вже приховується політикою READ. Тест очікує стан error
+і перевіряє приховану форму та підтверджений ID, після reload — лише current GET.
+Перша спроба з попередньою вимогою не є успішним доказом.
