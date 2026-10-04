@@ -174,12 +174,23 @@
     } finally { clearTimeout(timeout); current.saving = false; if (state === current) notify(); }
     if (current.completed) await refresh();
   }
+  let resultReadGeneration=0;
+  function stopResultRead(expected){
+    if(!state?.uncertain||!state.loading||expected&&state.controller!==expected)return;
+    ++resultReadGeneration;
+    state.controller?.abort();state.controller=null;state.loading=false;
+    state.failure='Читання результату скасовано. Початковий номер і пакет збережено.';
+    notify();
+  }
   async function readResult(){
     if(!state?.uncertain||state.loading||state.saving||!state.commitPayload)return;
-    const current=state;current.loading=true;current.failure='';current.controller=new AbortController();notify();const timer=setTimeout(()=>current.controller.abort(),30000);
-    try{if(!globalThis.CatalogPriceWorkflow)throw Error('Модуль цінників ще не завантажено.');const value=await globalThis.CatalogPriceWorkflow.read('import',current.commitPayload.idempotencyKey,current.controller.signal);if(value.status!=='completed')throw Error('Початковий атомарний результат ще не підтверджено.');if(state!==current)return;current.recoveredOperation=current.commitPayload.idempotencyKey;current.uncertain=false;current.conflict=false;}
-    catch(error){if(state===current)current.failure=error.message+' Відсутня відповідь не доводить скасування початкового запису.';}
-    finally{clearTimeout(timer);current.loading=false;if(state===current)notify();}
+    const current=state,controller=new AbortController(),generation=++resultReadGeneration;
+    const active=()=>state===current&&generation===resultReadGeneration&&current.controller===controller&&!controller.signal.aborted;
+    current.loading=true;current.failure='';current.controller=controller;notify();
+    const timer=setTimeout(()=>stopResultRead(controller),30000);
+    try{if(!globalThis.CatalogPriceWorkflow)throw Error('Модуль цінників ще не завантажено.');const value=await globalThis.CatalogPriceWorkflow.read('import',current.commitPayload.idempotencyKey,controller.signal);if(!active())return;if(value.status!=='completed')throw Error('Початковий атомарний результат ще не підтверджено.');current.recoveredOperation=current.commitPayload.idempotencyKey;current.uncertain=false;current.conflict=false;}
+    catch(error){if(active())current.failure=error.message+' Відсутня відповідь не доводить скасування початкового запису.';}
+    finally{clearTimeout(timer);if(active()){current.loading=false;current.controller=null;notify();}}
   }
   function syncLocks() {
     const host=document.querySelector('#impBox');if(!host||!state)return;
@@ -200,7 +211,7 @@
     document.addEventListener('click',event => {
       const target = event.target.closest('[data-catalog-import]'); if (!target || target.disabled) return;
       const action = target.dataset.catalogImport;
-      if (action === 'upload') void upload(); else if (action === 'preview') void preview(); else if (action === 'commit') void commit(); else if (action === 'refresh') void refresh(); else if(action==='read-result')void readResult();else if(action==='stop-read'&&state?.uncertain)state.controller?.abort();else if(action==='labels'&&confirmed())globalThis.CatalogPriceWorkflow?.open('import',state.completed?.idempotencyKey||state.recoveredOperation); else if (action === 'reset') reset();
+      if (action === 'upload') void upload(); else if (action === 'preview') void preview(); else if (action === 'commit') void commit(); else if (action === 'refresh') void refresh(); else if(action==='read-result')void readResult();else if(action==='stop-read'&&state?.uncertain)stopResultRead();else if(action==='labels'&&confirmed())globalThis.CatalogPriceWorkflow?.open('import',state.completed?.idempotencyKey||state.recoveredOperation); else if (action === 'reset') reset();
       else if (state && ['previous','next'].includes(action)) { state.page = Math.max(1,(state.page||1)+(action==='next'?1:-1)); notify(); document.querySelector('.catalog-import-pagination [data-catalog-import='+action+']')?.focus(); }
     });
     document.addEventListener('change',event => {

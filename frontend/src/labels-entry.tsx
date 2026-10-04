@@ -58,6 +58,7 @@ function draw() {
               priceContext={context}
               operation={operation}
               operationContext={context}
+              operationContextGuard={controls.guard}
               promotions={promotions}
               onOperationApply={controls.adopt}
               onOperationCancel={() => {

@@ -9,6 +9,7 @@ import type {
 } from '../../shared/api/operationPrices';
 import type { Product } from '../catalog/api';
 import type { PromotionApi, PromotionContext } from '../promotions/api';
+import type { PricingRequestGuard } from '../promotions/PricingContext';
 import { createSelectionApi, mergedSelection } from './operationSelection';
 import type { PriceOperation, SelectionApi, SelectionReview } from './operationSelection';
 import './operation-selection.css';
@@ -16,6 +17,7 @@ export function OperationSelectionReview({
   operation,
   selection,
   context,
+  contextGuard,
   promotions,
   api: supplied,
   isDisabled,
@@ -25,6 +27,7 @@ export function OperationSelectionReview({
   operation: PriceOperation;
   selection: Record<string, number>;
   context: PromotionContext;
+  contextGuard?: PricingRequestGuard | undefined;
   promotions: Pick<PromotionApi, 'context'>;
   api?: SelectionApi;
   isDisabled: boolean;
@@ -52,12 +55,16 @@ export function OperationSelectionReview({
     generation = useRef(0),
     alive = useRef(true),
     heading = useRef<HTMLHeadingElement>(null),
-    currentSignature = JSON.stringify([selection, context.storeId]),
+    currentSignature = JSON.stringify([selection, context.storeId, contextGuard?.generation]),
     signature = useRef(currentSignature),
     baseline = useRef(currentSignature);
   useLayoutEffect(() => {
     signature.current = currentSignature;
   }, [currentSignature]);
+  const assertContext = () => {
+    if (contextGuard && !contextGuard.isCurrent())
+      throw Error('Вибір магазину змінився. Прочитайте перегляд повторно.');
+  };
   const start = () => {
     controller.current?.abort();
     const abort = new AbortController(),
@@ -135,8 +142,10 @@ export function OperationSelectionReview({
     setAck(false);
     setReview(null);
     try {
+      assertContext();
       const data = await api.preview(operation, { ordinals, page: nextPage }, request.abort.signal);
       if (!request.current()) return;
+      assertContext();
       if (signature.current !== atStart)
         throw Error('Вибір Studio або магазин змінився. Прочитайте перегляд повторно.');
       baseline.current = atStart;
@@ -155,12 +164,15 @@ export function OperationSelectionReview({
       original = review,
       atStart = signature.current;
     try {
+      assertContext();
       if (atStart !== baseline.current)
         throw Error('Вибір Studio або магазин змінився. Прочитайте перегляд повторно.');
       const currentContext = await promotions.context(
         original.priceContext.storeId,
         request.abort.signal,
       );
+      if (!request.current()) return;
+      assertContext();
       if (currentContext.storeId !== original.priceContext.storeId)
         throw Error('Сервер повернув інший магазин ціни.');
       const finalApi = supplied || createSelectionApi(() => currentContext.csrf);
@@ -173,6 +185,7 @@ export function OperationSelectionReview({
           request.abort.signal,
         );
         if (!request.current()) return;
+        assertContext();
         if (
           !latest.canApply ||
           currentContext.storeName !== latest.priceContext.storeName ||
@@ -182,6 +195,7 @@ export function OperationSelectionReview({
         products.push(...latest.items.map((row) => row.current!));
       }
       if (!request.current()) return;
+      assertContext();
       if (signature.current !== atStart)
         throw Error('Вибір Studio або магазин змінився. Прочитайте перегляд повторно.');
       const next = mergedSelection(

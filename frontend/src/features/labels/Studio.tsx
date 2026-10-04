@@ -22,6 +22,7 @@ import {
 import type { LabelConfig, LabelField, LabelProduct, LabelSettings } from './domain';
 import type { LabelApi, Proof, Workspace } from './api';
 import { LABEL_MERGE_FIELDS } from './conflict';
+import type { PricingRequestGuard } from '../promotions/PricingContext';
 import { OperationSelectionReview } from './OperationSelectionReview';
 import type { PriceOperation } from './operationSelection';
 import type { PromotionApi, PromotionContext } from '../promotions/api';
@@ -78,6 +79,7 @@ export function Studio({
   priceContext,
   operation,
   operationContext,
+  operationContextGuard,
   promotions,
   onOperationApply,
   onOperationCancel,
@@ -86,6 +88,7 @@ export function Studio({
   priceStore?: number | null | undefined;
   operation?: PriceOperation | null | undefined;
   operationContext?: PromotionContext | undefined;
+  operationContextGuard?: PricingRequestGuard | undefined;
   promotions?: PromotionApi | undefined;
   onOperationApply?: ((context: PromotionContext) => void) | undefined;
   onOperationCancel?: (() => void) | undefined;
@@ -126,6 +129,7 @@ export function Studio({
       priceContext={priceContext}
       operation={operation}
       operationContext={operationContext}
+      operationContextGuard={operationContextGuard}
       promotions={promotions}
       onOperationApply={onOperationApply}
       onOperationCancel={onOperationCancel}
@@ -151,6 +155,7 @@ function StudioWorkspace({
   priceContext,
   operation,
   operationContext,
+  operationContextGuard,
   promotions,
   onOperationApply,
   onOperationCancel,
@@ -159,6 +164,7 @@ function StudioWorkspace({
   priceStore?: number | null | undefined;
   operation?: PriceOperation | null | undefined;
   operationContext?: PromotionContext | undefined;
+  operationContextGuard?: PricingRequestGuard | undefined;
   promotions?: PromotionApi | undefined;
   onOperationApply?: ((context: PromotionContext) => void) | undefined;
   onOperationCancel?: (() => void) | undefined;
@@ -731,6 +737,7 @@ function StudioWorkspace({
             key={operation.token}
             operation={operation}
             context={operationContext}
+            contextGuard={operationContextGuard}
             promotions={promotions}
             selection={memory.selection}
             isDisabled={outputBusy || preparing || comparisonBusy}
@@ -738,8 +745,10 @@ function StudioWorkspace({
             onApply={(next, products, context) => {
               if (busy.current || preparing || outputBusy)
                 throw Error('Дочекайтеся завершення поточної перевірки або друку.');
-              invalidate();
+              if (operationContextGuard && !operationContextGuard.isCurrent())
+                throw Error('Вибір магазину змінився. Прочитайте перегляд повторно.');
               onOperationApply?.(context);
+              invalidate();
               setMemory((previous) => ({
                 ...previous,
                 selection: next,

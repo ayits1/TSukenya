@@ -107,3 +107,45 @@ New native/VM targets are registered in explicit `npm run test:full`; full suite
 **не запускалася**. No deploy/VPS/Google Sheet. Успішний primary не повторювався
 після лише additive readonly cancel і display text: ці зміни перевірені окремими
 VM/tail stages; незмінені серверні докази повторно використані.
+
+## Follow-up: новіший запит контексту та скасоване читання
+
+PricingContext має окреме покоління **запитаного** контексту. Вибір магазину,
+повтор GET та скасування вибору синхронно інвалідовують попередній fence; старий
+підтверджений контекст не доводить, що новіший запит завершився. Review перевіряє
+live fence після кожного очікування і перед застосуванням; Studio та `adopt`
+повторюють перевірку до інвалідації proof або зміни selection. Кешований контекст
+не приймається як результат незавершеного fresh GET. Відмова зберігає обрані
+рядки операції, копії та незаписаний макет; після скасування нового магазину
+потрібне нове явне читання перегляду.
+
+Native atomic import/pricing result READ має власне покоління, controller
+identity та AbortSignal fence. Скасування одразу закінчує лише читання, зберігає
+невизначений original UUID/body і дозволяє новий GET. Навіть fulfilment/rejection,
+які ігнорують abort, не підтверджують скасований результат, не стирають помилку
+новішого читання і не змінюють його busy стан. Запис автоматично не повторюється.
+
+Цільові докази follow-up:
+
+- `tests/price-label-context-race-ui.cjs`: реальний final signed preview A
+  затриманий до нового requested B; delayed A відхилений, B503 зберігає inert
+  та confirmed network. Keyboard cancel лишає операцію, copies3/draft24pt;
+  потрібен fresh review, prepare/save **0**, page errors **0**,320 без overflow.
+  `/tmp/tsukenya-price-context-race-native.log`;
+  `$TMPDIR/tsukenya-price-context-race-proof/report.json` та context-error1440/320.png.
+- Storybook `New Context Fences Pending Apply`: **1 PASS**,2 незмінені stories
+  пропущені цільовим фільтром; StrictMode, delayed Apply, requested store503,
+  copies3/prior2 retained і keyboard cancel. `/tmp/tsukenya-price-context-race-story.log`.
+- VM `catalog-import-recovery.cjs` та `catalog-pricing-read-cancel.cjs`: **2 PASS**,
+  ignored-abort late success/error після cancel і запуску нового READ; нове
+  читання лишається busy, exact original intent лишається, фінансових attempts
+  лише початковий+exact retry, наступне підтвердження GET-only.
+  `/tmp/tsukenya-price-read-cancel-vm.log`.
+- TSC/build, scoped ESLint/Prettier, JS syntax/diff check PASS. Backend source
+  не змінювався; PostgreSQL та успішні broad primary/tail proofs повторно
+  використані. Full suite, VPS та shared Sheet не виконувалися.
+
+Перші нові harness runs уточнювали exact-локатор повідомлення (UI додає
+пояснення про збережену чернетку); перший Storybook filter не відповідав
+відображуваному імені story і не запускав тест. Фінальні цільові результати
+стосуються поточного source/bundle; фізичний друк та пристрій не перевірялися.
