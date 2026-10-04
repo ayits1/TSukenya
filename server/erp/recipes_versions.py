@@ -3,9 +3,10 @@ import hashlib
 import json
 import re
 import uuid
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from .models import Document, RecipeVersion, RecipeComponent
-from .services import require, dec, QTY, ledger_lock, audit, Conflict
+from .services import require, dec, QTY, ledger_lock, audit, Conflict, BusinessError
 
 POLICIES = {'unspecified','components_min','minimum_with_shelf_life'}
 
@@ -21,8 +22,8 @@ def terms(recipe):
         'components':[{'product':r.product_id.split('/',1)[1],'name':r.name,'unit':r.unit,'quantity':str(r.quantity)} for r in sorted(recipe.components.all(),key=lambda r:r.position)]}
 
 @transaction.atomic
-def create_version(request,user):
-    from .views import body, response
+def _create_version(request,user):
+    from .views import body
     from .catalog import revision
     require(user.profile.role in {'owner','manager'}, 'Немає доступу до затвердження рецептури: потрібен власник або керівник.')
     ledger_lock()
@@ -40,7 +41,7 @@ def create_version(request,user):
     existing=RecipeVersion.objects.select_related('approved_by').prefetch_related('components').filter(pk=identifier).first()
     if existing:
         if existing.approved_by_id!=user.pk or existing.request_fingerprint!=fingerprint:raise Conflict('Ключ уже використано для іншого створення рецептури.','idempotency_conflict')
-        return response(terms(existing))
+        return terms(existing),200
     product=Document.objects.filter(pk='products/'+product_id(value['product'])).first()
     require(product and product.data.get('name') and not product.data.get('hidden'), 'Готовий товар відсутній або прихований.')
     require(isinstance(value['catalogRevision'],str),'Некоректна версія товару.')
@@ -64,7 +65,43 @@ def create_version(request,user):
     recipe=RecipeVersion.objects.create(id=identifier,product=product,version=latest.version+1 if latest else 1,name=str(product.data['name'])[:250],unit=str(product.data.get('unit','шт'))[:30],output_quantity=output,expiry_policy=policy,shelf_life_days=shelf,reason=value['reason'].strip(),approved_by=user,request_fingerprint=fingerprint)
     for index,(ingredient,qty) in enumerate(normalized):RecipeComponent.objects.create(recipe=recipe,product=ingredient,name=str(ingredient.data['name'])[:250],unit=str(ingredient.data.get('unit','шт'))[:30],quantity=qty,position=index)
     snapshot=terms(recipe);audit(user,'recipe_version_approved','recipe/'+str(recipe.pk),{'before':None,'after':snapshot,'reason':recipe.reason,'observedVersion':value['expectedVersion']})
-    return response(snapshot,201)
+    return snapshot,201
+
+def create_version(request,user):
+    """Keep direct callers' existing response/exception contract."""
+    from .views import response
+    snapshot,status=_create_version(request,user)
+    return response(snapshot,status)
+
+def _rejection_binding(request):
+    from .views import body
+    try:
+        value=body(request)
+        key=value.get('idempotencyKey');product=value.get('product')
+        identifier=uuid.UUID(key) if isinstance(key,str) else None
+        if identifier is None or str(identifier)!=key or not isinstance(product,str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,120}',product):return {}
+    except (BusinessError,ValueError,TypeError,AttributeError):
+        return {}
+    return {'write_rejected':True,'request_key':key,'product':product,'mode':'version'}
+
+def _create_version_response(request,user):
+    """Proof concerns this rolled-back HTTP attempt, never global UUID absence.
+
+    The inner approval rollback completes before the catch. Outer commit and
+    on_commit callbacks, and response serialization, cannot produce this proof.
+    """
+    from .views import response
+    with transaction.atomic():
+        try:
+            snapshot,status=_create_version(request,user)
+        except Conflict as error:
+            if error.code!='revision_conflict':raise
+            snapshot,status={'error':str(error),'code':error.code,**error.extra,**_rejection_binding(request)},409
+        except (BusinessError,ValidationError) as error:
+            message=' '.join(error.messages) if isinstance(error,ValidationError) else str(error)
+            if any(word in message for word in ('прав','роль','доступ','не підтверджений')):raise
+            snapshot,status={'error':message,**_rejection_binding(request)},400
+    return response(snapshot,status)
 
 def handle_versions(request,user):
     if request.method=='GET':
@@ -80,7 +117,7 @@ def _handle_versions(request,user):
     require(user.profile.role in {'owner','manager','warehouse'},'Недостатньо прав для рецептур.')
     path=request.path.rstrip('/')
     if path=='/api/erp/recipes/versions':
-        if request.method=='POST':return create_version(request,user)
+        if request.method=='POST':return _create_version_response(request,user)
         if request.method=='GET':
             product=Document.objects.filter(pk='products/'+product_id(request.GET.get('product'))).first();require(product is not None,'Готовий товар не знайдено.')
             recipes=RecipeVersion.objects.filter(product=product).select_related('approved_by').prefetch_related('components').order_by('-version')

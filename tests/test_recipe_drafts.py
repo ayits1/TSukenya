@@ -4,7 +4,8 @@ import uuid
 from contextlib import contextmanager
 from unittest.mock import patch
 
-from django.db import connection, connections
+from django.core.exceptions import ValidationError
+from django.db import connection, connections, transaction
 from django.test import TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 
@@ -154,3 +155,81 @@ class RecipeDraftTests(TransactionTestCase):
         self.assertEqual(changed, [True])
         self.assertTrue(first['canWrite'])
         self.assertFalse(recipe_drafts.recovery_context(self.user, {'mode': 'version', 'product': 'output'})['canWrite'])
+
+    def test_live_first_revision_conflict_proof_then_explicit_current_read_and_save(self):
+        body = self.payload()
+        Document.objects.filter(pk=self.output.pk).update(data={**self.output.data, 'name': 'Змінено в іншому редакторі'})
+        rejected = self.client.post('/api/erp/recipes/versions', body, content_type='application/json', **self.headers)
+        self.assertEqual(rejected.status_code, 409)
+        self.assertEqual(rejected.json()['code'], 'revision_conflict')
+        self.assertEqual({key: rejected.json()[key] for key in ('write_rejected', 'request_key', 'product', 'mode')},
+                         {'write_rejected': True, 'request_key': body['idempotencyKey'], 'product': 'output', 'mode': 'version'})
+        self.assertFalse(RecipeVersion.objects.exists())
+        self.assertFalse(AuditEvent.objects.exists())
+        current = self.client.get('/api/erp/recipes/versions', {'product': 'output'}).json()
+        self.assertFalse(RecipeVersion.objects.exists())  # Reading never resubmits.
+        changed = {**body, 'catalogRevision': current['catalogRevision'], 'expectedVersion': current['latestVersion']}
+        original = self.approve(changed)
+        stale = self.client.post('/api/erp/recipes/versions', self.payload(catalogRevision=current['catalogRevision']),
+                                 content_type='application/json', **self.headers)
+        self.assertEqual(stale.status_code, 409)
+        self.assertTrue(stale.json()['write_rejected'])  # The latest-version guard also has a rollback proof.
+        self.assertEqual(RecipeVersion.objects.get().pk, uuid.UUID(original['id']))
+        self.assertEqual(AuditEvent.objects.count(), 1)
+
+    def test_live_validation_rollback_proof_excludes_collision_and_permission(self):
+        from server.erp import recipes_versions
+        body = self.payload(outputQuantity='0')
+        rejected = self.client.post('/api/erp/recipes/versions', body, content_type='application/json', **self.headers)
+        self.assertEqual(rejected.status_code, 400)
+        self.assertTrue(rejected.json()['write_rejected'])
+        self.assertFalse(RecipeVersion.objects.exists())
+        body = self.payload()
+        original_audit = recipes_versions.audit
+        def rollback_after_write(*args, **kwargs):
+            original_audit(*args, **kwargs)
+            raise ValidationError('QA validation after inner writes')
+        with patch('server.erp.recipes_versions.audit', side_effect=rollback_after_write):
+            rejected = self.client.post('/api/erp/recipes/versions', body, content_type='application/json', **self.headers)
+        self.assertEqual(rejected.status_code, 400)
+        self.assertTrue(rejected.json()['write_rejected'])
+        self.assertFalse(RecipeVersion.objects.exists())
+        self.assertFalse(AuditEvent.objects.exists())
+        self.approve(body)
+        collision = self.client.post('/api/erp/recipes/versions', {**body, 'reason': 'Інші умови'},
+                                     content_type='application/json', **self.headers)
+        self.assertEqual(collision.status_code, 409)
+        self.assertEqual(collision.json()['code'], 'idempotency_conflict')
+        self.assertNotIn('write_rejected', collision.json())
+        Profile.objects.filter(user=self.user).update(role='warehouse')
+        denied = self.client.post('/api/erp/recipes/versions', body, content_type='application/json', **self.headers)
+        self.assertEqual(denied.status_code, 403)
+        self.assertNotIn('write_rejected', denied.json())
+
+    def test_outer_commit_callback_and_response_failures_have_no_rollback_proof(self):
+        from server.erp import recipes_versions, views
+        original_audit = recipes_versions.audit
+        def fail_after_commit():
+            raise BusinessError('QA callback failure after commit')
+        def audit_callback(*args, **kwargs):
+            original_audit(*args, **kwargs)
+            transaction.on_commit(fail_after_commit)
+        body = self.payload()
+        with patch('server.erp.recipes_versions.audit', side_effect=audit_callback):
+            failed = self.client.post('/api/erp/recipes/versions', body, content_type='application/json', **self.headers)
+        self.assertEqual(failed.status_code, 400)
+        self.assertNotIn('write_rejected', failed.json())
+        self.assertTrue(self.identity(body).json()['confirmed'])
+        latest = RecipeVersion.objects.get()
+        body = self.payload(expectedVersion=str(latest.pk))
+        original_response = views.response
+        def fail_serialization(value, status=200):
+            if isinstance(value, dict) and value.get('id') == body['idempotencyKey']:
+                raise BusinessError('QA response failure after commit')
+            return original_response(value, status)
+        with patch('server.erp.views.response', side_effect=fail_serialization):
+            failed = self.client.post('/api/erp/recipes/versions', body, content_type='application/json', **self.headers)
+        self.assertEqual(failed.status_code, 400)
+        self.assertNotIn('write_rejected', failed.json())
+        self.assertTrue(self.identity(body).json()['confirmed'])
+        self.assertEqual((RecipeVersion.objects.count(), AuditEvent.objects.count()), (2, 2))
