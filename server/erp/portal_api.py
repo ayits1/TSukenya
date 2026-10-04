@@ -220,6 +220,11 @@ def catalogue_csv(user,params):
 
 
 def handle_portal(request,user):
+    if request.path=='/api/v1/portal/create-identity' and request.method=='GET':
+        from .legacy_create_identity import identity
+        result=HttpResponse(json.dumps(identity(user,request.GET),ensure_ascii=False),content_type='application/json')
+        result['Cache-Control']='private, no-store'
+        return result
     from .views import response,legacy_state
     path=request.path
     if path=='/api/v1/portal/budget-template':

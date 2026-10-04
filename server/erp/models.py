@@ -14,6 +14,8 @@ class LegacyCreateReceipt(models.Model):
     document_path = models.CharField(max_length=160, unique=True)
     request_fingerprint = models.CharField(max_length=64)
     created_fingerprint = models.CharField(max_length=64)
+    original = models.JSONField(null=True, blank=True)
+
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
