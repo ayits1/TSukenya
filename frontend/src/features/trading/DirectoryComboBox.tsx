@@ -30,7 +30,7 @@ const choice = (item: DirectoryItem, type: DirectoryType): Choice => ({
   id: item.id,
   label:
     item.name +
-    (type === 'employees' ? ` · магазин №${item.store_id} · №${item.id}` : '') +
+    (type === 'employees' && item.store_id ? ` · магазин №${item.store_id} · №${item.id}` : '') +
     (item.active === false ? ' · неактивний' : '') +
     (item.hidden ? ' · прихований' : '') +
     (item.unit ? ' · ' + item.unit : '') +
