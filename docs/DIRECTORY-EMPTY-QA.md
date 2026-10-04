@@ -26,3 +26,6 @@ DB/PG/URL/require connection variables, перевіряє ранній server e
 `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-directory-empty-uzwLnc/`.
 Author six Storybook states та незмінні keyboard/layout assertions перевикористані; broad regression
 не повторювалася. Новий native harness зареєстровано один раз у explicit full runner.
+
+Перед PR перебазовано на accepted #63 (8470b35), registry/entry збережено аддитивно.
+Legacy API/loader/CSS не змінюють inputs targeted directory proof, тому повтор його успіху не потрібен.
