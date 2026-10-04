@@ -154,3 +154,18 @@ Combined/default all run не оголошується виконаним: 15 sc
 закриття вкладки, cross-device і capacity не перевірені. Повний прогін, production,
 Google Sheet, push/PR/deploy та backup0.1 цей пакет не виконував. Інші B06 P1/P2/P3
 сім’ї не оголошуються завершеними.
+
+
+## Root інтеграція перед PR
+
+База — прийнятий main8e56ae3 (#102). Additive конфлікти зберегли WorkShift
+imports/exports/loader/static, receipt routes та обидві QA env guards. Matching
+TypeScript/Vite build,7 codec unit, scoped lint/format, JS syntax/diff і статична
+browser policy PASS. Actual інтегровані preflight6 checks і identity-first503
+scopes PASS: `/tmp/tsukenya-recipe-integrated-preflight/preflight-report.json`,
+`/tmp/tsukenya-recipe-integrated-identity/identity-report.json`.
+
+Незалежне review закрило confirmation-before-current gap після actualidentity
+proof. Попередні PG/15 UI scopes для незмінених входів використано повторно.
+Самостійного full/production mutation pass немає; цей запис не засвідчує
+merge чи deploy рецептур.

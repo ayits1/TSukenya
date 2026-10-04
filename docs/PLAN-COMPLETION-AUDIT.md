@@ -429,8 +429,8 @@ B26 loyalty — правил балів і каналів. Ці входи не 
   здорові; backup перевірено; read-only reconcile і контроль обліку незмінні.
   Full і production mutation tests не виконувалися.
 - **Recipe reload:** інтегровано для незалежного рев’ю; ще не прийнято. Review
-  виявило identity-before-current503 confirmation gap; потрібні виправлення й
-  вузький proof перед PR.
+  виявило identity-before-current503 confirmation gap; виправлення прийнято
+  незалежним рев’ю, вузький інтегрований identity proof PASS. Пакет ще чекає CI/merge.
 
 PlanningCategory/monthlyBudget/budgetTemplate, P2/P3, інші торговельні React-модулі
 й зовнішні входи залишаються відкритими. Весь B06 і план не оголошуються
