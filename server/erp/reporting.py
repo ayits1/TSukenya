@@ -24,23 +24,26 @@ def voucher_json(v, detail=False, *, user, settlements=None, allocations=None):
         if v.kind=='payment' and v.status=='posted':
             from .settlements import unused
             result['unallocated']=str(unused(v))
-        result['lines']=[{'id':l.pk,'line_key':str(l.line_key),'reference_line':l.reference_line_id,'product':l.product_id.split('/',1)[1],'name':l.name,'unit':l.unit,'quantity':str(l.quantity),'price':str(l.price),'amount':str(l.amount),'cost':str(l.cost),'lot':l.lot,'expiry':l.expiry.isoformat() if l.expiry else ''} for l in v.lines.all()]
-        for row in result['lines']:
-            l = v.lines.get(pk=row['id'])
+        lines=list(v.lines.all())
+        movements=list(v.stock_entries.select_related('lot'))
+        next_kind={'purchase_order':'receipt','customer_order':'sale','sale':'customer_return','receipt':'supplier_return'}.get(v.kind)
+        fulfilled={}
+        if next_kind and lines:
+            fulfilled={r['reference_line_id']:(r['quantity'] or ZERO,r['amount'] or ZERO) for r in VoucherLine.objects.filter(reference_line_id__in=[l.pk for l in lines],voucher__kind=next_kind,voucher__status='posted').values('reference_line_id').annotate(quantity=Sum('quantity'),amount=Sum('amount'))}
+        origins=receipt_origin_map(lines,movements) if v.kind=='receipt' and v.status=='posted' else {}
+        result['lines']=[{'id':l.pk,'line_key':str(l.line_key),'reference_line':l.reference_line_id,'product':l.product_id.split('/',1)[1],'name':l.name,'unit':l.unit,'quantity':str(l.quantity),'price':str(l.price),'amount':str(l.amount),'cost':str(l.cost),'lot':l.lot,'expiry':l.expiry.isoformat() if l.expiry else ''} for l in lines]
+        for l,row in zip(lines,result['lines']):
             if v.kind == 'receipt' and v.status == 'posted':
-                from .services import receipt_source
-                source = receipt_source(l, strict=False)
+                source = origins.get(l.pk)
                 row['origin_known'] = source is not None
                 if source:
                     row['lot'] = source.lot.code
                     row['expiry'] = source.lot.expiry.isoformat() if source.lot.expiry else ''
-            next_kind={'purchase_order':'receipt','customer_order':'sale','sale':'customer_return','receipt':'supplier_return'}.get(v.kind)
             if next_kind:
-                used=VoucherLine.objects.filter(reference_line=l,voucher__kind=next_kind,voucher__status='posted').aggregate(n=Sum('quantity'))['n'] or ZERO
+                used,returned_amount=fulfilled.get(l.pk,(ZERO,ZERO))
                 row['remaining']=str(l.quantity-used)
-                returned_amount=VoucherLine.objects.filter(reference_line=l,voucher__kind=next_kind,voucher__status='posted').aggregate(n=Sum('amount'))['n'] or ZERO
                 row['remaining_amount']=str(money(l.amount-returned_amount))
-        result['movements']=[{'warehouse':e.lot.warehouse_id,'product':e.lot.product_id.split('/',1)[1],'lot':e.lot.code,'line':e.line_id,'quantity':str(e.quantity),'value':str(e.value),'reversal':e.is_reversal} for e in v.stock_entries.select_related('lot')]
+        result['movements']=[{'warehouse':e.lot.warehouse_id,'product':e.lot.product_id.split('/',1)[1],'lot':e.lot.code,'line':e.line_id,'quantity':str(e.quantity),'value':str(e.value),'reversal':e.is_reversal} for e in movements]
         result['cash_movements']=[{'account':e.account_id,'amount':str(e.amount),'reversal':e.is_reversal} for e in v.cash_entries.all()]
     if user.profile.role == 'cashier':
         result.pop('cost', None)
@@ -50,6 +53,29 @@ def voucher_json(v, detail=False, *, user, settlements=None, allocations=None):
             line.pop('cost', None)
         for movement in result.get('movements', []):
             movement.pop('value', None)
+    return result
+
+def receipt_origin_map(lines, movements):
+    """Read-only batch equivalent of receipt_source(strict=False), within this voucher.
+
+    Only a unique positive, non-reversal annotated movement proves lineage.
+    Legacy fallback also requires one source line for the SKU and one movement.
+    The posting service retains its authoritative strict lineage checks.
+    """
+    counts,annotated,legacy={},{},{}
+    for line in lines:counts[line.product_id]=counts.get(line.product_id,0)+1
+    for entry in movements:
+        if entry.quantity<=ZERO or entry.is_reversal:continue
+        if entry.line_id is not None:annotated.setdefault(entry.line_id,[]).append(entry)
+        else:legacy.setdefault(entry.lot.product_id,[]).append(entry)
+    result={}
+    for line in lines:
+        sources=annotated.get(line.pk,[])
+        if sources:
+            if len(sources)==1:result[line.pk]=sources[0]
+        elif counts[line.product_id]==1:
+            sources=legacy.get(line.product_id,[])
+            if len(sources)==1:result[line.pk]=sources[0]
     return result
 
 def scoped(qs, user, field='store_id'):
