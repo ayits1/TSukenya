@@ -412,3 +412,26 @@ B06 workShift/recipe/planningCategory/monthlyBudget/budgetTemplate, P2/P3 та
 серверного доступу до визначеної Google-таблиці; B23 — провайдерів та API;
 B26 loyalty — правил балів і каналів. Ці входи не блокують решту автономних
 пакетів. Пункт0.1 виключений із роботи. Повний план не оголошується завершеним.
+
+
+## Продовження після #101–102 · main8e56ae3 · 05.10.2026
+
+- **#101 / B24 CRM child reads:** прийнято й опубліковано. Scalar/chunk200
+  settlement reads збережено в заданій CRM межі; fanout500+ children, fresh actor
+  й parity перевірено. Інші legacy consumers та cross-device polling відкриті.
+- **#102 / B06 workShift reload:** прийнято й опубліковано. Сирі поля табеля,
+  immutable CREATE intent, creator-bound identity, confirmed GET barrier,
+  explicit comparison/Apply/окремий Save. Runtime Cancel дефект виправлено;
+  terminal policy/actual401 і repeated409 перевірки PASS. Unit4/PG3 і незмінені
+  B04/B05 докази використано повторно; точні partial/reuse межі наведено в
+  [WORK-SHIFT-DRAFT-PERSISTENCE.md](WORK-SHIFT-DRAFT-PERSISTENCE.md).
+- Exact-head frontend/server/PostgreSQL CI успішні. Scoped release web/worker
+  здорові; backup перевірено; read-only reconcile і контроль обліку незмінні.
+  Full і production mutation tests не виконувалися.
+- **Recipe reload:** інтегровано для незалежного рев’ю; ще не прийнято. Review
+  виявило identity-before-current503 confirmation gap; виправлення прийнято
+  незалежним рев’ю, вузький інтегрований identity proof PASS. Пакет ще чекає CI/merge.
+
+PlanningCategory/monthlyBudget/budgetTemplate, P2/P3, інші торговельні React-модулі
+й зовнішні входи залишаються відкритими. Весь B06 і план не оголошуються
+завершеними. Пункт0.1 виключений.
