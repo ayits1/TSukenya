@@ -6,6 +6,30 @@
 
 **0.1 — рішення про бекапи виключено з автономної роботи.** Deployment виконується за окремою командою. Повну регресію не запитували; цей аудит її не запускає. Робота над B26, B24 polling та B32 memory, що почалася після цього зрізу, ще не зарахована до завершених пунктів.
 
+## Актуальний прийнятий стан · 05.10.2026
+
+Історична матриця нижче не є оцінкою поточного main3976f6c.
+
+- #107: реальні продажі й касові зміни на React, exact-head CI та цільові
+  native privacy/callback/layout докази; [REACT-SALES](REACT-SALES.md).
+- #108: активні bounded settlement readers, звірка й підсумки; manager
+  expense_scope missing/null зберігає історичне store правило.
+  [B24-BOUNDED-SETTLEMENTS](B24-BOUNDED-SETTLEMENTS.md).
+- #109: відновлення сирої чернетки кількості магазинів, bound session/role,
+  atomic Apply та окреме Save. [TEMPLATE-DRAFT-PERSISTENCE](TEMPLATE-DRAFT-PERSISTENCE.md).
+
+На VPS підтверджено accepted8d6c86e (#108): source/assets/health і matching
+worker, read-only стан обліку до/після однаковий, reconcile без розбіжностей.
+#109 ще не розгорнуто на момент цього зрізу. Production UI mutation-тестів
+і нової повної регресії не виконували. Релізи вже авторизовані власником;
+виключення0.1 зберігається.
+
+React finance5tabs проходить інтеграцію/незалежні native перевірки;
+expense raw recovery та React staff3tabs ще розробляються. Reports і native
+editors/setup не оголошуються мігрованими. Решта B24 freshness/capacity,
+B22/B23 зовнішні інтеграції, loyalty/channel рішення й operations scheduler
+межі потребують власних matching доказів. Увесь план залишається активним.
+
 ## Подальші прийняті зміни · main 4fe824a · 04.10.2026
 
 Матриця нижче зберігає історичний зріз9c04dad; наступні пакети перевірено окремо:

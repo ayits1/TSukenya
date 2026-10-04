@@ -1,0 +1,1244 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya Finance Workspace",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/finance/accounts": {
+      "get": {
+        "operationId": "financeAccounts",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped READ ONLY RR page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accounts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/finance/debts": {
+      "get": {
+        "operationId": "financeDebts",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "party",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "due_from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "due_to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "overdue",
+                "not_overdue"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped READ ONLY RR page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Debts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/finance/advances": {
+      "get": {
+        "operationId": "financeAdvances",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "party",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped READ ONLY RR page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Advances"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/finance/ledger": {
+      "get": {
+        "operationId": "financeLedger",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped READ ONLY RR page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ledger"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/finance/documents": {
+      "get": {
+        "operationId": "financeDocuments",
+        "parameters": [
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "draft",
+                "posted",
+                "reversed"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped READ ONLY RR page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Documents"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FinancePolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "store",
+          "documentKinds",
+          "createKinds",
+          "canManageAccounts"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "manager",
+              "accountant"
+            ]
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documentKinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "payment",
+                "advance_allocation",
+                "payment_refund",
+                "expense",
+                "cash_opening",
+                "debt_opening",
+                "cash_transfer",
+                "cash_difference"
+              ]
+            }
+          },
+          "createKinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "payment",
+                "advance_allocation",
+                "payment_refund",
+                "expense",
+                "cash_opening",
+                "debt_opening",
+                "cash_transfer"
+              ]
+            }
+          },
+          "canManageAccounts": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Account": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "storeName",
+          "name",
+          "kind",
+          "balance",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "bank",
+              "terminal"
+            ]
+          },
+          "balance": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Debt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "storeName",
+          "number",
+          "kind",
+          "originalKind",
+          "date",
+          "party",
+          "partyName",
+          "total",
+          "amount",
+          "dueDate",
+          "overdue"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sale",
+              "receipt"
+            ]
+          },
+          "originalKind": {
+            "type": "string",
+            "enum": [
+              "sale",
+              "receipt",
+              "debt_opening"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "party": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "partyName": {
+            "type": "string"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Advance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "storeName",
+          "number",
+          "date",
+          "party",
+          "partyName",
+          "direction",
+          "unallocated"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "party": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "partyName": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "supplier"
+            ]
+          },
+          "unallocated": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          }
+        }
+      },
+      "LedgerEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "storeName",
+          "voucher",
+          "number",
+          "date",
+          "account",
+          "accountName",
+          "kind",
+          "amount",
+          "note",
+          "reversal"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "voucher": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "account": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "accountName": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "purchase_order",
+              "receipt",
+              "opening",
+              "sale",
+              "customer_return",
+              "supplier_return",
+              "transfer",
+              "writeoff",
+              "inventory",
+              "production",
+              "payment",
+              "advance_allocation",
+              "payment_refund",
+              "expense",
+              "cash_opening",
+              "payroll",
+              "payroll_payment",
+              "customer_order",
+              "debt_opening",
+              "cash_transfer",
+              "cash_difference"
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "reversal": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FinanceDocument": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "storeName",
+          "number",
+          "kind",
+          "status",
+          "date",
+          "party",
+          "partyName",
+          "total",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "payment",
+              "advance_allocation",
+              "payment_refund",
+              "expense",
+              "cash_opening",
+              "debt_opening",
+              "cash_transfer",
+              "cash_difference"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "posted",
+              "reversed"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "party": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "partyName": {
+            "type": "string"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "AccountsQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "q",
+          "store"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Accounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "policy",
+          "query"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/Account"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/FinancePolicy"
+          },
+          "query": {
+            "$ref": "#/components/schemas/AccountsQuery"
+          }
+        }
+      },
+      "DebtsQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "q",
+          "store",
+          "party",
+          "from",
+          "to",
+          "due_from",
+          "due_to",
+          "status"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "party": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "due_from": {
+            "type": "string"
+          },
+          "due_to": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "",
+              "overdue",
+              "not_overdue"
+            ]
+          }
+        }
+      },
+      "Debts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "policy",
+          "query",
+          "totals"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/Debt"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/FinancePolicy"
+          },
+          "query": {
+            "$ref": "#/components/schemas/DebtsQuery"
+          },
+          "totals": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "owedToUs",
+              "owedByUs"
+            ],
+            "properties": {
+              "owedToUs": {
+                "type": "string",
+                "pattern": "^-?\\d+\\.\\d{2}$"
+              },
+              "owedByUs": {
+                "type": "string",
+                "pattern": "^-?\\d+\\.\\d{2}$"
+              }
+            }
+          }
+        }
+      },
+      "AdvancesQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "q",
+          "store",
+          "party"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "party": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Advances": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "policy",
+          "query",
+          "totals"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/Advance"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/FinancePolicy"
+          },
+          "query": {
+            "$ref": "#/components/schemas/AdvancesQuery"
+          },
+          "totals": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "customer",
+              "supplier"
+            ],
+            "properties": {
+              "customer": {
+                "type": "string",
+                "pattern": "^-?\\d+\\.\\d{2}$"
+              },
+              "supplier": {
+                "type": "string",
+                "pattern": "^-?\\d+\\.\\d{2}$"
+              }
+            }
+          }
+        }
+      },
+      "LedgerQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "q",
+          "store",
+          "account",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "account": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      },
+      "Ledger": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "policy",
+          "query"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/LedgerEntry"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/FinancePolicy"
+          },
+          "query": {
+            "$ref": "#/components/schemas/LedgerQuery"
+          }
+        }
+      },
+      "DocumentsQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "store",
+          "status"
+        ],
+        "properties": {
+          "store": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "",
+              "draft",
+              "posted",
+              "reversed"
+            ]
+          }
+        }
+      },
+      "Documents": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "policy",
+          "query"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/FinanceDocument"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/FinancePolicy"
+          },
+          "query": {
+            "$ref": "#/components/schemas/DocumentsQuery"
+          }
+        }
+      }
+    }
+  }
+}

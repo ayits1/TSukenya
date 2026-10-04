@@ -63,7 +63,7 @@ for(const route of routes){
 for(const [route,kinds] of Object.entries({purchases:['purchase_order','receipt','supplier_return'],stock:['opening','transfer','writeoff','inventory','production'],sales:['sale','customer_return','customer_order'],finance:['payment','expense','cash_opening','debt_opening','cash_transfer'],staff:['payroll','payroll_payment']})){
  await page.setViewportSize({width:1440,height:1000});await go(route);
  for(const kind of kinds){
-  const stockDocumentNames={opening:'Початкові залишки',transfer:'Переміщення',writeoff:'Списання',inventory:'Інвентаризація',production:'Виробництво',receipt:'Надходження',purchase_order:'Замовлення постачальнику',supplier_return:'Повернення постачальнику'};await (['stock','purchases'].includes(route)?page.getByRole('button',{name:'+ '+stockDocumentNames[kind],exact:true}):newDocumentButton(page,kind)).click();await page.locator('#tradeVoucherForm').waitFor();
+  const stockDocumentNames={opening:'Початкові залишки',transfer:'Переміщення',writeoff:'Списання',inventory:'Інвентаризація',production:'Виробництво',receipt:'Надходження',purchase_order:'Замовлення постачальнику',supplier_return:'Повернення постачальнику'};await (['stock','purchases'].includes(route)?page.getByRole('button',{name:'+ '+stockDocumentNames[kind],exact:true}):newDocumentButton(page,kind)).click();await page.locator(kind==='payment'?'#tradeAllocationForm':'#tradeVoucherForm').waitFor();
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await inspect('form-'+kind,width);}
   await page.locator('.trade-dialog [data-trade=close]').click();
  }

@@ -1,0 +1,232 @@
+.finance-workspace {
+  color: var(--tk-ink);
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  gap: 16px;
+}
+.finance-workspace > * {
+  min-width: 0;
+}
+.finance-workspace h2,
+.finance-workspace h3,
+.finance-workspace h4,
+.finance-workspace p {
+  margin: 0;
+}
+.finance-toolbar,
+.finance-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.finance-toolbar h2 {
+  font-size: 24px;
+}
+.finance-toolbar p {
+  color: var(--tk-muted);
+  margin-top: 4px;
+}
+.finance-create {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+/* Tabs tracks descendant focus; the actual tab/control keeps its own focus ring. */
+.finance-tab-layout {
+  outline: none;
+}
+.finance-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--tk-line);
+  margin-bottom: 16px;
+}
+.finance-tabs [role='tab'] {
+  padding: 12px 16px;
+  min-height: 44px;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  outline-offset: 2px;
+}
+.finance-tabs [data-selected] {
+  border-color: var(--tk-brand);
+  font-weight: 600;
+}
+.finance-tabs [data-focus-visible] {
+  outline: 2px solid var(--tk-focus);
+}
+.finance-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.finance-filters > .tk-button {
+  align-self: end;
+}
+.finance-workspace section {
+  min-width: 0;
+}
+.finance-section-heading {
+  margin-bottom: 12px;
+}
+.finance-section-heading h3 {
+  font-size: 18px;
+}
+.finance-table-wrap {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+  margin-top: 16px;
+}
+.finance-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  table-layout: fixed;
+  font-size: 14px;
+}
+.finance-table th,
+.finance-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--tk-line);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.finance-table th {
+  position: static;
+  background: var(--tk-bg);
+  font-weight: 600;
+}
+.finance-table tr:last-child td {
+  border-bottom: 0;
+}
+.finance-table td > span,
+.finance-table td > strong {
+  display: block;
+}
+.finance-money {
+  font-variant-numeric: tabular-nums;
+}
+.finance-status {
+  border-radius: 5px;
+  padding: 4px 8px;
+  display: inline-block !important;
+  background: var(--tk-bg);
+}
+.finance-status.posted {
+  color: var(--tk-brand);
+}
+.finance-pager {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.finance-pager span {
+  font-size: 14px;
+}
+.finance-summary {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 0;
+}
+.finance-summary span {
+  color: var(--tk-muted);
+}
+.finance-error {
+  padding: 16px;
+  background: var(--tk-bg);
+  border-left: 3px solid var(--tk-error);
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.finance-empty {
+  padding: 24px 0;
+}
+@media (max-width: 720px) {
+  .finance-table,
+  .finance-table tbody,
+  .finance-table tr,
+  .finance-table td {
+    display: block;
+    width: 100%;
+  }
+  .finance-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .finance-table tr {
+    padding: 12px;
+    border-bottom: 1px solid var(--tk-line);
+  }
+  .finance-table td {
+    padding: 6px 0;
+    border: 0;
+  }
+  .finance-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 12px;
+    color: var(--tk-muted);
+    margin-bottom: 4px;
+  }
+  .finance-table td > .tk-button {
+    width: 100%;
+  }
+  .finance-pager {
+    justify-content: space-between;
+  }
+  .finance-pager span {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
+  .finance-tabs [role='tab'] {
+    padding: 12px 10px;
+  }
+  .finance-create {
+    display: grid;
+  }
+}
+
+.finance-tabs {
+  flex-wrap: wrap;
+}
+.finance-summary > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.finance-summary strong {
+  font-size: 22px;
+  overflow-wrap: anywhere;
+}
+.finance-row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.finance-panel {
+  outline: none;
+}
+.finance-panel > h3 {
+  margin-bottom: 12px;
+}
+.finance-overdue {
+  color: var(--tk-error);
+}
