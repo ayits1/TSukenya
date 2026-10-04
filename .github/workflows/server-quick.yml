@@ -10,6 +10,11 @@ on:
       - 'app/**'
       - 'manage.py'
       - '.nvmrc'
+      - 'contracts/catalog-exchange.schema.json'
+      - 'scripts/generate-catalog-schema.mjs'
+      - 'scripts/build-catalog-template.mjs'
+      - 'data/catalogue-template-v1.xlsx'
+      - 'docs/CATALOG-SCHEMA-FIELDS.md'
       - '.github/workflows/server-quick.yml'
   push:
     branches: [main, master]
@@ -19,6 +24,11 @@ on:
       - 'app/**'
       - 'manage.py'
       - '.nvmrc'
+      - 'contracts/catalog-exchange.schema.json'
+      - 'scripts/generate-catalog-schema.mjs'
+      - 'scripts/build-catalog-template.mjs'
+      - 'data/catalogue-template-v1.xlsx'
+      - 'docs/CATALOG-SCHEMA-FIELDS.md'
       - '.github/workflows/server-quick.yml'
 permissions:
   contents: read

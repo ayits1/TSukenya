@@ -68,3 +68,5 @@ CatalogSchema, хоча actual index уже завантажував її. Fixtu
 реальний модуль і явну перевірку parse error. Повтор лише promotion-legacy PASS;
 read-only пошук інших extracted portal VM підтвердив, що їхні залежності вже
 підключені. Runtime не змінено, native/PG матрицю локально не повторювали.
+Root також додав registry/generator/XLSX/generated-doc paths до trigger CI:
+окреме редагування лише цих джерел теж запускає drift/structure checks.
