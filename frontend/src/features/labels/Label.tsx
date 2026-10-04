@@ -111,8 +111,10 @@ export function PrintPages({
   config,
   settings,
   date,
+  pageOffset = 0,
 }: {
   products: readonly LabelProduct[];
+  pageOffset?: number;
   config: LabelConfig;
   settings: LabelSettings;
   date?: Date;
@@ -122,7 +124,7 @@ export function PrintPages({
     <div
       key={index}
       className="tk-label-print-page print-page"
-      data-page={index + 1}
+      data-page={pageOffset + index + 1}
       style={{
         gridTemplateColumns: `repeat(${geometry.columns},${geometry.width}mm)`,
         gridAutoRows: `${geometry.height}mm`,

@@ -90,8 +90,10 @@ async function cleanOutput() {
   assert.equal(await page.evaluate(() => [...document.body.children].filter(element => element.style.left === '-10000px').length), 0, 'hidden output root cleaned');
 }
 async function proofStillValid() {
-  assert.equal(await page.locator('.tk-studio-proof .tk-label-print-page').count(), 2);
-  assert.equal(await page.locator('.tk-studio-proof .tk-label[data-product]').count(), 22);
+  assert.equal(await page.locator('.tk-studio-proof .tk-label-print-page').count(), 1, 'interactive proof mounts one A4');
+  const visible = await page.locator('.tk-studio-proof .tk-label[data-product]').count();
+  assert(visible > 0 && visible <= 21, 'visible page contains at most its physical capacity');
+  assert(await page.getByText(/усі 22 цінників увійдуть у PDF та друк/).isVisible(), 'full selection is retained independently from displayed page');
   assert(await pdfButton().isEnabled(), 'cancel retains usable proof');
 }
 async function reviewSelection() {
@@ -367,6 +369,17 @@ async function actualZoom() {
       await cancelPrepare();
       for (const width of [1440, 390, 320]) await layoutAndEncodingCancel(width);
     }
+    await page.setViewportSize({ width: 320, height: 1000 });
+    const nextPage = page.getByRole('button', { name: 'Наступний аркуш', exact: true });
+    await nextPage.focus();await page.keyboard.press('Enter');
+    assert.equal(await page.locator('.tk-studio-proof .tk-label-print-page').getAttribute('data-page'), '2');
+    assert.equal(await page.locator('.tk-studio-proof .tk-label[data-product]').count(), 1);
+    const previewPage = page.getByRole('combobox', { name: 'Аркуш для перегляду' });
+    await previewPage.fill('1');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
+    await until(async () => await page.locator('.tk-studio-proof .tk-label-print-page').getAttribute('data-page') === '1', 'keyboard page jump');
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'preview navigation fits native320');
+    await page.screenshot({ path: path.join(output, 'tsukenya-page-preview-320.png') });
+    results.checks.push('Native320 keyboard page navigation retains all22copies with only one A4 mounted');
     await retryPdf();
     if (from === 'all') {
       await page.setViewportSize({ width: 1440, height: 1000 });
