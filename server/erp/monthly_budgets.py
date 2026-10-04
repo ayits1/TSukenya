@@ -7,7 +7,7 @@ from collections import defaultdict
 from django.db import transaction
 from django.utils import timezone
 from .models import ExpenseCategory,ExpenseCategoryAlias,MonthlyBudget,BudgetLine,Store
-from .services import ZERO,QTY,dec,money,require,scope,ledger_lock,audit,Conflict,get
+from .services import ZERO,QTY,dec,money,require,scope,ledger_lock,audit,Conflict,get,current_actor
 from .historical_reports import period_documents,period_sign,require_reversal_dates,read_snapshot
 from .business_audit import select as audit_select,change as audit_change
 
@@ -57,7 +57,7 @@ def bind_expense(payload,previous=None):
 
 @transaction.atomic
 def save_category(user,body,key=None):
-    owner(user);ledger_lock();require(isinstance(body,dict),'Некоректна стаття.')
+    owner(user);ledger_lock();user=current_actor(user);owner(user);require(isinstance(body,dict),'Некоректна стаття.')
     name=body.get('name');require(isinstance(name,str) and 0<len(name.strip())<=160,'Вкажіть назву статті до 160 символів.');name=name.strip()
     active=body.get('active',True);require(type(active) is bool,'Ознака активності має бути логічною.')
     require('semantic_key' not in body,'Системний ключ статті незмінний.')
@@ -83,7 +83,7 @@ def budget_json(b):
 
 @transaction.atomic
 def save(user,body,key=None):
-    owner(user);ledger_lock();require(isinstance(body,dict),'Некоректний бюджет.')
+    owner(user);ledger_lock();user=current_actor(user);owner(user);require(isinstance(body,dict),'Некоректний бюджет.')
     start=month(body.get('month'));store=store_for(user,body.get('store'));revenue=decimal(body.get('planned_revenue','0'),'Плановий виторг')
     raw=body.get('lines');require(isinstance(raw,list) and len(raw)<=200,'Потрібен список до 200 рядків бюджету.')
     old=get(MonthlyBudget,identity(key),'Бюджет') if key else None

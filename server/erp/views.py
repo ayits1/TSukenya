@@ -283,6 +283,7 @@ def legacy_mutation(request,user,path,create_key=None):
 @transaction.atomic
 def entity_save(user,name,value):
     ledger_lock()
+    user=current_actor(user)
     allowed={'stores':Store,'warehouses':Warehouse,'parties':Counterparty,'accounts':CashAccount,'employees':Employee}
     require(name in allowed,'Невідомий довідник.')
     if name in {'stores','warehouses','accounts','employees'}:owner(user)
@@ -327,6 +328,7 @@ def entity_save(user,name,value):
 @transaction.atomic
 def shift_action(user,value):
     ledger_lock()
+    user=current_actor(user)
     require(user.profile.role in {'owner','manager','cashier'},'Недостатньо прав.')
     if value.get('action')=='close':
         s=get(CashShift,value.get('id'),'Зміна');scope(user,s.store)
@@ -563,7 +565,7 @@ def handle(request):
         value=body(request)
         require(isinstance(value.get('revision'),str) and value['revision'],'Оновіть рецептуру перед збереженням: потрібна версія товару.')
         with transaction.atomic():
-            ledger_lock();product=get(Document,'products/'+str(value.get('product')),'Готовий товар')
+            ledger_lock();user=current_actor(user);require(user.profile.role in {'owner','manager','warehouse'},'Недостатньо прав для рецептур.');product=get(Document,'products/'+str(value.get('product')),'Готовий товар')
             if value['revision']!=revision(product):return response({'error':'Товар уже змінено. Оновіть рецептуру перед повторним збереженням.','code':'revision_conflict'},409)
             # A recipe never changes price terms, so an older discount does not block it.
             data={**product.data,'recipe':value.get('recipe',[])};validate_product(data,product.pk,check_promotion=False)
@@ -685,7 +687,7 @@ def handle(request):
         if not action and request.method=='PUT':return response(voucher_json(save_voucher(user,body(request),pk),True,user=user))
         if not action and request.method=='DELETE':
             with transaction.atomic():
-                ledger_lock();v.refresh_from_db();scope(user,v.store);permission(user,v.kind);expense_permission(user,v);require(v.status=='draft','Видалити можна тільки чернетку.')
+                ledger_lock();user=current_actor(user);v.refresh_from_db();scope(user,v.store);permission(user,v.kind);expense_permission(user,v);require(v.status=='draft','Видалити можна тільки чернетку.')
                 value=body(request)
                 if 'revision' in value:require_voucher_revision(v,value['revision'])
                 audit(user,'draft_deleted',f'voucher/{pk}',audit_change(audit_snapshot('voucher', v), None, observed=value.get('revision')));v.delete()
@@ -703,7 +705,7 @@ def handle(request):
     if path=='/api/erp/period' and request.method=='POST':
         owner(user);value=body(request)
         with transaction.atomic():
-            lock=ledger_lock();lock.closed_through=day(value['date']) if value.get('date') else None
+            lock=ledger_lock();user=current_actor(user);owner(user);lock.closed_through=day(value['date']) if value.get('date') else None
             require(str(value.get('reason','')).strip(),'Вкажіть причину зміни періоду.')
             require(not lock.closed_through or lock.closed_through<timezone.localdate(),'Закривати можна лише завершені дні.')
             require(not lock.closed_through or not Voucher.objects.filter(status='draft',date__lte=lock.closed_through).exists(),'У періоді є чернетки. Проведіть або видаліть їх.')
@@ -717,6 +719,7 @@ def handle(request):
             require(re.fullmatch('[A-Za-z0-9_.-]{3,80}',name),'Логін: 3–80 латинських символів, цифри, крапка або дефіс.')
             role=value.get('role');require(role in ROLE_KINDS and role!='owner','Виберіть роль працівника.')
             with transaction.atomic():
+                ledger_lock();user=current_actor(user);owner(user)
                 u=get(User,value['id'],'Користувач') if value.get('id') else User(username=name)
                 require(u.username!=OWNER,'Власника редагуйте через обліковий запис.')
                 if not u.pk or value.get('password'):
@@ -729,12 +732,18 @@ def handle(request):
         from .financial_browsing import audit_events
         return response(audit_events(user,request.GET))
     if path=='/api/erp/fiscal' and request.method=='POST':
-        owner(user);value=body(request);Setting.objects.update_or_create(pk='fiscal_required',defaults={'value':'true' if value.get('required') else 'false'});audit(user,'fiscal_mode_changed','settings',{'required':bool(value.get('required'))});return response({'ok':True})
+        owner(user);value=body(request)
+        with transaction.atomic():
+            ledger_lock();user=current_actor(user);owner(user)
+            Setting.objects.update_or_create(pk='fiscal_required',defaults={'value':'true' if value.get('required') else 'false'});audit(user,'fiscal_mode_changed','settings',{'required':bool(value.get('required'))})
+        return response({'ok':True})
     if path=='/api/erp/discount-limit' and request.method=='POST':
-        owner(user);value=body(request);old=discount_limit()
+        owner(user);value=body(request)
         try:percent=Decimal(str(value.get('percent')).replace(',','.'))
         except InvalidOperation:percent=Decimal(-1)
         require(percent.is_finite() and 0<=percent<=100 and percent==percent.quantize(Decimal('.01')),'Максимальна знижка касира — число від 0 до 100 із не більше ніж двома знаками після коми.')
-        with transaction.atomic():Setting.objects.update_or_create(pk=DISCOUNT_KEY,defaults={'value':str(percent)});audit(user,'discount_limit_changed','settings',{'old':percent_text(old),'new':percent_text(percent)})
+        with transaction.atomic():
+            ledger_lock();user=current_actor(user);owner(user);old=discount_limit()
+            Setting.objects.update_or_create(pk=DISCOUNT_KEY,defaults={'value':str(percent)});audit(user,'discount_limit_changed','settings',{'old':percent_text(old),'new':percent_text(percent)})
         return response({'percent':percent_text(percent)})
     return response({'error':'Сторінку не знайдено.'},404)

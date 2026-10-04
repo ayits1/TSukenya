@@ -2,7 +2,7 @@
 from decimal import Decimal
 from django.db import transaction
 from .models import Assortment, Document, Warehouse
-from .services import Conflict, STALE_FORM, audit, dec, get, ledger_lock, record_revision, require, require_revision, scope
+from .services import Conflict, STALE_FORM, audit, dec, get, ledger_lock, record_revision, require, require_revision, scope, current_actor
 
 ROLES = {'owner', 'manager', 'warehouse'}
 QTY = Decimal('.001')
@@ -26,6 +26,7 @@ def assortment(user, query):
 @transaction.atomic
 def save_assortment(user, value):
     ledger_lock()
+    user = current_actor(user)
     w = warehouse_for(user, value.get('warehouse')); p = get(Document, 'products/' + str(value.get('product', '')), 'Товар')
     row = Assortment.objects.filter(warehouse=w, product=p).first()
     # The first save of a product here is a create and must not carry a version; later saves must carry the current one.

@@ -102,6 +102,17 @@ def scope(user, store):
 def permission(user, kind):
     require(kind in ROLE_KINDS.get(user.profile.role, set()), 'Ваша роль не дозволяє цю операцію.')
 
+def current_actor(user):
+    """Reload authentication after the posting lock, before permissions or retry ACKs."""
+    actor = User.objects.select_related('profile').filter(pk=user.pk, is_active=True, profile__isnull=False).first()
+    require(actor is not None, 'Обліковий запис вимкнено або доступ відкликано.')
+    # The HTTP caller may serialize the result with this same object. Keep its
+    # permission cache current too, so a newly restricted role cannot see costs.
+    user.is_active = actor.is_active
+    user.profile = actor.profile
+    return user
+
+
 def ledger_lock():
     return LedgerLock.objects.select_for_update().get(pk=1)
 
@@ -292,6 +303,7 @@ def apply_discounts(user, v, *, actual_cost=False):
 @transaction.atomic
 def save_voucher(user, body, pk=None):
     lock = ledger_lock()
+    user = current_actor(user)
     kind = body.get('kind')
     require(isinstance(kind, str), 'Некоректний тип документа.')
     require(kind not in SYSTEM_KINDS, 'Касове розходження проводиться автоматично під час закриття касової зміни.')
@@ -562,6 +574,7 @@ def payroll_amount(v):
 @transaction.atomic
 def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     lock = ledger_lock()
+    user = current_actor(user)
     v = get(Voucher, pk, 'Документ')
     scope(user,v.store)
     permission(user,v.kind)
@@ -723,6 +736,7 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
 @transaction.atomic
 def reverse_voucher(user, pk, reason):
     lock = ledger_lock()
+    user = current_actor(user)
     v = get(Voucher,pk,'Документ')
     scope(user,v.store)
     require(user.profile.role in {'owner','manager','accountant'}, 'Скасування доступне керівнику або бухгалтеру.')
