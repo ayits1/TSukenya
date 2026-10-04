@@ -83,10 +83,17 @@ function create(options={}){
    return '<div class="trade-report-cards"><div class="trade-grid">'+items.map(([label,value])=>`<div class="trade-card"><span>${esc(label)}</span><strong>${money(value)} грн</strong></div>`).join('')+'</div></div>';
   }
   function render(){
-   if(!live())return;options.dispose?.(host);debtControl?.cancel();debtControl=null;lastDebtContext=null;
-   host.innerHTML=`<section class="panel"><div class="trade-report-tabs" role="tablist" aria-label="Режим фінансового звіту">${[['period','Обороти періоду'],['balances','Залишки на дату']].map(([mode,label])=>`<button class="btn ${mode===context.mode?'':'soft'}" type="button" role="tab" id="bounded-report-mode-${mode}" data-report-mode="${mode}" aria-selected="${mode===context.mode}" aria-controls="boundedReportResult" tabindex="${mode===context.mode?0:-1}">${label}</button>`).join('')}</div><form data-report-form class="trade-report-form"><fieldset data-report-filters class="trade-report-fields">${context.mode==='balances'?`<label>Станом на дату включно<input class="ui-input" type="date" name="as_of" value="${context.as_of}" required max="${date}"></label>`:`<label>З<input class="ui-input" type="date" name="from" value="${context.from}" required max="${date}"></label><label>По<input class="ui-input" type="date" name="to" value="${context.to}" required max="${date}"></label>`}${options.storeControl?.(context.store)||''}<button class="btn" type="submit">Показати</button></fieldset></form><p class="trade-saving" role="status" data-report-status aria-live="polite"></p><p class="trade-error" role="alert" data-report-error tabindex="-1"></p><button class="btn soft" type="button" data-report-retry hidden>Повторити читання</button><div data-report-summary></div><div data-report-body id="boundedReportResult" role="tabpanel" aria-labelledby="bounded-report-mode-${context.mode}"></div></section><div data-report-debts></div>`;
+   if(!live())return;window.ReactABCReport?.leave();options.dispose?.(host);debtControl?.cancel();debtControl=null;lastDebtContext=null;
+   host.innerHTML=`<section class="panel"><div class="trade-report-tabs" role="tablist" aria-label="Режим фінансового звіту">${[['period','Обороти періоду'],['balances','Залишки на дату'],['abc','ABC товарів']].map(([mode,label])=>`<button class="btn ${mode===context.mode?'':'soft'}" type="button" role="tab" id="bounded-report-mode-${mode}" data-report-mode="${mode}" aria-selected="${mode===context.mode}" aria-controls="boundedReportResult" tabindex="${mode===context.mode?0:-1}">${label}</button>`).join('')}</div><form data-report-form class="trade-report-form"><fieldset data-report-filters class="trade-report-fields">${context.mode==='balances'?`<label>Станом на дату включно<input class="ui-input" type="date" name="as_of" value="${context.as_of}" required max="${date}"></label>`:`<label>З<input class="ui-input" type="date" name="from" value="${context.from}" required max="${date}"></label><label>По<input class="ui-input" type="date" name="to" value="${context.to}" required max="${date}"></label>`}${options.storeControl?.(context.store)||''}<button class="btn" type="submit">Показати</button></fieldset></form><p class="trade-saving" role="status" data-report-status aria-live="polite"></p><p class="trade-error" role="alert" data-report-error tabindex="-1"></p><button class="btn soft" type="button" data-report-retry hidden>Повторити читання</button><div data-report-summary></div><div data-report-body id="boundedReportResult" role="tabpanel" aria-labelledby="bounded-report-mode-${context.mode}"></div></section><div data-report-debts></div>`;
+   if(context.mode==='abc'){host.querySelector('[data-report-form]').remove();host.querySelector('[data-report-error]').remove();host.querySelector('[data-report-retry]').remove();host.querySelector('[data-report-status]').textContent='Завантаження ABC-аналітики…';mountABC();return;}
    options.bind?.(host,context.store);show();
   }
+  function mountABC(){
+   if(!live()||context.mode!=='abc')return;
+   if(window.ReactABCReport){host.querySelector('[data-report-status]').textContent='';window.ReactABCReport.mount(host.querySelector('[data-report-body]'),{store:String(context.store||''),from:context.from,to:context.to,onFilters:filters=>{if(live()&&context.mode==='abc'){context.store=filters.store;context.from=filters.from;context.to=filters.to;options.onStore?.(context.store);}}});}
+   else host.querySelector('[data-report-status]').textContent='Модуль ABC ще недоступний. Оновіть сторінку або повторіть відкриття режиму.';
+  }
+  window.addEventListener('tsukenya:abc-ready',mountABC,{signal:listeners.signal});
   function show(){
    if(!live())return;const sum=host.querySelector('[data-report-summary]'),body=host.querySelector('[data-report-body]');
    if(!latest){sum.innerHTML='';body.innerHTML='';debtControl?.cancel();debtControl=null;lastDebtContext=null;host.querySelector('[data-report-debts]').innerHTML='';return;}
@@ -100,6 +107,7 @@ function create(options={}){
    }
   }
   async function load(pageNumber=1,q='',focus=''){
+   if(context.mode==='abc')return;
    lastIntent={page:pageNumber,q};controller?.abort();controller=new AbortController();const token=++sequence,signal=controller.signal,contextRead=params();
    host.querySelector('[data-report-form]').setAttribute('aria-busy','true');host.querySelector('[data-report-filters]').disabled=true;
    host.querySelector('[data-report-error]').textContent='';host.querySelector('[data-report-status]').textContent='Обчислення звіту…';host.querySelector('[data-report-retry]').hidden=true;
@@ -126,7 +134,7 @@ function create(options={}){
   host.addEventListener('input',event=>{if(live()&&event.target.name==='q'&&event.target.closest('[data-report-search]'))qDraft=event.target.value;},{signal:listeners.signal});
   host.addEventListener('click',event=>{
    const button=event.target.closest('button');if(!live()||!button||!host.contains(button))return;
-   if(button.dataset.reportMode){Object.assign(context,Object.fromEntries(new FormData(host.querySelector('[data-report-form]'))));context.mode=button.dataset.reportMode;section=context.mode==='balances'?'stock':'products';latest=read=null;qDraft='';render();host.querySelector(`[data-report-mode="${context.mode}"]`)?.focus();void load(1,'',`[data-report-mode="${context.mode}"]`);}
+   if(button.dataset.reportMode){const previousForm=host.querySelector('[data-report-form]');if(previousForm)Object.assign(context,Object.fromEntries(new FormData(previousForm)));controller?.abort();sequence++;context.mode=button.dataset.reportMode;section=context.mode==='balances'?'stock':'products';latest=read=null;qDraft='';render();host.querySelector(`[data-report-mode="${context.mode}"]`)?.focus();void load(1,'',`[data-report-mode="${context.mode}"]`);}
    if(button.dataset.reportSection){section=button.dataset.reportSection;read=null;qDraft='';show();host.querySelector(`[data-report-section="${section}"]`)?.focus();void load(1,'',`[data-report-section="${section}"]`);}
    if(button.dataset.reportPage)void load(Number(button.dataset.reportPage),read?.q||'', '[data-report-pager] button:not([disabled])');
    if(button.hasAttribute('data-report-retry'))void load(lastIntent.page,lastIntent.q);
@@ -136,7 +144,7 @@ function create(options={}){
    const tab=event.target.closest('[role=tab]');if(!live()||!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
    event.preventDefault();const tabs=[...tab.closest('[role=tablist]').querySelectorAll('[role=tab]')],i=tabs.indexOf(tab),next=event.key==='Home'?tabs[0]:event.key==='End'?tabs.at(-1):tabs[(i+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];next.focus();next.click();
   },{signal:listeners.signal});
-  render();void load();const control={cancel(){cancelled=true;sequence++;listeners.abort();controller?.abort();debtControl?.cancel();options.dispose?.(host);}};active=control;return control;
+  render();void load();const control={cancel(){window.ReactABCReport?.leave();cancelled=true;sequence++;listeners.abort();controller?.abort();debtControl?.cancel();options.dispose?.(host);}};active=control;return control;
  }
  return {mount,cancel(){active?.cancel();active=null;}};
 }

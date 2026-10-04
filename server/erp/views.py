@@ -534,7 +534,7 @@ def handle(request):
                 entry=manifest.get(key,{})
                 styles.update(entry.get('css',[]))
                 for chunk in entry.get('imports',[]): collect_styles(chunk)
-            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx','src/native-conflict-entry.tsx','src/trading-entry.tsx']:
+            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx','src/native-conflict-entry.tsx','src/trading-entry.tsx','src/abc-entry.tsx']:
                 collect_styles(key)
                 if manifest.get(key,{}).get('file'): scripts.append('<script type="module" src="/frontend/'+manifest[key]['file']+'" onerror="window.dispatchEvent(new CustomEvent(\'tsukenya:module-unavailable\',{detail:\''+key.split('/')[1].split('-')[0]+'\'}))"></script>')
             html=html.replace('</head>',''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in sorted(styles))+'</head>').replace('</body>',''.join(scripts)+'</body>')
@@ -545,6 +545,10 @@ def handle(request):
     if path.startswith('/api/v1/portal/'):
         from .portal_api import handle_portal
         return handle_portal(request,user)
+    if path in {'/api/v1/trading/reports/abc','/api/v1/trading/reports/abc/export.csv'} and request.method=='GET':
+        from . import abc_reports
+        if path.endswith('/export.csv'): return abc_reports.export_csv(user,request.GET)
+        return response(abc_reports.report(user,request.GET))
     if path in {'/api/v1/trading/reports/summary','/api/v1/trading/reports/rows','/api/v1/trading/reports/export.csv'} and request.method=='GET':
         from . import bounded_reports
         require(user.profile.role in bounded_reports.ROLES,'Недостатньо прав для фінансових звітів.')

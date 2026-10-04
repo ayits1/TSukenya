@@ -21,6 +21,7 @@ export default defineConfig({
         customers: resolve(import.meta.dirname, 'src/customers-entry.tsx'),
         nativeConflict: resolve(import.meta.dirname, 'src/native-conflict-entry.tsx'),
         trading: resolve(import.meta.dirname, 'src/trading-entry.tsx'),
+        abc: resolve(import.meta.dirname, 'src/abc-entry.tsx'),
       },
     },
     target: ['chrome111', 'safari16.4', 'firefox114'],

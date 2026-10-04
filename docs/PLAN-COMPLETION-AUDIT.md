@@ -316,3 +316,30 @@ server/PostgreSQL CI37200303120 SUCCESS. Visible version/CHANGELOG у main,
 PostgreSQL2 boundary PASS0.392s. Це Python/model/JSON child stream bound,
 не гарантія total DB memory/time/tempdisk або всього B24. Details —
 B24-BOUNDED-REPORTS.md; новий exact-head CI має пройти до прийняття.
+
+
+## Прийняті #74 і #76; ABC root інтеграція · 04.10.2026
+
+#74 MERGED, exact head b04f81c frontend/server/PostgreSQL CI SUCCESS. Приховування,
+відновлення, окремі paged hidden/active lists і recovery без змішування новішої
+форми прийняті. Каталогні snapshot reads мають актуального actor і strict
+READ ONLY REPEATABLE READ; HTTP fixtures переведені на committed setup без
+послаблення production guards. Реліз #74 до9174b00 фактично виконано, докази
+у SERVER-DEPLOYMENT.md; canonical checkout синхронізовано до цього релізу.
+
+#76 MERGED, exact head cdbc588 frontend/server/PostgreSQL CI SUCCESS. Slim
+metadata-v2 не видає повні tasks/ideas/expenses; всі actual consumers, включно
+renderPath, мають page30/whole summaries, unknown-stage coverage, видимі stale
+підсумки/GET retry, off-page drafts/actions та authoritative ID. Два старі
+Node fixtures виправлено без зміни strict runtime. B24-PORTAL-COLLECTIONS.md
+описує targeted PG/Node/native proofs та O(N)/resource межі. На VPS #76 ще немає.
+
+#77 ABC source інтегровано після #76 без зміни фінансових формул; є незалежне
+рев’ю, target PG12/unit5/Story5/native/strict/CSV докази. Після rebase фінальний
+CI має знову підтвердити exact head; це не прийнята робота до merge. Системні
+проведення не замінюють відсутній касовий імпорт/історичну повноту.
+
+B06 foundation same-tab/same-session proposal прийнято як межу першого пакета.
+P0 identity/registry розробляється; P1–P3 actual consumers ще не enrolled. Увесь
+B06, versioned trading migration та весь початковий план залишаються відкритими.
+Full локально не запускали; 0.1, зовнішню Sheet/production mutation не виконували.
