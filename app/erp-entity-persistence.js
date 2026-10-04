@@ -7,6 +7,7 @@
     active = null,
     sequence = 0,
     warm = false,
+    authorizedReads = 0,
     restoredSignal = null,
     authorizedSession = null;
   const foundation = () => {
@@ -23,7 +24,7 @@
     if (!active?.d.open) return;
     const a = active;
     a.hidden = true;
-    a.cancel();
+    if (!a.reading) a.cancel();
     a.d.querySelector("#tradeDialogTitle").textContent =
       "Локальна чернетка призупинена";
     a.d.querySelector(".trade-dialog-body").hidden = true;
@@ -41,6 +42,23 @@
           .catch(() => {});
       a.d.append(gate);
     }
+    gate.querySelector("button").disabled = Boolean(
+      a.reading || a.guardPending,
+    );
+    let cancelRead = gate.querySelector("[data-entity-read-cancel]");
+    if (!cancelRead) {
+      cancelRead = document.createElement("button");
+      cancelRead.type = "button";
+      cancelRead.className = "btn soft";
+      cancelRead.dataset.entityReadCancel = "";
+      cancelRead.textContent = "Скасувати читання";
+      cancelRead.onclick = () => {
+        a.cancel();
+        foundation().controller.dismiss();
+      };
+      gate.append(cancelRead);
+    }
+    cancelRead.hidden = !a.reading;
   }
   async function authorize(p, session, signal) {
     const s = state(p);
@@ -109,7 +127,7 @@
           }
         });
       }
-      if (!active?.hidden || warm) return;
+      if (!active?.hidden || warm || authorizedReads) return;
       const a = active,
         id = state(a.payload).recordId;
       if (!f.store.entries().some((e) => e.id === id)) {
@@ -232,6 +250,53 @@
       get payload() {
         return p;
       },
+      async read(read, signal) {
+        if (active !== a || !d.open)
+          throw new DOMException("Скасовано", "AbortError");
+        warm = true;
+        a.reading = (a.reading || 0) + 1;
+        authorizedReads++;
+        const pending = foundation().controller.verifyRead(
+            id,
+            async (authorizedSignal) => {
+              const combined = signal
+                ? AbortSignal.any([signal, authorizedSignal])
+                : authorizedSignal;
+              if (combined.aborted || active !== a || !d.open)
+                throw new DOMException("Скасовано", "AbortError");
+              return read(combined);
+            },
+          ),
+          t = sequence;
+        try {
+          const result = await pending;
+          if (signal?.aborted || t !== sequence || active !== a || !d.open)
+            throw new DOMException("Скасовано", "AbortError");
+          if (!result)
+            throw Error(
+              "Доступ або поточний запис не підтверджено. Повторіть лише перевірку доступу.",
+            );
+          a.hidden = false;
+          a.d.querySelector("#tradeDialogTitle").textContent = a.heading;
+          a.d.querySelector(".trade-dialog-body").hidden = false;
+          a.d
+            .querySelectorAll(".tk-popover")
+            .forEach((el) => (el.hidden = false));
+          a.d.querySelector("[data-entity-access]")?.remove();
+          return result.value;
+        } finally {
+          a.reading--;
+          authorizedReads--;
+          warm = Boolean(a.reading);
+          const gate = a.d.querySelector("[data-entity-access]");
+          if (gate) {
+            gate.querySelector("button").disabled = Boolean(
+              a.reading || a.guardPending,
+            );
+            gate.querySelector("[data-entity-read-cancel]").hidden = !a.reading;
+          }
+        }
+      },
       async before(body) {
         capture();
         let next = p;
@@ -264,11 +329,15 @@
             "Початковий запит незмінний. Повторіть точний запит або перевірте запис.",
           );
         warm = true;
+        a.guardPending = true;
         let session;
         try {
           session = await foundation().controller.verify(id);
         } finally {
           warm = false;
+          a.guardPending = false;
+          const gate = a.d.querySelector("[data-entity-access]");
+          if (gate) gate.querySelector("button").disabled = Boolean(a.reading);
         }
         if (!session || active !== a || !d.open)
           throw Error("Доступ не підтверджено. Запит не надіслано.");

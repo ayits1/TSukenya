@@ -49,10 +49,69 @@ Pagehide/hidden/session error приховують private body/heading/comparis
 
 Artifacts: `/tmp/tsukenya-entity-reload-proof/{primary-partial,create-report,update-report,validation-report,privacy-report,cold-report}.json`, `entity-restored-320.png`, `entity-restored-1440.png`, `server.log`. Failure diagnostics збережені окремо, не позначені успішними.
 
-Відтворення: `PYTHON_BIN=/path/to/isolated/python node tests/entity-draft-reload-ui.cjs`. Вузький retry `QA_ENTITY_DRAFT_FROM=create|update|validation|privacy|cold`; unknown flag rejected. Script scrub DB/PG/production settings, pins isolated settings/secret, checks early server exit, awaits server/browser teardown. Full integration registry/env scrub належить root integration. Full suite, production/VPS/Sheet/backup0.1/PR/push не виконувались.
+Відтворення: `PYTHON_BIN=/path/to/isolated/python node tests/entity-draft-reload-ui.cjs`. Вузький retry `QA_ENTITY_DRAFT_FROM=create|update|validation|privacy|cold|read`; unknown flag rejected. Script scrub DB/PG/production settings, pins isolated settings/secret, checks early server exit, awaits server/browser teardown. Full integration registry/env scrub належить root integration. Full suite, production/VPS/Sheet/backup0.1/PR/push не виконувались.
 
 Existing receipt7PG/unit6/comparison keyboard-layout/P0 privacy/storage/late proofs reuse при незмінних inputs; цією доставкою не заявляються повторними full runs. Новий пакет не є completion решти B06.
 
+## READ privacy follow-up
+
+Reviewer підтвердив: direct `TradeDirectories.hydrate(manage)` кидав401/403,
+але current/compare catches лише показували formError, тому private payroll fields
+і heading лишалися видимими. Той самий getCurrent викликається після CREATE/UPDATE ACK.
+
+`RecoveryController.verifyRead(id, callback)` тепер виконує fresh session check,
+record authorization і strict decoded read у спільній generation/AbortController межі.
+401 використовує global revoke;403 повторно перевіряє сеанс і видаляє лише denied record
+за незмінного actor/scope. Зміна сеансу/ролі/scope очищає всі session-bound records.
+503/malformed читання зберігає дозволені записи прихованими. Пізня відповідь після
+cancel/dismiss не застосовує відмову й не приймає baseline.
+
+Actual entity `persistence.read` використано для current/compare та explicit identity,
+включно з CREATE/UPDATE post-ACK reads. Private body, heading і comparison приховані
+від початку перевірки до успішного decoded read; failure має public access retry.
+Під час read доступне public «Скасувати читання»; повторна authorization кнопка
+disabled до завершення pending read/pre-write verification. Record-local counters
+та module read counter не дають warm listener повторно відкрити форму під час
+pending або старого скасованого читання. Initial prepare, backend і write endpoints
+не змінені. Read/identity/public retry не записують бізнес-дані й не приймають
+current revision автоматично; comparison/Apply/Save лишаються окремими.
+
+Цільові докази follow-up:
+
+- `npm run test --workspace frontend -- src/shared/recovery/recovery.test.ts`:
+  **16 PASS**, включно з2 новими verified-read cases. Read401/403/503 після
+  authorization, unrelated unknown intent, late403 after dismiss, read-only result
+  без persisted baseline adoption. Це одна вузька foundation test family, не full suite.
+- `QA_ENTITY_DRAFT_FROM=read PYTHON_BIN=/path/to/isolated/python node tests/entity-draft-reload-ui.cjs`:
+  **terminal PASS**, bundled headless Chromium і disposable SQLite.
+  `/tmp/tsukenya-entity-read-privacy-proof/read-report.json`: actual503/public auth retry
+  з raw+original baseline; actual owner→accountant між preflight та manage read403;
+  actual expired session manage401; explicit identity second-read403;
+  closed/cancelled late403 не стирає record і не відкриває comparison. Є лише один
+  deliberate CREATE для unknown identity; решта read actions не додають business POST.
+- `ENTITY_CREATE_STAGE=tail PYTHON_BIN=/path/to/isolated/python node tests/entity-create-recovery-ui.cjs`:
+  **terminal PASS**, `/tmp/tsukenya-entity-read-tail-proof/tail-report.json`:
+  frozen retry з invalid newer input, confirmed ID+manage503/public auth retry,
+  public Cancel із hidden raw/disabled Save, late closed identity без adoption.
+- Matching build/TypeScript, changed ESLint/Prettier, JS syntax/diff PASS.
+  Initial transient assertion чекала лише hidden DOM до завершення preflight;
+  виправлено wait на error state. Old tail query disabled Save тепер перевіряє
+  hidden DOM control, з окремою вимогою body hidden. Fail diagnostics збережені;
+  ці спроби не оголошуються PASS.
+- Harness перевіряє exitCode **і** signalCode; teardown тільки для живого server,
+  SIGTERM з5-second SIGKILL fallback та awaited exit. Shared PG/container не чіпали.
+
 ## Сумісність старих native fixtures
 
-`entity-create-recovery-ui.cjs` primary мав old in-memory сценарій owner→accountant→owner з доступними старими payroll полями між змінами ролі. P0 тепер при role/session identity change приховує private editor і очищає локальні записи до повторної авторизації, а pre-fetch verify може зупинити exact POST до сервера. Тому цей старий primary сценарій потребує вузького retarget до нового privacy/pre-fetch contract; не заявляється його повторний PASS або сумісність його старих DOM assertions. Server receipt/current-role/concurrency coverage лишається чинною; нові actual entity targets доводять readonly auth/hide/unknown/current barrier. Решта unchanged old evidence використана лише для відповідних незмінених серверних/comparison правил.
+`entity-create-recovery-ui.cjs` primary більше не очікує доступні payroll inputs
+після owner→accountant→owner. Цей role/READ privacy scenario перенесено до actual
+`entity-draft-reload-ui.cjs:read`, де доказано приховування й session-bound cleanup.
+Old primary frozen request/invalid input retention тепер перевіряється як пізніший400
+після lostACK, а identity/current503 — через explicit public authorization retry.
+Збережено meaningful assertions UUID/body, confirmed ID, original baseline,
+atomic payroll choice/second409/Apply-noPOST/separateUPDATE, всі5 CREATE consumers,
+wrong ACK refusal та deleted-original tombstone. Old primary/layout цілком тут
+не повторювали; targeted old tail PASS описано вище. Не заявляється whole-family PASS.
+
+Решта P1 native сімей, P2/P3 та browser-restart/cross-device persistence лишаються
+відкритими; source/proof цей follow-up не є їхнім completion.

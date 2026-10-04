@@ -282,12 +282,12 @@ async function entityForm(key,id,partyKind,restored=null){
   return adapter.decodeEntity(key,{...baseline,...values,type:key,name:String(values.name).trim()},String(id));
  };
  const confirm=original=>{id=original.id;confirmed=true;baseline=structuredClone(original);x=original;needsReview=true;d.dataset.confirmedId=String(id);sync();dialogStatus(d,'Початкове створення підтверджено: '+original.name+'. Ваші поточні поля збережені. Прочитайте запис; зміни узгоджуються й зберігаються окремо.');};
- const getCurrent=async signal=>{
-  const result=await window.TradeDirectories.hydrate([{type:key,id:String(id)}],{purpose:'manage'},signal);
+ const getCurrent=signal=>persistence.read(async authorizedSignal=>{
+  const result=await window.TradeDirectories.hydrate([{type:key,id:String(id)}],{purpose:'manage'},authorizedSignal);
   const latest=adapter.decodeEntity(key,result.items.find(item=>item.type===key&&item.id===String(id)),String(id));
   if(!adapter.entityIdentityMatches(baseline,latest))throw Error('Магазин або тип запису змінився. Узгодження недоступне; чернетка збережена.');
   return latest;
- };
+ },signal);
  cancelButton.onclick=()=>{stop();dialogStatus(d,'Читання скасовано. Чернетка збережена.');};
  currentButton.onclick=async()=>{
   if(!live()||reading||d.dataset.busy==='1')return;
@@ -299,7 +299,7 @@ async function entityForm(key,id,partyKind,restored=null){
  identityButton.onclick=async()=>{
   if(!live()||reading||!intent||confirmed||d.dataset.busy==='1')return;
   const request=++sequence;controller=new AbortController();reading=true;lock();sync();
-  try{const raw=await api('../v1/trading/entities/'+key+'/identity','POST',{request:intent},controller.signal);if(!live()||request!==sequence)return;const found=adapter.decodeEntityIdentity(key,raw,createKey,intent);if(!found.confirmed){dialogStatus(d,'Початкове створення не підтверджено. Запит і чернетку збережено; можна повторити точний початковий запит.');return;}persistence.confirm('identity',raw);confirm(found.original);deleted=!found.exists;durable();if(deleted)dialogStatus(d,'Початкове створення підтверджено, але запис уже видалено. Повторне створення й перезапис заблоковано. Чернетка збережена.');}
+  try{const {raw,found}=await persistence.read(async signal=>{const raw=await api('../v1/trading/entities/'+key+'/identity','POST',{request:intent},signal);return {raw,found:adapter.decodeEntityIdentity(key,raw,createKey,intent)};},controller.signal);if(!live()||request!==sequence)return;if(!found.confirmed){dialogStatus(d,'Початкове створення не підтверджено. Запит і чернетку збережено; можна повторити точний початковий запит.');return;}persistence.confirm('identity',raw);confirm(found.original);deleted=!found.exists;durable();if(deleted)dialogStatus(d,'Початкове створення підтверджено, але запис уже видалено. Повторне створення й перезапис заблоковано. Чернетка збережена.');}
   catch(error){if(live()&&request===sequence&&error.name!=='AbortError')formError(error,d);}
   finally{if(live()&&request===sequence){stop(false);(id?currentButton:identityButton).focus();}}
  };

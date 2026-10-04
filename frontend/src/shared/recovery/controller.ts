@@ -83,7 +83,21 @@ export class RecoveryController {
   verify(id: string) {
     return this.authorizeRecord(id, false);
   }
-  private async authorizeRecord(id: string, render: boolean): Promise<DraftSession | null> {
+  async verifyRead<T>(
+    id: string,
+    read: (signal: AbortSignal, session: DraftSession) => Promise<T>,
+  ) {
+    const values: T[] = [];
+    const session = await this.authorizeRecord(id, false, async (signal, actor) => {
+      values.push(await read(signal, actor));
+    });
+    return session ? { session, value: values[0]! } : null;
+  }
+  private async authorizeRecord(
+    id: string,
+    render: boolean,
+    read?: (signal: AbortSignal, session: DraftSession) => Promise<void>,
+  ): Promise<DraftSession | null> {
     let session: DraftSession;
     try {
       session = await this.check(false);
@@ -95,6 +109,8 @@ export class RecoveryController {
     try {
       if (render) await this.store.restore(id, session, request.signal);
       else await this.store.verify(id, session, request.signal);
+      if (request.signal.aborted || generation !== this.generation) return null;
+      if (read) await read(request.signal, session);
       if (request.signal.aborted || generation !== this.generation) return null;
       this.refreshEntries();
       return session;
