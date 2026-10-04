@@ -1,0 +1,156 @@
+.react-stock {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  color: var(--text, #302a25);
+}
+.react-stock * {
+  box-sizing: border-box;
+}
+.stock-panel {
+  background: var(--panel, #fff);
+  border: 1px solid var(--line, #ddd6ce);
+  border-radius: 16px;
+  padding: 20px;
+  min-width: 0;
+}
+.stock-panel h2,
+.stock-panel h3 {
+  margin-top: 0;
+}
+.stock-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.stock-actions,
+.stock-pager {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+.stock-pager {
+  justify-content: center;
+}
+.stock-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
+.stock-cards > div {
+  border: 1px solid #ded8cf;
+  border-radius: 12px;
+  flex: 1 1 180px;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+.stock-cards strong {
+  font-size: 1.3rem;
+}
+.stock-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.stock-table-scroll table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+.stock-table-scroll th,
+.stock-table-scroll td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ded8cf;
+  white-space: nowrap;
+}
+.stock-table-scroll th:first-child,
+.stock-table-scroll td:first-child {
+  white-space: normal;
+  min-width: 180px;
+  overflow-wrap: anywhere;
+}
+.stock-table-scroll caption {
+  text-align: left;
+  margin: 12px 0;
+  font-weight: 600;
+}
+.stock-sub {
+  display: block;
+  font-size: 0.85rem;
+  color: #685c51;
+  margin-top: 5px;
+}
+.stock-editor {
+  border: 1px solid #ded8cf;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.stock-editor h4 {
+  margin-top: 0;
+}
+.stock-editor .tk-field {
+  max-width: 420px;
+}
+.stock-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 8px 0;
+  cursor: pointer;
+}
+.stock-checkbox > span {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #725849;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.stock-checkbox[data-selected] > span {
+  background: #725849;
+  box-shadow: inset 0 0 0 4px white;
+}
+.stock-checkbox[data-focus-visible] {
+  outline: 3px solid #867bca;
+  outline-offset: 3px;
+}
+.stock-message {
+  white-space: pre-wrap;
+}
+.stock-drafts {
+  border-top: 1px solid #ded8cf;
+  margin-top: 20px;
+  padding-top: 12px;
+}
+.stock-drafts > div {
+  margin: 10px 0;
+}
+.react-stock button {
+  white-space: normal;
+}
+.react-stock .tk-conflict {
+  margin-top: 16px;
+}
+@media (max-width: 420px) {
+  .stock-panel {
+    padding: 12px;
+  }
+  .stock-actions > * {
+    max-width: 100%;
+  }
+  .stock-editor {
+    padding: 12px;
+  }
+  .stock-pager span {
+    flex-basis: 100%;
+    text-align: center;
+  }
+}

@@ -1,0 +1,858 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TSukenya React Stock",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/stock": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Current scoped RR snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockPage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "store",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "warehouse",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["totals", "lots"]
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["warehouse_product"]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/assortment": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Current scoped RR snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssortmentPage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "warehouse",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "product",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["name"]
+            }
+          }
+        ]
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssortmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved current row, not an immutable receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssortmentAck"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/stock/documents": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Current scoped RR snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockDocuments"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "store",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["", "draft", "posted", "reversed"]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/stock.csv": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Whole filtered streamed CSV, private costs only when authorized",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "store",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "warehouse",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["totals"]
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["warehouse_product"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "StockPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["owner", "manager", "warehouse", "cashier", "accountant"]
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "costVisible": {
+            "type": "boolean"
+          },
+          "canEditAssortment": {
+            "type": "boolean"
+          },
+          "documentKinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "opening",
+                "transfer",
+                "writeoff",
+                "inventory",
+                "production"
+              ]
+            }
+          },
+          "canControl": {
+            "type": "boolean"
+          },
+          "canLegacyRecipes": {
+            "type": "boolean"
+          },
+          "canRecipeVersions": {
+            "type": "boolean"
+          },
+          "canReplenish": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "role",
+          "store",
+          "costVisible",
+          "canEditAssortment",
+          "documentKinds",
+          "canControl",
+          "canLegacyRecipes",
+          "canRecipeVersions",
+          "canReplenish"
+        ]
+      },
+      "StockQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "view": {
+            "type": "string",
+            "enum": ["totals", "lots"]
+          }
+        },
+        "required": ["q", "store", "warehouse", "view"]
+      },
+      "StockTotal": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "sold": {
+            "type": "boolean"
+          },
+          "low": {
+            "type": "boolean"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{3}$"
+          },
+          "available": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{3}$"
+          },
+          "reserved": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{3}$"
+          },
+          "minimum": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{3}$"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          }
+        },
+        "required": [
+          "warehouse",
+          "product",
+          "name",
+          "unit",
+          "sold",
+          "low",
+          "quantity",
+          "available",
+          "reserved",
+          "minimum"
+        ]
+      },
+      "StockLot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "lot": {
+            "type": "string"
+          },
+          "expiry": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{3}$"
+          },
+          "available": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{3}$"
+          },
+          "reserved": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{3}$"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          }
+        },
+        "required": [
+          "id",
+          "warehouse",
+          "product",
+          "name",
+          "unit",
+          "lot",
+          "expiry",
+          "expired",
+          "quantity",
+          "available",
+          "reserved"
+        ]
+      },
+      "StockSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "products": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "low": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lots": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expiry": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          }
+        },
+        "required": ["products", "low", "lots", "expiry"]
+      },
+      "StockPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [30]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/StockTotal"
+                },
+                {
+                  "$ref": "#/components/schemas/StockLot"
+                }
+              ]
+            }
+          },
+          "view": {
+            "type": "string",
+            "enum": ["totals", "lots"]
+          },
+          "summary": {
+            "$ref": "#/components/schemas/StockSummary"
+          },
+          "query": {
+            "$ref": "#/components/schemas/StockQuery"
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/StockPolicy"
+          },
+          "alerts": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ok": {
+                "type": "object",
+                "additionalProperties": true,
+                "nullable": true
+              },
+              "error": {
+                "type": "object",
+                "additionalProperties": true,
+                "nullable": true
+              },
+              "stale": {
+                "type": "boolean"
+              }
+            },
+            "required": ["ok", "error", "stale"],
+            "nullable": true
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "items",
+          "view",
+          "summary",
+          "query",
+          "asOf",
+          "policy",
+          "alerts"
+        ]
+      },
+      "AssortmentRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "default_min": {
+            "type": "string",
+            "pattern": "^\\d+(?:\\.\\d{1,3})?$"
+          },
+          "sold": {
+            "type": "boolean"
+          },
+          "min_stock": {
+            "type": "string",
+            "pattern": "^\\d+(?:\\.\\d{1,3})?$",
+            "nullable": true
+          },
+          "minimum": {
+            "type": "string",
+            "pattern": "^\\d+(?:\\.\\d{1,3})?$"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$",
+            "nullable": true
+          }
+        },
+        "required": [
+          "product",
+          "name",
+          "unit",
+          "default_min",
+          "sold",
+          "min_stock",
+          "minimum",
+          "revision"
+        ]
+      },
+      "AssortmentPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [30]
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssortmentRow"
+            }
+          },
+          "query": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "q": {
+                "type": "string"
+              },
+              "product": {
+                "type": "string"
+              }
+            },
+            "required": ["q", "product"]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/StockPolicy"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "warehouse",
+          "rows",
+          "query",
+          "policy"
+        ]
+      },
+      "AssortmentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "sold": {
+            "type": "boolean"
+          },
+          "min_stock": {
+            "type": "string",
+            "pattern": "^\\d+(?:\\.\\d{1,3})?$",
+            "nullable": true
+          },
+          "revision": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["warehouse", "product", "sold", "min_stock", "revision"]
+      },
+      "AssortmentAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "row": {
+            "$ref": "#/components/schemas/AssortmentRow"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/StockPolicy"
+          }
+        },
+        "required": ["warehouse", "row", "policy"]
+      },
+      "StockDocument": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "opening",
+              "transfer",
+              "writeoff",
+              "inventory",
+              "production"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "posted", "reversed"]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "party": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "employee": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "kind",
+          "status",
+          "date",
+          "store",
+          "party",
+          "employee",
+          "total",
+          "revision"
+        ]
+      },
+      "StockDocuments": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [30]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockDocument"
+            }
+          },
+          "query": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "store": {
+                "type": "integer",
+                "minimum": 1,
+                "nullable": true
+              },
+              "status": {
+                "type": "string",
+                "enum": ["", "draft", "posted", "reversed"]
+              }
+            },
+            "required": ["store", "status"]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/StockPolicy"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "items",
+          "query",
+          "policy"
+        ]
+      }
+    }
+  }
+}

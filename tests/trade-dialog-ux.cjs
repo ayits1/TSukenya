@@ -25,6 +25,7 @@ module.exports = async function tradeDialogUX(page, base, wait) {
   const today = await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Kyiv',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
   const warehouse=state.warehouses[0].id;
   if(process.env.QA_TRADE_FROM==='price'){await priceAndCashier();console.log('ERP price and scoped cashier tail passed');return;}
+  if(process.env.QA_TRADE_FROM==='stock'){await filteredStockAndCsv();console.log('React Stock scoped rows, full-filter values/lots and CSV passed');return;}
   await go('sales');
   const newSale = page.locator('[data-trade=new-voucher][data-kind=sale]');
   await newSale.click();
@@ -166,33 +167,63 @@ module.exports = async function tradeDialogUX(page, base, wait) {
   assert.equal(offeredEmployees.includes(String(foreignEmployee)),false,'Cash employees follow selected cash account store');
   await close();
 
-  const mockStock={totals:[{warehouse,name:'Видимий складський товар',product:'visible',quantity:'1',available:'1',value:'10',unit:'шт',minimum:'2',low:true},{warehouse:secondWarehouse,name:'Інший складський товар',product:'other',quantity:'2',available:'2',value:'20',unit:'шт',minimum:'3',low:true}],lots:[{id:1,warehouse,name:'Видимий складський товар',product:'visible',quantity:'1',value:'10',unit:'шт',lot:'VISIBLE',expiry:today,expired:false},{id:2,warehouse:secondWarehouse,name:'Інший складський товар',product:'other',quantity:'2',value:'20',unit:'шт',lot:'OTHER',expiry:today,expired:false}]};
-  const filteredStock=query=>{const visible=x=>!query.get('store')||(x.warehouse===warehouse?store:secondStore)===Number(query.get('store'));return {totals:mockStock.totals.filter(visible),lots:mockStock.lots.filter(visible)};};
-  const stockURL='**/api/erp/stock?*', stockHandler=route=>{const query=new URL(route.request().url()).searchParams,filtered=filteredStock(query),items=query.get('view')==='lots'?filtered.lots:filtered.totals;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items,total:items.length,page:1,pages:1,limit:30,summary:{value:String(filtered.totals.reduce((sum,x)=>sum+Number(x.value),0)),low:filtered.totals.length,expiry:filtered.lots.length,lots:filtered.lots.length,products:filtered.totals.length}})});};
-  const stockCsvURL='**/api/erp/stock.csv?*', stockCsvHandler=route=>{const filtered=filteredStock(new URL(route.request().url()).searchParams),csv=require('../app/csv.js');return route.fulfill({status:200,headers:{'Content-Disposition':'attachment; filename="stock.csv"'},contentType:'text/csv',body:csv.serialize(['Товар','Склад','Кількість','Доступно','Од.','Вартість'].map((label,index)=>({label,kind:[2,3,5].includes(index)?'number':'text'})),filtered.totals.map(x=>[x.name,String(x.warehouse),x.quantity,x.available,x.unit,x.value]),{reversible:true})});};
+  await filteredStockAndCsv(secondStore,secondWarehouse);
+
+  async function filteredStockAndCsv(secondStore,secondWarehouse){
+  // Versioned React Stock consumer: synthetic rows preserve the historical values,
+  // while current authorization and the document journal keep their real endpoints.
+  if(!secondStore)secondStore=(await ok('entities/stores','POST',{name:'Інший тестовий магазин'})).id;
+  if(!secondWarehouse)secondWarehouse=(await ok('entities/warehouses','POST',{name:'Інший тестовий склад',store:secondStore})).id;
+  const stockPolicy=await page.evaluate(async()=>{
+    const response=await fetch('/api/v1/trading/stock?view=totals&page=1');
+    if(!response.ok)throw Error('Cannot obtain isolated Stock policy: '+response.status);
+    return (await response.json()).policy;
+  });
+  assert.equal(stockPolicy.role,'owner');assert.equal(stockPolicy.store,null);
+  const mockStock={totals:[{warehouse,name:'Видимий складський товар',product:'visible',quantity:'1.000',available:'1.000',reserved:'0.000',value:'10.00',unit:'шт',minimum:'2.000',sold:true,low:true},{warehouse:secondWarehouse,name:'Інший складський товар',product:'other',quantity:'2.000',available:'2.000',reserved:'0.000',value:'20.00',unit:'шт',minimum:'3.000',sold:true,low:true}],lots:[{id:1,warehouse,name:'Видимий складський товар',product:'visible',quantity:'1.000',available:'1.000',reserved:'0.000',value:'10.00',unit:'шт',lot:'VISIBLE',expiry:today,expired:false},{id:2,warehouse:secondWarehouse,name:'Інший складський товар',product:'other',quantity:'2.000',available:'2.000',reserved:'0.000',value:'20.00',unit:'шт',lot:'OTHER',expiry:today,expired:false}]};
+  const filteredStock=query=>{const visible=x=>(!query.get('store')||(x.warehouse===warehouse?store:secondStore)===Number(query.get('store')))&&(!query.get('warehouse')||x.warehouse===Number(query.get('warehouse')))&&(!query.get('q')||x.name.toLocaleLowerCase('uk-UA').includes(query.get('q').toLocaleLowerCase('uk-UA')));return {totals:mockStock.totals.filter(visible),lots:mockStock.lots.filter(visible)};};
+  const stockURL='**/api/v1/trading/stock?*', stockHandler=route=>{const query=new URL(route.request().url()).searchParams,filtered=filteredStock(query),view=query.get('view')||'totals',items=view==='lots'?filtered.lots:filtered.totals;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items,total:items.length,page:1,pages:1,limit:30,view,query:{q:query.get('q')||'',store:query.get('store')?Number(query.get('store')):null,warehouse:query.get('warehouse')?Number(query.get('warehouse')):null,view},asOf:today,policy:stockPolicy,alerts:{ok:null,error:null,stale:true},summary:{value:filtered.totals.reduce((sum,x)=>sum+Number(x.value),0).toFixed(2),low:filtered.totals.length,expiry:filtered.lots.length,lots:filtered.lots.length,products:filtered.totals.length}})});};
+  const stockCsvURL='**/api/v1/trading/stock.csv?*';let csvRequests=0;
+  const stockCsvHandler=route=>{const query=new URL(route.request().url()).searchParams;assert.equal(query.get('store'),String(store));assert.equal(query.get('view'),'totals');csvRequests++;const filtered=filteredStock(query),csv=require('../app/csv.js');return route.fulfill({status:200,headers:{'Content-Disposition':'attachment; filename="stock.csv"'},contentType:'text/csv',body:csv.serialize(['Товар','Склад','Кількість','Доступно','Од.','Вартість'].map((label,index)=>({label,kind:[2,3,5].includes(index)?'number':'text'})),filtered.totals.map(x=>[x.name,String(x.warehouse),x.quantity,x.available,x.unit,x.value]),{reversible:true})});};
   await page.route(stockCsvURL,stockCsvHandler);
   await page.route(stockURL,stockHandler);
+  try{
   await go('stock');
-  await page.locator('[name=filterStore]').selectOption(String(store));
-  await wait(async()=>!(await page.locator('#main').innerText()).includes('Інший складський товар'));
-  await page.locator('[data-disclosure=stock-lots]').evaluate(el=>el.open=true);
-  await wait(async()=>(await page.locator('#main').innerText()).includes('VISIBLE'));
-  assert.equal((await page.locator('#main').innerText()).includes('OTHER'),false,'Lot detail respects store filter');
+  const stockStore=page.getByRole('combobox',{name:'Магазин',exact:true}),stockStoreName=state.stores.find(row=>row.id===store).name;await stockStore.fill(stockStoreName);await page.getByRole('option',{name:stockStoreName,exact:true}).click();
+  // Stock refresh hydrates the committed caption after its batch details GET.
+  // Wait for that result before Escape restores RAC's selected option label.
+  await wait(async()=>!(await page.locator('[data-react-stock]').innerText()).includes('Завантаження залишків…')&&await stockStore.inputValue()===stockStoreName);
+  // Re-selecting the committed store may retain the modal RAC popup, which
+  // correctly hides the background accessibility tree until explicitly closed.
+  await stockStore.press('Escape');await page.getByRole('listbox').waitFor({state:'hidden'});
+  await wait(async()=>await stockStore.inputValue()===stockStoreName);
+  assert.equal(await stockStore.inputValue(),stockStoreName);
+  const totals=page.getByRole('region',{name:'Товари — горизонтальна таблиця',exact:true});
+  await wait(async()=>(await totals.innerText()).includes('Видимий складський товар'));
+  assert.equal((await totals.innerText()).includes('Інший складський товар'),false,'Stock totals respect store filter');
+  assert.equal(await totals.locator('tbody tr').count(),1);
+  assert.match(await page.locator('.stock-cards').innerText(),/10 грн/,'Whole-filter cost retains the historical value');
+  await page.getByRole('button',{name:/^Партії \(/}).click();
+  const lots=page.getByRole('region',{name:'Партії — горизонтальна таблиця',exact:true});
+  await wait(async()=>(await lots.innerText()).includes('VISIBLE'));
+  assert.equal((await lots.innerText()).includes('OTHER'),false,'Lot detail respects store filter');
   const downloadPromise=page.waitForEvent('download');
-  await page.locator('[data-trade=stock-csv]').click();
+  await page.getByRole('button',{name:'CSV залишків',exact:true}).click();
   const download=await downloadPromise,stream=await download.createReadStream();
   const csv=await new Promise((resolve,reject)=>{let content='';stream.on('data',chunk=>content+=chunk.toString());stream.on('end',()=>resolve(content));stream.on('error',reject);});
   assert(csv.includes('Видимий складський товар'));
   assert.equal(csv.includes('Інший складський товар'),false,'CSV matches filtered rows');
-  await page.unroute(stockURL,stockHandler);await page.unroute(stockCsvURL,stockCsvHandler);
+  assert.equal(csvRequests,1,'One download uses the versioned filtered CSV endpoint');
+  }finally{await page.unroute(stockURL,stockHandler);await page.unroute(stockCsvURL,stockCsvHandler);}
+  }
 
   await priceAndCashier();
   async function priceAndCashier(){
   const legacy=await page.evaluate(async()=>await(await fetch('/api/state')).json()),product=legacy.data.products[0].id;
   const precise=await ok('vouchers','POST',{kind:'opening',date:today,store,warehouse,lines:[{product,quantity:'1',price:'0.3333'}]});
   await go('stock');
-  await page.locator('[data-trade=refresh]').click();
-  await page.locator(`[data-trade=view][data-id="${precise.id}"]`).click();
+  await page.getByRole('button',{name:'Оновити',exact:true}).click();
+  await page.getByRole('button',{name:'Відкрити № '+String(precise.id).padStart(6,'0'),exact:true}).click();
   assert((await active().innerText()).includes('0,3333 грн'),'Document unit price preserves all four supported decimals');
   await close();
 
@@ -215,8 +246,9 @@ module.exports = async function tradeDialogUX(page, base, wait) {
     assert.equal(await cashierPage.locator('[name=shift] option:not([value=""])').count(),0,'Other cashier shift unavailable for new sale');
     await cashierPage.locator('.trade-dialog [data-trade=close]').click();
     await cashierPage.goto(base+'/#trade/stock',{waitUntil:'domcontentloaded'});
-    await cashierPage.locator('[data-trade=stock-csv]').waitFor();
-    assert.equal((await cashierPage.locator('#main').innerText()).includes('Вартість залишків'),false,'Unavailable stock cost is never displayed as zero');
+    await cashierPage.getByRole('button',{name:'CSV залишків',exact:true}).waitFor();
+    await wait(async()=>await cashierPage.getByRole('button',{name:'CSV залишків',exact:true}).isEnabled());
+    assert.equal((await cashierPage.locator('#main').innerText()).includes('Вартість усього фільтра'),false,'Unavailable stock cost is never displayed as zero');
   } finally {await cashierContext.close();}
   }
   console.log('ERP dialog UX: dirty/history/focus, 44px targets, in-flight/duplicate submit, disabled restoration, report errors, immutable dictionaries, payroll constraints, store dependencies, filtered CSV, decimal price and cashier actions passed');

@@ -62,7 +62,7 @@ for(const route of routes){
 for(const [route,kinds] of Object.entries({purchases:['purchase_order','receipt','supplier_return'],stock:['opening','transfer','writeoff','inventory','production'],sales:['sale','customer_return','customer_order'],finance:['payment','expense','cash_opening','debt_opening','cash_transfer'],staff:['payroll','payroll_payment']})){
  await page.setViewportSize({width:1440,height:1000});await go(route);
  for(const kind of kinds){
-  await page.locator(`[data-trade=new-voucher][data-kind=${kind}]`).click();await page.locator('#tradeVoucherForm').waitFor();
+  const stockDocumentNames={opening:'Початкові залишки',transfer:'Переміщення',writeoff:'Списання',inventory:'Інвентаризація',production:'Виробництво'};await (route==='stock'?page.getByRole('button',{name:'+ '+stockDocumentNames[kind],exact:true}):page.locator(`[data-trade=new-voucher][data-kind=${kind}]`)).click();await page.locator('#tradeVoucherForm').waitFor();
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await inspect('form-'+kind,width);}
   await page.locator('.trade-dialog [data-trade=close]').click();
  }
@@ -74,7 +74,7 @@ for(const action of ['period','fiscal','audit']){await page.locator(`[data-trade
 await page.locator('[data-trade=users]').click();await page.locator('.trade-dialog [data-trade=user-edit]').waitFor();for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await inspect('setup-users',width);}await page.locator('.trade-dialog [data-trade=user-edit]').click();await inspectModal('setup-user-editor');
 await go('staff');await page.locator('[data-trade=entity][data-entity=employees]:not([data-id])').click();await inspectModal('entity-employees');await page.locator('[data-trade=work-shift]').click();await inspectModal('staff-work-shift');
 await go('sales');await page.locator('[data-trade=shift-open]').click();await inspectModal('sales-open-shift');await page.locator('[data-trade=shift-close]').click();await inspectModal('sales-close-shift');
-await go('stock');await page.locator('[data-trade=recipe]').click();await inspectModal('stock-recipe'); // Initial recipe state has no product: Add is intentionally disabled.
+await go('stock');await page.getByRole('button',{name:'Калькуляції',exact:true}).click();await inspectModal('stock-recipe'); // Initial recipe state has no product: Add is intentionally disabled.
 await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/account',{waitUntil:'domcontentloaded'});await wait(async()=>!(await page.locator('#out').isDisabled()));await inspect('account',1440);await page.setViewportSize({width:390,height:1000});await inspect('account',390);
 await ctx.clearCookies();await page.goto(base,{waitUntil:'domcontentloaded'});await page.setViewportSize({width:1440,height:1000});await inspect('login',1440);await page.setViewportSize({width:390,height:1000});await inspect('login',390);
 fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({errors,results},null,2));

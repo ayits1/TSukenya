@@ -16,7 +16,7 @@ from django.utils import timezone
 from .browsing import PAGE_SIZE, page_bounds, page_number, positive_integer
 from .csv_format import MARKER, guarded
 from .historical_reports import read_snapshot
-from .services import require
+from .services import require, current_actor
 
 ROLES = {'owner', 'manager', 'warehouse', 'accountant', 'cashier'}
 
@@ -140,9 +140,10 @@ def lot_json(row, private, today):
 
 
 def stock_page(user, params):
-    value = options(user, params)
-    private = user.profile.role != 'cashier'
     with read_snapshot():
+        user = current_actor(user)
+        value = options(user, params)
+        private = user.profile.role != 'cashier'
         sql, arguments, today = source_sql(value)
         with connection.cursor() as cursor:
             cursor.execute(sql + """SELECT COUNT(*) AS total,COALESCE(SUM(value),0) AS value,
@@ -159,15 +160,16 @@ def stock_page(user, params):
             else:
                 cursor.execute(sql + 'SELECT * FROM lots WHERE quantity>0 ORDER BY warehouse_id,product_id,expiry,id LIMIT %s OFFSET %s', arguments + [PAGE_SIZE, offset])
                 items = [lot_json(row, private, today) for row in rows(cursor)]
-        return {'items': items, 'total': total, 'page': page, 'pages': pages, 'limit': PAGE_SIZE, 'view': value['view'],
+        return {'items': items, 'total': total, 'page': page, 'pages': pages, 'limit': PAGE_SIZE, 'view': value['view'], 'asOf': today.isoformat(),
                 'summary': {'products': summary['total'], 'low': summary['low'], 'lots': summary['lots'], 'expiry': summary['expiry'],
                             **({'value': decimal_text(summary['value'], 2)} if private else {})}}
 
 
 def stock_csv(user, params):
-    value = options(user, params)
-    require(value['view'] == 'totals', 'CSV доступний для підсумків товарів.')
-    private = user.profile.role != 'cashier'
+    # Validate before returning HTTP headers; revalidate when streaming begins.
+    with read_snapshot():
+        options(current_actor(user), params)
+        require(params.get('view', 'totals') == 'totals', 'CSV доступний для підсумків товарів.')
     def generate():
         buffer = io.StringIO(newline='')
         writer = csv.writer(buffer, delimiter=';', quoting=csv.QUOTE_ALL, lineterminator='\r\n')
@@ -177,6 +179,9 @@ def stock_csv(user, params):
             value = str(value or ''); return '\t' + value if guarded(value) else value
         # Cursor fetches bounded batches; the generator owns its entire RR snapshot.
         with read_snapshot():
+            actor = current_actor(user)
+            value = options(actor, params)
+            private = actor.profile.role != 'cashier'
             sql, arguments, _ = source_sql(value)
             yield '\ufeff' + record(['Товар' + MARKER, 'Склад', 'Кількість', 'Доступно', 'Од.', *(['Вартість'] if private else [])])
             # PostgreSQL server-side cursor is required: ordinary psycopg cursors

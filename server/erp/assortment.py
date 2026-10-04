@@ -29,6 +29,7 @@ def assortment(user, query):
     require(isinstance(selected, str) and len(selected) <= 120 and '/' not in selected, 'Некоректний ID товару.')
     requested = page_number(query)
     with read_snapshot():
+        user = current_actor(user)
         w = warehouse_for(user, query.get('warehouse'))
         products = Document.objects.filter(path__startswith='products/')
         if search: products = products.filter(data__name__icontains=search)

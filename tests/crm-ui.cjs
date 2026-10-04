@@ -18,7 +18,7 @@ const supplier=(await ok('entities/parties','POST',{name:'Тестовий по�
 const customer=(await ok('entities/parties','POST',{name:'Тестовий покупець',kind:'customer',phone:'0000'})).id;
 const employee=(await ok('entities/employees','POST',{name:'Працівник тесту',store,shift_rate:400,bonus_percent:5,bonus_basis:'store'})).id;
 const p=await page.evaluate(async()=>{const s=await(await fetch('/api/state')).json();return s.data.products[0].id;});
-const go=async tab=>{await page.goto(base+'/#trade/'+tab);await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'));assert(!(await page.locator('#main').innerText()).includes('Цей розділ недоступний'));};
+const go=async tab=>{await page.goto(base+'/#trade/'+tab);await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'));if(tab==='stock')await page.locator('[data-react-stock] .stock-cards').waitFor();assert(!(await page.locator('#main').innerText()).includes('Цей розділ недоступний'));};
 const date=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Kyiv',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
 const voucher=async body=>{const v=await ok('vouchers','POST',{store,warehouse:wh,date,...body});return ok('vouchers/'+v.id+'/post','POST',{});};
 await voucher({kind:'cash_opening',amount:1000,account:cash});
@@ -59,9 +59,9 @@ assert.equal(await f.locator('[data-line=price]').inputValue(),'0.30');await f.l
 await page.locator('[type=submit][form=tradeVoucherForm][value=draft]').click();await page.locator('.trade-dialog-head h2').filter({hasText:'Продаж ·'}).waitFor();const draft=(await ok('vouchers?kind=sale')).items[0];assert.equal(draft.status,'draft');assert.equal(draft.total,'0.30');
 await page.locator('.trade-dialog [data-trade=close]').click();
 // Slow stock searches: a superseded draw never moves the caret; the rendering draw keeps the live text and caret.
-await go('stock');await page.route('**/api/erp/stock?*',async route=>{await new Promise(r=>setTimeout(r,700));await route.continue();});const search=page.locator('[name=stockSearch]');await search.click();
+await go('stock');await page.route('**/api/v1/trading/stock?*',async route=>{await new Promise(r=>setTimeout(r,700));await route.continue();});const search=page.getByRole('textbox',{name:'Пошук товару',exact:true});await search.click();
 await page.keyboard.type('abc');await page.waitForTimeout(300);await page.keyboard.type('de');await page.waitForTimeout(700);await page.keyboard.type('XY');await page.waitForTimeout(2500);
-assert.equal(await search.inputValue(),'abcdeXY');assert(await search.evaluate(el=>document.activeElement===el&&el.selectionStart===7));await page.unroute('**/api/erp/stock?*');
+assert.equal(await search.inputValue(),'abcdeXY');assert(await search.evaluate(el=>document.activeElement===el&&el.selectionStart===7));await page.unroute('**/api/v1/trading/stock?*');
 await page.setViewportSize({width:390,height:844});await go('staff');await page.screenshot({path:path.join(os.tmpdir(),'tsukenya-crm-staff-mobile.png')});assert.deepEqual(errors,[]);
 console.log('PASS: receipt/sale/payroll forms; actual stock, COGS, cash and debts; supplier payments/customer refund; shift-rate + percent payroll; CSRF/roles; 8 screens and sale editor at 5 widths; exact server sale price and stock search caret under slow responses.');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill('SIGTERM');await new Promise(r=>server.once('exit',r));fs.rmSync(data,{recursive:true,force:true});});
