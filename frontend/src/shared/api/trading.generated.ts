@@ -85,6 +85,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/erp/entities/{type}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Create with immutable UUID receipt. Legacy no-key creates and revision-bound updates retain legacy contracts. Current actor/role/store policy under ledger lock before receipt lookup. */
+    post: operations['createEntityWithReceipt'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/entities/{type}/identity': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description CSRF-protected non-business read, real READ ONLY REPEATABLE READ. Exact original UUID/body/author/resource and current policy required. Does not create, mutate, audit or adopt a current revision. */
+    post: operations['readEntityCreateIdentity'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -196,6 +230,105 @@ export interface components {
       error: string;
       code?: string;
     };
+    EntityCreateRequest: {
+      name: string;
+      /** Format: uuid */
+      idempotency_key: string;
+      store?: number;
+      active?: boolean;
+      /** @enum {string} */
+      kind?: 'cash' | 'bank' | 'terminal' | 'customer' | 'supplier';
+      phone?: string;
+      email?: string;
+      notes?: string;
+      shift_rate?: string;
+      bonus_percent?: string;
+      /** @enum {string} */
+      bonus_basis?: 'store' | 'personal' | 'profit';
+    };
+    /** @description Immutable original fields. Employee private terms only under current owner policy. */
+    EntityOriginalRecord:
+      | {
+          id: string;
+          name: string;
+          revision: string;
+          /** @constant */
+          type: 'stores';
+          active: boolean;
+        }
+      | {
+          id: string;
+          name: string;
+          revision: string;
+          /** @constant */
+          type: 'warehouses';
+          store_id: number;
+        }
+      | {
+          id: string;
+          name: string;
+          revision: string;
+          /** @constant */
+          type: 'accounts';
+          store_id: number;
+          /** @enum {string} */
+          kind: 'cash' | 'bank' | 'terminal';
+        }
+      | {
+          id: string;
+          name: string;
+          revision: string;
+          /** @constant */
+          type: 'employees';
+          store_id: number;
+          active: boolean;
+          shift_rate: string;
+          bonus_percent: string;
+          /** @enum {string} */
+          bonus_basis: 'store' | 'personal' | 'profit';
+        }
+      | {
+          id: string;
+          name: string;
+          revision: string;
+          /** @constant */
+          type: 'parties';
+          active: boolean;
+          /** @enum {string} */
+          kind: 'customer' | 'supplier';
+          phone: string;
+          email: string;
+          notes: string;
+        };
+    /** @description Exact frozen request receipt, never a current editable revision. Identical retry after edit/deletion returns initial acknowledgement without writes. */
+    EntityCreateAcknowledgement: {
+      id: string;
+      /** @enum {string} */
+      type: 'stores' | 'warehouses' | 'accounts' | 'employees' | 'parties';
+      /** Format: uuid */
+      request_key: string;
+      original: components['schemas']['EntityOriginalRecord'];
+    };
+    EntityCreateIdentity:
+      | {
+          /** @constant */
+          confirmed: false;
+          /** @enum {string} */
+          type: 'stores' | 'warehouses' | 'accounts' | 'employees' | 'parties';
+          /** Format: uuid */
+          request_key: string;
+        }
+      | {
+          /** @constant */
+          confirmed: true;
+          exists: boolean;
+          id: string;
+          /** @enum {string} */
+          type: 'stores' | 'warehouses' | 'accounts' | 'employees' | 'parties';
+          /** Format: uuid */
+          request_key: string;
+          original: components['schemas']['EntityOriginalRecord'];
+        };
   };
   responses: never;
   parameters: never;
@@ -441,6 +574,132 @@ export interface operations {
       };
       /** @description Role, store scope or CSRF denies this read */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  createEntityWithReceipt: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        type: 'stores' | 'warehouses' | 'accounts' | 'employees' | 'parties';
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EntityCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Immutable acknowledgement; current row must be read separately */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EntityCreateAcknowledgement'];
+        };
+      };
+      /** @description Current policy/CSRF or conflict refusal */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Current policy/CSRF or conflict refusal */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Current policy/CSRF or conflict refusal */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Current policy/CSRF or conflict refusal */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  readEntityCreateIdentity: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        type: 'stores' | 'warehouses' | 'accounts' | 'employees' | 'parties';
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          request: components['schemas']['EntityCreateRequest'];
+        };
+      };
+    };
+    responses: {
+      /** @description Immutable acknowledgement; current row must be read separately */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EntityCreateIdentity'];
+        };
+      };
+      /** @description Current policy/CSRF or conflict refusal */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Current policy/CSRF or conflict refusal */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Current policy/CSRF or conflict refusal */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Current policy/CSRF or conflict refusal */
+      409: {
         headers: {
           [name: string]: unknown;
         };

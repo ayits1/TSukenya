@@ -185,6 +185,18 @@ class WorkShiftCreateReceipt(models.Model):
     fingerprint = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
 
+class EntityCreateReceipt(models.Model):
+    """Immutable acknowledgement, independent of later edits or deletion of a directory row."""
+    key = models.UUIDField(primary_key=True, editable=False)
+    author = models.ForeignKey(User, on_delete=models.PROTECT)
+    resource = models.CharField(max_length=16)
+    object_id = models.PositiveBigIntegerField()
+    store_id_snapshot = models.PositiveBigIntegerField(null=True)
+    fingerprint = models.CharField(max_length=64)
+    original = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class AuditEvent(models.Model):
     at = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.PROTECT)

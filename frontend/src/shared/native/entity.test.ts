@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { compareThreeWay, resolveThreeWay } from '../merge/threeWay';
 import { nativeFields } from './fields';
-import { decodeEntity, entityFields, entityIdentityMatches, entityProjection } from './entity';
+import {
+  captureEntityCreate,
+  decodeEntityIdentity,
+  decodeEntityReceipt,
+  decodeEntity,
+  entityFields,
+  entityIdentityMatches,
+  entityProjection,
+} from './entity';
 const employee = {
   type: 'employees',
   id: '4',
@@ -75,5 +83,70 @@ describe('native entity recovery', () => {
         '1',
       ),
     ).toThrow();
+  });
+});
+
+// Create acknowledgements bind the frozen normalized request, never the newer form.
+describe('entity create receipt contract', () => {
+  const key = '12345678-1234-4234-8234-123456789012';
+  const body = {
+    name: 'Олена',
+    store: 2,
+    active: false,
+    shift_rate: '100',
+    bonus_percent: '2',
+    bonus_basis: 'store',
+  };
+  const ack = { id: '4', type: 'employees', request_key: key, original: employee };
+  it('binds UUID/resource/ID and every original writable term', () => {
+    expect(decodeEntityReceipt('employees', ack, key, body).shift_rate).toBe('100.00');
+    for (const bad of [
+      { ...ack, request_key: key + 'x' },
+      { ...ack, type: 'parties' },
+      { ...ack, id: '5' },
+      { ...ack, original: { ...employee, name: 'Інша' } },
+      { ...ack, original: { ...employee, shift_rate: '999' } },
+      { ...ack, original: { ...employee, store_id: 3 } },
+    ])
+      expect(() => decodeEntityReceipt('employees', bad, key, body)).toThrow();
+  });
+  it('refuses malformed identity and distinguishes deleted original without inventing a baseline', () => {
+    expect(
+      decodeEntityIdentity('employees', { ...ack, confirmed: true, exists: false }, key, body),
+    ).toMatchObject({ confirmed: true, exists: false });
+    expect(
+      decodeEntityIdentity(
+        'employees',
+        { type: 'employees', request_key: key, confirmed: false },
+        key,
+        body,
+      ),
+    ).toEqual({ confirmed: false });
+    for (const bad of [
+      { ...ack, confirmed: 'true', exists: true },
+      { ...ack, confirmed: true },
+      { ...ack, confirmed: false },
+      { ...ack, confirmed: true, exists: 1 },
+    ])
+      expect(() => decodeEntityIdentity('employees', bad, key, body)).toThrow();
+  });
+  it('normalizes first-intent decimals and refuses invalid money/percent/identity before binding', () => {
+    expect(
+      captureEntityCreate('employees', {
+        ...body,
+        name: ' Олена ',
+        store: '2',
+        shift_rate: '0100.00',
+        bonus_percent: '2.000',
+      }),
+    ).toEqual(body);
+    for (const patch of [
+      { shift_rate: '100.001' },
+      { shift_rate: '1000000000000' },
+      { bonus_percent: '100.001' },
+      { store: 0 },
+      { active: 'false' },
+    ])
+      expect(() => captureEntityCreate('employees', { ...body, ...patch })).toThrow();
   });
 });
