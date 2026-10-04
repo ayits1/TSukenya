@@ -23,9 +23,15 @@
 
 Fresh actor перечитується всередині snapshot перед приватною моделлю. Модель доступна власнику мережі; серверні облікові записи чи рухи не створюються. Міграцій немає.
 
+Незалежне рев’ю знайшло аналогічну прогалину чинного `sales_margin`: кешована роль
+перевірялася лише до snapshot. Тепер цей endpoint теж перечитує користувача та
+перевіряє роль власника мережі всередині snapshot, до приватних фінансових запитів.
+Зниження ролі, прив’язка до магазину, деактивація й видалення профілю закривають доступ.
+
 ## Цільові докази · 04.10.2026
 
 - Ізольований PostgreSQL: `tests.test_catalogue_range` (4) + існуючі summary promotion/coverage та sales-margin accounting-date/reversal (2), **6 PASS**, `/tmp/tsukenya-catalogue-range-pg.log`. Є перевірка відсутності DML і stale actor denial.
+- Після рев’ю виконано лише новий тест доступу `test_sales_margin_rechecks_cached_owner_before_private_reads`: **1 PASS**, чотири варіанти відкликання прав, без читання приватних таблиць і DML; `/tmp/tsukenya-range-access-pg.log`. Формули та UI цією правкою не змінені, їхні успішні перевірки використано повторно.
 - Node `tests/portal-metadata-contract.cjs`: strict range/malformed/sign/cardinality та наявні metadata/GET-only recovery перевірки PASS. Синтаксис змінених сценаріїв і `git diff --check` PASS.
 - Actual native `tests/catalogue-range-ui.cjs`: no-sales2000–4000, coverage2/3, zero-margin unbounded, реальний posted sales fixture→weighted20%/166,67 на день, explicit keyboard disclosure44px,0businessPOST/pageerrors. Final source proof: `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-catalogue-range-Djf5WZ/report.json`.
 - Нормальні1440/320 PNG переглянуто. Початкове `html font-size` не збільшувало px-текст; verifier виправлено з перевіркою фактичного computed font-size. Повторено лише збільшений320px сценарій через `QA_RANGE_ENLARGED=1`: **PASS**, `tsukenya-catalogue-range-nH4Ecr/report.json` і `range-320-2.png`, текст14→28px, горизонтального переповнення немає.

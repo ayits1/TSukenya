@@ -133,6 +133,8 @@ def sales_margin(user):
     from .report_contributions import voucher_contributions
     end=kyiv_day();start=end-timedelta(days=29)
     with read_snapshot(strict=False),localcontext() as context:
+        user=current_actor(user)
+        require_network_owner(user)
         context.prec=40
         ids=set(Store.objects.values_list('pk',flat=True));require_reversal_dates(ids,end)
         revenue=cogs=Decimal(0)

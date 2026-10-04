@@ -4,7 +4,7 @@ from django.db import connection
 from django.test import TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from server.erp.models import Document, Profile, Store
-from server.erp.portal_api import summary
+from server.erp.portal_api import sales_margin, summary
 
 
 class CatalogueRangeTests(TransactionTestCase):
@@ -76,3 +76,28 @@ class CatalogueRangeTests(TransactionTestCase):
         self.user.profile.refresh_from_db()
         with self.assertRaises(BusinessError):
             self.model()
+
+    def test_sales_margin_rechecks_cached_owner_before_private_reads(self):
+        from server.erp.services import BusinessError
+        store = Store.objects.create(name='Scoped sales')
+        for change in ('role', 'store', 'inactive', 'missing_profile'):
+            with self.subTest(change=change):
+                User.objects.filter(pk=self.user.pk).update(is_active=True)
+                profile, _ = Profile.objects.update_or_create(user=self.user, defaults={'role': 'owner', 'store': None})
+                cached = User.objects.select_related('profile').get(pk=self.user.pk)
+                self.assertEqual(cached.profile.role, 'owner')
+                self.assertIsNone(cached.profile.store_id)
+                if change == 'role':
+                    Profile.objects.filter(pk=profile.pk).update(role='cashier')
+                elif change == 'store':
+                    Profile.objects.filter(pk=profile.pk).update(store=store)
+                elif change == 'inactive':
+                    User.objects.filter(pk=self.user.pk).update(is_active=False)
+                else:
+                    profile.delete()
+                with CaptureQueriesContext(connection) as queries:
+                    with self.assertRaises(BusinessError):
+                        sales_margin(cached)
+                sql = ' '.join(query['sql'].lower() for query in queries)
+                self.assertNotRegex(sql, r'\b(insert|update|delete)\b')
+                self.assertNotRegex(sql, r'from "erp_(store|voucher|document)"')
