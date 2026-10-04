@@ -115,3 +115,36 @@ load proof. Payments/debt-summary старі browser fixtures адаптован
 Trading change-domain polling/ETag і зовнішня актуалізація вже відкритих native
 екранів лишаються наступним B24 пакетом. Усієї React CRM, durable cache,
 posting capacity, production deployment або 0.1 цей пакет не закриває.
+
+## Інтеграція в актуальну гілку
+
+Базу оновлено до прийнятого `8fcf7b33546033d6212bb33162cb6766e338d469`;
+перенесено лише reviewed `dac98e817484455f9783994f8d5b7da41eec7f9b`.
+Конфлікти script loader/static allowlist вирішено адитивно: збережені актуальні
+planning-category persistence, recovery та purchases routes; доданий settlement
+script і versioned GET перед загальним `/api/v1/` dispatcher.
+
+`tests/settlement-reads.cjs` включено до Node етапу server quick CI та explicit
+full runner. Node decoder, JS/Python syntax, dispatcher/static anchors,
+`git diff --check` і own frontend build PASS. Full runner виконано лише з
+`--plan`: жодного повного прогону.
+
+Один фактичний native transport сценарій
+`PYTHON_BIN=... node tests/payments-ui.cjs --failure-only` PASS на ізольованій
+SQLite/DATA_DIR і bundled headless Chromium: відкриття звірки через новий GET,
+відображення декодованого результату, видалення старого результату після 503
+та повторне читання; аналогічне очищення/відновлення списку авансів.
+Лог `/tmp/tsukenya-settlement-integration-native-final.log`.
+
+Перший запуск виявив застарілий `selectOption` у browser helper: native select
+тепер прихований під React ComboBox. Helper переведено на public пошук/вибір
+опції та перевірку committed ID. Проміжний Enter без фокусу на ComboBox також
+не підтверджував ID; diagnostic response list був порожній — statement GET
+ще не виконувався. Після виправлення лише helper повторено той самий вузький
+сценарій; виробничий код через ці перевірки не змінювався. Додано артефакти
+помилки DOM/response та відключено зовнішні fonts у helper.
+
+Попередні PG/SQLite/oracle/fanout докази перевикористано: їхні входи не змінені.
+Картку summary окремо в браузері цього разу не проганяли. Precision великої
+суми у старому Number formatter залишається окремим підпакетом. Немає push,
+PR, VPS deployment або запуску системного Chrome.
