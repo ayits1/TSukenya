@@ -60,9 +60,16 @@ def save_category(user,body,key=None):
     owner(user);ledger_lock();user=current_actor(user);owner(user);require(isinstance(body,dict),'Некоректна стаття.')
     name=body.get('name');require(isinstance(name,str) and 0<len(name.strip())<=160,'Вкажіть назву статті до 160 символів.');name=name.strip()
     active=body.get('active',True);require(type(active) is bool,'Ознака активності має бути логічною.')
-    require('semantic_key' not in body,'Системний ключ статті незмінний.')
+    require('semantic_key' not in body and 'aliases' not in body,'Системний ключ та історичні назви незмінні.')
     c=get(ExpenseCategory,identity(key),'Стаття') if key else None
+    if c and body.get('id'):require(identity(body['id'])==c.pk,'ID статті незмінний.')
     candidate=identity(body['id']) if body.get('id') else uuid.uuid4()
+    from . import planning_recovery as recovery
+    receipt_key=normalized=None
+    if not c:
+        receipt_key,normalized=recovery.normalize(user,'category',{**body,'id':str(candidate)})
+        receipt=recovery.match(user,'category',receipt_key,normalized)
+        if receipt:return recovery.acknowledge(user,receipt)
     if not c and ExpenseCategory.objects.filter(pk=candidate).exists():
         old=ExpenseCategory.objects.get(pk=candidate)
         require(old.revision==1 and old.name==name and old.active==active,'ID створення вже використано або статтю змінено.');return category_json(old)
@@ -75,7 +82,8 @@ def save_category(user,body,key=None):
         c.name=name;c.active=active;c.revision+=1
     else:c=ExpenseCategory(id=candidate,name=name,active=active)
     c.save();ExpenseCategoryAlias.objects.get_or_create(name=name,defaults={'category':c})
-    audit(user,'budget_category_saved',f'budget-category/{c.pk}',audit_change(before,category_snapshot(c),observed=body.get('revision')));return category_json(c)
+    audit(user,'budget_category_saved',f'budget-category/{c.pk}',audit_change(before,category_snapshot(c),observed=body.get('revision')));result=category_json(c)
+    return recovery.record(user,'category',receipt_key,normalized,c,result) if receipt_key else result
 
 def budget_json(b):
     return {'id':str(b.pk),'month':b.month.strftime('%Y-%m'),'store':b.store_id,'revision':b.revision,'planned_revenue':str(b.planned_revenue),
@@ -88,8 +96,12 @@ def save(user,body,key=None):
     raw=body.get('lines');require(isinstance(raw,list) and len(raw)<=200,'Потрібен список до 200 рядків бюджету.')
     old=get(MonthlyBudget,identity(key),'Бюджет') if key else None
     fingerprint=hashlib.sha256(json.dumps(body,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
-    create_key=None
+    create_key=None;request_normalized=None
+    from . import planning_recovery as recovery
     if not old:
+        receipt_key,request_normalized=recovery.normalize(user,'monthly_budget',body)
+        receipt=recovery.match(user,'monthly_budget',receipt_key,request_normalized)
+        if receipt:return recovery.acknowledge(user,receipt)
         create_key=body.get('idempotency_key');require(isinstance(create_key,str) and 1<=len(create_key)<=100,'Потрібен стабільний ключ створення бюджету.')
         reused=MonthlyBudget.objects.filter(create_key=create_key).first()
         if reused:
@@ -135,7 +147,8 @@ def save(user,body,key=None):
     BudgetLine.objects.bulk_create(created,batch_size=200)
     if updated:BudgetLine.objects.bulk_update(updated,['category','category_name','position','mode','amount','rate','base'],batch_size=200)
     audit(user,'monthly_budget_saved',f'budget/{b.pk}',audit_change(before,budget_snapshot(b),observed=body.get('revision')))
-    return budget_json(b)
+    result=budget_json(b)
+    return recovery.record(user,'monthly_budget',create_key,request_normalized,b,result) if not old else result
 
 def view_data(user,params):
     owner(user);start=month(params.get('month') or timezone.localdate().strftime('%Y-%m'));store=store_for(user,params.get('store'))

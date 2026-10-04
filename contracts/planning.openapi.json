@@ -1,0 +1,374 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya planning recovery",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/erp/budget-categories/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh current actor, one RR/READ ONLY snapshot; saved writable projection only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryRecovery"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/erp/budget-categories/identity": {
+      "post": {
+        "description": "CSRF-protected read only. Exact creator and normalized original request. No raw snapshot or historical author backfill.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "request"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "request": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Identity only; does not adopt current revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningIdentity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/erp/monthly-budgets/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh current actor, one RR/READ ONLY snapshot; saved writable projection only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyBudgetRecovery"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/erp/monthly-budgets/identity": {
+      "post": {
+        "description": "CSRF-protected read only. Exact creator and normalized original request. No raw snapshot or historical author backfill.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "request"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "request": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Identity only; does not adopt current revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningIdentity"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Category": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "active",
+          "revision",
+          "semantic_key"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "semantic_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          }
+        }
+      },
+      "MonthlyBudget": {
+        "type": "object",
+        "required": [
+          "id",
+          "month",
+          "store",
+          "revision",
+          "planned_revenue",
+          "lines"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "month": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}$"
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "planned_revenue": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "lines": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "category",
+                "category_name",
+                "mode",
+                "amount",
+                "rate",
+                "base"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "category": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "category_name": {
+                  "type": "string",
+                  "maxLength": 160
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "fixed_amount",
+                    "variable_amount",
+                    "revenue_rate"
+                  ]
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^\\d+\\.\\d{2}$"
+                },
+                "rate": {
+                  "type": "string",
+                  "pattern": "^\\d+\\.\\d{3}$"
+                },
+                "base": {
+                  "type": "string",
+                  "enum": [
+                    "revenue"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "Permissions": {
+        "type": "object",
+        "required": [
+          "canEdit"
+        ],
+        "properties": {
+          "canEdit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CategoryRecovery": {
+        "type": "object",
+        "required": [
+          "resource",
+          "record",
+          "permissions"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "enum": [
+              "category"
+            ]
+          },
+          "record": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/Permissions"
+          }
+        }
+      },
+      "MonthlyBudgetRecovery": {
+        "type": "object",
+        "required": [
+          "resource",
+          "record",
+          "permissions"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "enum": [
+              "monthly_budget"
+            ]
+          },
+          "record": {
+            "$ref": "#/components/schemas/MonthlyBudget"
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/Permissions"
+          }
+        }
+      },
+      "PlanningIdentity": {
+        "type": "object",
+        "required": [
+          "resource",
+          "request_key",
+          "confirmed",
+          "status"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "enum": [
+              "category",
+              "monthly_budget"
+            ]
+          },
+          "request_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "present",
+              "deleted",
+              "legacy_unknown"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "month": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}$"
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/Permissions"
+          }
+        },
+        "description": "Unconfirmed: legacy_unknown and no target ID/revision. Confirmed deleted: target ID but no revision/permissions. Present: ID/revision/permissions; identity revision is never editable baseline. Monthly confirmed also includes frozen month/store."
+      }
+    }
+  }
+}

@@ -254,3 +254,22 @@ first body/key, явний exact retry і GET-only receipt identity. Original wh
 [LEGACY-CREATE-IDENTITY-RECOVERY.md](LEGACY-CREATE-IDENTITY-RECOVERY.md).
 Monthly plan/category пакети ще окремо готуються; весь B06 і весь план цим записом
 не оголошено завершеними. Production на main94dece2 — див. SERVER-DEPLOYMENT.md.
+
+
+## B06 — планування й незалежні статті, root інтеграція · 04.10.2026
+
+Місячний план має strict current/ACK/creator identity, frozen exactCREATE й окреме
+localApply/Save. Виторг незалежний; однаковий ordered UUID membership дає atomic
+умови кожного рядка, зміна складу/порядку — явний вибір цілого списку. Стаття працює
+в окремому dialog і не стирає незбережений план. Metadata/history/facts readonly.
+Формули/проводки/рольові правила не змінено. Докази — PLANNING-CATEGORY-RECOVERY.md
+і MONTHLY-BUDGET-RECOVERY.md. Repeated/lostACK/403/503/malformed/cancel/lateGET, max200,
+точні decimals та keyboard/320 перевірені цільово. Післяreload intent неpersisted;
+це відкрита окрема вимога, а не заявлена готовність усього B06/плану.
+
+
+PR #69 прийнято exacthead9b0f1a9 після frontend/server/PostgreSQL SUCCESS; main merge
+`24b5e0c2da48f4d7bbfa885cf297ede7ace59207`, canonical checkout синхронізовано clean
+fast-forward. Planning пакет перебазовано на цей main; source/tests/contracts/build inputs
+порівняно з перевіреним integration tree — без відмінностей. Production залишено на
+прийнятому #68/94dece2; #69 і цей наступний пакет ще не розгорнуто.
