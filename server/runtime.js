@@ -14,7 +14,7 @@
       // `revision` is the version this snapshot shows; editors pass it back as If-Match.
       return { exists: !!value && Object.keys(value).length > 0, data: () => structuredClone(value || {}), revision: path === "settings/main" ? labelRevision : undefined };
     }
-    return { docs: (data[path] || []).map(item => ({ id: item.id, revision: item.revision, data: () => structuredClone(item.data), permissions: () => structuredClone(item.permissions || {}) })) };
+    return { docs: (data[path] || []).map(item => ({ id: item.id, revision: item.revision, initiative: item.initiative, data: () => structuredClone(item.data), permissions: () => structuredClone(item.permissions || {}) })) };
   }
 
   function notify() {

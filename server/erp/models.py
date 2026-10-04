@@ -200,3 +200,4 @@ from .promotion_models import PromotionCampaign, PromotionPrice, PriceObservatio
 from .budget_models import ExpenseCategory, ExpenseCategoryAlias, MonthlyBudget, BudgetLine
 from .order_models import OrderControl, StockReservation, ReservationUse, OrderOperation
 from .production_models import RecipeVersion, RecipeComponent, ProductionInput
+from .idea_models import IdeaProject, ProjectTask, ProjectExpense, ProjectOperation

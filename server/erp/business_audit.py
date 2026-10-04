@@ -16,7 +16,7 @@ FIELDS = {
     'budget': ('name', 'group', 'amount', 'category'),
     'order': ('state', 'revision', 'expected_date', 'minimum_order_amount'),
 }
-NUMBERS = {'total', 'cost', 'quantity', 'price', 'amount', 'shift_rate', 'bonus_percent', 'units', 'basis_amount', 'accrued', 'markup', 'promotionPrice', 'minStock', 'defaultMarkup', 'rounding', 'additional_cost', 'difference', 'value', 'rate', 'percent', 'fulfilled', 'remaining', 'reserved', 'used', 'released', 'minimum_order_amount'}
+NUMBERS = {'total', 'cost', 'quantity', 'price', 'amount', 'shift_rate', 'bonus_percent', 'units', 'basis_amount', 'accrued', 'markup', 'promotionPrice', 'minStock', 'defaultMarkup', 'rounding', 'additional_cost', 'difference', 'value', 'rate', 'percent', 'fulfilled', 'remaining', 'reserved', 'used', 'released', 'minimum_order_amount', 'planned_budget', 'target_value', 'fact_value'}
 LINE_FIELDS = ('id', 'line_key', 'product_id', 'name', 'unit', 'quantity', 'price', 'amount', 'cost', 'lot', 'expiry', 'reference_line_id')
 PAYLOAD_FIELDS = ('category', 'expense_scope', 'due_date', 'discount_reason', 'additional_cost', 'difference', 'fiscal_ref', 'expected_date', 'minimum_order_amount', 'order_revision')
 
