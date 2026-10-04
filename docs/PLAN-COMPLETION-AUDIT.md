@@ -151,3 +151,10 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **Portal metadata:** новий строгий compact contract, actual shell consumers, owner equal-weight Decimal catalogue model, frozen full-filter pricing selection, paged exact-retry example cleanup та role-aware streaming CSV інтегровано для PR/CI. Незалежне root VM рев’ю відтворило missing/wrong-contract acceptance і підтвердило виправлення; actual model320/1440 PNG переглянуті. Цільові PG/VM/native докази й невирішені межі — [PORTAL-METADATA.md](PORTAL-METADATA.md).
 - Залишаються bounded trading directories, окремі unbounded report API/consumers, повна trading React міграція й B06 recovery. Цей пакет не оголошує весь B24 завершеним.
 - Повний test:full не запускався; production release/VPS/Google access та виключений backup0.1 не виконані.
+
+
+## Після прийняття #57 · main4eff103 · 04.10.2026
+
+- **B24 portal metadata:** #57 MERGED, exact head330f7b5 frontend/server/PostgreSQL CI успішні. Summary/filter/cleanup/export і actual compact shell consumers прийняті в коді; [PORTAL-METADATA.md](PORTAL-METADATA.md) зберігає ресурсні межі.
+- **B06 initiative plan/result:** shared React three-way comparison інтегровано для PR/CI. KPI tuple узгоджується атомарно; Apply лише змінює чернетку, Save є окремою дією. Root integration build і actual GET-ready/layout320/1440 PASS; initial native conflict/race/privacy matrix підтверджена. [NATIVE-CONFLICT-RECOVERY.md](NATIVE-CONFLICT-RECOVERY.md). Решта entity/work-shift/document/recipe/legacy recovery відкрита.
+- B24 directory й report packages тривають. Deployment, full regression, external services і backup0.1 не виконані.

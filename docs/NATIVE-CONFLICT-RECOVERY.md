@@ -67,3 +67,10 @@ Native сценарій потребує зібраного entry/manifest та 
 не використовує VPS, PostgreSQL production чи Google Sheet. PNG/report за `QA_OUTPUT_DIR` або
 тимчасовий каталог ОС `tsukenya-initiative-conflict-proof`. Набір перевіряє actual 409, незалежні/однакові поля,
 no POST before Save, GET cancellation/503/malformed/ID, поточні права/стан і новий KPI, keyboard 1440/320.
+
+
+## Інтеграційна перевірка
+
+Metadata `PortalApi.session(signal)` збережено в initiatives API helper; cancellation не повертається до full-state GET. Новий native conflict сценарій зареєстровано в явній повній команді. Shared unavailable-module сценарій уже виконується через `portal-ui.cjs`, тому його окремий повтор `QA_PORTAL_FROM=module` у full entrypoint вилучено; вузька команда залишається для розробки. Повний прогін не запускався.
+
+Root integration після compact metadata: `QA_CONFLICT_LAYOUT_ONLY=1` actual native scenario PASS; звіт `/tmp/tsukenya-root-initiative-integration/layout-status-report.json` підтверджує завершений GET, unresolved choices block Apply, відсутність business POST порівняння та320/1440 geometry. Обидва actual PNG переглянуті. TypeScript/Vite build PASS. Первинна ширша native матриця з незмінними inputs повторно не запускалася.
