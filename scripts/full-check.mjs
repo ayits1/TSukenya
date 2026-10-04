@@ -225,7 +225,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/monthly-budget-recovery-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/monthly-budget-conflict-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/category-draft-reload-ui.cjs'], { env: browserEnv });
-    for (const categoryStage of ['policy', 'expiry', 'validation', 'identityBarrier', 'reviewFence', 'preflightIdentity']) {
+    for (const categoryStage of ['policy', 'privacy', 'validation', 'identityBarrier', 'reviewFence', 'preflightIdentity']) {
       await run('node', ['tests/category-draft-reload-ui.cjs'], { env: { ...browserEnv, QA_CATEGORY_DRAFT_FROM: categoryStage } });
     }
     await run('node', ['tests/planning-category-recovery-ui.cjs'], { env: browserEnv });
