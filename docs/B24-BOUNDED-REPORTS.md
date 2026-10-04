@@ -37,4 +37,30 @@ ORM читає пакети200 документів із їхніми рядка
 
 Перший discovery також підхопив імпортовані payroll/history TestCase класи; після переходу на module imports наступні хвилі запускали лише потрібні методи. Успішні попередні сценарії не повторювалися.
 
-Native consumer/strict decoder delivery та screenshots320/1440 будуть окремим наступним етапом; backend сам не закриває весь пакет.
+Native consumer/strict decoder та screenshots наведено нижче; старий endpoint залишається сумісним.
+
+## Чинний native consumer
+
+`app/erp-reports.js` замінив повне завантаження звіту у `app/erp.js`: спільні підсумки, одна секція/сторінка, пошук усієї секції, окремий streamed CSV усієї секції/залишків. Каталог/довідники не завантажуються для captions; магазин — чинний bounded DirectoryComboBox, рядок витрати має scoped `store_name`. Поточні борги й джерела показників використовують уже наявні paged читання. Збережено пояснення собівартості/кредитних продажів/управлінського результату, кількість змін із розходженням, компоненти товарного й магазинного результату, зарплатні межі.
+
+Strict runtime decoder перевіряє contract/context/dates/counts/точну кількість items/scale/рядкові поля, забороняє full arrays і зарплатні поля для manager. Відображення великих сум — BigInt + точні копійки. Окреме читання не видається за той самий знімок, що попередня сторінка.
+
+При503/мережевому збої можна зберегти попередній **підтверджений** звіт лише того самого mode/store з його власними датами й явним попередженням; failed draft filters лишаються. CSV/джерела вимкнені, GET retry застосовує новий підтверджений контекст.403 або malformed DTO очищає приватні результати. Busy fieldset блокує тільки фільтри дати/магазину; вкладки можуть скасувати читання. Arrow focus змінюється негайно, DOM listener AbortController прибирається при cancel/remount. Чужий q із панелі боргів не перезаписує пошук секції.
+
+### Native та adapter докази
+
+- `node tests/bounded-reports-contract.cjs`: strict metadata/pages/decimal/manager salary privacy, точні .99 при1e14 — PASS.
+- `PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/cashier-csv.cjs`: actual Django CSV writer із synthetic spool без DB; salary-hidden/visible,20.07, NULL hourly rate й formula guard — PASS.
+- `PYTHON_BIN=… node tests/bounded-reports-ui.cjs`: actual native сторінки30/30/5 із65, повний CSV65 та combined balances CSV; malformed200→GET retry; keyboard mode/section;320/1440; no legacy full reads — PASS. Окремі незмінені хвилі reuse; тест початкового harness помилково рахував read-only directory/details POST як запис, виправлено whitelist.
+- `QA_REPORT_FROM=tail|scope|layout|recovery|sources` — **лише цільові повтори після конкретного дефекту**, не команди full acceptance. Pending rapidArrow/samehost один handler/cancel inert — PASS; scoped manager+owner — PASS;503/date draft/busy/GET retry/403 — PASS; actual source drilldown30/heading focus/Escape — PASS. Без цього env штатний сценарій містить усі ці перевірки.
+- `tests/reports-date-ui.cjs`: historical debt/date retention/CSV/keyboard store breakdown на1440/390/320 пройшли до останнього network assertion; assertion випереджав async load, замінено очікуванням confirmed summary. `QA_REPORT_DATE_TAIL=1` failed-tail PASS; попередні докази reuse.
+- Адаптовано старі report consumers у payments/crm/finance/date/busy/business-audit/CSV fixtures. Їхні бізнес-сценарії залишені; весь незмінений набір повторно не запускався. Explicit period застосовує чинне B17 end≤Kyivtoday; old default `/api/erp/report` з future-range compatibility не змінено.4-place CSV unit cost залишився в template roundtrip; financial totals мають authoritative2-place контракт.
+
+Остаточні settled screenshots (синтетичні дані):
+
+- `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-bounded-reports-ui-RviHEh/period-viewport-320.png`
+- `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-bounded-reports-ui-RviHEh/period-viewport-1440.png`
+- `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-bounded-reports-ui-RviHEh/period-rows-320.png`
+- `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-bounded-reports-ui-RviHEh/period-rows-1440.png`
+
+Повний old-family browser PASS до вузького busy follow-up: `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-bounded-reports-ui-bah55L/{balances,period}-{320,1440}.png`. Тимчасова теки browser містить synthetic SQLite/server.log для діагностики; бізнесових даних немає. Deployment/physical accessibility screen reader/capacity stress не перевірялися.
