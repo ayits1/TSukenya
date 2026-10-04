@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
+import { CatalogVisibility } from './CatalogVisibility';
 import { CatalogView } from './CatalogView';
 import { ReferenceManager } from './ReferenceManager';
 import { ProductEditor } from './ProductEditor';
@@ -35,9 +36,11 @@ export function Catalog({
   useEffect(() => onDirty(productDirty || campaignDirty), [onDirty, productDirty, campaignDirty]);
   const [filters, setFilters] = useState(initialFilters);
   const [query, setQuery] = useState(initialFilters.q);
-  const [editing, setEditing] = useState<{ product?: Product; activatePromotion?: boolean } | null>(
-    null,
-  );
+  const [editing, setEditing] = useState<{
+    product?: Product;
+    activatePromotion?: boolean;
+    defaultMarkup: string;
+  } | null>(null);
   const [message, setMessage] = useState('');
   const [managingReferences, setManagingReferences] = useState(false);
   useEffect(() => {
@@ -54,7 +57,8 @@ export function Catalog({
     queryKey: ['catalog', { ...filters, q: query }, priceStore],
     queryFn: ({ signal }) => api.list({ ...filters, q: query }, signal),
     enabled: !!session.data,
-    placeholderData: keepPreviousData,
+    placeholderData: (previous) =>
+      previous?.visibility === (filters.visibility || 'active') ? previous : undefined,
     staleTime: 15_000,
     retry: false,
   });
@@ -95,64 +99,89 @@ export function Catalog({
     onSuccess: saved,
   });
   const error = session.error || result.error || promotion.error;
-  if (!result.data)
-    return (
-      <section className="tk-catalog tk-root">
-        {error ? (
-          <div role="alert">
-            <h2>Не вдалося відкрити каталог</h2>
-            <p>{error.message}</p>
-            {error instanceof ApiError && error.status === 401 ? (
-              <a href="/">Увійти знову</a>
-            ) : (
+  return (
+    <>
+      <div className="tk-catalog-mode tk-root">
+        <CatalogVisibility
+          filters={filters}
+          onChange={(value) => {
+            setMessage('');
+            setFilters(value);
+            onFiltersChanged(value);
+          }}
+        />
+      </div>
+      {!result.data ? (
+        <section className="tk-catalog tk-root">
+          {error ? (
+            <div role="alert">
+              <h2>Не вдалося відкрити каталог</h2>
+              <p>{error.message}</p>
+              {error instanceof ApiError && error.status === 401 ? (
+                <a href="/">Увійти знову</a>
+              ) : (
+                <Button
+                  onPress={() => {
+                    void session.refetch();
+                    void result.refetch();
+                  }}
+                >
+                  Повторити
+                </Button>
+              )}
+            </div>
+          ) : (
+            <p role="status">Завантажуємо каталог…</p>
+          )}
+        </section>
+      ) : (
+        <>
+          {error ? (
+            <div className="tk-catalog-error" role="alert">
+              {error.message}{' '}
               <Button
                 onPress={() => {
-                  void session.refetch();
+                  promotion.reset();
                   void result.refetch();
                 }}
               >
-                Повторити
+                Оновити список
               </Button>
-            )}
-          </div>
-        ) : (
-          <p role="status">Завантажуємо каталог…</p>
-        )}
-      </section>
-    );
-  return (
-    <>
-      {error ? (
-        <div className="tk-catalog-error" role="alert">
-          {error.message}{' '}
-          <Button
-            onPress={() => {
-              promotion.reset();
-              void result.refetch();
+            </div>
+          ) : null}
+          <CatalogView
+            showVisibility={false}
+            data={result.data}
+            onReferences={() => setManagingReferences(true)}
+            filters={filters}
+            onFilters={(value) => {
+              setMessage('');
+              setFilters(value);
+              onFiltersChanged(value);
             }}
-          >
-            Оновити список
-          </Button>
-        </div>
-      ) : null}
-      <CatalogView
-        data={result.data}
-        onReferences={() => setManagingReferences(true)}
-        filters={filters}
-        onFilters={(value) => {
-          setMessage('');
-          setFilters(value);
-          onFiltersChanged(value);
-        }}
-        onEdit={(product) => setEditing(product ? { product } : {})}
-        onPromotion={(product) => {
-          if (product.effectivePromotion?.source === 'campaign') setEditing({ product });
-          else if (product.promotion) promotion.mutate(product);
-          else setEditing({ product, activatePromotion: true });
-        }}
-        busy={result.isFetching || promotion.isPending}
-        message={message}
-      />
+            onEdit={(product) =>
+              setEditing(
+                product
+                  ? { product, defaultMarkup: result.data.defaultMarkup }
+                  : { defaultMarkup: result.data.defaultMarkup },
+              )
+            }
+            onPromotion={(product) => {
+              if (product.effectivePromotion?.source === 'campaign')
+                setEditing({ product, defaultMarkup: result.data.defaultMarkup });
+              else if (product.promotion) promotion.mutate(product);
+              else
+                setEditing({
+                  product,
+                  activatePromotion: true,
+                  defaultMarkup: result.data.defaultMarkup,
+                });
+            }}
+            busy={result.isFetching || promotion.isPending}
+            message={message}
+          />
+        </>
+      )}
       {managingReferences ? (
         <ReferenceManager onClose={() => setManagingReferences(false)} onChanged={onChanged} />
       ) : null}
@@ -171,13 +200,19 @@ export function Catalog({
       {editing ? (
         <ProductEditor
           {...editing}
-          defaultMarkup={result.data.defaultMarkup}
           api={api}
           onClose={() => {
             setProductDirty(false);
             setEditing(null);
           }}
           onSaved={saved}
+          onVisibilityChanged={(product) => {
+            setMessage(
+              product.hidden ? `Приховано: ${product.name}` : `Відновлено: ${product.name}`,
+            );
+            void client.invalidateQueries({ queryKey: ['catalog'] });
+            onChanged();
+          }}
           onDeleted={() => {
             setProductDirty(false);
             setEditing(null);

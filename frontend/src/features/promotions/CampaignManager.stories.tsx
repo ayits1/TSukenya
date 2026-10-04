@@ -149,6 +149,7 @@ function Harness({
       product: async () => catalogProducts[0]!,
       save: async () => catalogProducts[0]!,
       remove: async () => true,
+      visibility: async (product, hidden) => ({ ...product, hidden }),
       previewPrice: fixturePricePreview,
       references: async () => catalogReferences,
       createReference: async () => {

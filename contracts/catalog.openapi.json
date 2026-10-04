@@ -165,6 +165,18 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "name": "visibility",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "hidden"
+              ],
+              "default": "active"
+            }
           }
         ]
       },
@@ -307,7 +319,22 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "includeHidden",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "false",
+                "true"
+              ],
+              "default": "false"
+            },
+            "description": "Explicit readonly editor/recovery lookup; labels keep the active-only default."
+          }
+        ]
       },
       "patch": {
         "responses": {
@@ -2703,6 +2730,69 @@
           }
         ]
       }
+    },
+    "/api/v1/catalog/products/{id}/visibility": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "operationId": "changeProductVisibility",
+        "description": "Metadata-only revision guarded hide/restore; cannot write prices or form drafts. Current edit role is rechecked after ledger lock.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "revision",
+                  "hidden"
+                ],
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  },
+                  "hidden": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current product with confirmed visibility",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "403": {
+            "description": "Current edit role denied"
+          },
+          "404": {
+            "description": "Product not found"
+          },
+          "409": {
+            "description": "Revision conflict; readonly recovery is required"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2729,7 +2819,9 @@
           "promotion",
           "minStock",
           "regularPrice",
-          "promotionPrice"
+          "promotionPrice",
+          "hidden",
+          "canEdit"
         ],
         "properties": {
           "id": {
@@ -2882,6 +2974,14 @@
             "minimum": 0,
             "maximum": 3650,
             "description": "Поріг сповіщення про придатність SKU: null — чинний типовий 7 днів; 0 — дата придатності, прострочені включаються завжди."
+          },
+          "hidden": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "canEdit": {
+            "type": "boolean",
+            "readOnly": true
           }
         }
       },
@@ -2895,7 +2995,8 @@
           "limit",
           "facets",
           "canEdit",
-          "defaultMarkup"
+          "defaultMarkup",
+          "visibility"
         ],
         "properties": {
           "items": {
@@ -2958,6 +3059,13 @@
           "defaultMarkup": {
             "type": "string",
             "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "active",
+              "hidden"
+            ]
           }
         }
       },

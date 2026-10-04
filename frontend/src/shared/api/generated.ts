@@ -92,6 +92,7 @@ export interface paths {
           promotion?: string;
           page?: number;
           limit?: number;
+          visibility?: 'active' | 'hidden';
         };
         header?: never;
         path?: never;
@@ -225,7 +226,10 @@ export interface paths {
     };
     get: {
       parameters: {
-        query?: never;
+        query?: {
+          /** @description Explicit readonly editor/recovery lookup; labels keep the active-only default. */
+          includeHidden?: 'false' | 'true';
+        };
         header?: never;
         path: {
           id: string;
@@ -2135,6 +2139,25 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/catalog/products/{id}/visibility': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** @description Metadata-only revision guarded hide/restore; cannot write prices or form drafts. Current edit role is rechecked after ledger lock. */
+    patch: operations['changeProductVisibility'];
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2177,6 +2200,8 @@ export interface components {
       readonly priceContext?: components['schemas']['PriceContext'];
       /** @description Поріг сповіщення про придатність SKU: null — чинний типовий 7 днів; 0 — дата придатності, прострочені включаються завжди. */
       expiryAlertDays?: number | null;
+      readonly hidden: boolean;
+      readonly canEdit: boolean;
     };
     ProductPage: {
       items: components['schemas']['Product'][];
@@ -2192,6 +2217,8 @@ export interface components {
       };
       canEdit: boolean;
       defaultMarkup: string;
+      /** @enum {string} */
+      visibility: 'active' | 'hidden';
     };
     ProductCreate: {
       name: string;
@@ -3583,6 +3610,63 @@ export interface operations {
         content: {
           'application/json': components['schemas']['Error'];
         };
+      };
+    };
+  };
+  changeProductVisibility: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          revision: string;
+          hidden: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Current product with confirmed visibility */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Product'];
+        };
+      };
+      /** @description Malformed request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Current edit role denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Product not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Revision conflict; readonly recovery is required */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

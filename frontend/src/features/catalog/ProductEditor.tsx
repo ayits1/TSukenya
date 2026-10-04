@@ -64,6 +64,7 @@ export function ProductEditor({
   onSaved,
   onDirty,
   onDeleted,
+  onVisibilityChanged,
   activatePromotion = false,
 }: {
   product?: Product;
@@ -73,6 +74,7 @@ export function ProductEditor({
   onClose: () => void;
   onSaved: (product: Product) => void;
   onDeleted: () => void;
+  onVisibilityChanged?: (product: Product) => void;
   onDirty: (dirty: boolean) => void;
 }) {
   const [current, setCurrent] = useState(product);
@@ -81,6 +83,7 @@ export function ProductEditor({
     ...original,
     promotion: original.promotion || activatePromotion,
   }));
+  const [visibilityRecovery, setVisibilityRecovery] = useState(false);
   const [notice, setNotice] = useState('');
   const [manualAmount, setManualAmount] = useState(product?.price || '');
   const [comparison, setComparison] = useState<{
@@ -161,7 +164,7 @@ export function ProductEditor({
   }, [dirty]);
   const mutation = useMutation({
     mutationFn: () => {
-      if (!activePreview || comparison)
+      if (!activePreview || comparison || visibilityRecovery || (current && !current.canEdit))
         throw new Error('Дочекайтеся актуального розрахунку ціни та узгодьте зміни.');
       const rawThreshold = draft.expiryAlertDays.trim();
       if (rawThreshold && (!/^\d+$/.test(rawThreshold) || Number(rawThreshold) > 3650))
@@ -183,16 +186,43 @@ export function ProductEditor({
     retry: false,
     onSuccess: onDeleted,
   });
+  const visibility = useMutation({
+    mutationFn: (intent: { product: Product; hidden: boolean }) =>
+      api.visibility(intent.product, intent.hidden),
+    retry: false,
+    onSuccess: (saved) => {
+      setCurrent(saved);
+      setOriginal(initial(saved, defaultMarkup));
+      setNotice(
+        saved.hidden
+          ? 'Товар приховано. Незбережені поля залишилися в чернетці.'
+          : 'Товар відновлено. Незбережені поля залишилися в чернетці.',
+      );
+      onVisibilityChanged?.(saved);
+    },
+    onError: () => setVisibilityRecovery(true),
+  });
   const reload = useMutation({
-    mutationFn: () => api.product(current?.id || ''),
+    mutationFn: () => api.product(current?.id || '', true),
     retry: false,
     onSuccess: (fresh) => {
+      if (!fresh.canEdit) {
+        setVisibilityRecovery(true);
+        setNotice('Поточні права не дозволяють редагувати товар. Чернетку збережено.');
+        return;
+      }
       setComparison({ base: original, mine: draft, server: fresh, choices: {} });
       setNotice('Актуальну версію завантажено для порівняння. Чернетку збережено.');
     },
   });
   const close = () => {
-    if (mutation.isPending || reload.isPending || deletion.isPending || addReference.isPending)
+    if (
+      mutation.isPending ||
+      reload.isPending ||
+      deletion.isPending ||
+      addReference.isPending ||
+      visibility.isPending
+    )
       return;
     if (comparison) {
       focusAfterComparison.current = 'compare';
@@ -212,7 +242,11 @@ export function ProductEditor({
     />
   );
   const networkBusy =
-    mutation.isPending || reload.isPending || deletion.isPending || addReference.isPending;
+    mutation.isPending ||
+    reload.isPending ||
+    deletion.isPending ||
+    addReference.isPending ||
+    visibility.isPending;
   const referenceBusy = networkBusy || !!comparison;
   const previewInput: PricePreviewRequest = {
     ...(current ? { id: current.id, revision: current.revision } : {}),
@@ -280,6 +314,9 @@ export function ProductEditor({
     setComparison(null);
     mutation.reset();
     reload.reset();
+    visibility.reset();
+    deletion.reset();
+    setVisibilityRecovery(false);
     setNotice('Узгоджені зміни перенесено в чернетку. Перевірте їх і збережіть товар.');
   };
   const revisionConflict = (error: unknown) =>
@@ -392,7 +429,9 @@ export function ProductEditor({
                 !references.data ||
                 references.error ||
                 !activePreview ||
-                archivedNewValue
+                archivedNewValue ||
+                visibilityRecovery ||
+                !!(current && !current.canEdit)
               )
                 return;
               mutation.mutate();
@@ -401,7 +440,11 @@ export function ProductEditor({
             <header>
               <div>
                 <Heading slot="title">{current ? 'Редагувати товар' : 'Новий товар'}</Heading>
-                <p>Зміни одразу доступні в каталозі та цінниках.</p>
+                <p>
+                  {current?.hidden
+                    ? 'Прихований товар — недоступний для вибору цінників і переоцінки.'
+                    : 'Зміни одразу доступні в каталозі та цінниках.'}
+                </p>
               </div>
               <Button aria-label="Закрити редактор" onPress={close} isDisabled={referenceBusy}>
                 Закрити
@@ -601,9 +644,14 @@ export function ProductEditor({
                 )}
               </div>
             </fieldset>
-            {mutation.error || reload.error || deletion.error ? (
+            {mutation.error || reload.error || deletion.error || visibility.error ? (
               <div className="tk-catalog-error" role="alert">
-                <p>{mutation.error?.message || reload.error?.message || deletion.error?.message}</p>
+                <p>
+                  {reload.error?.message ||
+                    mutation.error?.message ||
+                    deletion.error?.message ||
+                    visibility.error?.message}
+                </p>
                 {mutation.error instanceof ApiError &&
                 mutation.error.code === 'pricing_revision_conflict' ? (
                   <Button
@@ -620,7 +668,8 @@ export function ProductEditor({
                 ) : null}
               </div>
             ) : null}
-            {(revisionConflict(mutation.error) ||
+            {(visibilityRecovery ||
+              revisionConflict(mutation.error) ||
               revisionConflict(previewError) ||
               revisionConflict(deletion.error)) &&
             current &&
@@ -635,21 +684,28 @@ export function ProductEditor({
               </Button>
             ) : null}
             {comparison ? (
-              <ConflictComparison
-                rows={comparisonRows}
-                choices={comparison.choices}
-                onChoice={(id, choice) =>
-                  setComparison((old) =>
-                    old ? { ...old, choices: { ...old.choices, [id]: choice } } : old,
-                  )
-                }
-                onApply={applyComparison}
-                onCancel={() => {
-                  focusAfterComparison.current = 'compare';
-                  setComparison(null);
-                }}
-                isDisabled={networkBusy}
-              />
+              <>
+                <p>
+                  Поточний стан на сервері: {comparison.server.hidden ? 'прихований' : 'активний'}.
+                  Застосування змін оновлює лише чернетку; приховування чи відновлення виконується
+                  окремою кнопкою.
+                </p>
+                <ConflictComparison
+                  rows={comparisonRows}
+                  choices={comparison.choices}
+                  onChoice={(id, choice) =>
+                    setComparison((old) =>
+                      old ? { ...old, choices: { ...old.choices, [id]: choice } } : old,
+                    )
+                  }
+                  onApply={applyComparison}
+                  onCancel={() => {
+                    focusAfterComparison.current = 'compare';
+                    setComparison(null);
+                  }}
+                  isDisabled={networkBusy}
+                />
+              </>
             ) : null}
             {notice ? (
               <p role="status" ref={noticeElement} tabIndex={-1}>
@@ -659,7 +715,25 @@ export function ProductEditor({
             <footer>
               {current ? (
                 <Button
-                  isDisabled={referenceBusy}
+                  type="button"
+                  isDisabled={referenceBusy || visibilityRecovery || !current.canEdit}
+                  onPress={() => {
+                    if (
+                      window.confirm(
+                        current.hidden
+                          ? 'Відновити товар у каталозі? Незбережені поля не записуватимуться.'
+                          : 'Приховати товар із каталогу та вибору цінників? Незбережені поля не записуватимуться.',
+                      )
+                    )
+                      visibility.mutate({ product: current, hidden: !current.hidden });
+                  }}
+                >
+                  {current.hidden ? 'Відновити товар' : 'Приховати товар'}
+                </Button>
+              ) : null}
+              {current ? (
+                <Button
+                  isDisabled={referenceBusy || visibilityRecovery || !current.canEdit}
                   onPress={() => {
                     if (
                       window.confirm(
@@ -684,7 +758,9 @@ export function ProductEditor({
                   references.isPending ||
                   !!references.error ||
                   !activePreview ||
-                  archivedNewValue
+                  archivedNewValue ||
+                  visibilityRecovery ||
+                  !!(current && !current.canEdit)
                 }
               >
                 {mutation.isPending ? 'Зберігаємо…' : 'Зберегти товар'}
