@@ -34,6 +34,7 @@ const list = {
   page: 1,
   pages: 1,
   total: 1,
+  limit: 20,
   legacyRecipe: [{ product: 'raw', quantity: 2 }],
 };
 it('binds exact product, latest list and requested UUID; rejects malformed semantic quantity/policy', () => {
@@ -126,4 +127,16 @@ it('valid saved leading-dot quantities remain selectable without weakening posit
   expect(() =>
     decodeLegacy({ ...saved, recipe: [{ product: 'raw', quantity: '.0001' }] }, 'output'),
   ).toThrow();
+});
+
+it('contradictory pagination cannot become the current recipe baseline', () => {
+  for (const patch of [
+    { total: 17, pages: 999 },
+    { total: 17 },
+    { limit: 50 },
+    { limit: undefined },
+    { page: 1.5 },
+  ])
+    expect(() => decodeList({ ...list, ...patch }, 'output')).toThrow();
+  expect(decodeList({ ...list, limit: 10 }, 'output', 1, 10).limit).toBe(10);
 });

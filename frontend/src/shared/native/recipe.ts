@@ -29,6 +29,7 @@ export type RecipeList = {
   page: number;
   pages: number;
   total: number;
+  limit: 10 | 20 | 50;
 };
 export type LegacyRecipe = {
   product: RecipeList['product'];
@@ -119,12 +120,19 @@ export function decodeVersion(v: unknown, expectedProduct: string, expectedId?: 
     approvedAt,
   };
 }
-export function decodeList(v: unknown, expectedProduct: string, expectedPage = 1): RecipeList {
+export function decodeList(
+  v: unknown,
+  expectedProduct: string,
+  expectedPage = 1,
+  expectedLimit: 10 | 20 | 50 = 20,
+): RecipeList {
   const r = object(v),
     p = product(r.product, expectedProduct);
   if (
     !Array.isArray(r.items) ||
-    r.items.length > 50 ||
+    ![10, 20, 50].includes(expectedLimit) ||
+    r.limit !== expectedLimit ||
+    r.items.length > expectedLimit ||
     typeof r.canApprove !== 'boolean' ||
     typeof r.total !== 'number' ||
     !Number.isSafeInteger(r.total) ||
@@ -134,7 +142,11 @@ export function decodeList(v: unknown, expectedProduct: string, expectedPage = 1
     typeof r.pages !== 'number' ||
     !Number.isSafeInteger(r.pages) ||
     r.pages < expectedPage ||
-    expectedPage < 1
+    !Number.isSafeInteger(expectedPage) ||
+    expectedPage < 1 ||
+    r.pages !== Math.max(1, Math.ceil(r.total / expectedLimit)) ||
+    r.items.length !==
+      Math.max(0, Math.min(expectedLimit, r.total - (expectedPage - 1) * expectedLimit))
   )
     return fail();
   const items = r.items.map((x) => decodeVersion(x, expectedProduct)),
@@ -151,6 +163,7 @@ export function decodeList(v: unknown, expectedProduct: string, expectedPage = 1
     product: p,
     items,
     total: r.total,
+    limit: expectedLimit,
     page: expectedPage,
     pages: r.pages,
     canApprove: r.canApprove,

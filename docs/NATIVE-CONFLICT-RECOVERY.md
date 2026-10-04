@@ -285,13 +285,14 @@ QA_RECIPES_FROM=validation PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
 QA_RECIPES_FROM=ack PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
 QA_RECIPES_FROM=role PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
 QA_RECIPES_FROM=compat PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
+QA_RECIPES_FROM=paging PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
 # Лише missing-ID → explicit repair (не повторює решту compatibility):
 QA_RECIPE_COMPAT_ONLY=1 QA_RECIPE_COMPAT_FROM=missing PYTHON_BIN=/path/to/python node tests/recipe-conflict-ui.cjs
 QA_PRODUCTION_FROM=read PYTHON_BIN=/path/to/python node tests/production-ui.cjs
 ```
 
 `recipes-ui.cjs` лишається єдиним recipe entrypoint повної явної перевірки; його `all` послідовно
-виконує шість актуальних recovery scopes. Старі destructive reload/submit-retry та приховані
+виконує сім актуальних recovery scopes. Старі destructive reload/submit-retry та приховані
 select selectors замінено фактичними контрактами й видимими ComboBox. Zoom спільних controls
 перевіряється їхніми окремими UI сценаріями; цей пакет має actual keyboard/1440/320 докази.
 Native сценарії створюють власну SQLite та синтетичні дані, використовують локальний Chrome.
@@ -310,3 +311,25 @@ entrypoint: видалений після відкриття інгредієн�
 очищення не робить POST і не закриває форму; confirmed POST200 із bootstrap503 пропонує
 GET-only keyboard retry. Остання перевірка intercept-ить чинний `/api/v1/trading/bootstrap`,
 а не застарілий `/api/erp/state`. Server/API бізнеслогіку follow-up не змінює.
+
+## Незалежне рев’ю рецептур на accepted main #64 · 04.10.2026
+
+Recipe source і compatibility follow-up інтегровано поверх `4e13204` зі збереженням
+entity/workshift/legacy shared adapters, Storybook states, static loaders і reports UI.
+Root review відтворило суперечливу пагінацію (`total=17`, `pages=999`, один item):
+тепер decoder перевіряє requested page/limit, число сторінок та точну кількість елементів.
+Actual native `paging` відмовляє початковій базі без POST; явне коректне GET читання
+дозволяє окреме затвердження рівно однієї версії.
+
+Root targeted unit PASS: шість постійних cases плюс тимчасовий reproduction, який після
+внесення постійного equivalent case видалено. Combined TypeScript/Vite build, affected
+lint/format та isolated PostgreSQL два current-actor/legacy ACK-stale сценарії PASS.
+Авторські незмінені докази API/concurrency/story/native перевикористано; compatibility
+reports звірено з assertions видалення/repair, missing-ID, clear refusal і GET-only refresh.
+
+Actual root layout scope PASS, PNG 1440/320 переглянуто: на телефоні інгредієнт займає
+весь рядок, кількість і кнопка видалення розміщені нижче; overflow немає. Готове comparison
+не показує дубльованого read/cancel CTA, pending read можна скасувати. Harness очищає
+успадковані DB/PG налаштування, задає isolated settings/secret, ловить ранній вихід сервера
+та очікує teardown. Один full entrypoint зберігається, partial recipe flags очищаються.
+Виконано лише `test:full -- --plan`, не повну регресію, не production/Sheet тести або deployment.
