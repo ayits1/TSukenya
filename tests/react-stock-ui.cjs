@@ -29,7 +29,7 @@ for i in range(67):
 v=save_voucher(u,{'idempotency_key':str(uuid.uuid4()),'kind':'opening','date':timezone.localdate().isoformat(),'store':w.store_id,'warehouse':w.pk,'lines':[{'product':'react_stock_000','quantity':'2','price':'2'}]})
 print(json.dumps({'warehouse':w.pk,'store':w.store_id,'document':v.pk}))`));
  if(stage==='scope')fixture("from django.contrib.auth.models import User\nu=User.objects.get(username='tester');u.profile.role='manager';u.profile.store_id="+seed.store+";u.profile.save()");
- browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined)});page=await browser.newPage({viewport:{width:1440,height:1050},acceptDownloads:true});
+ browser=await chromium.launch({ headless: true });page=await browser.newPage({viewport:{width:1440,height:1050},acceptDownloads:true});
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  await page.addInitScript(()=>{const original=window.fetch.bind(window);window.fetch=(input,options)=>String(input).includes('/trading/stock?')&&window.stockIgnoreAbort?original(input,{...options,signal:undefined}).then(value=>{if(String(input).includes('q=old'))window.stockLate=true;return value;}):original(input,options);});
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push({url:r.url(),method:r.method()}));

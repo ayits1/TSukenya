@@ -86,7 +86,7 @@ export function AssortmentEditor({
       : null;
   return (
     <article className="stock-editor" data-stock-draft={warehouse + ':' + row.product}>
-      <h4>
+      <h4 tabIndex={-1}>
         {row.name} <span className="tk-help">· {row.unit}</span>
       </h4>
       <Checkbox
@@ -250,6 +250,34 @@ export function Stock({ model }: { model: StockModel }) {
   const drafts = [...s.drafts.entries()].filter(
     ([, d]) => policy?.canEditAssortment && (policy.store === null || d.store === policy.store),
   );
+  async function rowAction(
+    key: string,
+    action: () => void | Promise<void>,
+    target: 'h4' | 'input[type="text"]',
+    cleanOnly = false,
+  ) {
+    const container = host.current;
+    const previous = document.activeElement;
+    const hadFocus = !!previous && !!container?.contains(previous);
+    await action();
+    if (!hadFocus || (cleanOnly && model.snapshot().drafts.has(key))) return;
+    requestAnimationFrame(() => {
+      const state = model.snapshot();
+      if (
+        !container?.isConnected ||
+        host.current !== container ||
+        state.denied ||
+        state.error ||
+        state.busy ||
+        (document.activeElement !== previous && document.activeElement !== document.body)
+      )
+        return;
+      const card = [...container.querySelectorAll<HTMLElement>('[data-stock-draft]')].find(
+        (element) => element.dataset.stockDraft === key,
+      );
+      card?.querySelector<HTMLElement>(target)?.focus();
+    });
+  }
   const editor = (warehouse: number, row: AssortmentRow) => {
     const key = draftKey(warehouse, row.product);
     return (
@@ -260,8 +288,9 @@ export function Stock({ model }: { model: StockModel }) {
         draft={s.drafts.get(key)}
         disabled={!policy?.canEditAssortment}
         onEdit={(patch) => model.edit(warehouse, row, patch)}
-        onSave={() => void model.save(warehouse, row.product)}
-        onReset={() => model.reset(key)}
+        // Clean buttons are disabled; their row heading retains the keyboard position.
+        onSave={() => void rowAction(key, () => model.save(warehouse, row.product), 'h4', true)}
+        onReset={() => void rowAction(key, () => model.reset(key), 'h4')}
         onCompare={() => void model.compare(warehouse, row.product)}
         onApply={(value) => model.apply(key, value)}
         onCancel={() => model.cancelComparison(key)}
@@ -557,11 +586,16 @@ export function Stock({ model }: { model: StockModel }) {
                   <div key={key}>
                     <Button
                       onPress={() =>
-                        void model.change({
-                          assortmentWarehouse: warehouse,
-                          assortmentProduct: d.base.product,
-                          assortmentOpen: true,
-                        })
+                        void rowAction(
+                          key,
+                          () =>
+                            model.change({
+                              assortmentWarehouse: warehouse,
+                              assortmentProduct: d.base.product,
+                              assortmentOpen: true,
+                            }),
+                          'input[type="text"]',
+                        )
                       }
                     >
                       {d.base.name} · відкрити чернетку

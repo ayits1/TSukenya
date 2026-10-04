@@ -98,7 +98,7 @@ pending refresh + newer invalid input та справжній policy mismatch.
 ## Межі
 
 Немає повної регресії, production перевірки чи capacity benchmark. Browser QA —
-ізольований Chrome / SQLite з 67 synthetic SKU; PostgreSQL доводить конкретні
+ізольований браузер / SQLite з 67 synthetic SKU; PostgreSQL доводить конкретні
 read/policy/snapshot contracts. Мінімальні native callbacks зберігають чинні
 фінансові guards; не повторено всі види проведення/скасування чи всі рецептурні
 recovery сценарії. Пагінація обмежує page rows, а summary/CSV працюють по всьому
@@ -108,3 +108,52 @@ recipe в окремій картці не має нового hard cap). Поп
 чинним native сервісом із відомою окремою межею матеріалізації. Локальні
 чернетки живуть у вкладці; persistence після reload не додано. Інші модулі CRM,
 їхня React міграція, повна regression і deployment — окремі роботи.
+
+
+## Інтеграція після PR87–88 · 04.10.2026
+
+Збережено guards native `Trade.mount`: generation, mounted event, закриття
+попереднього React root і відновлення документа лише після завершення required
+reads. Відкриття документа, яке очікує context GET, не створює modal після
+переходу на інший розділ.
+
+Додаткові цільові результати на інтегрованій збірці:
+
+- `/tmp/tsukenya-stock-draft-integration`: холодне відновлення виробничої
+  чернетки з огляду у Stock; original version / line UUID / raw invalid input
+  збережено, бізнес-записів немає.
+- `/tmp/tsukenya-stock-integration-callbacks`: actual native new / view / edit /
+  save / post opening, обидва редактори рецептур, контроль і перехід до задачі,
+  поповнення з незбереженими рядками замовлення — PASS.
+- `/tmp/tsukenya-stock-integration-bounded/report.json`: actual SQL page30 / 67
+  rows, whole-filter summary / CSV67, lazy lots, selected-ID draft, conflict GET /
+  local Apply / separate Save, 503 retry і новий пошук — PASS. PNG 320 / 1440
+  переглянуто; переповнення сторінки немає. Початкова спроба зупинилася на
+  синхронному focus assertion до animation frame; повтор пройшов після очікування
+  саме потрібного елемента. Попередні failure artifacts залишені.
+- Storybook `SaveFocus`, `SaveKeepsNewFocus`, `DraftActionFocus` — PASS у цільових
+  запусках. Після Save / Reset фокус переходить до заголовка того ж рядка,
+  відкриття з переліку чернеток переводить його в текстовий мінімум. Новий фокус
+  користувача після початку запиту не перехоплюється.
+- `QA_TRADE_ONLY=1 QA_TRADE_FROM=stock node tests/ui-audit.cjs` — PASS:
+  actual React filter / role selectors із strict synthetic DTO, точні суми,
+  партії та єдиний CSV для вибраного магазину. Перші спроби зупинились на
+  відкритому popup / ще не підтягнутому caption; очікування виправлені без
+  послаблення перевірки підтвердженого магазину.
+- `tests/assortment-drafts-ui.cjs` — PASS: кілька товарів / два склади, пошук і
+  переходи, unload warning, delayed POST із новішим raw input, окреме GET / Apply /
+  Save після 409, late success / error не змінюють іншу чернетку, Reset focus,
+  layout 390 / 320. Очікування відкриття React Aria popup у перенесеному fixture
+  виправлено після діагностики; business assertions збережено.
+- TypeScript, affected ESLint і matching Vite build — PASS.
+
+Native QA використовує власний Chromium Playwright, `headless: true`, без
+`channel` / `executablePath` / `CHROME_PATH`. Старі результати з Chrome лишаються
+історичними; ці команди більше його не запускають.
+
+Тести чинних stock entrypoints переведено на ролі й назви React controls та
+versioned DTO / CSV; перевірки business values, чернеток і conflict semantics
+збережено. Заміна селекторів у решті сценаріїв сама по собі не є доказом
+повторного проходження всіх цих сімейств. Повний runner реєструє новий Stock
+сценарій та окремі scope / control-late / comparison-policy стадії; запуск
+`--plan` лише показує перелік. Повну регресію й deployment не виконували.

@@ -102,7 +102,7 @@ print(json.dumps([v.pk for v in rows]))`).toString());
   results.push('documents draft save, save+post, separate post reject draft feedback, existing post action; failed refresh GET-only retry and exact write counts: PASS');
  }
  if(['all','tail','recipe'].includes(from)){
-  await go('stock');await page.locator('[data-trade=recipe]').click();let prompts=0;
+  await go('stock');await page.getByRole('button',{name:'Калькуляції',exact:true}).click();let prompts=0;
   const selectProduct=async value=>{await dialog().getByRole('combobox',{name:'Готовий товар',exact:true}).fill(value==='recovery_a'?'Готовий A':'Готовий B');await page.getByRole('option',{name:value==='recovery_a'?'Готовий A · шт':'Готовий B · шт',exact:true}).click();};
   const choose=async(value,accept)=>{const handle=native=>{prompts++;return accept?native.accept():native.dismiss();};page.once('dialog',handle);await selectProduct(value);page.removeListener('dialog',handle);};
   await selectProduct('recovery_a');await wait(async()=>await dialog().locator('[data-recipe=quantity]').count()===1&&await dialog().locator('[data-recipe=quantity]').inputValue()==='1.000','fresh recipe A');assert.equal(prompts,0);await dialog().locator('[data-recipe=quantity]').fill('3');

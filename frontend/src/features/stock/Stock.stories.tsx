@@ -133,3 +133,90 @@ export const InvalidNewerRecovery: Story = {
     await expect(canvas.getByRole('textbox', { name: /Мінімум:/ })).toHaveValue('invalid');
   },
 };
+
+function SaveFocusFixture() {
+  const [complete, setComplete] = useState<(() => void) | null>(null);
+  const [model] = useState(() => {
+    const api = fixtureApi();
+    return new StockModel({
+      ...api,
+      save: (intent) =>
+        new Promise((resolve) => {
+          setComplete(() => () => resolve(api.save(intent)));
+        }),
+    });
+  });
+  useEffect(() => {
+    let live = true;
+    void model.activate(options).then(() => {
+      if (live) void model.change({ assortmentOpen: true, assortmentWarehouse: 1 });
+    });
+    return () => {
+      live = false;
+      model.leave();
+    };
+  }, [model]);
+  return (
+    <>
+      <button
+        disabled={!complete}
+        onClick={() => {
+          complete?.();
+          setComplete(null);
+        }}
+      >
+        Завершити тестову відповідь
+      </button>
+      <Stock model={model} />
+    </>
+  );
+}
+export const SaveFocus: Story = {
+  render: () => <SaveFocusFixture />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const minimum = await canvas.findByRole('textbox', { name: /Мінімум:/ });
+    await userEvent.type(minimum, '3');
+    canvas.getByRole('button', { name: 'Зберегти' }).focus();
+    await userEvent.keyboard('{Enter}');
+    const complete = canvas.getByRole('button', { name: 'Завершити тестову відповідь' });
+    await waitFor(() => expect(complete).toBeEnabled());
+    // Resolve the pending response without simulating a user focus change.
+    complete.click();
+    await waitFor(() => expect(canvas.getByRole('heading', { level: 4 })).toHaveFocus());
+    await expect(canvas.getByRole('button', { name: 'Зберегти' })).toBeDisabled();
+  },
+};
+export const SaveKeepsNewFocus: Story = {
+  render: () => <SaveFocusFixture />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const minimum = await canvas.findByRole('textbox', { name: /Мінімум:/ });
+    await userEvent.type(minimum, '3');
+    canvas.getByRole('button', { name: 'Зберегти' }).focus();
+    await userEvent.keyboard('{Enter}');
+    const complete = canvas.getByRole('button', { name: 'Завершити тестову відповідь' });
+    await waitFor(() => expect(complete).toBeEnabled());
+    const search = canvas.getByRole('textbox', { name: 'Пошук товару' });
+    search.focus();
+    complete.click();
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Зберегти' })).toBeDisabled());
+    await expect(search).toHaveFocus();
+  },
+};
+export const DraftActionFocus: Story = {
+  render: () => <SaveFocusFixture />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const minimum = await canvas.findByRole('textbox', { name: /Мінімум:/ });
+    await userEvent.type(minimum, '3');
+    canvas.getByRole('button', { name: 'Скинути чернетку' }).focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(canvas.getByRole('heading', { level: 4 })).toHaveFocus());
+    await userEvent.type(minimum, '4');
+    canvas.getByRole('button', { name: /відкрити чернетку/ }).focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(canvas.getByRole('textbox', { name: /Мінімум:/ })).toHaveFocus());
+    await expect(canvas.getByRole('textbox', { name: /Мінімум:/ })).toHaveValue('4');
+  },
+};

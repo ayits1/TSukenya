@@ -64,18 +64,22 @@ const text=locator=>locator.innerText().then(value=>value.replace(/\s+/g,' ').tr
  assert.match(await text(panel),/1 товарів нижче мінімуму вже покриті проведеними замовленнями/);
  // Warehouse assortment (B13): the gingerbread is not sold in this warehouse, so it leaves the suggestions; keyboard only.
  await page.goto(base+'/#trade/stock',{waitUntil:'domcontentloaded'});
- const assortment=page.locator('#main section.panel',{has:page.getByRole('heading',{name:'Асортимент складу'})});
- await assortment.waitFor();await assortment.getByText('Що продається на складі та мінімальні залишки').click();
- const sold=assortment.getByRole('checkbox',{name:/Продається тут: Пряник медовий/});
+ await page.locator('[data-react-stock] .stock-cards').waitFor();
+ await page.getByRole('button',{name:'Асортимент складу',exact:true}).press('Enter');
+ // Select the real warehouse through the bounded directory, never a hidden native select.
+ const warehouse=page.getByRole('combobox',{name:'Склад асортименту',exact:true}),warehouseName=await page.evaluate(async()=>(await(await fetch('/api/erp/state')).json()).warehouses[0].name);
+ await warehouse.fill(warehouseName);await page.getByRole('option',{name:warehouseName,exact:true}).waitFor();await warehouse.press('ArrowDown');await warehouse.press('Enter');
+ const assortment=page.locator('[data-stock-draft]').filter({has:page.getByRole('heading',{name:/Пряник медовий/})});
+ await assortment.waitFor();const sold=assortment.getByRole('checkbox',{name:'Продається на цьому складі',exact:true});
  assert.equal(await sold.isChecked(),true,'without a row the product is sold everywhere');
- assert.equal(await assortment.getByRole('spinbutton',{name:/Мінімум на складі: Пряник медовий/}).getAttribute('placeholder'),'3');
- await sold.focus();await page.keyboard.press('Space');assert.equal(await sold.isChecked(),false);
- await page.keyboard.press('Tab');await page.keyboard.press('Tab');
- assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Зберегти асортимент: Пряник медовий');
- await page.keyboard.press('Enter');
- await wait(async()=>/Збережено: Пряник медовий\. Не продається на цьому складі/.test(await text(assortment.locator('#tradeAssortmentStatus'))),'assortment row saved');
- assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Зберегти асортимент: Пряник медовий','focus returns to the saved row');
- assert.equal(await assortment.getByRole('checkbox',{name:/Продається тут: Пряник медовий/}).isChecked(),false);
+ assert.match(await assortment.innerText(),/Порожнє поле — з каталогу \(3 шт\)/,'catalogue minimum remains distinct from a warehouse override');
+ await sold.focus();await sold.press('Space');assert.equal(await sold.isChecked(),false);
+ const save=assortment.getByRole('button',{name:'Зберегти',exact:true});await save.focus();await save.press('Enter');
+ await wait(async()=>await page.getByText('Асортимент збережено.',{exact:true}).count()===1,'assortment row saved');
+ await wait(async()=>!await page.getByText('Завантаження залишків…',{exact:true}).count()&&await page.locator('[data-react-stock] .stock-cards').count()===1,'assortment ACK read completed');await assortment.waitFor();await wait(async()=>await assortment.getByRole('heading',{name:/Пряник медовий/}).evaluate(node=>document.activeElement===node),'confirmed row heading focused after render');assert(await assortment.getByRole('heading',{name:/Пряник медовий/}).evaluate(node=>document.activeElement===node),'keyboard Save returns to the confirmed row heading');assert.equal(await assortment.getByRole('checkbox',{name:'Продається на цьому складі',exact:true}).isChecked(),false);
+ // The changed row and its current revision are read independently of the UI ACK.
+ const saved=await page.evaluate(async()=>{const w=(await(await fetch('/api/erp/state')).json()).warehouses[0].id;return(await(await fetch('/api/v1/trading/assortment?warehouse='+w+'&product=ginger')).json()).rows[0];});
+ assert.equal(saved.sold,false);assert.match(saved.revision,/^[a-f0-9]{32}$/);
  // A second form that opened before this save carries an old version and is refused.
  const stale=await page.evaluate(async()=>{const csrf=(await(await fetch('/api/state')).json()).csrf,wh=(await(await fetch('/api/erp/state')).json()).warehouses[0].id;const r=await fetch('/api/erp/assortment',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({warehouse:wh,product:'ginger',sold:true,min_stock:null})});return [r.status,(await r.json()).code];});
  assert.deepEqual(stale,[409,'revision_conflict']);
