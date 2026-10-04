@@ -546,7 +546,7 @@ def payroll_amount(v):
         s.payroll = v
         s.save(update_fields=['basis_amount','accrued','payroll'])
         total += s.accrued
-    v.payload['calculation'] = [{'id':s.pk,'date':s.date.isoformat(),'units':str(s.units),'rate':str(s.shift_rate),'percent':str(s.bonus_percent),'basis':s.bonus_basis,'basis_amount':str(s.basis_amount),'accrued':str(s.accrued)} for s in shifts]
+    v.payload['calculation'] = [{'id':s.pk,'date':s.date.isoformat(),'cash_shift':s.cash_shift_id,'units':str(s.units),'rate':str(s.shift_rate),'percent':str(s.bonus_percent),'basis':s.bonus_basis,'basis_amount':str(s.basis_amount),'accrued':str(s.accrued)} for s in shifts]
     return total
 
 @transaction.atomic

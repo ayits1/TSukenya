@@ -171,7 +171,19 @@ class WorkShift(models.Model):
     payroll = models.ForeignKey(Voucher, null=True, blank=True, on_delete=models.PROTECT)
     note = models.TextField(blank=True)
     class Meta:
-        constraints = [models.UniqueConstraint(fields=['employee', 'date'], name='one_work_shift_per_employee_day')]
+        constraints = [
+            models.UniqueConstraint(fields=['employee', 'date', 'cash_shift'], condition=models.Q(cash_shift__isnull=False), name='one_work_shift_per_employee_day_till'),
+            models.UniqueConstraint(fields=['employee', 'date'], condition=models.Q(cash_shift__isnull=True), name='one_unlinked_work_shift_per_employee_day'),
+        ]
+
+
+class WorkShiftCreateReceipt(models.Model):
+    """Exact create acknowledgement; later timesheet edits never alter the receipt."""
+    key = models.UUIDField(primary_key=True, editable=False)
+    author = models.ForeignKey(User, on_delete=models.PROTECT)
+    work_shift = models.ForeignKey(WorkShift, on_delete=models.PROTECT)
+    fingerprint = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 class AuditEvent(models.Model):
     at = models.DateTimeField(auto_now_add=True)
