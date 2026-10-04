@@ -135,19 +135,14 @@ def current_debts(user, params):
 
 
 def debts(user, params):
-    financial_access(user)
-    requested = page_number(params)
-    rows, totals = current_debts(user, params)
-    total = len(rows)
-    page, pages, offset = page_bounds(total, requested)
-    return {'items': rows[offset:offset + PAGE_SIZE], 'total': total, 'page': page, 'pages': pages,
-            'debt_totals': totals}
+    from .settlement_reads import debts as bounded
+    return bounded(user, params)
 
 
 CALENDAR_DAYS = 14
 
 
-def debt_summary(user):
+def legacy_debt_summary(user):
     """Overview card: overdue amounts both ways and supplier payments due in the next two weeks."""
     financial_access(user)
     rows, _ = current_debts(user, {})
@@ -171,3 +166,8 @@ def debt_summary(user):
         'overdue': {side: {'amount': str(money(value['amount'])), 'count': value['count']} for side, value in overdue.items()},
         'payments': payments, 'payments_total': str(money(sum((Decimal(row['amount']) for row in payments), ZERO))),
     }
+
+
+def debt_summary(user):
+    from .settlement_reads import summary
+    return summary(user)

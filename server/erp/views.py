@@ -526,7 +526,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/planning-category-persistence.js"></script><script src="/planning-category-editor.js"></script><script src="/monthly-budget-persistence.js"></script><script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-entity-persistence.js"></script><script src="/erp-workshift-persistence.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-draft-persistence.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/receipt-catalog-review.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/settlement-reads.js"></script><script src="/planning-category-persistence.js"></script><script src="/planning-category-editor.js"></script><script src="/monthly-budget-persistence.js"></script><script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-entity-persistence.js"></script><script src="/erp-workshift-persistence.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-draft-persistence.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/receipt-catalog-review.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         if RELEASE!='unknown':
             html=html.replace('id="applicationVersion">Локальна версія','id="applicationVersion">Версія '+RELEASE[:7],1).replace('id="applicationCommit">Невідомий','id="applicationCommit">'+RELEASE,1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
@@ -589,6 +589,9 @@ def handle(request):
         if path.endswith('/identity') and request.method=='POST':return response(work_shift_recovery.identity(user,body(request)))
         if request.method=='GET' and not path.endswith('/identity'):
             return response(work_shift_recovery.current(user,request.GET) if path.endswith('/current') else work_shift_recovery.recovery_context(user,request.GET))
+    if path=='/api/v1/trading/settlements/statement' and request.method=='GET':
+        from .settlement_reads import statement
+        return response(statement(user,request.GET))
     if path.startswith('/api/v1/'):
         if path.startswith('/api/v1/trading/'):
             from .directories import handle as handle_directories
@@ -610,7 +613,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/monthly-budget-persistence.js','/planning-category-persistence.js','/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-entity-persistence.js','/erp-workshift-persistence.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-draft-persistence.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/receipt-catalog-review.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/settlement-reads.js','/monthly-budget-persistence.js','/planning-category-persistence.js','/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-entity-persistence.js','/erp-workshift-persistence.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-draft-persistence.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/receipt-catalog-review.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -775,10 +778,12 @@ def handle(request):
     if path=='/api/erp/debts' and request.method=='GET':
         from .financial_browsing import debts
         return response(debts(user,request.GET))
-    if path in {'/api/erp/advances','/api/erp/party-statement'} and request.method=='GET':
-        if user.profile.role not in {'owner','manager','accountant'}:return response({'error':'Недостатньо прав для фінансових даних.'},403)
-        from .party_finance import advances, statement
-        return response((advances if path.endswith('/advances') else statement)(user,request.GET))
+    if path=='/api/erp/advances' and request.method=='GET':
+        from .settlement_reads import advances
+        return response(advances(user,request.GET))
+    if path=='/api/erp/party-statement' and request.method=='GET':
+        return response({'error':'Оновіть застосунок: звірка має новий обмежений контракт.',
+                         'code':'endpoint_retired','replacement':'/api/v1/trading/settlements/statement'},410)
     if path=='/api/erp/initiatives':
         from .initiatives import list_projects,mutate
         if request.method=='GET':return response(list_projects(user,request.GET))
@@ -855,21 +860,8 @@ def handle(request):
                 return response({'error':message,**proof},400)
             result=voucher_json(v,True,user=user);result['request_key']=v.idempotency_key;return response(result,201)
         require(request.method=='GET','Метод не підтримується.')
-        from .browsing import page_number, page_bounds, filter_search, positive_integer, PAGE_SIZE
-        qs=scoped(Voucher.objects.select_related('created_by'),user)
-        qs=qs.filter(kind__in=ROLE_KINDS[user.profile.role])
-        if user.profile.role not in {'owner','accountant'}:qs=qs.exclude(kind='expense',payload__expense_scope='network')
-        if request.GET.get('kind'):qs=qs.filter(kind__in=request.GET['kind'].split(','))
-        if request.GET.get('status'):qs=qs.filter(status=request.GET['status'])
-        if request.GET.get('party'):
-            party_id=positive_integer(request.GET['party'],'ID контрагента')
-            qs=qs.filter(Q(party_id=party_id) | Q(kind='customer_return',reference__kind='sale',reference__party_id=party_id,reference__store_id=F('store_id')))
-        if request.GET.get('store'):qs=qs.filter(store_id=positive_integer(request.GET['store'],'ID магазину'))
-        qs=filter_search(qs,request.GET)
-        total=qs.count();page,pages,offset=page_bounds(total,page_number(request.GET))
-        from .browsing import with_settlements
-        rows=with_settlements(qs.order_by('-pk')[offset:offset+PAGE_SIZE])
-        return response({'items':[voucher_json(v,user=user,settlements=v.browse_settlements,allocations=v.browse_allocations) for v in rows],'total':total,'page':page,'pages':pages})
+        from .settlement_reads import vouchers
+        return response(vouchers(user,request.GET))
     match=re.fullmatch(r'/api/erp/vouchers/(\d+)(?:/(post|reverse))?',path)
     if match:
         pk,action=match.groups();v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind)

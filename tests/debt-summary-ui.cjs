@@ -47,10 +47,10 @@ const text=locator=>locator.innerText().then(value=>value.replace(/\s+/g,' ').tr
  assert.equal(await stat('Прострочено: ми винні'),'Прострочено: ми винні 250,00 грн 1 документ');
  assert.equal(await stat('Оплатити постачальникам за 14 днів'),'Оплатити постачальникам за 14 днів 1 394,56 грн 8 документів');
  const rows=card.locator('.debt-calendar li');
- assert.equal(await rows.count(),6,'six nearest payments are listed');
+ assert.equal(await rows.count(),5,'five nearest payments are listed; the count and total cover all eight');
  assert.match(await text(rows.first()),/^Сьогодні ТОВ «Солодкий світ».* · № \d{6} 100,00 грн$/);
  assert.match(await text(rows.nth(1)),/1 234,56 грн$/);
- assert.match(await text(card),/І ще 2 у найближчі 14 днів/);
+ assert.match(await text(card),/І ще 3 у найближчі 14 днів/);
  assert.doesNotMatch(await text(card),/999/,'a payment beyond 14 days is not listed');
  assert.equal(await card.getByRole('link',{name:'Фінанси'}).getAttribute('href'),'#trade/finance');
  for(const width of [1440,390,320]){

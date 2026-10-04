@@ -62,7 +62,7 @@ def with_settlements(query):
     return prefetched_sources(query)
 
 
-def references(user, params):
+def legacy_references(user, params):
     purpose = params.get('purpose', '')
     require(purpose in SOURCE_KINDS, 'Невідоме призначення вихідного документа.')
     permission(user, purpose)
@@ -112,3 +112,8 @@ def references(user, params):
         } for voucher, outstanding in selected],
         'total': total, 'page': page, 'pages': pages,
     }
+
+
+def references(user, params):
+    from .settlement_reads import references as bounded
+    return bounded(user, params)

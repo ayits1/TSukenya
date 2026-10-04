@@ -694,7 +694,7 @@
     S.debtSummary={state:"loading",at:Date.now()};
     fetch("/api/erp/debts/summary",{credentials:"same-origin"})
       .then(r=>r.ok?r.json():Promise.reject(Error("debts "+r.status)))
-      .then(d=>{S.debtSummary={...d,state:"ready",at:Date.now()};})
+      .then(d=>{S.debtSummary={...window.SettlementReads.decodeSummary(d),state:"ready",at:Date.now()};})
       .catch(()=>{S.debtSummary={state:"error",at:Date.now()};})
       .finally(()=>{if(tab==="overview")render();});
   }
@@ -705,11 +705,11 @@
     if(!d||d.state==="loading")return `<section class="panel">${head}<p class="muted" role="status">Завантажуємо борги…</p></section>`;
     if(d.state==="error")return `<section class="panel">${head}<p class="muted">Не вдалося завантажити борги.</p><button class="btn soft" type="button" data-act="reloadDebts">Повторити</button></section>`;
     const when=v=>v===d.today?"Сьогодні":new Date(v+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"short",day:"numeric",month:"short"}), count=n=>n?`${n} ${n%10===1&&n%100!==11?"документ":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"документи":"документів"}`:"немає";
-    const shown=d.payments.slice(0,6), rest=d.payments.length-shown.length;
+    const shown=d.payments, rest=d.payments_count-shown.length;
     return `<section class="panel debt-summary">${head}<div class="stats">
       <div class="stat"><div class="l">Прострочено: нам винні</div><div class="v num">${money(num(d.overdue.to_us.amount))} грн</div><div class="muted">${count(d.overdue.to_us.count)}</div></div>
       <div class="stat"><div class="l">Прострочено: ми винні</div><div class="v num">${money(num(d.overdue.by_us.amount))} грн</div><div class="muted">${count(d.overdue.by_us.count)}</div></div>
-      <div class="stat"><div class="l">Оплатити постачальникам за ${d.days} днів</div><div class="v num">${money(num(d.payments_total))} грн</div><div class="muted">${count(d.payments.length)}</div></div>
+      <div class="stat"><div class="l">Оплатити постачальникам за ${d.days} днів</div><div class="v num">${money(num(d.payments_total))} грн</div><div class="muted">${count(d.payments_count)}</div></div>
     </div>${shown.length?`<h4 class="debt-calendar-title">Календар оплат постачальникам</h4><ul class="debt-calendar">${shown.map(x=>`<li><span class="when">${esc(when(x.due_date))}</span><span class="who">${esc(x.party)}<span class="muted"> · № ${esc(x.number)}</span></span><span class="num">${money(num(x.amount))} грн</span></li>`).join("")}</ul>${rest>0?`<p class="muted">І ще ${rest} у найближчі ${d.days} днів — повний перелік у розділі «Фінанси».</p>`:""}`:`<p class="muted">Найближчими ${d.days} днями оплат постачальникам за строками немає.</p>`}</section>`;
   }
   function overview(){

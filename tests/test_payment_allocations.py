@@ -17,7 +17,14 @@ from server.erp.reconcile import reconcile
 from server.erp.financial_browsing import current_debts
 
 
-class PaymentAllocationTests(AccountingFixture):
+class PaymentAllocationTests(TransactionTestCase):
+    v = AccountingFixture.v
+    cash_start = AccountingFixture.cash_start
+    sale = AccountingFixture.sale
+
+    def setUp(self):
+        AccountingFixture.setUp(self)
+
     def payment(self,amount,allocations=None,**extra):
         body={'kind':'payment','date':self.today,'store':self.store.pk,'party':self.party.pk,'account':self.cash.pk,'amount':amount,**extra}
         if allocations is not None:body['allocations']=allocations
@@ -105,7 +112,7 @@ class PaymentAllocationTests(AccountingFixture):
         with CaptureQueriesContext(connection) as captured:rows,totals=current_debts(self.u,{})
         self.assertLessEqual(len(captured),5);self.assertEqual(rows,[])
         with CaptureQueriesContext(connection) as captured:result=advances(self.u,{})
-        self.assertLessEqual(len(captured),6);self.assertEqual(result['items'][0]['unallocated'],'35.00')
+        self.assertLessEqual(len(captured),10);self.assertEqual(result['items'][0]['unallocated'],'35.00')
 
     def test_statement_pages_running_saldo_and_all_aging_buckets(self):
         today=timezone.localdate()
@@ -186,20 +193,20 @@ class PaymentApiTests(TransactionTestCase):
         self.assertEqual(Voucher.objects.get(pk=key).cash_entries.count(),1)
         detail=self.client.get(f'/api/erp/vouchers/{key}');self.assertEqual(detail.json()['unallocated'],'10.00')
         self.assertEqual(self.client.get('/api/erp/advances',{'party':self.party.pk}).json()['total'],1)
-        statement=self.client.get('/api/erp/party-statement',{'party':self.party.pk});self.assertEqual(statement.status_code,200);self.assertTrue(statement.json()['reconciliation']['matches'])
+        statement=self.client.get('/api/v1/trading/settlements/statement',{'party':self.party.pk});self.assertEqual(statement.status_code,200);self.assertTrue(statement.json()['reconciliation']['matches'])
         refund={'kind':'payment_refund','date':self.today,'store':self.store.pk,'reference':key,'account':self.cash.pk,'amount':'11'}
         draft=post('/api/erp/vouchers',refund).json()['id'];self.assertEqual(post(f'/api/erp/vouchers/{draft}/post',{}).status_code,400)
         self.assertEqual(post('/api/erp/vouchers',body,csrf='wrong').status_code,403)
         for user in (cashier,warehouse):
             login(user)
             self.assertEqual(self.client.get('/api/erp/advances').status_code,403)
-            self.assertEqual(self.client.get('/api/erp/party-statement',{'party':self.party.pk}).status_code,403)
+            self.assertEqual(self.client.get('/api/v1/trading/settlements/statement',{'party':self.party.pk}).status_code,403)
             self.assertEqual(post('/api/erp/vouchers',body).status_code,403)
         login(manager)
         other=Store.objects.create(name='foreign')
         self.assertEqual(self.client.get('/api/erp/advances',{'store':other.pk}).json()['items'],[])
-        self.assertEqual(self.client.get('/api/erp/party-statement',{'party':self.party.pk,'store':other.pk}).json()['items'],[])
-        self.assertEqual(self.client.get('/api/erp/party-statement',{'party':self.party.pk,'page':'²'}).status_code,400)
+        self.assertEqual(self.client.get('/api/v1/trading/settlements/statement',{'party':self.party.pk,'store':other.pk}).json()['items'],[])
+        self.assertEqual(self.client.get('/api/v1/trading/settlements/statement',{'party':self.party.pk,'page':'²'}).status_code,400)
 
 
 

@@ -17,7 +17,7 @@ def payment_rows(payments, cutoff=None):
              'direction':v.party.kind,'total':str(v.total),'unallocated':str(balances[v.pk])} for v in payments if v.party_id and balances[v.pk]>0]
 
 
-def advances(user,params):
+def legacy_advances(user,params):
     financial_access(user)
     query=scoped(Voucher.objects.filter(kind='payment',status='posted').select_related('party','reference__party'),user)
     for key,field in [('store','store_id'),('party','party_id'),('id','pk')]:
@@ -28,6 +28,11 @@ def advances(user,params):
     total=len(rows);page,pages,offset=page_bounds(total,page_number(params))
     return {'items':rows[offset:offset+PAGE_SIZE],'total':total,'page':page,'pages':pages,
             'totals':{side:str(money(sum((Decimal(row['unallocated']) for row in rows if row['direction']==side),ZERO))) for side in ('customer','supplier')}}
+
+
+def advances(user,params):
+    from .settlement_reads import advances as bounded
+    return bounded(user,params)
 
 
 def statement_data(user,params):
