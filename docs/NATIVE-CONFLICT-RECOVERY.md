@@ -74,3 +74,53 @@ no POST before Save, GET cancellation/503/malformed/ID, поточні прав�
 Metadata `PortalApi.session(signal)` збережено в initiatives API helper; cancellation не повертається до full-state GET. Новий native conflict сценарій зареєстровано в явній повній команді. Shared unavailable-module сценарій уже виконується через `portal-ui.cjs`, тому його окремий повтор `QA_PORTAL_FROM=module` у full entrypoint вилучено; вузька команда залишається для розробки. Повний прогін не запускався.
 
 Root integration після compact metadata: `QA_CONFLICT_LAYOUT_ONLY=1` actual native scenario PASS; звіт `/tmp/tsukenya-root-initiative-integration/layout-status-report.json` підтверджує завершений GET, unresolved choices block Apply, відсутність business POST порівняння та320/1440 geometry. Обидва actual PNG переглянуті. TypeScript/Vite build PASS. Первинна ширша native матриця з незмінними inputs повторно не запускалася.
+
+## Наявні записи торговельних довідників (B06)
+
+Редактори магазинів, складів, рахунків, контрагентів і працівників використовують той самий
+`NativeConflictComparison` та three-way helper. Початкове відкриття і повторне читання виконують
+read-only POST `/api/v1/trading/directories/details` із `purpose: manage` та точним ID. Це читання
+не створює бізнесових записів або аудиту. Сервер повторно перевіряє чинну роль і магазин.
+
+Окремий ресурсний decoder вимагає версію, усі редаговані поля та незмінну ідентичність;
+зокрема відсутні зарплатні умови працівника не замінюються нулями. Збережений неактивний запис
+читається за його ID, без підміни першим активним варіантом. Порівнюються:
+
+- магазини: назва та стан;
+- склади й рахунки: назва;
+- контрагенти: назва, телефон, email, примітка та стан;
+- працівники: ім’я, стан і атомарна група ставки, відсотка та бази відсотка.
+
+Магазин, тип рахунку/контрагента, ID, фінансові підсумки й версія не є редагованими полями
+порівняння. Зміна незмінної ідентичності між читаннями блокує узгодження.
+
+Після 409, невизначеного результату або відмови в доступі форма зберігає введення і блокує
+повторний Save до підтвердженого порівняння. Apply змінює лише локальну чернетку та її базову
+серверну версію; окремий Save виконує запис. Новий 409 після Apply знову потребує читання.
+Cancel, помилка/неповний DTO, закриття форми й пізня відповідь не підхоплюють нову версію.
+Під час читання й порівняння поля заблоковані; повернення до чернетки відновлює введення.
+Після підтвердженого Save збій оновлення списку пропонує лише повторне читання.
+
+Межа цього пакета — **редагування наявних** записів. Створення довідника ще не має стабільного
+receipt для lost-ACK повтору; його не слід називати захищеним від дублювання. Табель має окремий
+B04 recovery-контракт і переноситься самостійним пакетом. Чернетка живе у відкритій формі;
+відновлення після перезавантаження сторінки тут не заявляється.
+
+Цільові перевірки:
+
+```sh
+npm exec --workspace frontend -- vitest run --project unit src/shared/native/entity.test.ts
+npm exec --workspace frontend -- vitest run --project storybook src/shared/native/NativeConflict.stories.tsx -t 'Employee Pay Terms'
+PYTHON_BIN=/path/to/python node tests/entity-conflict-ui.cjs
+# Тільки початкове відкриття з неповними приватними полями:
+QA_ENTITY_OPEN_ONLY=1 PYTHON_BIN=/path/to/python node tests/entity-conflict-ui.cjs
+python manage.py test tests.test_entity_recovery --noinput
+```
+
+Native test створює власну SQLite та синтетичні записи, використовує локальний Chrome.
+`report.json`, `workflow-report.json` і viewport PNG 1440/320 записуються в `QA_OUTPUT_DIR` або
+тимчасовий каталог ОС `tsukenya-entity-conflict-proof`. Два нові API-тести також пройдено
+на окремій PostgreSQL базі: stale save→read без аудиту→окреме збереження; неактивний працівник
+із повними умовами та актуальна відмова ролі. Повний набір не запускався.
+
+Root integration: TypeScript/Vite build PASS; `QA_ENTITY_OPEN_ONLY=1 QA_OUTPUT_DIR=/tmp/tsukenya-root-entity-open` native PASS підтверджує завантажений adapter, видиму відмову відкрити owner employee з неповними умовами без жодного POST. Авторський ширший workflow окремо підтвердив late read після закриття/навігації. Обидва author actual comparison PNG1440/320 переглянуті root. Ширші native докази повторно використовуються для незмінених inputs. Entity сценарій зареєстрований один раз у full entrypoint; partial flags entity/initiative/directories та їхні output paths очищаються перед явним full pass. Виконано лише `test:full -- --plan` для перевірки реєстру, без повної регресії.

@@ -3,14 +3,17 @@ import { I18nProvider } from 'react-aria-components';
 import { NativeConflict, type NativeConflictProps } from './shared/native/NativeConflict';
 import { nativeFields } from './shared/native/fields';
 import './shared/ui/controls.css';
+import * as entityEditor from './shared/native/entity';
 
 declare global {
   interface Window {
+    NativeEntityEditor?: typeof entityEditor;
     NativeConflictComparison?: {
       mount: (host: HTMLElement, props: NativeConflictProps) => { unmount: () => void };
     };
   }
 }
+window.NativeEntityEditor = entityEditor;
 window.NativeConflictComparison = {
   mount(host, props) {
     nativeFields(props.fields);
