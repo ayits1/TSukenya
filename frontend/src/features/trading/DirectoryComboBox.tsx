@@ -15,6 +15,8 @@ export type DirectoryComboBoxProps = {
   type: DirectoryType;
   query: DirectoryQuery;
   label: string;
+  /** Caption of an empty committed optional choice; never an input value or search. */
+  emptyLabel?: string;
   value: string;
   selected: DirectoryItem | null;
   disabled?: boolean;
@@ -38,6 +40,7 @@ export function DirectoryComboBox({
   type,
   query,
   label,
+  emptyLabel,
   value,
   selected,
   disabled = false,
@@ -144,6 +147,13 @@ export function DirectoryComboBox({
       <ComboBox
         {...(portalContainer ? { portalContainer } : {})}
         label={label}
+        placeholder={
+          !required && !value && emptyLabel
+            ? emptyLabel
+            : value
+              ? 'Знайдіть запис…'
+              : 'Оберіть або знайдіть запис…'
+        }
         onOpenChange={setActive}
         options={current?.items.map(choice) || []}
         search="server"

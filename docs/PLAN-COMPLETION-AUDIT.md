@@ -198,3 +198,9 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B06 legacy tasks/ideas/expenses:** інтегровано для PR/CI. Exact versioned readonly GET, mandatory If-Match для existing changes, auth/source beforetoken, whitelist/noresurrection, shared localApply/separateSave й frozen inline drafts. Root unit3/combinedbuild/PG2/ACK/layout-invalidApply PASS; авторські matching API/concurrency/story/native proofs перевикористані для незмінених inputs. Entry/stories/static loaders/styles злиті аддитивно з accepted entity/workshift/reports. [NATIVE-CONFLICT-RECOVERY.md](NATIVE-CONFLICT-RECOVERY.md).
 - **B06 vouchers/payments/recipes** реалізуються окремими наступними пакетами; shared optional directory filter label delivery отримано для рев’ю. Reload survival, monthly/template recovery та повна React CRM міграція залишаються відкритими.
 - Full runner має один legacy harness з явними isolated main/inline/input/ACK/layout stages; виконано лише dry-run реєстру. Deployment, повний regression, production capacity і0.1 не виконані.
+
+## Після прийняття #63 · main8470b35 · 04.10.2026
+
+- **B06 tasks/ideas/legacy expenses:** #63 MERGED, exact heada7cf175 frontend/server/PostgreSQL CI SUCCESS. Independent root review виправило Apply/layout/isolation та старі compatibility fixtures, не послаблюючи If-Match. Targeted PG2+PG4/ACK/layout/metadataVM PASS, author matching proofs reused. Повний B06 не завершено.
+- **Shared directory optional empty UX:** інтегровано для PR/CI. Єдиний ComboBox показує caption порожнього фільтра з native option або React prop без підміни committed ID чи q. Author six stories/types/lint/build/native320+1440 PASS; root source/PNG review і affected isolated native/build PASS. [DIRECTORY-EMPTY-QA.md](DIRECTORY-EMPTY-QA.md).
+- Voucher/payment/recipe consumers тривають окремо. Full local regression, deployment, production capacity, external integrations та0.1 не виконані; статус усього GitHub-плану не підвищується до complete.
