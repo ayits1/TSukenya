@@ -4,9 +4,9 @@ const {execFileSync}=require('node:child_process'),path=require('node:path');
 const scope=process.env.QA_RECIPES_FROM||'all';
 const modes={
  paging:['protocol'],validation:['inputs','validation'],conflict:['legacy','version','frozen'],
- read:['protocol','confirmed','guards','cancel','preflight'],layout:['raw'],ack:['version','confirmed'],
+ read:['protocol','confirmed','guards','cancel','preflight','identity'],layout:['raw'],ack:['version','confirmed'],
  role:['privacy','guards'],compat:['compat'],reload:['raw','cold'],
- all:['raw','legacy','version','validation','confirmed','frozen','privacy','cold','guards','inputs','compat','protocol','cancel','preflight'],
+ all:['raw','legacy','version','validation','confirmed','frozen','privacy','cold','guards','inputs','compat','protocol','cancel','preflight','identity'],
 };
 if(!Object.hasOwn(modes,scope))throw Error('Unknown QA_RECIPES_FROM: use all, paging, validation, conflict, read, layout, ack, role, compat, reload');
 for(const stage of modes[scope]){

@@ -34,7 +34,9 @@ Warm focus виконує authorization-only read, не повторний Resto
   Current GET → явне порівняння/Apply → окремий Save з новою revision.
 - **Approved CREATE:** перший UUID/body незмінний, newer raw зберігається окремо.
   Exact retry — type=button, не валідовує нове введення. Identity reader звіряє
-  автора та точний request fingerprint з immutable RecipeVersion.
+  автора та точний request fingerprint з immutable RecipeVersion. Його успішне
+  підтвердження після live fence одразу записується durable, до окремого guarded
+  current GET. Збій цього наступного GET не повертає exact CREATE retry.
 - ACK записує durable confirmation до наступного читання. Поточний GET503/reload
   залишає read barrier: нового POST немає. UUID identity не стає поточною baseline.
   Коли введення вже підтверджене поточним читанням, record прибирається; новіші поля
@@ -72,7 +74,7 @@ legacy: owner/manager/warehouse; version: owner/manager. Global рецептур
   matching Vite build, JS syntax та diff check PASS.
 - Actual native harness: `tests/recipe-draft-reload-ui.cjs`, окремі terminal scopes
   raw, legacy, version, privacy, cold, validation, confirmed, frozen, guards,
-  inputs, compat, protocol, cancel, preflight — усі 14 окремо PASS.
+  inputs, compat, protocol, cancel, preflight, identity — усі 15 окремо PASS.
   Власний localhost18279/SQLite, bundled Chromium `headless:true`, без системного
   Chrome. Кожен запуск прибирає сервер/браузер/тимчасову базу у finally.
 - raw: обидва реальні редактори, invalid strings/порядок/stable UUID після reload,
@@ -111,9 +113,23 @@ PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python \
 QA_RECIPE_DRAFT_FROM=version node tests/recipe-draft-reload-ui.cjs
 ```
 
+## Виправлення за незалежним рев’ю
+
+У `eb92334` identity та current читалися одним callback: успішний identity receipt
+записувався лише після успішного current GET. Незалежне рев’ю виявило, що
+unknown CREATE → identity confirmed → current503 залишав exact retry доступним.
+Тепер це два послідовні fenced read: identity → durable confirmation (без зміни
+original baseline) → окремий current GET. Codec та серверні контракти незмінні.
+
+Новий `QA_RECIPE_DRAFT_FROM=identity` PASS: справжній committed/lostACK, новіші
+invalid raw, confirmed identity/current503, reload, exact retry hidden і Save
+blocked, explicit current read, одна immutable версія та нуль повторних CREATE.
+`identity-report.json` містить обидва checks. Інші scopes не повторювали; їхні
+попередні докази лишаються scoped історією, final combined all не запускали.
+
 ## Запуск і підтримка сценаріїв
 
-`tests/recipes-ui.cjs` — чинний агрегатор: all запускає 14 scope у власних чистих
+`tests/recipes-ui.cjs` — чинний агрегатор: all запускає 15 scope у власних чистих
 SQLite/server; вузькі режими `paging|validation|conflict|read|layout|ack|role|compat|reload`.
 `tests/recipe-conflict-ui.cjs` зберігає історичні `QA_RECIPE_*_ONLY` aliases,
 перенаправляючи їх на актуальні explicit recovery/privacy assertions. Старий
@@ -122,8 +138,8 @@ SQLite/server; вузькі режими `paging|validation|conflict|read|layout
 після legacy400 та публічної UUID receipt замінені чинними контрактами.
 
 Full registry вже включав recipes-ui; він тепер scrub-ить також
-`QA_RECIPE_DRAFT_FROM`. VM/stub перевірка dispatcher підтвердила всі 14 унікальних
-stages, read5/compat1/conflict3, заміну успадкованого stage та scrub старих flags.
+`QA_RECIPE_DRAFT_FROM`. VM/stub перевірка dispatcher підтвердила всі 15 унікальних
+stages, read6/compat1/conflict3, заміну успадкованого stage та scrub старих flags.
 Full runner перевірено лише `--plan`; синтаксис, browser policy, diff check PASS.
 У `production-ui.cjs` змінено лише очікуваний status approved retry; його production
 ledger сценарії не перезапускали. Така сама зміна тексту/стану перевірена version
@@ -132,7 +148,7 @@ scope цього пакета. Спільні контроли/їхні Storyboo
 Звіти містять HEAD на момент запуску; core перевірявся до commit, maintenance —
 поверх `c11280e` із відповідними WIP. Після нової preflight fence повторено тільки
 preflight, решта успішних proof reused за незміненими залежними сценаріями.
-Combined/default all run не оголошується виконаним: 14 scope запускали окремо.
+Combined/default all run не оголошується виконаним: 15 scope запускали окремо.
 
 Результат обмежений тією самою вкладкою/чинним сеансом. Screen readers, WebKit,
 закриття вкладки, cross-device і capacity не перевірені. Повний прогін, production,

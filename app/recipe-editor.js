@@ -239,43 +239,48 @@
       status.textContent = "Перевіряємо доступ і поточні умови без запису…";
       d.querySelector("#tradeFormError").textContent = "";
       try {
-        const result = await store.read(async (signal) => {
-          let identity = null;
-          const request = first()?.body || confirmed()?.body;
-          if (!legacy && request) {
-            identity = await api(
+        let identity = null;
+        const request = first()?.body || confirmed()?.body;
+        if (!legacy && request) {
+          identity = await store.read(async (signal) => {
+            const value = await api(
               "recipes/versions/identity",
               "POST",
               { request },
               signal,
               false,
             );
-            codec.decodeIdentity(identity, request);
-            if (!identity.confirmed) return { identity, latest: null };
-          }
-          const latest = await fetchCurrent(id, signal);
-          if (!(legacy ? latest.canEdit : latest.canApprove))
-            throw Object.assign(
-              Error("Поточна роль не дозволяє роботу з рецептурою."),
-              { status: 403 },
-            );
-          return { identity, latest };
-        }, controller.signal);
-        if (!live(n)) return;
-        if (!legacy && first()) {
-          if (!result.identity?.confirmed) {
+            codec.decodeIdentity(value, request);
+            return value;
+          }, controller.signal);
+          if (!live(n)) return;
+          if (!identity.confirmed) {
+            if (!first()) throw Error("Первісну версію не підтверджено.");
             reading = false;
             status.textContent =
               "Первісний запит ще не підтверджено. Можна повторити лише ті самі умови; нове введення збережено окремо.";
             controls();
             return;
           }
-          store.confirm("identity", result.identity);
-          state = codec.decodeState(store.payload.baseline);
-          review = true;
+          if (first()) {
+            // A successful identity read is a durable write receipt. Persist it
+            // before any independent current read can fail; adopt no baseline.
+            store.confirm("identity", identity);
+            state = codec.decodeState(store.payload.baseline);
+            review = true;
+            controls();
+          }
         }
-        const latest = result.latest;
-        if (!latest) throw Error("Первісну версію не підтверджено.");
+        const latest = await store.read(async (signal) => {
+          const value = await fetchCurrent(id, signal);
+          if (!(legacy ? value.canEdit : value.canApprove))
+            throw Object.assign(
+              Error("Поточна роль не дозволяє роботу з рецептурою."),
+              { status: 403 },
+            );
+          return value;
+        }, controller.signal);
+        if (!live(n)) return;
         if (baseline && latest.product.unit !== baseline.product.unit)
           throw Error(
             "Одиницю готового товару змінено. Чернетка збережена; автоматичне узгодження недоступне.",
@@ -302,7 +307,7 @@
           let done;
           try {
             done =
-              store.confirm("complete", legacy ? latest : result.identity) ===
+              store.confirm("complete", legacy ? latest : identity) ===
               null;
           } catch {
             done = false;
