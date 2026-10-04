@@ -440,7 +440,7 @@ async function workShiftForm(id,restored=null){
  const localProjection=value=>({cash_shift:value.cash_shift||'',units:value.units,shift_rate:value.shift_rate,bonus_percent:value.bonus_percent,bonus_basis:value.bonus_basis,note:value.note||''});
  const live=()=>d.open&&dialog===d&&generation===token&&current===tab;
  if(restored){for(const [key,value] of Object.entries(restored.payload.draft)){const el=form.elements.namedItem(key);if(el)el.value=value;}}
- const persistence=window.TradeWorkShiftPersistence.enroll({d,form,restored:restored?.payload,captureRaw:readValues,cancel:()=>stopComparison(),initial:{recordId:localId,key:createKey,id:s.id||null,store:s.store_id||initialEmployee?.store_id||Number(openingStore)||null,employee:s.employee_id||Number(form.elements.employee.value)||null,date:form.elements.date.value,original:s.id?s:null,createBase:null,needsReview,confirmed:Boolean(confirmedId)}});
+ const persistence=window.TradeWorkShiftPersistence.enroll({d,form,restored:restored?.payload,captureRaw:readValues,cancel:()=>{stopComparison();renderRecovery();},initial:{recordId:localId,key:createKey,id:s.id||null,store:s.store_id||initialEmployee?.store_id||Number(openingStore)||null,employee:s.employee_id||Number(form.elements.employee.value)||null,date:form.elements.date.value,original:s.id?s:null,createBase:null,needsReview,confirmed:Boolean(confirmedId)}});
  const durable=()=>persistence.capture({...persistence.payload.baseline,needsReview});
  function stopComparison(){readController?.abort();readController=null;readToken++;reading=false;comparisonHandle?.unmount();comparisonHandle=null;recovery.querySelector('[data-work-comparison]').replaceChildren();}
  function renderRecovery(){
