@@ -1,4 +1,5 @@
 import { recipeFields } from './recipe';
+import { entityFields } from './entity';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { NativeConflict } from './NativeConflict';
@@ -240,5 +241,42 @@ export const VoucherTerms: Story = {
       note: 'Моя незалежна примітка',
       terms: 'server',
     });
+  },
+};
+
+export const EntityCreateOriginalReceipt: Story = {
+  args: {
+    title: 'Узгодити зміни запису',
+    base: {
+      name: 'Олена',
+      active: true,
+      shift_rate: '100.00',
+      bonus_percent: '2.000',
+      bonus_basis: 'store',
+    },
+    mine: {
+      name: 'Моя новіша назва',
+      active: true,
+      shift_rate: '125',
+      bonus_percent: '2',
+      bonus_basis: 'store',
+    },
+    server: {
+      name: 'Олена',
+      active: false,
+      shift_rate: '100.00',
+      bonus_percent: '3.000',
+      bonus_basis: 'profit',
+    },
+    fields: entityFields('employees'),
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' }),
+    ).toBeDisabled();
+    await userEvent.click(canvas.getByRole('radio', { name: 'Залишити мої зміни' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' }));
+    await expect(args.onApply).toHaveBeenCalledWith({ ...args.mine, active: false });
   },
 };

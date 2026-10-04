@@ -260,49 +260,77 @@ async function entityForm(key,id,partyKind){
  const source=dialog,token=generation,tab=current,adapter=window.NativeEntityEditor;let x={};
  if(id){try{if(!adapter)throw Error('Редактор узгодження ще не завантажений. Повторіть відкриття.');const result=await window.TradeDirectories.hydrate([{type:key,id:String(id)}],{purpose:'manage'});if(source!==dialog||token!==generation||tab!==current)return;x=adapter.decodeEntity(key,result.items.find(item=>item.type===key&&item.id===String(id)),String(id));}catch(error){if(source===dialog&&token===generation&&tab===current){if(source?.open)formError(error,source);else errorPanel(error);}return;}}
  const titles={stores:'Магазин',warehouses:'Склад',parties:'Контрагент',accounts:'Грошовий рахунок',employees:'Працівник'};let html=field('Назва / ім’я',input('name',x.name||'','text','required maxlength="160"'));if(['warehouses','accounts','employees'].includes(key))html+=field('Магазин',x.id?lockedSelect('store',E.stores,x.store_id):select('store',E.stores,filterStore||E.defaultStoreId,true));if(key==='parties')html+=field('Тип',(x.id?lockedSelect:select)('kind',[{id:'supplier',name:'Постачальник'},{id:'customer',name:'Клієнт'}],x.kind||partyKind||'supplier',true))+field('Телефон',input('phone',x.phone||'','tel','maxlength="80"'))+field('Email',input('email',x.email||'','email','maxlength="254"'))+field('Примітка',`<textarea name="notes" rows="3" maxlength="4000">${esc(x.notes||'')}</textarea>`,'wide');if(key==='accounts')html+=field('Тип рахунку',(x.id?lockedSelect:select)('kind',[{id:'cash',name:'Готівка'},{id:'bank',name:'Банк'},{id:'terminal',name:'Термінал'}],x.kind||'cash',true));if(key==='employees')html+=field('Оплата за зміну, грн',num('shift_rate',id?x.shift_rate:0))+field('Відсоток від виторгу, %',num('bonus_percent',id?x.bonus_percent:0,'0.001','max="100"'))+field('База відсотка',select('bonus_basis',[{id:'store',name:'Виторг магазину за касову зміну'},{id:'personal',name:'Особисті продажі'},{id:'profit',name:'Валовий прибуток за зміну'}],id?x.bonus_basis:'store',true));if(['employees','parties','stores'].includes(key))html+=field('Стан',select('active',[{id:'yes',name:'Активний'},{id:'no',name:'Неактивний'}],x.active===false?'no':'yes',true));
- const d=modal(titles[key],`<form id="tradeEntityForm"><div class="trade-form-grid">${html}</div><div class="row trade-section-title"><button class="btn" type="submit">Зберегти</button></div></form>${id?'<section data-entity-recovery hidden><p class="trade-caption">Чернетка збережена. Прочитайте поточний запис і узгодьте зміни перед збереженням.</p><button type="button" class="btn soft" data-entity-compare>Порівняти з поточною версією</button><button type="button" class="btn soft" data-entity-cancel hidden>Скасувати читання</button><div data-entity-comparison></div></section>':''}`,'',true);
+ const d=modal(titles[key],`<form id="tradeEntityForm"><div class="trade-form-grid">${html}</div><div class="row trade-section-title"><button class="btn" type="submit">Зберегти</button></div></form><section data-entity-recovery hidden><p class="trade-caption" data-entity-message>Чернетка збережена. Прочитайте поточний запис і узгодьте зміни перед збереженням.</p><button type="button" class="btn soft" data-entity-exact hidden>Повторити початковий запит</button><button type="button" class="btn soft" data-entity-identity hidden>Перевірити початкове створення</button><button type="button" class="btn soft" data-entity-current hidden>Прочитати підтверджений запис</button><button type="button" class="btn soft" data-entity-compare>Порівняти з поточною версією</button><button type="button" class="btn soft" data-entity-cancel hidden>Скасувати читання</button><div data-entity-comparison></div></section>`,'',true);
  const form=d.querySelector('form');
- if(!id){form.onsubmit=e=>{e.preventDefault();submit(form,value=>api('entities/'+key,'POST',{...value,active:value.active!=='no'}));};return;}
- let baseline=structuredClone(x),needsReview=false,reading=false,controller=null,comparison=null,sequence=0,locked=[];
- const recovery=d.querySelector('[data-entity-recovery]'),readButton=d.querySelector('[data-entity-compare]'),cancelButton=d.querySelector('[data-entity-cancel]'),host=d.querySelector('[data-entity-comparison]'),save=form.querySelector('[type=submit]');
+ let baseline=id?structuredClone(x):null,needsReview=false,reading=false,controller=null,comparison=null,sequence=0,locked=[],intent=null,createKey=crypto.randomUUID(),ambiguous=false,confirmed=false,deleted=false;
+ const recovery=d.querySelector('[data-entity-recovery]'),readButton=d.querySelector('[data-entity-compare]'),cancelButton=d.querySelector('[data-entity-cancel]'),host=d.querySelector('[data-entity-comparison]'),save=form.querySelector('[type=submit]'),exactButton=d.querySelector('[data-entity-exact]'),identityButton=d.querySelector('[data-entity-identity]'),currentButton=d.querySelector('[data-entity-current]');
  const live=()=>dialog===d&&d.open&&current===tab&&generation===token;
- const sync=()=>{save.disabled=needsReview||reading;recovery.hidden=!needsReview;readButton.hidden=reading;cancelButton.hidden=!reading;};
+ const sync=()=>{save.disabled=needsReview||reading||Boolean(intent);recovery.hidden=!needsReview&&!intent;readButton.hidden=reading||!id||deleted;exactButton.hidden=reading||!intent||confirmed;identityButton.hidden=reading||!intent||confirmed||!ambiguous;currentButton.hidden=reading||!confirmed||deleted;cancelButton.hidden=!reading;};
  const lock=()=>{locked=[...form.querySelectorAll('input,select,textarea,button')].filter(el=>!el.disabled);locked.forEach(el=>el.disabled=true);};
  const release=()=>{locked.forEach(el=>el.disabled=false);locked=[];};
- const stop=(focus=true)=>{sequence++;controller?.abort();controller=null;comparison?.unmount();comparison=null;host.replaceChildren();reading=false;release();sync();if(focus&&live())readButton.focus();};
+ const stop=(focus=true)=>{sequence++;controller?.abort();controller=null;comparison?.unmount();comparison=null;host.replaceChildren();reading=false;release();sync();if(focus&&live())(id?readButton:identityButton).focus();};
  d.addEventListener('close',()=>stop(false),{once:true});
- const draft=()=>{const values=Object.fromEntries(new FormData(form));return adapter.decodeEntity(key,{...baseline,...values,type:key,name:String(values.name).trim(),active:values.active==='yes'},String(id));};
+ const rawDraft=()=>{const values=Object.fromEntries(new FormData(form));return {...values,active:values.active==='yes'};};
+ const draft=()=>{
+  const values=rawDraft();
+  if(baseline.store_id&&values.store!==undefined&&Number(values.store)!==baseline.store_id||baseline.kind&&values.kind!==undefined&&values.kind!==baseline.kind)throw Error('Магазин або тип підтвердженого запису змінити не можна. Чернетка збережена.');
+  return adapter.decodeEntity(key,{...baseline,...values,type:key,name:String(values.name).trim()},String(id));
+ };
+ const confirm=original=>{id=original.id;confirmed=true;baseline=structuredClone(original);x=original;needsReview=true;d.dataset.confirmedId=String(id);sync();dialogStatus(d,'Початкове створення підтверджено: '+original.name+'. Ваші поточні поля збережені. Прочитайте запис; зміни узгоджуються й зберігаються окремо.');};
+ const getCurrent=async signal=>{
+  const result=await window.TradeDirectories.hydrate([{type:key,id:String(id)}],{purpose:'manage'},signal);
+  const latest=adapter.decodeEntity(key,result.items.find(item=>item.type===key&&item.id===String(id)),String(id));
+  if(!adapter.entityIdentityMatches(baseline,latest))throw Error('Магазин або тип запису змінився. Узгодження недоступне; чернетка збережена.');
+  return latest;
+ };
  cancelButton.onclick=()=>{stop();dialogStatus(d,'Читання скасовано. Чернетка збережена.');};
- readButton.onclick=async()=>{
+ currentButton.onclick=async()=>{
   if(!live()||reading||d.dataset.busy==='1')return;
-  // Capture the visible inputs before disabling them. Read failures never adopt a revision.
+  const request=++sequence;controller=new AbortController();reading=true;lock();sync();
+  try{const latest=await getCurrent(controller.signal);if(!live()||request!==sequence)return;dialogStatus(d,'Підтверджений запис: '+latest.name+'. Поточні поля не змінено. Виправте їх за потреби та натисніть «Порівняти з поточною версією».');}
+  catch(error){if(live()&&request===sequence&&error.name!=='AbortError')formError(error,d);}
+  finally{if(live()&&request===sequence){stop(false);currentButton.focus();}}
+ };
+ identityButton.onclick=async()=>{
+  if(!live()||reading||!intent||confirmed||d.dataset.busy==='1')return;
+  const request=++sequence;controller=new AbortController();reading=true;lock();sync();
+  try{const raw=await api('../v1/trading/entities/'+key+'/identity','POST',{request:intent},controller.signal);if(!live()||request!==sequence)return;const found=adapter.decodeEntityIdentity(key,raw,createKey,intent);if(!found.confirmed){dialogStatus(d,'Початкове створення не підтверджено. Запит і чернетку збережено; можна повторити точний початковий запит.');return;}confirm(found.original);deleted=!found.exists;if(deleted)dialogStatus(d,'Початкове створення підтверджено, але запис уже видалено. Повторне створення й перезапис заблоковано. Чернетка збережена.');}
+  catch(error){if(live()&&request===sequence&&error.name!=='AbortError')formError(error,d);}
+  finally{if(live()&&request===sequence){stop(false);(id?currentButton:identityButton).focus();}}
+ };
+ const createSave=async()=>{
+  if(!live()||reading||confirmed||d.dataset.busy==='1')return;
+  let finishWork=busyDialog(d);if(!finishWork)return;const finish=()=>{finishWork?.();finishWork=null;};d.querySelector('#tradeFormError').textContent='';
+  try{const raw=await api('entities/'+key,'POST',intent);if(!live())return;const original=adapter.decodeEntityReceipt(key,raw,createKey,intent);confirm(original);finish();const visible=rawDraft();const request=++sequence;controller=new AbortController();reading=true;lock();sync();try{await getCurrent(controller.signal);if(!live()||request!==sequence)return;let unchanged=false;try{unchanged=JSON.stringify(adapter.captureEntityCreate(key,visible))===JSON.stringify(adapter.captureEntityCreate(key,intent));}catch{}if(unchanged){d.dataset.dirty='';d.close();stop(false);await refreshSaved(id,tab);return;}dialogStatus(d,'Початкове створення підтверджено. Новіші поля збережені; узгодьте їх із поточним записом перед окремим збереженням.');}finally{if(live()&&request===sequence)stop(false);}}
+  catch(error){if(live()){if(!confirmed){if(ambiguous||!error.status||error.status>=500||error.status===409)ambiguous=true;else{intent=null;createKey=crypto.randomUUID();}}formError(error,d);}}
+  finally{finish();if(live()){sync();if(confirmed)currentButton.focus();else if(intent)exactButton.focus();}}
+ };
+ exactButton.onclick=()=>createSave();
+ readButton.onclick=async()=>{
+  if(!live()||reading||d.dataset.busy==='1'||deleted)return;
   let local;try{local=draft();if(!form.reportValidity())return;}catch(error){formError(error,d);return;}
-  const request=++sequence;controller=new AbortController();reading=true;cancelButton.textContent='Скасувати читання';lock();sync();d.querySelector('#tradeFormError').textContent='';dialogStatus(d,'Читаємо поточну версію запису…');
+  const request=++sequence;controller=new AbortController();reading=true;lock();sync();d.querySelector('#tradeFormError').textContent='';dialogStatus(d,'Читаємо поточну версію запису…');
   try{
-   const result=await window.TradeDirectories.hydrate([{type:key,id:String(id)}],{purpose:'manage'},controller.signal);
+   const latest=await getCurrent(controller.signal);
    if(!live()||request!==sequence)return;
-   const latest=adapter.decodeEntity(key,result.items.find(item=>item.type===key&&item.id===String(id)),String(id));
-   if(!adapter.entityIdentityMatches(baseline,latest))throw Error('Магазин або тип запису змінився. Узгодження недоступне; чернетка збережена.');
    if(!window.NativeConflictComparison)throw Error('Компонент узгодження недоступний. Повторіть читання.');
    cancelButton.hidden=true;dialogStatus(d,'Порівняння готове. Узгодьте зміни; збереження виконується окремо.');
    comparison=window.NativeConflictComparison.mount(host,{base:adapter.entityProjection(key,baseline),mine:adapter.entityProjection(key,local),server:adapter.entityProjection(key,latest),fields:adapter.entityFields(key),title:'Узгодити зміни запису',onCancel:()=>{if(live()&&request===sequence){stop();dialogStatus(d,'Чернетка збережена. Прочитайте поточну версію перед збереженням.');}},onApply:merged=>{
     if(!live()||request!==sequence)return;
-    const adopted=adapter.decodeEntity(key,{...latest,...merged,type:key},String(id));
-    stop(false);baseline=structuredClone(latest);x=latest;
+    try{const adopted=adapter.decodeEntity(key,{...latest,...merged,type:key},String(id));stop(false);baseline=structuredClone(latest);x=latest;intent=null;
     for(const [name,value] of Object.entries(adapter.entityProjection(key,adopted))){const el=form.elements[name];if(el)el.value=name==='active'?(value?'yes':'no'):value;}
-    needsReview=false;markDirty(d);sync();dialogStatus(d,'Зміни узгоджено в чернетці. Натисніть «Зберегти».');save.focus();
+    for(const name of ['store','kind']){const el=form.elements[name];if(el){el.disabled=true;el.dataset.entityImmutable='1';}}
+    needsReview=false;markDirty(d);sync();dialogStatus(d,'Зміни узгоджено в чернетці. Натисніть «Зберегти».');save.focus();}catch(error){formError(error,d);}
    }});
   }catch(error){if(!live()||request!==sequence||error.name==='AbortError')return;stop(false);formError(error,d);readButton.focus();dialogStatus(d,'Поточну версію не підтверджено. Чернетка збережена.');}
  };
  form.onsubmit=async e=>{
-  e.preventDefault();if(!live()||needsReview||reading||d.dataset.busy==='1')return;
+  e.preventDefault();if(!live()||needsReview||reading||intent||d.dataset.busy==='1')return;
+  if(!id){try{if(!adapter)throw Error('Редактор узгодження ще не завантажений.');if(!form.reportValidity())return;intent=structuredClone({...adapter.captureEntityCreate(key,rawDraft()),idempotency_key:createKey});}catch(error){formError(error,d);return;}await createSave();return;}
   let value;try{value=draft();if(!form.reportValidity())return;}catch(error){formError(error,d);return;}
   const finish=busyDialog(d);if(!finish)return;d.querySelector('#tradeFormError').textContent='';
-  try{
-   const saved=await api('entities/'+key,'POST',{...adapter.entityProjection(key,value),id:x.id,revision:baseline.revision,...(x.store_id?{store:x.store_id}:{}),...(x.kind?{kind:x.kind}:{})});
-   if(!saved||String(saved.id)!==String(id))throw Error('Результат збереження не підтверджено. Прочитайте поточний запис.');
-   if(!live())return;d.dataset.dirty='';d.close();finish();await refreshSaved(saved.id,tab);return;
-  }catch(error){if(live()){if(error.status===409||error.status===403||!error.status||error.status>=500)needsReview=true;formError(error,d);}}
+  try{const saved=await api('entities/'+key,'POST',{...adapter.entityProjection(key,value),id:x.id,revision:baseline.revision,...(x.store_id?{store:x.store_id}:{}),...(x.kind?{kind:x.kind}:{})});if(!saved||String(saved.id)!==String(id))throw Error('Результат збереження не підтверджено. Прочитайте поточний запис.');if(!live())return;d.dataset.dirty='';d.close();finish();await refreshSaved(saved.id,tab);return;}
+  catch(error){if(live()){if(error.status===409||error.status===403||!error.status||error.status>=500)needsReview=true;formError(error,d);}}
   finally{finish();if(live())sync();}
  };
 }

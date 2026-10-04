@@ -330,6 +330,11 @@ def entity_save(user,name,value):
     require(name in allowed,'Невідомий довідник.')
     if name in {'stores','warehouses','accounts','employees'}:owner(user)
     else:require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав.')
+    if 'idempotency_key' in value:
+        if value.get('id'):
+            raise Conflict('UUID початкового створення не можна використати для редагування.', 'idempotency_conflict')
+        from .entity_receipts import create
+        return response(create(user,name,value,entity_save))
     model=allowed[name]
     obj=get(model,value['id'],'Запис') if value.get('id') else model()
     # Read-directory scope also governs writes, using the actor refreshed after the ledger lock.
@@ -539,6 +544,10 @@ def handle(request):
         require(user.profile.role in bounded_reports.ROLES,'Недостатньо прав для фінансових звітів.')
         if path.endswith('/export.csv'): return bounded_reports.export_csv(user,request.GET)
         return response(bounded_reports.rows(user,request.GET) if path.endswith('/rows') else bounded_reports.summary(user,request.GET))
+    match=re.fullmatch('/api/v1/trading/entities/(stores|warehouses|parties|accounts|employees)/identity',path)
+    if match and request.method=='POST':
+        from .entity_receipts import identity
+        return response(identity(user,match[1],body(request)))
     if path.startswith('/api/v1/'):
         if path.startswith('/api/v1/trading/'):
             from .directories import handle as handle_directories

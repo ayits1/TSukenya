@@ -173,6 +173,8 @@ def details(user, value):
         grouped.setdefault(ref['type'],[]).append(pk)
     result=[];missing=[]
     with read_snapshot():
+        from .services import current_actor
+        user=current_actor(user)
         for resource,ids in grouped.items():
             params={key:str(value[key]) for key in ('store','purpose') if value.get(key) is not None}
             purpose,_,store=parameters(user,resource,params)

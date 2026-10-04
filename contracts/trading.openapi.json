@@ -383,6 +383,185 @@
           }
         }
       }
+    },
+    "/api/erp/entities/{type}": {
+      "post": {
+        "operationId": "createEntityWithReceipt",
+        "description": "Create with immutable UUID receipt. Legacy no-key creates and revision-bound updates retain legacy contracts. Current actor/role/store policy under ledger lock before receipt lookup.",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stores",
+                "warehouses",
+                "accounts",
+                "employees",
+                "parties"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable acknowledgement; current row must be read separately",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityCreateAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Current policy/CSRF or conflict refusal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Current policy/CSRF or conflict refusal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current policy/CSRF or conflict refusal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Current policy/CSRF or conflict refusal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/entities/{type}/identity": {
+      "post": {
+        "operationId": "readEntityCreateIdentity",
+        "description": "CSRF-protected non-business read, real READ ONLY REPEATABLE READ. Exact original UUID/body/author/resource and current policy required. Does not create, mutate, audit or adopt a current revision.",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stores",
+                "warehouses",
+                "accounts",
+                "employees",
+                "parties"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "request"
+                ],
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/EntityCreateRequest"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable acknowledgement; current row must be read separately",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityCreateIdentity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Current policy/CSRF or conflict refusal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Current policy/CSRF or conflict refusal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current policy/CSRF or conflict refusal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Current policy/CSRF or conflict refusal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -776,6 +955,406 @@
             "type": "string"
           }
         }
+      },
+      "EntityCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "idempotency_key"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "bank",
+              "terminal",
+              "customer",
+              "supplier"
+            ]
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "shift_rate": {
+            "type": "string",
+            "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+          },
+          "bonus_percent": {
+            "type": "string",
+            "pattern": "^\\d{1,3}(?:\\.\\d{1,3})?$"
+          },
+          "bonus_basis": {
+            "type": "string",
+            "enum": [
+              "store",
+              "personal",
+              "profit"
+            ]
+          }
+        }
+      },
+      "EntityOriginalRecord": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "revision",
+              "type",
+              "active"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "stores"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "revision",
+              "type",
+              "store_id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "warehouses"
+              },
+              "store_id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "revision",
+              "type",
+              "store_id",
+              "kind"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "accounts"
+              },
+              "store_id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cash",
+                  "bank",
+                  "terminal"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "revision",
+              "type",
+              "store_id",
+              "active",
+              "shift_rate",
+              "bonus_percent",
+              "bonus_basis"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "employees"
+              },
+              "store_id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "shift_rate": {
+                "type": "string",
+                "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+              },
+              "bonus_percent": {
+                "type": "string",
+                "pattern": "^\\d{1,3}(?:\\.\\d{1,3})?$"
+              },
+              "bonus_basis": {
+                "type": "string",
+                "enum": [
+                  "store",
+                  "personal",
+                  "profit"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "revision",
+              "type",
+              "active",
+              "kind",
+              "phone",
+              "email",
+              "notes"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "parties"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "customer",
+                  "supplier"
+                ]
+              },
+              "phone": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 254
+              },
+              "notes": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            }
+          }
+        ],
+        "description": "Immutable original fields. Employee private terms only under current owner policy."
+      },
+      "EntityCreateAcknowledgement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "request_key",
+          "original"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9]\\d*$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "stores",
+              "warehouses",
+              "accounts",
+              "employees",
+              "parties"
+            ]
+          },
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "original": {
+            "$ref": "#/components/schemas/EntityOriginalRecord"
+          }
+        },
+        "description": "Exact frozen request receipt, never a current editable revision. Identical retry after edit/deletion returns initial acknowledgement without writes."
+      },
+      "EntityCreateIdentity": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confirmed",
+              "type",
+              "request_key"
+            ],
+            "properties": {
+              "confirmed": {
+                "type": "boolean",
+                "const": false
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "stores",
+                  "warehouses",
+                  "accounts",
+                  "employees",
+                  "parties"
+                ]
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confirmed",
+              "exists",
+              "id",
+              "type",
+              "request_key",
+              "original"
+            ],
+            "properties": {
+              "confirmed": {
+                "type": "boolean",
+                "const": true
+              },
+              "exists": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "stores",
+                  "warehouses",
+                  "accounts",
+                  "employees",
+                  "parties"
+                ]
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "original": {
+                "$ref": "#/components/schemas/EntityOriginalRecord"
+              }
+            }
+          }
+        ]
       }
     }
   }
