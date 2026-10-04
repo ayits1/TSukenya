@@ -9,11 +9,13 @@
 - Примітка незалежна. Касова зміна, units, ставка, відсоток та база відсотка — одна консервативна атомарна група.
 - ID, працівник, магазин і дата незмінні. Нараховано, база нарахування та payroll ID лише для читання й не входять у merge.
 - GET має повний strict DTO, точний ID/кількість відповіді, чинний salary/store scope та перевірені captions.
-  Неправильний resource/ID/identity, неповна відповідь, 403/503 не змінюють baseline.
+  Неправильний resource/ID/identity, неповна відповідь, некоректні units/precision/percent/cash terms, 403/503 не змінюють baseline.
+  DTO й Apply payload проходять captured draft validator до прийняття baseline; signed readonly basis_amount лишається читабельним.
 - Підписи atomic групи використовують `NativeField.keyValueLabels`: назва касової зміни ID1 не підміняє units/rate зі значенням1.
   Старий `valueLabels` лишається сумісним.
 - Історично вибраний неактивний працівник читабельний; ставка працівника сьогодні не замінює умови старого табеля.
-  Нові employee choices лишають чинний active guard.
+  Нові employee choices лишають чинний active guard. Для вибраного працівника нового табеля потрібні повні private rate/percent/basis;
+  malformed metadata не підміняється нулями. Порожня форма без працівників лишається доступною для наступного вибору.
 - На час GET та порівняння редактор заблокований. Скасування читання доступне окремо; AbortController,
   generation/source guards й unmount відкидають пізню відповідь після Cancel/Close/navigation.
 - Apply узгоджує лише поля відкритої чернетки та приймає переглянутий baseline/revision. POST виконується окремою кнопкою Save.
@@ -51,11 +53,18 @@ Artifacts `/tmp/tsukenya-work-shift-conflict-proof/`: `report.json` primary; `ex
 `payroll-result-320.png`. Fixture setup читає legacy state лише для synthetic seed; це не capacity/network-size benchmark.
 
 ```sh
-# Без прапорця harness виконує обидва окремі disposable етапи; перевірені етапи тут виконано окремими командами.
+# Без прапорця harness виконує три окремі disposable етапи primary/existing/semantic; перевірені етапи тут виконано окремими командами.
 PYTHON_BIN=/path/to/python node tests/work-shift-conflict-ui.cjs
 WORK_CONFLICT_FROM=primary PYTHON_BIN=/path/to/python node tests/work-shift-conflict-ui.cjs
 WORK_CONFLICT_FROM=existing PYTHON_BIN=/path/to/python node tests/work-shift-conflict-ui.cjs
+WORK_CONFLICT_FROM=semantic PYTHON_BIN=/path/to/python node tests/work-shift-conflict-ui.cjs
 ```
+
+Follow-up source review: 6 workshift unit PASS (0.088 s), включно з serverunits0/>10, недопустимою precision,
+percent100.001/positive без cash та missing employee private terms. Окремий `WORK_CONFLICT_FROM=semantic`
+actual native PASS: malformed serverunits0 й invalid Apply не змінюють draft/revision й не роблять POST;
+наступний valid GET/Apply та окремий Save працюють. Missing private employee terms блокують нове відкриття без inventedzero.
+`semantic-report.json` — окремий proof; первинний B04600, existing5 та stories не повторювалися. Build/lint/Node/diff PASS.
 
 `tests/multiple-work-shifts-ui.cjs` зберігає стару B04 команду як primary wrapper цього самого harness.
 Повну регресію, publish, deployment, VPS чи backup0.1 не виконували. Збереження чернетки через reload не входить до цього пакета.
