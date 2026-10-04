@@ -127,3 +127,9 @@ B26: перший CRM етап реалізовано — React клієнтсь
 ## B21: великий імпорт та журнал
 
 Інтегровано для PR/CI durable creator-owned run/chunks/plan/outcomes/history і native журнал; малий atomic endpoint збережено. Індекс назв/legacy recipe та cache довідників усувають повторні повні scans; lease-safe bounded steps зберігають поступ. Lost ACK, sourceHash/receipt-prefix reload, explicit apply та cancel із committed rows перевірено. [Контракт](CATALOG-IMPORT-JOBS-CONTRACT.md), [INDEX proof](CATALOG-IMPORT-INDEX.md), [UI proof](CATALOG-IMPORT-UI.md). Worker CLI працює в ізольованих перевірках; scheduler/service для робочого запуску та production capacity ще потребують окремого пакета й release. Не прирівнювати API limit100000 до виміряного SLA.0.1 не виконано.
+
+B21 пакет прийнято в [#53](https://github.com/ayits1/TSukenya/pull/53) після успішних exact-head frontend/server/PostgreSQL CI; локальний репозиторій fast-forward до main95d42c0. Worker runner/service готується окремо, deployment не виконано.
+
+## B24: деталі документів та локальний posting probe
+
+Наступний пакет для PR/CI усуває per-line DTO queries: receipt100409→10SQL, sale100309→10SQL; суми повернень і receipt lineage читаються batch тільки для конкретного документа. Root integrated PostgreSQL3, agent matching6, independent legacy DTO parity та scope/retry докази успішні. [B24-DOCUMENT-POSTING.md](B24-DOCUMENT-POSTING.md) містить source-hashed local1/5/10 concurrent create/post/exact-retry baseline. Accounting lock/posting/formulas не змінені; unchanged posting waves не повторювалися після serializer-only patch. Цей локальний one-process probe не є VPS/network SLA. B24 slim ERP/global runtime bootstrap лишається незавершеним.

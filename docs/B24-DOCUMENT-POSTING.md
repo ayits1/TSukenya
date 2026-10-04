@@ -82,3 +82,7 @@ Throughput повного циклу чотирьох HTTP запитів: 1/5/1
 - Baseline concurrent 80 різних документів: повтори не створили зайвих рядків/рухів/audit; один posted timestamp і той самий line DTO на кожний документ.
 
 Django discovery `manage.py test tests` у server/postgres CI та явному full-check автоматично включає новий test module. Benchmark навмисно opt-in і не доданий у CI/full. Повний набір, production rollout або мережевий benchmark не запускалися.
+
+## Root інтеграція
+
+Own commits f3136ad/593cf97/f6689d0/4030d28/2ab3145 інтегровано поверх main95d42c0. Перед перенесенням root перевірив, що reporting.py/services.py на accounting baselinebe48a4a та acceptedmain95d42c0 мають ідентичні Git blobs; posting baseline тому не потребує нового прогону. Root переглянув scope batch queries, amount/quantity aggregate parity, точну receipt_source(strict=False) семантику та opt-in QA database isolation. На інтегрованому коді PostgreSQL **3 PASS**:1/30/100-row actual receipts/sales DTO/query bounds, legacy ambiguous/negative/reversal receipt origins, HTTP create/post/exact retries. Інші незмінені agent proofs використані повторно. Python syntax і git diff-check успішні; нової UI поведінки чи міграцій цей пакет не вводить.
