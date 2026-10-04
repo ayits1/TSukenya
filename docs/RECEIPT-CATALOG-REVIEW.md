@@ -164,3 +164,19 @@ Reload не обіцяє persistence незаписаної пропозиції
   and isolated SQLite; PNGs inspected at 1440/320, no horizontal overflow.
   This is no physical mobile, RAM/throughput/SLA, screen-reader or printer claim.
   No full suite, production data, Sheet, VPS, posting policy changes or deployment.
+
+
+## Інтеграція з актуальним порталом
+
+Інтегровано поверх accepted main `fc27569`. Збережено stock entry/dispatch,
+entity recovery та всі наявні API generators. Незалежне рев’ю `827a110` PASS.
+Повторено залежні перевірки: build/TypeScript, scoped lint,5 unit cases,
+статичну browser policy, actual receipt→price review→Studio і store-context
+сценарії на ізольованій SQLite у bundled headless Chromium. Desktop1440/mobile320
+PNG переглянуто; горизонтального переповнення немає.
+
+Перший context запуск зупинився на застарілому очікуванні пагінації для одного
+результату. Fixture тепер очікує завершення loading та єдину опцію без footer;
+повторено лише context target, успішно. Failure artifacts збережені.
+Попередні незмінені13 PostgreSQL/5 Storybook/recovery докази використано повторно.
+Повної регресії та production mutation-тестів не запускали.
