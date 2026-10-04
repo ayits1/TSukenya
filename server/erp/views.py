@@ -88,7 +88,10 @@ def legacy_state(user):
         if col in COLLECTIONS:
             if col=='tasks' and not task_visible(user,d.data):
                 continue
-            if user.profile.role!='owner' and (col=='expenses' or col in {'tasks','ideas'} and d.data.get('scope')!='operations'):
+            if col=='expenses':
+                from .financial_scope import network_owner
+                if not network_owner(user):continue
+            if user.profile.role!='owner' and col in {'tasks','ideas'} and d.data.get('scope')!='operations':
                 continue
             product=dict(d.data)
             if col=='products':
@@ -105,7 +108,7 @@ def legacy_state(user):
             data[col].append({'id':id,'data':product,
                              **({'permissions':task_permissions(user,d.path,product)} if col=='tasks' else {}),
                              **({'revision':revision(d,catalog_config)} if col=='products' else {})})
-        elif d.path=='settings/main':data[d.path]=settings_for_role(d.data,user.profile.role)
+        elif d.path=='settings/main':data[d.path]=settings_for_role(d.data,user.profile.role,user.profile.store_id)
         elif d.path=='project/state' and user.profile.role=='owner':data[d.path]=d.data
     return data
 
@@ -137,11 +140,20 @@ def legacy_create_fingerprint(value):
 @transaction.atomic
 def legacy_mutation(request,user,path,create_key=None):
     ledger_lock()
+    user.refresh_from_db(fields=['is_active'])
+    user.profile.refresh_from_db()
+    require(user.is_active,'Недостатньо прав. Обліковий запис вимкнено.')
     col,_,id=path.partition('/')
     require(col in COLLECTIONS or path in SINGLE_DOCS,'Невідомий тип документа.')
     require(re.fullmatch(r'[A-Za-z0-9_-]{1,120}',id or ''),'Некоректний ID.')
     role=user.profile.role
     require(role=='owner' or col=='products' and role in {'manager','warehouse'} or col=='tasks' and role=='manager','Недостатньо прав для редагування.')
+    if col=='expenses':
+        from .financial_scope import require_network_owner
+        require_network_owner(user)
+    if path=='settings/main' and request.method=='DELETE':
+        from .legacy_settings import authorize_settings_write
+        authorize_settings_write(user,request.method)
     receipt=None
     if create_key is not None:
         require(re.fullmatch(r'[A-Za-z0-9_-]{16,80}',create_key or ''),'Некоректний ключ створення.')
@@ -184,6 +196,16 @@ def legacy_mutation(request,user,path,create_key=None):
         d.delete()
     else:
         value=body(request)
+        if path=='settings/main':
+            from .legacy_settings import authorize_settings_write
+            authorize_settings_write(user,request.method,value)
+            if user.profile.store_id is not None:
+                # PUT from a redacted DTO cannot erase hidden financial fields.
+                prior=dict(d.data) if d else {}
+                if 'storeNames' in value:
+                    from .budget import freeze_budget
+                    freeze_budget(prior)
+                value={**prior,**value}
         request_fingerprint=legacy_create_fingerprint(value) if create_key is not None else None
         if receipt:
             # Re-check current privileges and the original create scope, even for an exact replay.
@@ -450,7 +472,7 @@ def handle(request):
     if path=='/api/state' and request.method=='GET':
         from .labels import revision as label_revision
         document=Document.objects.filter(pk='settings/main').first()
-        return response({'data':legacy_state(user),'csrf':request.portal_session.csrf,'role':user.profile.role,'labelRevision':label_revision(document.data if document else {})})
+        return response({'data':legacy_state(user),'csrf':request.portal_session.csrf,'role':user.profile.role,'networkOwner':user.profile.role=='owner' and user.profile.store_id is None,'labelRevision':label_revision(document.data if document else {})})
     if path=='/api/logout' and request.method=='POST':
         request.portal_session.delete();result=response({'ok':True});result.delete_cookie('ts_session');return result
     if path=='/api/account/password' and request.method=='POST':

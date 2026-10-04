@@ -87,6 +87,8 @@ def state(user):
         entities['payroll_debts']=[{'employee':e.pk,'amount':str(payroll_debt(e))} for e in scoped(Employee.objects.all(),user)]
     lock=LedgerLock.objects.get(pk=1)
     entities['closed_through']=lock.closed_through
+    from .financial_scope import network_owner
+    entities['canViewAudit']=network_owner(user)
     entities['role']=user.profile.role
     entities['username']=user.username
     if user.profile.role in {'owner','manager'}:entities['alerts_status']=alert_status()

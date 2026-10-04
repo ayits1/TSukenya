@@ -10,7 +10,17 @@ TASK_STATUSES = {'todo', 'doing', 'done'}
 FINANCE_ALERT_ROLES = {'owner', 'manager', 'accountant'}
 
 
+def financial_task_in_scope(user, data):
+    if not str(data.get('_alertKey', '')).startswith('due:'):
+        return True
+    if user.profile.store_id is None:
+        return True
+    return type(data.get('store')) is int and data['store'] == user.profile.store_id
+
+
 def task_visible(user, data):
+    if not financial_task_in_scope(user, data):
+        return False
     if user.profile.role == 'owner':
         return True
     if data.get('scope') != 'operations':
@@ -25,6 +35,7 @@ def task_visible(user, data):
 
 
 def authorize_task(user, data):
+    require(financial_task_in_scope(user, data), 'Немає доступу до фінансової задачі цього магазину або мережі.')
     if user.profile.role == 'owner':
         return
     require(user.profile.role == 'manager' and data.get('scope') == 'operations',
@@ -43,6 +54,7 @@ def task_permissions(user, path, data):
     writable = role == 'owner' or role == 'manager' and data.get('scope') == 'operations' and (
         user.profile.store_id is None or
         type(data.get('store')) is int and data['store'] == user.profile.store_id)
+    writable = writable and financial_task_in_scope(user, data)
     return {'canEdit': writable, 'canDelete': writable and not alert_task(path, data)}
 
 
