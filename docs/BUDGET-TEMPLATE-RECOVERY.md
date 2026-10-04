@@ -31,3 +31,11 @@ Save явний. 409/403/428 або невідомий результат зап
 - `tests/budget-template-ui.cjs`: actual delayed openingGET; 409→GET503→explicit Apply; second409; фактичний committed PATCH зі зіпсованим ACK→GET-only; cancel/late; 403/malformed/latest; comparison Cancel; confirmedSave→metadata503→GET-only. Синтетична SQLite, 1440/320 і viewport PNG.
 
 Для вузького продовження harness підтримує `TEMPLATE_STAGE=recovery` (друга фаза) та `TEMPLATE_STAGE=layout` (перша фаза/PNG). Повний штатний entry без змінної проходить обидві. `TEMPLATE_PROOF_DIR` задає артефакти, `PYTHON_BIN` — isolated runtime. Harness видаляє DB_/PG*/production settings та створює одноразову локальну БД. PostgreSQL targets використовують окрему локальну QA базу; це не production/SLA доказ.
+
+## Root integration review · 04.10.2026
+
+Source delivery1516fcc і doc correction53f4a35 зведено аддитивно з прийнятими recipe/voucher exports, static loaders та full registry. Незалежне source review count/revision/actor/legacy guards і read/Apply/ACK fences blockers не знайшло; уточнено optional legacy labelIfMatch boundary замість заяви mandatory dualguard.
+
+Combined TypeScript/Vite build, affected entry ESLint/Prettier, node syntax/diff PASS. Один зачеплений legacy bypass/PUT omission target на isolated PostgreSQL18 — PASS (0.182s); решта matching author PG/unit/story/native recovery proofs reused. Root actual native layout PASS після additive integration. Початковий320PNG був обрізаний біля radio і не заявляється як доказ його видимості; harness тепер явно центрує label, перевіряє його44px/visible bounds на1440/320 та окремо focus/44px/visible Apply. Повторено лише layout scope. `/tmp/tsukenya-root-template-layout-focused/layout-report.json`, `template-320.png`, `template-actions-320.png` переглянуто; local Apply безPATCH/focusSave й overflow checks пройдено.
+
+Harness pins isolated Django settings, ловить ранній server exit та очікує teardown. Explicit full entrypoint очищає TEMPLATE stage/proof/port flags, реєструє один script. Виконано тільки `npm run test:full -- --plan`; повний regression і production release цього пакета не виконані.
