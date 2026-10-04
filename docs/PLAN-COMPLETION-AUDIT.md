@@ -18,6 +18,16 @@
 
 Це оновлення code/PR evidence. VPS/deployment, full regression, external integrations і0.1 не виконувалися. Повний план залишається незавершеним.
 
+## Наступні прийняті пакети · main0710fb3 · 04.10.2026
+
+Історична матриця не переписується; поточний стан доповнений доказами:
+
+- **#48 / B24:** conditional304 зі scoped role/store/day token, transactional counters та selective domain callbacks; midnight commit invalidation виправлено. [B24-CONDITIONAL-POLLING.md](B24-CONDITIONAL-POLLING.md). Неперевірені SLA та bounded stock/entities/assortment залишаються відкритими.
+- **#49 / B04:** multi-shift acceptance виконана: дві касові зміни одного працівника за день, точні повтори, одна відсоткова база, незмінні умови, PostgreSQL concurrency та native recovery/600.00/320 px. [MULTIPLE-DAILY-WORK-SHIFTS.md](MULTIPLE-DAILY-WORK-SHIFTS.md). Міграція0016→0015; обидва exact-head CI пройшли.
+- **B05:** same-day chronology та backdated payroll cutoff виправлені й інтегровані після B04; перевірено два відповідні PostgreSQL сценарії. Пакет очікує PR/CI перед прийняттям. [PAYROLL-CHRONOLOGY.md](PAYROLL-CHRONOLOGY.md). Невідомі legacy timestamps не вгадуються.
+
+B21 jobs/history та versioned CRM/trading migration не завершені. Deployment, full regression та0.1 залишаються окремими gates.
+
 ## Позначення
 
 - **C — завершено узгоджену реалізацію:** правило є в authoritative source, matching цільове покриття й опис результату існують. Явні implementation defaults не є новими рішеннями власника.

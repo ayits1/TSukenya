@@ -91,3 +91,11 @@ Root виявив legal-path regression: рішучий posted-only критер
 прибирає інформаційні10.00. Чинні posting/backdate guards не змінені.
 Цільовий follow-up PostgreSQL4 PASS (cutoff, cap/order, same-day uncertain
 reversal, re-accrual), SQLite cutoff1 PASS; старі успішні21 не повторювались.
+
+## Інтеграція після B04/B24
+
+Root інтегрував пакет з main0710fb3 (прийняті PR48/49). Два matching
+PostgreSQL сценарії: actual same-day return/reversal та backdated cutoff
+receipt/sale/workD1 → returnD3 → payrollD2 PASS. Node syntax/diff PASS.
+Незмінні PG concurrency/legacy/scope сценарії повторно не запускалися;
+full regression, VPS і 0.1 не виконувалися.
