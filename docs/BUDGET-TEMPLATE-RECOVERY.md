@@ -10,7 +10,9 @@ PATCH передає тільки `{budgetStores,revision}`. Після ledger l
 
 Revision — відбиток effective count та ідентичності цього ресурсу. Legacy → explicit із тією самою кількістю описує те саме редаговане значення. Нова назва цінника чи ERP-магазину не змінює token кількості. Label Studio token не змінено, бюджетний count до нього не додано.
 
-Legacy `/api/docs/settings/main` не є обходом: explicit budgetStores у PUT/PATCH та DELETE потребують `X-Budget-Template-Revision`. Scoped owner спочатку проходить чинний allowlist (йому count недоступний). Якщо legacy PUT/PATCH не передає count, збережене/виведене попереднє значення фіксується за чинним freeze правилом; заміна identity не скидає кількість. Для штатного редагування count використовуйте окремий PATCH endpoint. Змішані label+count legacy writes мають обидва незалежні спостережені tokens.
+Legacy `/api/docs/settings/main` не є обходом: explicit budgetStores у PUT/PATCH та DELETE потребують `X-Budget-Template-Revision`. Scoped owner спочатку проходить чинний allowlist (йому count недоступний). Якщо legacy PUT/PATCH не передає count, збережене/виведене попереднє значення фіксується за чинним freeze правилом; заміна identity не скидає кількість.
+
+Для штатного редагування count використовуйте окремий PATCH endpoint із його незалежною revision. Штатний runtime передає label token у `If-Match` для legacy налаштувань. Чинна legacy сумісність збережена: label revision перевіряється лише за наявності `If-Match`; API не вимагає цього заголовка. Для змішаного label+count legacy запису `X-Budget-Template-Revision` обов’язковий, а переданий незалежний `If-Match` додатково захищає макет від застарілого запису. Відсутній `If-Match` не блокує такий legacy запит, тому обов’язкової перевірки обох tokens цей шлях не гарантує.
 
 ## Робочий native інтерфейс
 
