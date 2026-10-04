@@ -175,4 +175,67 @@ describe('reload draft foundation', () => {
     release?.(true);
     await expect(second).rejects.toThrow('скасовано');
   });
+  it('resource403 rechecks the session and removes only the denied record, preserving another unknown intent', async () => {
+    const { store, storage, codec, restored } = setup();
+    store.save('denied', 'synthetic', { ...draft, baseline: { resource: 'denied' } });
+    store.save('other', 'synthetic', intent);
+    const original = storage.getItem(PREFIX + 'other');
+    codec.authorize = async () => {
+      throw Object.assign(Error('denied'), { status: 403 });
+    };
+    let reads = 0;
+    const controller = new RecoveryController(store, async () => {
+      reads++;
+      return session;
+    });
+    await controller.restore('denied');
+    expect(reads).toBe(2);
+    expect(storage.getItem(PREFIX + 'denied')).toBeNull();
+    expect(storage.getItem(PREFIX + 'other')).toBe(original);
+    expect(restored).toHaveLength(0);
+    expect(controller.snapshot().state).toBe('error');
+    expect(controller.snapshot().error).toContain('Інші локальні чернетки збережені');
+    await controller.check();
+    expect(controller.snapshot().entries.map((e) => [e.id, e.state])).toEqual([
+      ['other', 'unknown'],
+    ]);
+  });
+  it('late resource403 after cancel cannot delete either record or recheck a cancelled scope', async () => {
+    const { store, storage, codec } = setup();
+    store.save('denied', 'synthetic', draft);
+    store.save('other', 'synthetic', intent);
+    let reject: ((e: Error) => void) | undefined;
+    codec.authorize = () =>
+      new Promise((_resolve, fail) => {
+        reject = fail;
+      });
+    let reads = 0;
+    const controller = new RecoveryController(store, async () => {
+      reads++;
+      return session;
+    });
+    const pending = controller.restore('denied');
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(reject).toBeDefined();
+    controller.suspend();
+    reject?.(Object.assign(Error('late-denied'), { status: 403 }));
+    await pending;
+    expect(reads).toBe(1);
+    expect(storage.length).toBe(2);
+    expect(controller.snapshot().entries).toEqual([]);
+  });
+  it('discard removal failure is visible and preserves the record with private UI hidden', async () => {
+    const { store, storage } = setup();
+    store.save('draft1', 'synthetic', intent);
+    const original = storage.getItem(PREFIX + 'draft1');
+    storage.removeItem = () => {
+      throw Error('storage-removal-denied');
+    };
+    const controller = new RecoveryController(store, async () => session);
+    await controller.discard('draft1');
+    expect(storage.getItem(PREFIX + 'draft1')).toBe(original);
+    expect(controller.snapshot().state).toBe('error');
+    expect(controller.snapshot().entries).toEqual([]);
+    expect(controller.snapshot().error).toContain('Не вдалося відкинути');
+  });
 });

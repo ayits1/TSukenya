@@ -47,7 +47,7 @@ export class RecoveryController {
     }
     this.revoked();
   }
-  async check(): Promise<DraftSession> {
+  async check(revealEntries = true): Promise<DraftSession> {
     this.suspend();
     const generation = this.generation,
       request = (this.request = new AbortController());
@@ -57,7 +57,7 @@ export class RecoveryController {
         throw Error('Перевірку скасовано.');
       this.store.bind(session);
       this.session = session;
-      this.refreshEntries();
+      if (revealEntries) this.refreshEntries();
       return session;
     } catch (error) {
       if (request.signal.aborted || generation !== this.generation) throw error;
@@ -85,21 +85,55 @@ export class RecoveryController {
     } catch (error) {
       if (request.signal.aborted || generation !== this.generation) return;
       const status = error instanceof Error && 'status' in error ? error.status : null;
-      if (status === 401 || status === 403) this.revoke();
+      if (status === 401) this.revoke();
+      if (status === 403) {
+        // A resource denial is not a session-wide revocation. Recheck actor/scope before
+        // showing other records, and delete only the denied resource's local record.
+        const denialGeneration = this.generation + 1;
+        try {
+          await this.check(false);
+        } catch {
+          return; // Session failure already hides records; 401/403 revokes globally.
+        }
+        if (denialGeneration !== this.generation || !this.session) return;
+        try {
+          this.store.discard(id);
+        } catch {
+          this.show({
+            state: 'error',
+            entries: [],
+            error:
+              'Доступ до цієї чернетки закрито. Не вдалося прибрати її локальний запис. Інші чернетки збережені.',
+          });
+          return;
+        }
+      }
       this.show({
         state: 'error',
         entries: [],
-        error: error instanceof Error ? error.message : 'Чернетку не відновлено.',
+        error:
+          status === 403
+            ? 'Доступ до цієї чернетки закрито. Інші локальні чернетки збережені. Повторіть перевірку, щоб їх відкрити.'
+            : 'Не вдалося відновити чернетку. Повторіть перевірку доступу.',
       });
     } finally {
       if (generation === this.generation) this.request = null;
     }
   }
   async discard(id: string) {
-    await this.check();
+    await this.check(false);
     if (!this.session) return;
-    this.store.discard(id);
-    this.refreshEntries();
+    try {
+      this.store.discard(id);
+      this.refreshEntries();
+    } catch {
+      this.show({
+        state: 'error',
+        entries: [],
+        error:
+          'Не вдалося відкинути локальну чернетку. Запис збережено; повторіть перевірку і спробуйте ще раз.',
+      });
+    }
   }
   install(target: Window) {
     const refresh = () => {
