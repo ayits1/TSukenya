@@ -44,3 +44,18 @@ Root review follow-up: summaries на «Справи магазину», огл�
 Один новий PG тест `tests.test_portal_collections.PortalCollectionsTests.test_development_stage_completion_uses_whole_scope` PASS (0.308s):65 рядків на3 сторінках,40+25 за етапами,20+13 done; додатковий bool-stage не стає stage1, manager summary403. `node tests/portal-collections.cjs` PASS зі strict stageDone missing/overflow/sum refusal. Решта backend matrix не повторювалася.
 
 `QA_COLLECTIONS_FROM=development PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/portal-collections-ui.cjs`: narrow actual tail PASS; overall33/65, stages20/40+13/25 наpage2; summary503 лишає видимі попередні confirmed counts і GET-only keyboard retry безwrites; після переходу наoperations refresh не читає development summary. Development і work1440/320 PNG/geometry PASS, development320 PNG переглянуто. Artifacts `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-portal-collections-LpEgjz/`. Початковий tail fixture мутував development після loginmetadata й правильно втрачав invalidated summary; виправлено лише порядок fixture metadata-confirmation, повторено тільки цей tail. Root додасть новийflag до свого hardened harness allowlist/full registry; власна доставка не перезаписує його lifecycle hardening.
+
+
+## Інтеграція root
+
+Пакет інтегровано зі змінами прийнятого main #72–75. Після розв'язання CSS/HTML
+конфліктів збережено footer версії і підключення collections перед managed alerts.
+Root перевірив Node coordinator/managed/runtime/metadata та affected native summary
+1440/320: PASS, artifacts `tsukenya-portal-collections-Ih4FCn` у системному tmp.
+Незмінні backend і решта native доказів повторно використано; це не повний прогін.
+
+Harness очищає DB/PG/credentials/settings до password helper, використовує лише
+ізольовану SQLite, відхиляє невідомий stage та чекає завершення сервера. Реєстр
+явної full-команди включає обидва Node і всі п'ять native cases (base, tail,
+managed, summary, development) рівно по одному; успадкований stage очищається.
+Перевірено синтаксис і `npm run test:full -- --plan`; фактичний full не запускався.
