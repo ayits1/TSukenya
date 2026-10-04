@@ -50,3 +50,14 @@ Source delivery: `774b0a5`, `e05d780`, `e407545`, `f72bbb0`; остаточни�
 ## Відкритий суміжний обсяг
 
 Global portal/runtime catalogue subscription та `/api/state` залишаються окремим пакетом. Native ERP не читає `/api/erp/state` і не завантажує повні E/P arrays; global shell `/api/state` може залишатися великим. Ізольовані 1/5/10 posting/detail measurements — окремий capacity пакет. Цей доказ не є VPS load benchmark, p95 або завершенням усього B24.
+
+
+## Root integration після metadata
+
+PR57 compact portal прийнято в main4eff103. Описаний вище global `/api/state` залишок стосувався вихідної бази directory proof; при інтеграції реальна оболонка використовує metadata. Повна B24 міграція звітів і resource/capacity докази лишаються відкритими.
+
+Root незалежно відтворив unauthorized entity edit для чужого магазину, складу, рахунку й працівника. `entity_save` перевіряє refreshed actor та store scope перед revision/save; створення магазину дозволено лише власнику мережі. Чотири `tests.test_entity_scope` на ізольованому PostgreSQL PASS. Контрагенти зберігають чинний shared contract.
+
+Native directory script додано в явний full entrypoint; цього прогону не запускали. Адитивні manifest/script конфлікти узгоджено зі збереженням metadata PortalApi, trading та native conflict entries.
+
+Root integrated TypeScript/Vite build і layout-only native320/200% PASS після узгодження entries; `/tmp/tsukenya-root-directory-integration/report-layout.json` та actual PNG перевірені. Primary/tail business сценарії з незмінними inputs повторно не запускали. Final popup footer/hint містяться у видимому intersection(dialog, viewport).
