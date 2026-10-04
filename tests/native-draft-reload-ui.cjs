@@ -1,3 +1,4 @@
+const {newDocumentButton}=require('./trading-document-controls.cjs');
 /* P1 actual voucher/payment renderer. Every mutation is on disposable synthetic Django data. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
 const stage=process.env.QA_NATIVE_DRAFT_FROM;if(stage!==undefined&&!['tail','payment','post','privacy','barriers','cold','opening','production','validation','postDraft'].includes(stage))throw Error('Unknown QA_NATIVE_DRAFT_FROM');
@@ -61,7 +62,7 @@ if(stage==='opening'){
  let entered=false,release,finished;const gate=new Promise(r=>release=r),done=new Promise(r=>finished=r);
  await page.route('**/api/v1/session',async route=>{entered=true;await gate;await route.continue().catch(()=>{});finished();});
  await page.locator('[data-trade=new-voucher][data-kind=expense]').click();await wait(()=>entered);
- await page.getByRole('link',{name:'Закупівлі',exact:true}).click();await page.locator('[data-trade=new-voucher][data-kind=receipt]').waitFor();
+ await page.getByRole('link',{name:'Закупівлі',exact:true}).click();await newDocumentButton(page,'receipt').waitFor();
  release();await done;await page.unroute('**/api/v1/session');await page.waitForTimeout(300);
  assert.equal(await page.locator('.trade-dialog[open]').count(),0,'late session check must not open the old finance editor over purchases');assert.equal(writes,0);
  record('Navigation while ordinary New voucher awaits session prevents a late unrelated modal and sends no business write');

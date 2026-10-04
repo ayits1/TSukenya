@@ -440,3 +440,8 @@ PlanningCategory/monthlyBudget/budgetTemplate, P2/P3, інші торговел�
 
 - **Рецептури:** #103 MERGED, final head134cf2a frontend/server/PostgreSQL CI PASS. Обидві локальні копії синхронізовані. Прийнятий main2adc49f опубліковано на VPS; код і frontend assets звірені, public health/status/import worker healthy, read-only reconcile без розбіжностей та before/after дані однакові. Production mutation, full suite й0.1 не виконували.
 - **Категорії витрат:** durable raw/first intent/identity/current/Apply/Save пакет інтегровано для PR. Незалежне review виправило last-awaited-session fetch fence та positive preflight identity confirmation; targeted integrated identity/current503/reload PASS. Докази й межі — CATEGORY-DRAFT-PERSISTENCE.md. Monthly/template та повна React trading міграція ще не завершені.
+
+## Після прийняття #104 · main9507bdd
+
+- **Категорії:** #104 MERGED, final35f9f8a frontend33s/server2m28/PostgreSQL5m38 PASS; обидві canonical копії синхронізовано. VPS ще2adc49f, цей пакет не оголошено deployed.
+- **React закупівлі:** actual journal/replenishment bounded30 і explicit200+5 інтегровані для PR. Independent review handoff/enum defects виправлено; root12unit/build та actual native callbacks PASS. Native editors/posting лишаються authoritative чинними callbacks; details у REACT-PURCHASES.md. React sales та bounded financial settlement reads розпочато, monthly/template recovery ще відкриті. Повний план не завершено,0.1 не виконували.

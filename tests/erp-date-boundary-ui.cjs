@@ -1,3 +1,4 @@
+const {waitForTradingRoute}=require('./trading-document-controls.cjs');
 /* Kyiv calendar boundaries, with all writes confined to disposable local SQLite. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
@@ -11,7 +12,7 @@ server.stdout.on('data',chunk=>startup+=chunk);server.stderr.on('data',chunk=>st
 const wait=async(fn,label)=>{for(let i=0;i<120;i++){if(await fn())return;await new Promise(resolve=>setTimeout(resolve,100));}throw Error(`Timeout: ${label}`);};
 const fixture=source=>execFileSync(python,['-c',`import os\nos.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings')\nimport django;django.setup()\n${source}`],{cwd:root,env,encoding:'utf8'});
 const dialog=()=>page.locator('.trade-dialog[open]');
-const go=async tab=>{await page.goto(base+'/#trade/'+tab,{waitUntil:'domcontentloaded'});await page.locator('#main .panel').first().waitFor();await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'),tab);};
+const go=async tab=>{await page.goto(base+'/#trade/'+tab,{waitUntil:'domcontentloaded'});await waitForTradingRoute(page,tab);await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'),tab);};
 const close=async()=>{page.once('dialog',native=>native.accept());await page.keyboard.press('Escape');await dialog().waitFor({state:'hidden'});};
 const bounds=async(input,expected)=>assert.deepEqual(await input.evaluate(el=>({type:el.type,min:el.min,max:el.max,step:el.step||'1'})),{type:'date',step:'1',...expected});
 const fit=async()=>{assert.equal(await dialog().evaluate(el=>el.scrollWidth>el.clientWidth+1),false,'320px dialog reflow');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'320px page reflow');};

@@ -21,7 +21,7 @@ const wait=async fn=>{for(let n=0;n<100;n++){if(await fn())return;await new Prom
   await ok('erp/entities/warehouses','POST',{name:'B11 другий склад',store:other});
   let order=await ok('erp/vouchers','POST',{kind:'purchase_order',store,warehouse,date:new Date().toISOString().slice(0,10),party:supplier,lines:[{product,quantity:2,price:1}]});
   order=await ok('erp/vouchers/'+order.id+'/post','POST',{});
-  await page.goto(base+'/#trade/purchases');await page.locator(`[data-trade=view][data-id="${order.id}"]`).click();await page.locator('[data-trade=from-order][data-kind=receipt]').click();
+  await page.goto(base+'/#trade/purchases');await page.getByRole('button',{name:new RegExp('Відкрити .*№ '+String(order.id).padStart(6,'0')+'$')}).click();await page.locator('[data-trade=from-order][data-kind=receipt]').click();
   await page.locator('#tradeVoucherForm').waitFor();assert(await page.locator('[data-line=reference_line]').inputValue());
   await page.locator('#tradeVoucherForm [name=store]').selectOption(String(other));
   assert.equal(await page.locator('[data-line=reference_line]').inputValue(),'');assert.equal(await page.locator('.line-origin').count(),0);assert.equal(await page.locator('[name=reference]').inputValue(),'');
@@ -29,7 +29,7 @@ const wait=async fn=>{for(let n=0;n<100;n++){if(await fn())return;await new Prom
   const receipts=await ok('erp/vouchers?kind=receipt'),detail=await ok('erp/vouchers/'+receipts.items[0].id);assert.equal(detail.store,other);assert.equal(detail.reference,null);assert.equal(detail.lines[0].reference_line,null);
   assert.deepEqual(errors,[]);console.log('MULTILOT SOURCE CLEAR PASS: store change clears origin and saves independent draft');return;
  }
- await page.goto(base+'/#trade/purchases');await page.locator('[data-trade=new-voucher][data-kind=receipt]').click();
+ await page.goto(base+'/#trade/purchases');await page.getByRole('button',{name:'+ Надходження',exact:true}).click();
  const form=()=>page.locator('#tradeVoucherForm');await form().locator('[name=party]').selectOption(String(supplier));await form().locator('[name=additional_cost]').fill('0.03');
  const row=i=>page.locator('.trade-line').nth(i);
  await row(0).locator('[data-line=product]').selectOption(product);await row(0).locator('[data-line=quantity]').fill('3');await row(0).locator('[data-line=price]').fill('1.1111');await row(0).locator('[data-line=lot]').fill('LATE');await row(0).locator('[data-line=expiry]').fill(late);

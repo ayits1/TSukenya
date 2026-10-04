@@ -173,3 +173,10 @@ coordinates у позиціонуванні бібліотеки. React Aria к�
 текст200%, відкриття касової зміни на1440/390px, paging довгого списку в
 прокрученому діалозі на320px та масштаб дисплея200%. Дані синтетичні, Chromium
 Playwright headless; виробничих записів і повної регресії немає.
+
+## Закупівлі: фактичний React workspace
+
+`#trade/purchases` перенесено на React/TypeScript: bounded журнал, server search/scope,
+поповнення з lazy деталями та явними частинами до 200 рядків. Чинні native
+редактори/деталі/проведення й receipt → price review працюють через callbacks.
+Контракт, цільові докази та межа — [REACT-PURCHASES.md](REACT-PURCHASES.md).

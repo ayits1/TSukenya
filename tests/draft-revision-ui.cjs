@@ -1,3 +1,4 @@
+const {documentButton,newDocumentButton}=require('./trading-document-controls.cjs');
 /* B06 in the real portal: an opened draft or directory form saves over its own version only; a stale form gets 409 and stays open. Isolated SQLite. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
@@ -20,7 +21,7 @@ const supplier=(await ok('entities/parties','POST',{name:'Постачальни
 const p=await page.evaluate(async()=>(await(await fetch('/api/v1/trading/directories/products?purpose=purchase_order')).json()).items[0].id);
 const date=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Kyiv',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
 const draft=await ok('vouchers','POST',{kind:'purchase_order',store,warehouse:wh,party:supplier,date,lines:[{product:p,quantity:'1',price:'5'}]});
-const openDraft=async()=>{await go('purchases');await page.locator(`[data-trade=view][data-id="${draft.id}"]`).first().click();await page.locator('[data-trade=edit-voucher]').click();await page.locator('#tradeVoucherForm').waitFor();};
+const openDraft=async()=>{await go('purchases');await documentButton(page,draft.id).first().click();await page.locator('[data-trade=edit-voucher]').click();await page.locator('#tradeVoucherForm').waitFor();};
 const saveDraft=()=>page.locator('[type=submit][form=tradeVoucherForm][value=draft]').click();
 // 1. Opened draft saves over its own version.
 await openDraft();await page.locator('#tradeVoucherForm [data-line=quantity]').fill('2');
@@ -37,7 +38,7 @@ await wait(async()=>(await page.locator('#tradeFormError').innerText()).includes
 assert.equal(await page.locator('#tradeVoucherForm [data-line=quantity]').inputValue(),'7');
 assert.equal((await ok('vouchers/'+draft.id)).lines[0].quantity,'3.000');
 // An older detail view may not post or delete lines changed after it was opened.
-await go('purchases');await page.locator(`[data-trade=view][data-id="${draft.id}"]`).first().click();
+await go('purchases');await documentButton(page,draft.id).first().click();
 const observed=await ok('vouchers/'+draft.id);
 await ok('vouchers/'+draft.id,'PUT',{kind:'purchase_order',store,warehouse:wh,party:supplier,date,revision:observed.revision,lines:[{product:p,quantity:'9',price:'5'}]});
 const posting=page.waitForResponse(r=>r.url().endsWith(`/api/erp/vouchers/${draft.id}/post`));
@@ -48,7 +49,7 @@ const deleting=page.waitForResponse(r=>r.url().endsWith('/api/erp/vouchers/'+dra
 await page.locator('dialog[open] button[type=submit]').click();assert.equal((await deleting).status(),409);
 assert.equal((await ok('vouchers/'+draft.id)).lines[0].quantity,'9.000');
 // A create committed but its reply was lost; another editor then updated it.
-await go('purchases');await page.locator('[data-trade=new-voucher][data-kind=purchase_order]').click();
+await go('purchases');await newDocumentButton(page,'purchase_order').click();
 const newForm=page.locator('#tradeVoucherForm');await newForm.waitFor();
 await page.evaluate(({supplier,p})=>{const f=document.querySelector('#tradeVoucherForm');window.TradeDirectories.setValue(f.elements.party,supplier);window.TradeDirectories.setValue(f.querySelector('[data-line=product]'),p);},{supplier,p});
 await newForm.locator('[data-line=quantity]').fill('1');await newForm.locator('[data-line=price]').fill('5');

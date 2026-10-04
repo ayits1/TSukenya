@@ -35,12 +35,13 @@ const text=locator=>locator.innerText().then(value=>value.replace(/\s+/g,' ').tr
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  await require('./browser-login.cjs')(page,base,password);
  await page.goto(base+'/#trade/purchases',{waitUntil:'domcontentloaded'});
- const panel=page.locator('#main section.panel',{has:page.getByRole('heading',{name:'Поповнення запасів'})});
+ const panel=page.locator('[data-react-purchases]');
+ await panel.getByRole('tab',{name:'Поповнення запасів',exact:true}).click();
  await panel.waitFor();
- const rows=panel.locator('tbody tr');
+ const rows=panel.locator('[data-purchase-group]');await rows.first().waitFor();
  assert.equal(await rows.count(),2,'one row per supplier and warehouse');
  assert.match(await text(rows.first()),/ТОВ «Солодкий світ».*Карамель льодяникова — 7 шт.*87,50 грн/);
- assert.match(await text(rows.nth(1)),/Не визначено.*Пряник медовий — 3 шт.*0,00 грн/);
+ assert.match(await text(rows.nth(1)),/Постачальника не визначено.*Пряник медовий — 3 шт.*0,00 грн/);
  for(const width of [1440,390,320]){
   await page.setViewportSize({width,height:900});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`no page overflow at ${width}`);
@@ -60,11 +61,13 @@ const text=locator=>locator.innerText().then(value=>value.replace(/\s+/g,' ').tr
  // The posted order covers the caramel; only the product without a supplier is still suggested.
  await page.locator('.trade-dialog [data-trade=close]').click();
  await page.goto(base+'/#trade/stock',{waitUntil:'domcontentloaded'});await page.goto(base+'/#trade/purchases',{waitUntil:'domcontentloaded'});
+ await panel.getByRole('tab',{name:'Поповнення запасів',exact:true}).click();
  await wait(async()=>(await rows.count())===1&&/Пряник медовий/.test(await text(rows.first())),'ordered product leaves the suggestions');
  assert.match(await text(panel),/1 товарів нижче мінімуму вже покриті проведеними замовленнями/);
  // Warehouse assortment (B13): the gingerbread is not sold in this warehouse, so it leaves the suggestions; keyboard only.
  await page.goto(base+'/#trade/stock',{waitUntil:'domcontentloaded'});
  await page.locator('[data-react-stock] .stock-cards').waitFor();
+ await page.getByRole('textbox',{name:'Пошук товару',exact:true}).fill('Пряник медовий');
  await page.getByRole('button',{name:'Асортимент складу',exact:true}).press('Enter');
  // Select the real warehouse through the bounded directory, never a hidden native select.
  const warehouse=page.getByRole('combobox',{name:'Склад асортименту',exact:true}),warehouseName=await page.evaluate(async()=>(await(await fetch('/api/erp/state')).json()).warehouses[0].name);
@@ -89,6 +92,7 @@ const text=locator=>locator.innerText().then(value=>value.replace(/\s+/g,' ').tr
  }
  await page.setViewportSize({width:1440,height:1000});
  await page.goto(base+'/#trade/purchases',{waitUntil:'domcontentloaded'});
+ await panel.getByRole('tab',{name:'Поповнення запасів',exact:true}).click();
  await wait(async()=>(await rows.count())===0&&/Усі товари вище мінімального залишку/.test(await text(panel)),'not sold product leaves the suggestions');
  assert.deepEqual(errors,[]);
  console.log('PASS: purchases replenishment — minimum minus available and open orders, last supplier and price, prefilled purchase order, covered after posting, warehouse assortment by keyboard removes a not sold product, stale assortment version 409, 1440/390/320 layout; isolated data only.');

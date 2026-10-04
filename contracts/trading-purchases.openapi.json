@@ -1,0 +1,915 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya purchases workspace",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/purchases/documents": {
+      "get": {
+        "operationId": "purchaseDocuments",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "q"
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "description": "store"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "draft",
+                "posted",
+                "reversed"
+              ]
+            },
+            "description": "status"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "purchase_order",
+                "receipt",
+                "supplier_return"
+              ]
+            },
+            "description": "kind"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "from"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "to"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped RR read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseDocuments"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role or scope denied"
+          },
+          "409": {
+            "description": "Replenishment group changed; explicit refresh required"
+          }
+        }
+      }
+    },
+    "/api/v1/trading/purchases/replenishment": {
+      "get": {
+        "operationId": "replenishmentGroups",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "q"
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "description": "store"
+          },
+          {
+            "name": "warehouse",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "description": "warehouse"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped RR read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplenishmentGroups"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role or scope denied"
+          },
+          "409": {
+            "description": "Replenishment group changed; explicit refresh required"
+          }
+        }
+      }
+    },
+    "/api/v1/trading/purchases/replenishment/lines": {
+      "get": {
+        "operationId": "replenishmentLines",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "q"
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "description": "store"
+          },
+          {
+            "name": "warehouse",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "warehouse"
+          },
+          {
+            "name": "party",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "0 represents no supplier"
+          },
+          {
+            "name": "binding",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "binding"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped RR read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplenishmentLines"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role or scope denied"
+          },
+          "409": {
+            "description": "Replenishment group changed; explicit refresh required"
+          }
+        }
+      }
+    },
+    "/api/v1/trading/purchases/replenishment/draft": {
+      "get": {
+        "operationId": "replenishmentDraft",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "q"
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "description": "store"
+          },
+          {
+            "name": "warehouse",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "warehouse"
+          },
+          {
+            "name": "party",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "0 represents no supplier"
+          },
+          {
+            "name": "binding",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "binding"
+          },
+          {
+            "name": "part",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "part"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped RR read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplenishmentDraft"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role or scope denied"
+          },
+          "409": {
+            "description": "Replenishment group changed; explicit refresh required"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PurchasePolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "store",
+          "documentKinds"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "manager",
+              "warehouse"
+            ]
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "documentKinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "purchase_order",
+                "receipt",
+                "supplier_return"
+              ]
+            }
+          }
+        }
+      },
+      "PurchaseQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "q",
+          "store",
+          "status",
+          "kind",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "",
+              "draft",
+              "posted",
+              "reversed"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "",
+              "purchase_order",
+              "receipt",
+              "supplier_return"
+            ]
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      },
+      "ReplenishmentQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "q",
+          "store",
+          "warehouse"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "warehouse": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      },
+      "ReplenishmentSelection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "q",
+          "store",
+          "warehouse",
+          "party"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "party": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      },
+      "PurchaseDocument": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "number",
+          "kind",
+          "status",
+          "date",
+          "store",
+          "storeName",
+          "party",
+          "partyName",
+          "total",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "purchase_order",
+              "receipt",
+              "supplier_return"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "posted",
+              "reversed"
+            ]
+          },
+          "date": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "party": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "partyName": {
+            "type": "string"
+          },
+          "total": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PurchaseDocuments": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "policy",
+          "query",
+          "items"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PurchasePolicy"
+          },
+          "query": {
+            "$ref": "#/components/schemas/PurchaseQuery"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseDocument"
+            }
+          }
+        }
+      },
+      "ReplenishmentLine": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "product",
+          "name",
+          "unit",
+          "quantity",
+          "price",
+          "available",
+          "minimum",
+          "onOrder",
+          "costKnown"
+        ],
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          },
+          "available": {
+            "type": "string"
+          },
+          "minimum": {
+            "type": "string"
+          },
+          "onOrder": {
+            "type": "string"
+          },
+          "costKnown": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ReplenishmentGroup": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "store",
+          "storeName",
+          "warehouse",
+          "warehouseName",
+          "party",
+          "partyName",
+          "linesCount",
+          "total",
+          "preview",
+          "binding",
+          "parts"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "warehouseName": {
+            "type": "string"
+          },
+          "party": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "partyName": {
+            "type": "string"
+          },
+          "linesCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "string"
+          },
+          "preview": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplenishmentLine"
+            }
+          },
+          "binding": {
+            "type": "string"
+          },
+          "parts": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ReplenishmentGroups": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "policy",
+          "query",
+          "asOf",
+          "items",
+          "summary"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PurchasePolicy"
+          },
+          "query": {
+            "$ref": "#/components/schemas/ReplenishmentQuery"
+          },
+          "asOf": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplenishmentGroup"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "groups",
+              "lines",
+              "covered",
+              "total"
+            ],
+            "properties": {
+              "groups": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "lines": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "covered": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "total": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ReplenishmentLines": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "policy",
+          "query",
+          "group",
+          "binding",
+          "items",
+          "asOf"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PurchasePolicy"
+          },
+          "query": {
+            "$ref": "#/components/schemas/ReplenishmentSelection"
+          },
+          "group": {
+            "$ref": "#/components/schemas/ReplenishmentGroup"
+          },
+          "binding": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplenishmentLine"
+            }
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "ReplenishmentDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "group",
+          "binding",
+          "lines",
+          "policy",
+          "part",
+          "parts",
+          "limit",
+          "total"
+        ],
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/ReplenishmentGroup"
+          },
+          "binding": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplenishmentLine"
+            }
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PurchasePolicy"
+          },
+          "part": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "parts": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              200
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  }
+}

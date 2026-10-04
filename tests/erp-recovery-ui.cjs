@@ -1,3 +1,4 @@
+const {documentButton}=require('./trading-document-controls.cjs');
 /* Bounded ERP recovery checks. No production writes or full regression. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process');
@@ -24,7 +25,7 @@ Store.objects.filter(pk=Store.objects.first().pk).update(name='Магазин '+
  const ctx=await browser.newContext({viewport:{width:320,height:1000}});page=await ctx.newPage();page.on('pageerror',error=>errors.push(error.message));
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.route('https://fonts.gstatic.com/**',route=>route.abort());
  await require('./browser-login.cjs')(page,base,password);
- const go=async tab=>{const url=base+'/#trade/'+tab;if(page.url()===url)await page.reload({waitUntil:'domcontentloaded'});else await page.goto(url,{waitUntil:'domcontentloaded'});await page.locator('#main .panel').first().waitFor();await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'),tab);};
+ const go=async tab=>{const url=base+'/#trade/'+tab;if(page.url()===url)await page.reload({waitUntil:'domcontentloaded'});else await page.goto(url,{waitUntil:'domcontentloaded'});await waitForTradingRoute(page,tab);await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'),tab);};
  const dialog=()=>page.locator('.trade-dialog[open]');
  const noOverflow=async()=>assert.equal(await dialog().evaluate(d=>d.scrollWidth>d.clientWidth+1),false,'Dialog must fit 320px');
  if(['all','users'].includes(from)){
@@ -82,7 +83,7 @@ print(json.dumps([v.pk for v in rows]))`).toString());
    await page.route(`**/api/erp/vouchers/${id}`,async route=>{const raw=await route.fetch(),dto=await raw.json();if(posted)dto.status='posted';return response(route,dto);});
    await page.route('**/api/v1/trading/bootstrap',route=>{reads++;return reads===1?response(route,{error:'Список документів тимчасово недоступний'},503):route.continue();});
    if(mode==='existing-post'){
-    await page.locator(`[data-trade=view][data-id="${id}"]`).click();await dialog().locator('[data-trade=post-voucher]').click();
+    await documentButton(page,id).click();await dialog().locator('[data-trade=post-voucher]').click();
    }else{
     await page.locator('[data-trade=new-voucher][data-kind=expense]').click();await dialog().locator('[name=amount]').fill('21.99');await dialog().locator('[name=note]').fill('Збережена чернетка документа');
     assert.equal(await dialog().locator('form').evaluate(form=>form.checkValidity()),true);
