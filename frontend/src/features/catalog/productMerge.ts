@@ -2,7 +2,9 @@ import { decimalKey, mergeEqual } from '../../shared/merge/threeWay';
 import type { MergeField } from '../../shared/merge/threeWay';
 import type { ProductCreate } from './api';
 
-export type ProductDraft = Omit<Required<ProductCreate>, 'pricingRevision'>;
+export type ProductDraft = Omit<Required<ProductCreate>, 'pricingRevision' | 'expiryAlertDays'> & {
+  expiryAlertDays: string;
+};
 const labels = {
   name: 'Назва товару',
   type: 'Група',
@@ -12,6 +14,7 @@ const labels = {
   unit: 'Одиниця',
   barcode: 'Штрихкод',
   minStock: 'Мінімальний залишок',
+  expiryAlertDays: 'Поріг сповіщення про придатність',
   cost: 'Закупівля',
   markup: 'Націнка',
   manualPrice: 'Ручна ціна',
@@ -70,8 +73,8 @@ function group(id: string, label: string, keys: (keyof ProductDraft)[]): MergeFi
   };
 }
 export const productMergeFields: MergeField<ProductDraft>[] = [
-  ...(['name', 'pack', 'size', 'unit', 'barcode', 'minStock'] as const).map((key) =>
-    group(key, labels[key], [key]),
+  ...(['name', 'pack', 'size', 'unit', 'barcode', 'minStock', 'expiryAlertDays'] as const).map(
+    (key) => group(key, labels[key], [key]),
   ),
   group('classification', 'Група та категорія', ['type', 'category']),
   group('pricing', 'Ціни та акція', [

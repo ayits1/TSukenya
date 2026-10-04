@@ -37,3 +37,12 @@ test('rejects numeric money, missing revisions and malformed facets', () => {
   ).toThrow();
   expect(() => decodePage({ ...catalogPage, page: 0 })).toThrow();
 });
+
+test('expiry threshold preserves explicit zero and rejects non-integer or coerced values', () => {
+  const product = catalogProducts[0]!;
+  expect(decodeProduct({ ...product, expiryAlertDays: 0 }).expiryAlertDays).toBe(0);
+  expect(decodeProduct({ ...product, expiryAlertDays: null }).expiryAlertDays).toBeNull();
+  expect(decodeProduct({ ...product, expiryAlertDays: 3650 }).expiryAlertDays).toBe(3650);
+  for (const expiryAlertDays of [true, '7', 7.5, -1, 3651, [7], {}])
+    expect(() => decodeProduct({ ...product, expiryAlertDays })).toThrow();
+});

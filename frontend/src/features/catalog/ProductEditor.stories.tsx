@@ -215,3 +215,26 @@ export const ReferencesUnavailable: Story = {
     await expect(form.getByRole('button', { name: 'Зберегти товар' })).toBeDisabled();
   },
 };
+export const ExpiryThresholdIsExplicit: Story = {
+  args: { api: { ...meta.args.api, save: fn(async () => product) } },
+  play: async ({ args }) => {
+    const form = within(within(document.body).getByRole('dialog'));
+    const threshold = form.getByRole('textbox', { name: 'Сповіщення про придатність, днів' });
+    await expect(threshold).toHaveValue('');
+    await userEvent.type(threshold, '7.5');
+    await userEvent.tab();
+    await waitFor(() => expect(form.getByRole('button', { name: 'Зберегти товар' })).toBeEnabled());
+    await userEvent.click(form.getByRole('button', { name: 'Зберегти товар' }));
+    await expect(form.getByText(/Поріг придатності: ціле число/)).toBeVisible();
+    await expect(args.api.save).not.toHaveBeenCalled();
+    await expect(threshold).toHaveValue('7.5');
+    await userEvent.clear(threshold);
+    await userEvent.type(threshold, '0');
+    await userEvent.tab();
+    await userEvent.click(form.getByRole('button', { name: 'Зберегти товар' }));
+    await expect(args.api.save).toHaveBeenCalledWith(
+      expect.objectContaining({ expiryAlertDays: 0 }),
+      product.id,
+    );
+  },
+};

@@ -1314,6 +1314,8 @@ export interface components {
       readonly effectiveDay?: string;
       readonly effectivePriceRevision?: string;
       readonly priceContext?: components['schemas']['PriceContext'];
+      /** @description Поріг сповіщення про придатність SKU: null — чинний типовий 7 днів; 0 — дата придатності, прострочені включаються завжди. */
+      expiryAlertDays?: number | null;
     };
     ProductPage: {
       items: components['schemas']['Product'][];
@@ -1351,6 +1353,8 @@ export interface components {
       promotionPrice?: string | null;
       /** @description Optional preview pricing settings revision. Mismatch returns pricing_revision_conflict before any write. */
       pricingRevision?: string;
+      /** @description Поріг сповіщення про придатність SKU: null — чинний типовий 7 днів; 0 — дата придатності, прострочені включаються завжди. */
+      expiryAlertDays?: number | null;
     };
     ProductPatch: {
       revision: string;
@@ -1374,6 +1378,8 @@ export interface components {
       promotionPrice?: string | null;
       /** @description Optional preview pricing settings revision. Mismatch returns pricing_revision_conflict before any write. */
       pricingRevision?: string;
+      /** @description Поріг сповіщення про придатність SKU: null — чинний типовий 7 днів; 0 — дата придатності, прострочені включаються завжди. */
+      expiryAlertDays?: number | null;
     };
     Session: {
       /** @enum {string} */

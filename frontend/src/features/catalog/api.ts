@@ -86,6 +86,14 @@ export function decodeProduct(value: unknown): Product {
     typeof item.promotion !== 'boolean'
   )
     throw new Error('Invalid pricing');
+  if (
+    item.expiryAlertDays !== undefined &&
+    item.expiryAlertDays !== null &&
+    (!Number.isSafeInteger(item.expiryAlertDays) ||
+      Number(item.expiryAlertDays) < 0 ||
+      Number(item.expiryAlertDays) > 3650)
+  )
+    throw new Error('Invalid expiryAlertDays');
   if (item.referenceIds !== undefined) {
     const ids = object(item.referenceIds);
     for (const [field, id] of Object.entries(ids)) {

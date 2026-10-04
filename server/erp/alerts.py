@@ -31,15 +31,18 @@ def sync_alerts(user,source='manual'):
     ledger_lock()
     from .promotion_history import scan_prices
     scan_prices(user,source=source)
-    now=timezone.localdate();conditions={}
+    from .managed_alerts import kyiv_day,preserve_work,clear_work,elapsed
+    now=kyiv_day();conditions={}
     data=stock(user)
     for s in data['totals']:
         if s['low']:
             from .models import Warehouse
             wh=Warehouse.objects.get(pk=s['warehouse'])
             conditions[f"low:{s['warehouse']}:{s['product']}"]={'title':f"Поповнити: {s['name']} · {wh.name} (доступно {s['available']} {s['unit']}, мінімум {s['minimum']})",'store':wh.store_id,'dueDate':now.isoformat()}
+    from .catalog import expiry_alert_days
+    thresholds={d.path.split('/',1)[1]:expiry_alert_days(d.data) for d in Document.objects.filter(path__in=['products/'+lot['product'] for lot in data['lots']])}
     for l in data['lots']:
-        if l['expiry'] and l['expiry']<=(now+timedelta(days=7)).isoformat():
+        if l['expiry'] and l['expiry']<=(now+timedelta(days=thresholds.get(l['product'],7))).isoformat():
             from .models import Warehouse
             wh=Warehouse.objects.get(pk=l['warehouse'])
             conditions[f"expiry:{l['id']}"]={'title':f"Перевірити термін: {l['name']} · партія {l['lot']} · до {l['expiry']}",'store':wh.store_id,'dueDate':l['expiry']}
@@ -56,19 +59,29 @@ def sync_alerts(user,source='manual'):
         live=bool(old.get('_alertActive'));status=old.get('status','todo') if live else 'todo'
         cycle=int(old.get('_alertCycle') or 1)+(0 if live or not doc else 1)
         value.update({'scope':'operations','status':status,'_alertActive':True,'_alertKey':key,'_alertCycle':cycle,'createdAt':old.get('createdAt') or stamp,'order':old.get('order') or int(timezone.now().timestamp()*1000)})
-        if live and status=='done':
-            # Done does not hide a condition that is still active: the next control reopens the task.
-            value.update({'status':'todo','_alertNote':'Умова досі діє','_alertNoteAt':stamp});reopened+=1
-        elif live:
+        if live:
+            preserve_work(value,old)
             for k in ('_alertNote','_alertNoteAt'):
                 if k in old:value[k]=old[k]
-        elif doc:value.update({'_alertNote':'Умова виникла знову','_alertNoteAt':stamp})
-        Document.objects.update_or_create(pk=path,defaults={'data':value})
+            if elapsed(value,now,stamp):
+                reopened+=1
+                audit(user,'alert_defer_elapsed',path,{'until':old.get('_alertDeferredUntil'),'reason':old.get('_alertDeferReason'),'cycle':cycle,'source':source})
+        else:
+            clear_work(value)
+            if doc:value.update({'_alertNote':'Умова виникла знову','_alertNoteAt':stamp})
+        if not doc:Document.objects.create(pk=path,data=value)
+        elif value!=old:doc.data=value;doc.save(update_fields=['data'])
         if not live:created+=1
     for d in Document.objects.filter(path__startswith='tasks/auto_'):
         if user.profile.store_id and d.data.get('store')!=user.profile.store_id:continue
         if d.path not in active_paths and d.data.get('_alertActive'):
-            d.data.update({'_alertActive':False,'status':'done','_alertNote':'Причину усунено','_alertNoteAt':stamp});d.save(update_fields=['data']);resolved+=1
+            d.data.update({'_alertActive':False,'status':'done','_alertNote':'Причину усунено','_alertNoteAt':stamp,'_alertWorkState':'resolved'});d.data.pop('_alertDeferredUntil',None);d.data.pop('_alertDeferReason',None);d.save(update_fields=['data']);resolved+=1
+    for d in Document.objects.filter(path__startswith='tasks/reprint_'):
+        if user.profile.store_id and d.data.get('store')!=user.profile.store_id:continue
+        old=dict(d.data)
+        if elapsed(d.data,now,stamp):
+            d.save(update_fields=['data']);reopened+=1
+            audit(user,'alert_defer_elapsed',d.path,{'until':old.get('_alertDeferredUntil'),'reason':old.get('_alertDeferReason'),'cycle':d.data.get('_alertCycle',1),'source':source})
     if created or resolved or reopened:audit(user,'alerts_updated','operations',{'created':created,'resolved':resolved,'reopened':reopened,'source':source})
     if not user.profile.store_id:Setting.objects.update_or_create(pk=ALERT_OK_KEY,defaults={'value':json.dumps({'at':stamp,'source':source,'active':len(conditions),'created':created,'resolved':resolved,'reopened':reopened})})
     return {'active':len(conditions),'created':created,'resolved':resolved,'reopened':reopened}

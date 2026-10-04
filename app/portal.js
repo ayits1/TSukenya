@@ -119,6 +119,7 @@
     if (tab==="tags") renderPreview();
   }
 
+  window.ManagedAlerts?.configure({tasks:()=>S.tasks,render:()=>render(),refresh:()=>window.TSUKENYA_REFRESH_AFTER_WRITE(),toast:t=>toast(t)});
   function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2200); }
 
   /* ---------- pricing ---------- */
@@ -365,7 +366,7 @@
     if (tab==="tags") renderPreview();
   }
   // Re-rendering #main replaces its controls; keyboard focus returns to the same control (same action and record).
-  const FOCUS_ATTRS = ['id','name','href','data-act','data-cycle','data-del-task','data-react','data-v','data-idea-task','data-exp','data-exp-cat','data-del-exp','data-g','data-newexp','data-budget-discard','data-edit-product','data-promotion','data-page','data-f','data-fclear','data-ddtoggle','data-tag','data-qty','data-store','data-style','data-prop','data-field','data-field-visible','data-edit-field','data-go','data-pf','data-id'];
+  const FOCUS_ATTRS = ['id','name','href','data-act','data-alert-id','data-alert-action','data-cycle','data-del-task','data-react','data-v','data-idea-task','data-exp','data-exp-cat','data-del-exp','data-g','data-newexp','data-budget-discard','data-edit-product','data-promotion','data-page','data-f','data-fclear','data-ddtoggle','data-tag','data-qty','data-store','data-style','data-prop','data-field','data-field-visible','data-edit-field','data-go','data-pf','data-id'];
   function focusKey(el){
     const own=FOCUS_ATTRS.filter(name=>el.hasAttribute(name)).map(name=>[name,el.getAttribute(name)]),box=el.closest('[data-disclosure]')?.dataset.disclosure;
     return own.length||el.tagName==='SUMMARY'&&box ? {tag:el.tagName,own,box,selection:el.tagName==='INPUT'||el.tagName==='TEXTAREA'?[el.selectionStart,el.selectionEnd]:null} : null;
@@ -514,7 +515,7 @@
   }
   function work(){
     const list=operationTasks(),canCreate=!window.TSUKENYA_SERVER||['owner','manager'].includes(window.TSUKENYA_ROLE);
-    return `<section class="panel"><div class="row between gap-lg"><h3>Справи магазину</h3><span class="muted">${list.filter(t=>t.status!=='done').length} незавершених</span></div>${['doing','todo','done'].map(status=>{const group=list.filter(t=>(t.status||'todo')===status);return group.length?`<div class="stage-block"><h3>${ST_LABEL[status]}</h3>${group.map(taskRow).join('')}</div>`:''}).join('')||`<div class="empty">${canCreate?'Додайте задачу: перевірити ціни, замовити товар або підготувати цінники.':'Поточних задач поки немає.'}</div>`}</section>${canCreate?'<section class="panel"><h3 class="gap-lg">Нова поточна задача</h3><div class="row"><label class="form-field grow">Що зробити<input id="newWork" type="text" maxlength="250" placeholder="Наприклад, оновити цінники…" autocomplete="off"></label><label class="form-field">Термін<input id="newWorkDue" type="date"></label><button class="btn rasp" data-act="addWork">Додати задачу</button></div></section>':''}`;
+    return `<section class="panel"><div class="row between gap-lg"><h3>Справи магазину</h3><span class="muted">${list.filter(t=>t.status!=='done').length} незавершених · ${list.filter(t=>t._alertActive).length} активних облікових умов</span></div>${['doing','todo','done'].map(status=>{const group=list.filter(t=>(t.status||'todo')===status);return group.length?`<div class="stage-block"><h3>${ST_LABEL[status]}</h3>${group.map(taskRow).join('')}</div>`:''}).join('')||`<div class="empty">${canCreate?'Додайте задачу: перевірити ціни, замовити товар або підготувати цінники.':'Поточних задач поки немає.'}</div>`}</section>${canCreate?'<section class="panel"><h3 class="gap-lg">Нова поточна задача</h3><div class="row"><label class="form-field grow">Що зробити<input id="newWork" type="text" maxlength="250" placeholder="Наприклад, оновити цінники…" autocomplete="off"></label><label class="form-field">Термін<input id="newWorkDue" type="date"></label><button class="btn rasp" data-act="addWork">Додати задачу</button></div></section>':''}`;
   }
 
   /* ---------- tasks ---------- */
@@ -523,9 +524,9 @@
   function taskRow(t){
     const s = t.status || "todo";
     const canEdit=t.permissions?.canEdit??!window.TSUKENYA_SERVER,canDelete=t.permissions?.canDelete??!window.TSUKENYA_SERVER;
-    const status=canEdit?`<button class="chip ${s}" data-cycle="${esc(t.id)}" aria-label="${esc(t.title)}: ${ST_LABEL[s]}. Змінити на ${ST_LABEL[ST_NEXT[s]]}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>`:`<span class="chip ${s}">${ST_LABEL[s]}</span>`;
+    const status=canEdit&&!window.ManagedAlerts?.system(t)?`<button class="chip ${s}" data-cycle="${esc(t.id)}" aria-label="${esc(t.title)}: ${ST_LABEL[s]}. Змінити на ${ST_LABEL[ST_NEXT[s]]}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>`:`<span class="chip ${s}">${ST_LABEL[s]}</span>`;
     const context=t._alertKey?'Системне нагадування':t.scope==='operations'&&!t.store?'Задача мережі':'';
-    return `<div class="task ${s}" data-task-id="${esc(t.id)}">${status}<span class="t">${esc(t.title)}${context?`<small class="task-date">${context}${!canEdit?' · лише перегляд':''}</small>`:''}${t._alertNote?`<small class="task-date">${esc(t._alertNote)}${t._alertNoteAt?' · '+esc(new Date(t._alertNoteAt).toLocaleString('uk-UA')):''}${t._alertCycle>1?' · цикл '+esc(t._alertCycle):''}</small>`:''}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span>${t.initiative?window.BusinessInitiatives?.taskLink(t.initiative)||'':''}${canDelete?`<button class="x" data-del-task="${esc(t.id)}" aria-label="Видалити задачу: ${esc(t.title)}">×</button>`:''}</div>`;
+    return `<div class="task ${s}" data-task-id="${esc(t.id)}" tabindex="-1">${status}<span class="t">${esc(t.title)}${context?`<small class="task-date">${context}${!canEdit?' · лише перегляд':''}</small>`:''}${t._alertNote?`<small class="task-date">${esc(t._alertNote)}${t._alertNoteAt?' · '+esc(new Date(t._alertNoteAt).toLocaleString('uk-UA')):''}${t._alertCycle>1?' · цикл '+esc(t._alertCycle):''}</small>`:''}${window.ManagedAlerts?.row(t)||''}${window.BusinessInitiatives?.taskLink(t.initiative)||''}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span>${canDelete?`<button class="x" data-del-task="${esc(t.id)}" aria-label="Видалити задачу: ${esc(t.title)}">×</button>`:''}</div>`;
   }
   function tasks(){
     const opts = STAGES.map(s=>`<option value="${s.n}">${s.n}. ${esc(s.name)}</option>`).join("");
@@ -1499,6 +1500,7 @@
     if (t.dataset.gsid){ gsPick(t.dataset.gsid, t.dataset.gst, t.dataset.gsu); return; }
     if (t.dataset.ddtoggle!==undefined){ const k = t.dataset.ddtoggle; S.openF = S.openF===k ? null : k; refreshFilters({t:k}); return; }
     if (t.dataset.fclear!==undefined){ S.catalogPage=1;curF()[t.dataset.fclear].clear(); refreshFilters({t:t.dataset.fclear}); return; }
+    if (t.dataset.alertAction){void window.ManagedAlerts?.handle(t);return;}
     if (t.dataset.cycle){ const k=S.tasks.find(x=>x.id===t.dataset.cycle); upd("tasks",k.id,{status:ST_NEXT[k.status||"todo"]}); return; }
     if (t.dataset.delTask){ if(confirm("Видалити задачу?")) del("tasks",t.dataset.delTask,"Задачу видалено"); return; }
     if (t.dataset.react!==undefined && t.dataset.react){ upd("ideas",t.dataset.react,{reaction:t.dataset.v||null}, t.dataset.v==="yes"?"Ідею обрано":t.dataset.v==="no"?"Записав: відкладаємо":null); return; }
@@ -1639,7 +1641,7 @@
     db = d; clearTimeout(noDbTimer);
     const byOrder = (a,b)=>(a.order??0)-(b.order??0);
     const sub = (col, key, sort) => db.collection(col).onSnapshot(s=>{
-      S[key] = s.docs.map(x=>({id:x.id, ...x.data(),...(['tasks','ideas'].includes(col)?{permissions:x.permissions?.(),initiative:x.initiative}: {})})).sort(sort); render();
+      S[key] = s.docs.map(x=>({id:x.id, ...x.data(),...(['tasks','ideas'].includes(col)?{permissions:x.permissions?.(),initiative:x.initiative}: {}),...(col==='tasks'?{revision:x.revision}: {})})).sort(sort); render();
     }, ()=>{});
     sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
     sub("ideas","ideas",byOrder);

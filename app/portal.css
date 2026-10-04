@@ -259,3 +259,5 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
 
 
 }
+
+.managed-alert-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;min-width:0}.managed-alert-actions .btn{min-height:44px;max-width:100%;white-space:normal}
