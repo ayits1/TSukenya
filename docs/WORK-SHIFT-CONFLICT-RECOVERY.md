@@ -68,3 +68,19 @@ actual native PASS: malformed serverunits0 й invalid Apply не змінюют�
 
 `tests/multiple-work-shifts-ui.cjs` зберігає стару B04 команду як primary wrapper цього самого harness.
 Повну регресію, publish, deployment, VPS чи backup0.1 не виконували. Збереження чернетки через reload не входить до цього пакета.
+
+## Незалежне інтеграційне рев’ю
+
+Пакет інтегровано поверх прийнятого #60 (`6d4a8fe`); спільний React entry зберігає Entity і WorkShift exports.
+Root до виправлення відтворив прийняття units0/>10, percent100.001, rate1.0001 та positive bonus без cash.
+Після follow-up тимчасовий незалежний reproduction і постійні workShift unit: 7 PASS (107 ms).
+Тимчасовий дубль прибрано; постійний regression має всі ці cases і private employee terms.
+Combined TypeScript/Vite build PASS; actual comparison PNG1440/320 переглянуті.
+
+Root `WORK_CONFLICT_FROM=semantic WORK_SHIFTS_PROOF_DIR=/tmp/tsukenya-root-work-shift-semantic
+PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/work-shift-conflict-ui.cjs`: PASS,
+окремий `semantic-report.json`. Перша sandbox спроба не відкрила localhost порт (Operation not permitted);
+після дозволеного isolated запуску повторено лише цей етап. Це не функціональний збій застосунку.
+Повний registry виконує один workshift harness із primary/existing/semantic, старий primary wrapper
+залишається доступним; full runner прибирає частковий прапорець і зовнішній output path.
+`test:full -- --plan` — тільки dry-run, повна регресія й VPS не запускалися.

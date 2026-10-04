@@ -174,3 +174,11 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B06 existing entities:** редактори наявних магазинів, складів, рахунків, контрагентів і працівників інтегровані для PR/CI. Shared comparison, frozen revision, local Apply/separate Save, strict required payterms та immutable identity. Author targeted unit/story/PostgreSQL/native докази; root source review й перегляд actual320/1440 PNG. [NATIVE-CONFLICT-RECOVERY.md](NATIVE-CONFLICT-RECOVERY.md). Створення довідників, workshift, vouchers/payments, рецептури й legacy edits залишаються окремими незавершеними пакетами.
 - **B24 reports:** backend інтегрований на окремій гілці рев’ю; root ізольовані PostgreSQL3 PASS, включно з виправленим N+1 1vs65. Native pages/export і final proof ще не прийняті.
 - VPS, повний regression, зовнішні сервіси й виключений0.1 не виконані.
+
+
+## Після прийняття #60 · main6d4a8fe · 04.10.2026
+
+- **B06 existing entities:** #60 MERGED, exact head2b0f5ad frontend/server/PostgreSQL CI успішні; canonical clone fast-forward6d4a8fe clean. Frozen baseline, local Apply/separate Save та strict payterms прийняті. Root initial-open-only proof підтвердив відмову при неповних private terms без запису; ширша native workflow матриця є авторським доказом.
+- **B06 workshift:** інтегровано для PR/CI. Незалежне root рев’ю відтворило invalid semantic payment terms і підтвердило виправлення; unit reproduction7/combined build/actual narrow semantic PASS, actual320/1440 PNG переглянуто. [WORK-SHIFT-CONFLICT-RECOVERY.md](WORK-SHIFT-CONFLICT-RECOVERY.md). Це не закриває vouchers/payments, recipes, monthly/legacy та reload survival.
+- **B24 reports:** backend root PostgreSQL3 PASS; native delivery отримано, source/старі adapter fixtures та remaining integration проходять рев’ю.
+- Повний regression, production release/VPS та виключений backup0.1 не виконані.
