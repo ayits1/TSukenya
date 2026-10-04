@@ -30,13 +30,16 @@ export class RecoveryController {
   refreshEntries() {
     this.show({ state: 'ready', entries: this.store.entries(), error: '' });
   }
-  suspend() {
+  dismiss() {
     ++this.generation;
     this.request?.abort();
     this.request = null;
+    this.show({ state: 'checking', entries: [], error: '' });
+  }
+  suspend() {
+    this.dismiss();
     this.session = null;
     this.store.suspend();
-    this.show({ state: 'checking', entries: [], error: '' });
   }
   revoke() {
     this.suspend();

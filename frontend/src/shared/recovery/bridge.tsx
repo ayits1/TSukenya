@@ -52,7 +52,7 @@ export function createDraftRecovery(target: Window) {
   let dialog: HTMLDialogElement | null = null,
     unmount: (() => void) | null = null;
   const close = () => {
-    controller.suspend();
+    controller.dismiss();
     dialog?.close();
     unmount?.();
     unmount = null;

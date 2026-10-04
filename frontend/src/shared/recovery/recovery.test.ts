@@ -238,4 +238,45 @@ describe('reload draft foundation', () => {
     expect(controller.snapshot().entries).toEqual([]);
     expect(controller.snapshot().error).toContain('Не вдалося відкинути');
   });
+  it('dismissing after successful Restore preserves editable local payload; lifetime suspension hides it', async () => {
+    const { store, codec, restored } = setup();
+    codec.suspend = () => {
+      restored.length = 0;
+    };
+    store.save('draft1', 'synthetic', draft);
+    const controller = new RecoveryController(store, async () => session);
+    await controller.restore('draft1');
+    expect(restored).toHaveLength(1);
+    controller.dismiss();
+    expect(restored).toHaveLength(1);
+    expect(controller.snapshot().entries).toEqual([]);
+    store.save('draft1', 'synthetic', { ...draft, draft: { amount: 'editable-after-close' } });
+    controller.suspend();
+    expect(restored).toHaveLength(0);
+    expect(store.entries()).toEqual([]);
+  });
+  it('dismissing during pending Restore aborts late adoption without lifetime editor suspension', async () => {
+    const { store, codec, restored } = setup();
+    store.save('draft1', 'synthetic', draft);
+    let finish: ((v: boolean) => void) | undefined;
+    codec.authorize = () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      });
+    let hides = 0;
+    codec.suspend = () => {
+      hides++;
+    };
+    const controller = new RecoveryController(store, async () => session);
+    const pending = controller.restore('draft1');
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(finish).toBeDefined();
+    const before = hides;
+    controller.dismiss();
+    expect(hides).toBe(before);
+    finish?.(true);
+    await pending;
+    expect(restored).toHaveLength(0);
+    expect(controller.snapshot().entries).toEqual([]);
+  });
 });
