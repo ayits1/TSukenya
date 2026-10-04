@@ -5,18 +5,23 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../server/runtime.js'), 'utf8');
 
-function payload(role = 'manager') {
-  return { contract:'portal-metadata-v1',networkOwner:role==='owner',role, csrf: 'isolated-csrf', labelRevision: 'label-revision', data: {
-    tasks: [{ id: 'existing', data: { title: 'Cached task', scope: 'operations' }, permissions: { canEdit: true, canDelete: true } }],
-    ideas:[],expenses:[],'project/state':{},
+const domains = ['products','references','tasks','ideas','expenses','settings/main','project/state'];
+const etag = version => '"tsukenya-portal-v2-' + String(version).repeat(64) + '"';
+function payload(role = 'manager', taskVersion = 1) {
+  return { contract:'portal-metadata-v2',scopeStore:null,networkOwner:role==='owner',role, csrf: 'isolated-csrf', labelRevision: 'label-revision',
+    stateVersions:Object.fromEntries(domains.map(domain => [domain, (domain==='tasks'?String(taskVersion):'a').repeat(64)])),data: {
+    'project/state':{},
     'settings/main': { chainName: 'Cached chain' },
   } };
 }
-function response(status, value) {
-  return { status, ok: status >= 200 && status < 300, async json() { return structuredClone(value); } };
+function response(status, value, version = 1) {
+  return { status, ok: status >= 200 && status < 300, headers:{get: name => name==='ETag'?etag(version):null}, async json() { return structuredClone(value); } };
 }
 function runtime() {
   const window = new EventTarget();window.PortalApi=require('../app/portal-api.js');const calls = [], queue = [], intervals = [], notices = [], recoveries = [];
+  const changes = [], listRefreshes = [];
+  window.addEventListener('tsukenya:data-changed', event => changes.push(event.detail.domains===null?null:Array.from(event.detail.domains)));
+  window.PortalCollections={async refreshVisible(){listRefreshes.push(changes.at(-1));}};
   window.addEventListener('tsukenya:refresh-failed', event => notices.push(event.detail));
   window.addEventListener('tsukenya:refresh-succeeded', () => recoveries.push(true));
   const location = { href: '/initial' };
@@ -31,31 +36,28 @@ function runtime() {
     Event, CustomEvent, structuredClone, crypto: { randomUUID: () => 'synthetic-uuid' },
     setInterval: callback => intervals.push(callback), setTimeout, Blob, URL,
   }, { filename: 'runtime.js' });
-  return { window, location, calls, queue, intervals, notices, recoveries,
+  return { window, location, calls, queue, intervals, notices, recoveries, changes, listRefreshes,
     async db(initial = payload()) {
       queue.push(response(200, initial));
       return window.claude.use('db');
     } };
 }
-function cached(db, collection) {
-  let snapshot;
-  const off = db.collection(collection).onSnapshot(value => { snapshot = value; });
-  off();
-  return snapshot;
-}
-
 (async()=>{
  const r=runtime(),db=await r.db();let release;
+ assert.throws(()=>db.collection('tasks').onSnapshot(()=>{}),/unavailable/,'metadata cannot masquerade as a complete task list');
  r.queue.push(()=>new Promise(resolve=>release=resolve));
  const earlier=r.window.TSUKENYA_REFRESH();
- const incoming=payload();incoming.data.tasks[0].data.title='Confirmed alert action';incoming.data.tasks[0].revision='new-task-revision';
- r.queue.push(response(200,incoming));
+ const incoming=payload('manager',2);
+ r.queue.push(response(200,incoming,2));
  const after=r.window.TSUKENYA_REFRESH_AFTER_WRITE();
  assert.equal(r.calls.length,2,'external confirmed write waits for existing read before fresh GET');
  release(response(200,payload()));await earlier;await after;
  assert.equal(r.calls.length,3,'fresh GET chained after preceding manual read');
- assert.equal(cached(db,'tasks').docs[0].data().title,'Confirmed alert action');
- assert.equal(cached(db,'tasks').docs[0].revision,'new-task-revision');
+ assert.deepEqual(r.changes.at(-1),['tasks'],'fresh metadata invalidates the externally changed task domain');
+ assert.equal(r.listRefreshes.length,2,'both explicit reads refresh the visible bounded list');
+ assert.deepEqual(r.listRefreshes.at(-1),['tasks'],'confirmed-write recovery refreshes the list after fresh task metadata');
+ assert.equal(r.queue.length,0,'all specified metadata responses were consumed');
+ assert(r.calls.every(call=>call.url==='/api/v1/portal/metadata'),'runtime recovery reads only slim metadata');
  assert(r.calls.every(call=>call.method==='GET'),'read recovery never repeats external write');
  console.log('PASS external confirmed alert mutation refresh waits for preceding GET and reads fresh state');
 })().catch(error=>{console.error(error);process.exitCode=1;});
