@@ -284,18 +284,29 @@ QA_RECIPES_FROM=read PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
 QA_RECIPES_FROM=validation PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
 QA_RECIPES_FROM=ack PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
 QA_RECIPES_FROM=role PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
+QA_RECIPES_FROM=compat PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
+# Лише missing-ID → explicit repair (не повторює решту compatibility):
+QA_RECIPE_COMPAT_ONLY=1 QA_RECIPE_COMPAT_FROM=missing PYTHON_BIN=/path/to/python node tests/recipe-conflict-ui.cjs
 QA_PRODUCTION_FROM=read PYTHON_BIN=/path/to/python node tests/production-ui.cjs
 ```
 
 `recipes-ui.cjs` лишається єдиним recipe entrypoint повної явної перевірки; його `all` послідовно
-виконує п’ять актуальних recovery scopes. Старі destructive reload/submit-retry та приховані
+виконує шість актуальних recovery scopes. Старі destructive reload/submit-retry та приховані
 select selectors замінено фактичними контрактами й видимими ComboBox. Zoom спільних controls
 перевіряється їхніми окремими UI сценаріями; цей пакет має actual keyboard/1440/320 докази.
 Native сценарії створюють власну SQLite та синтетичні дані, використовують локальний Chrome.
-Звіти `report.json`, `read-report.json`, `validation-report.json`, `ack-report.json`, `role-ack-report.json` і comparison
+Звіти `report.json`, `read-report.json`, `validation-report.json`, `ack-report.json`, `role-ack-report.json`, `compat-report.json`, `compat-missing-report.json` і comparison
 PNG пишуться до `QA_OUTPUT_DIR` або тимчасового `tsukenya-recipe-conflict-proof`.
 
 Авторські докази: unit 5, affected Storybook 1, нові API 3, чинні legacy GET/stale-update 2 та concurrent winner 1
 пройдено на isolated PostgreSQL; native main/read/validation/ACK/role-ACK і production delayed-read
 і recipe scope чинного ERP recovery harness пройдено. Вдалі результати незмінених scopes повторно використано; повного прогону не було.
 1440/320 PNG переглянуто: горизонтального overflow немає, довгий діалог прокручується вертикально.
+
+Recipe compatibility follow-up відновлює окремі фактичні native assertions попереднього
+entrypoint: видалений після відкриття інгредієнт → real POST400 → збережені кількість/Save →
+явний вибір іншого інгредієнта → POST200; недоступний збережений ID і його caption не
+підмінюються, POST400 не змінює рецепт/аудит, після явного виправлення POST200; відхилене
+очищення не робить POST і не закриває форму; confirmed POST200 із bootstrap503 пропонує
+GET-only keyboard retry. Остання перевірка intercept-ить чинний `/api/v1/trading/bootstrap`,
+а не застарілий `/api/erp/state`. Server/API бізнеслогіку follow-up не змінює.
