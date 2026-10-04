@@ -69,7 +69,10 @@ hydrate; прострочений callback не відкриває modal і не
 дія перечитує поточний posted payment/unallocated. Звірка має guarded GET,
 і при поточному401/403 закриває modal та очищує React приватний DOM.
 
-Блокування busy/dirty native modal та окремий Save/POST не змінені. React
+Блокування busy/dirty native modal та окремий Save/POST не змінені.
+Finance передає captured PressEvent target через optional native action bridge
+до створення modal; connected opener перевіряється за source/generation/route.
+Це зберігає Escape return-focus, навіть коли pending action вимикає кнопку. React
 workspace сам не створює фінансових записів та не проводить документів.
 
 ## Цільові докази
@@ -91,6 +94,7 @@ workspace сам не створює фінансових записів та н
 | Late callback | `/tmp/tsukenya-finance-proof-late/late-report.json` PASS: transport ігнорує abort, старий detail401 після route leave не завершує новий сеанс/не відкриває modal |
 | Реальні рядки/дії | `/tmp/tsukenya-finance-layout-final/layout-report.json` PASS: усі5tabs1440/320, bounds кожної action і mobile table/tr/td усередині region; PNG переглянуті |
 | Ledger note bound | Affected PG1 + SQLite1 PASS: історична примітка250000 символів отримує SQL CASE→NULL/refusal до передачі тексту до Python, без whole Voucher payload |
+| Native opener | Own follow-up `fe19b80`: bridge unit1 PASS, matching build/types/lint; compatibility agent actual `--finance-keyboard` PASS `/tmp/tsukenya-finance-compat-document-keyboard-final.log`. Initial failure BODY retained; geometry/payment proof reuse |
 
 Перші failed attempts збережені: Storybook external symlink setup/однакові
 fixture суми, dynamic TabPanel aria identity; native harness old payment form
