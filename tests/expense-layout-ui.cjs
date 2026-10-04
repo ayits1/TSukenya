@@ -63,12 +63,12 @@ const fixture = code => execFileSync(python, ['-c', `import django;django.setup(
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow '+width+' '+scale);
     const metrics=await page.locator('.expense-budget .exp').evaluateAll(rows=>rows.map(row=>{
       const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,w:r.width,h:r.height};};
-      return {row:rect(row),name:rect(row.querySelector('.n')),amount:rect(row.querySelector('.expense-amount')),input:rect(row.querySelector('input')),currency:rect(row.querySelector('.expense-amount span')),edit:rect(row.querySelector('[data-legacy-edit]')),remove:rect(row.querySelector('[data-del-exp]'))};
+      return {row:rect(row),name:rect(row.querySelector('.n')),amount:rect(row.querySelector('.expense-amount')),input:rect(row.querySelector('input')),textFits:(()=>{const el=row.querySelector("input"),style=getComputedStyle(el),ctx=document.createElement("canvas").getContext("2d");ctx.font=style.font;return ctx.measureText(el.value).width+parseFloat(style.paddingLeft)+parseFloat(style.paddingRight)+20<=el.clientWidth;})(),currency:rect(row.querySelector('.expense-amount span')),edit:rect(row.querySelector('[data-legacy-edit]')),remove:rect(row.querySelector('[data-del-exp]'))};
     }));
     for(const m of metrics){
       for(const key of ['name','amount','edit','remove'])assert(m[key].x>=m.row.x-1&&m[key].right<=m.row.right+1,key+' contained '+JSON.stringify(m));
       assert(m.name.bottom<=m.amount.y+1||m.name.right<=m.amount.x+1,'name separate from amount');
-      assert(m.input.right<=m.currency.x-4,'currency separate from input');
+      assert(m.input.right<=m.currency.x-4,'currency separate from input');assert(m.textFits,'amount is readable without horizontal scrolling');
       assert(m.amount.bottom<=m.edit.y&&m.amount.bottom<=m.remove.y,'actions below amount');
       assert(m.edit.right<=m.remove.x-4,'edit separate from delete');
       assert(m.edit.h>=44&&m.remove.h>=44&&m.remove.w>=44,'touch targets');

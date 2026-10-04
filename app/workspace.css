@@ -55,7 +55,7 @@
 
 /* Budget rows reserve space for names instead of letting full-width inputs shrink them. */
 .expense-group { min-width:0;container-type:inline-size; }
-.expense-budget .exp { display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,10rem);gap:12px 16px;align-items:end;padding:16px 0; }
+.expense-budget .exp { display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,16rem);gap:12px 16px;align-items:end;padding:16px 0; }
 .expense-budget .exp .n { overflow-wrap:anywhere; }
 .expense-amount { display:flex;align-items:center;gap:8px;min-width:0; }
 .expense-amount input { width:100%;min-width:0;flex:1;min-height:44px;text-align:right;font-variant-numeric:tabular-nums; }
