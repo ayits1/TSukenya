@@ -75,10 +75,25 @@
   tail: `report-callbacks-tail.json` — обидва recipe editors, control/task link,
   replenishment→unsaved purchase-order rows PASS. Це не повтор financial suite.
 
-Команда: `PYTHON_BIN=... QA_REACT_STOCK_FROM=primary|recovery|callbacks|callbacks-tail|privacy|layout|scope|control-late node tests/react-stock-ui.cjs`.
+Команда: `PYTHON_BIN=... QA_REACT_STOCK_FROM=primary|recovery|callbacks|callbacks-tail|privacy|layout|scope|control-late|comparison-policy node tests/react-stock-ui.cjs`.
 `all` проходить основні primary/recovery/callbacks/layout/privacy стадії; `scope` і `control-late` — окремі спрямовані додаткові сценарії; partial flags потрібні лише для affected retry.
 Перед spawn/hash scrubbed DB/PG/secret env, власний SQLite/DATA_DIR, awaited
 SIGTERM/5sSIGKILL cleanup. QA port/proof directory можна задати окремо.
+
+## Follow-up: comparison policy та ACK/read race
+
+Окрема остання підтверджена policy відділена від render payload: очищення
+таблиць під час refresh не означає відкликання прав. ACK перевіряє цю identity,
+а не тимчасове `totals=null`. Fresh comparison GET з іншою role/store/capability
+policy відмовляє до adoption; deny очищує server comparisons/private results,
+але зберігає raw drafts. Apply після такого deny не змінює baseline чи введення.
+
+Два вузькі unit regressions спершу FAIL на `90e63f6`, потім PASS:
+comparison owner→manager/store1 + retained Apply fence; normal ACK під час
+pending refresh + newer invalid input та справжній policy mismatch.
+`report-comparison-policy.json` — лише affected native boundary: справжній
+успішний scoped GET, private DOM/Apply/CSV clearing, raw draft після явного
+повторного mount, без POST. Попередні PG/story/native сімейства не повторено.
 
 ## Межі
 

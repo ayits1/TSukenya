@@ -157,3 +157,73 @@ it('old ignored-abort401 cannot clear new success; pending POST blocks navigatio
   await second;
   expect(model.state.drafts.get('1:p')!.reading).toBe(false);
 });
+
+it('fresh comparison policy mismatch clears private results and fences retained Apply without dropping raw drafts', async () => {
+  const api = fixtureApi(),
+    model = new StockModel(api);
+  await model.activate(options);
+  model.edit(1, assortmentRow, { minimum: '3' });
+  await model.compare(1, 'p');
+  const retained = model.state.drafts.get('1:p')!.server!;
+  model.edit(2, { ...assortmentRow, product: 'foreign' }, { minimum: 'invalid foreign' });
+  model.edit(1, assortmentRow, { minimum: 'invalid newer' });
+  api.assortment = async () => ({
+    ...assortmentPage,
+    policy: { ...stockPage.policy, role: 'manager', store: 1 },
+  });
+  await model.compare(1, 'p');
+  expect(model.state.denied).toBe(true);
+  expect(model.state.totals).toBeNull();
+  expect(model.state.captions.size).toBe(0);
+  expect(model.state.drafts.get('1:p')!.server).toBeNull();
+  expect(model.state.drafts.get('1:p')!.reading).toBe(false);
+  expect(model.state.drafts.get('2:foreign')!.minimum).toBe('invalid foreign');
+  model.apply('1:p', terms(retained));
+  expect(model.state.drafts.get('1:p')!.minimum).toBe('invalid newer');
+  expect(model.state.drafts.get('1:p')!.base.revision).toBeNull();
+});
+it('normal ACK during pending refresh uses confirmed authorization, preserving newer input; genuine changed policy still denies', async () => {
+  const api = fixtureApi(),
+    model = new StockModel(api);
+  await model.activate(options);
+  model.edit(1, assortmentRow, { minimum: '3' });
+  let ack!: (value: Awaited<ReturnType<typeof api.save>>) => void;
+  api.save = () =>
+    new Promise((resolve) => {
+      ack = resolve;
+    });
+  const write = model.save(1, 'p');
+  model.edit(1, assortmentRow, { minimum: 'invalid newer' });
+  let read!: (value: typeof stockPage) => void;
+  let readCalls = 0;
+  api.stock = (query) =>
+    ++readCalls === 1
+      ? new Promise((resolve) => {
+          read = resolve;
+        })
+      : Promise.resolve({ ...stockPage, query });
+  const refresh = model.refresh();
+  expect(model.policy()).toBeNull();
+  ack({
+    warehouse: 1,
+    row: { ...assortmentRow, min_stock: '3.000', minimum: '3.000', revision: 'a'.repeat(32) },
+    policy: stockPage.policy,
+  });
+  await write;
+  expect(model.state.denied).toBe(false);
+  expect(model.state.drafts.get('1:p')!.minimum).toBe('invalid newer');
+  expect(model.state.drafts.get('1:p')!.base.revision).toBe('a'.repeat(32));
+  read(stockPage);
+  await refresh;
+  expect(model.state.denied).toBe(false);
+  model.edit(1, assortmentRow, { minimum: '4' });
+  const second = model.save(1, 'p');
+  ack({
+    warehouse: 1,
+    row: assortmentRow,
+    policy: { ...stockPage.policy, role: 'manager', store: 1 },
+  });
+  await second;
+  expect(model.state.denied).toBe(true);
+  expect(model.state.drafts.get('1:p')!.minimum).toBe('4');
+});

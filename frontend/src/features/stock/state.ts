@@ -123,6 +123,8 @@ export class StockModel {
   private comparisonSequence = 0;
   private comparisonControllers = new Map<string, AbortController>();
   private downloads = new Set<string>();
+  // Render payloads are cleared during refresh; that is not a policy revocation.
+  private confirmedPolicy: StockPolicy | null = null;
   constructor(public api: StockApi) {}
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -162,6 +164,7 @@ export class StockModel {
     this.emit({ drafts });
   }
   deny(message: string) {
+    this.confirmedPolicy = null;
     this.cancelReads();
     this.generation++;
     this.controller?.abort();
@@ -195,6 +198,7 @@ export class StockModel {
     await this.refresh();
   }
   leave() {
+    this.confirmedPolicy = null;
     this.cancelReads();
     this.active = false;
     this.generation++;
@@ -316,6 +320,7 @@ export class StockModel {
       if (!this.active || generation !== this.generation) return;
       const captions = new Map<string, DirectoryItem>();
       details?.items.forEach((row) => captions.set(row.type + ':' + row.id, row));
+      this.confirmedPolicy = totals.policy;
       this.emit({
         totals,
         lots,
@@ -383,7 +388,7 @@ export class StockModel {
       if (this.state.denied) return;
       const latest = this.state.drafts.get(key);
       if (!latest) return;
-      if (JSON.stringify(ack.policy) !== JSON.stringify(this.policy()) && this.active) {
+      if (JSON.stringify(ack.policy) !== JSON.stringify(this.confirmedPolicy) && this.active) {
         this.deny('Права змінилися. Оновіть розділ.');
         return;
       }
@@ -447,6 +452,8 @@ export class StockModel {
     try {
       const page = await this.api.assortment(warehouse, '', 1, product, controller.signal);
       if (!live() || this.state.denied) return;
+      if (JSON.stringify(page.policy) !== JSON.stringify(this.confirmedPolicy))
+        throw new ApiError(403, 'Права змінилися. Оновіть розділ.');
       if (page.rows[0]!.unit !== old.base.unit)
         throw Error(
           'Одиницю товару змінено. Введення збережено; автоматичне узгодження недоступне.',
