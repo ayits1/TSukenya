@@ -1,4 +1,4 @@
-const {documentButton,newDocumentButton}=require('./trading-document-controls.cjs');
+const {documentButton,newDocumentButton,waitForTradingRoute}=require('./trading-document-controls.cjs');
 /* Actual native B06 voucher/payment recovery on its own disposable Django data. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
@@ -16,7 +16,7 @@ const fixture=code=>execFileSync(python,['-c',`import os\nos.environ.setdefault(
  const supplier=(await ok('entities/parties','POST',{name:'Постачальник відновлення',kind:'supplier'})).id,account=(await ok('/api/v1/trading/directories/accounts?store='+store)).items[0].id,date=boot.today||new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Kyiv'});
  const make=(extra={})=>({kind:'purchase_order',date,store,warehouse,party:supplier,note:'Початкова примітка',lines:[{product:'recovery_flour',quantity:'2',price:'5',line_key:crypto.randomUUID(),lot:'QA-A'}],payload:{},...extra});
  const d=()=>page.locator('.trade-dialog[open]'),f=()=>page.locator('#tradeVoucherForm'),pf=()=>page.locator('#tradeAllocationForm'),error=()=>d().locator('#tradeFormError');
- const go=async(tab)=>{await page.goto(base+'/#trade/'+tab);await page.locator('#main .panel, [data-react-purchases]').first().waitFor();await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'),'trade load');};
+ const go=async(tab)=>{await page.goto(base+'/#trade/'+tab);await waitForTradingRoute(page,tab);await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'),'trade load');};
  const close=async()=>{if(await d().count()){page.once('dialog',x=>x.accept());await page.keyboard.press('Escape');await d().waitFor({state:'hidden'});}};
  const open=async(id,tab='purchases',form='voucher')=>{await go(tab);await documentButton(page,id).first().click();await d().locator('[data-trade=edit-voucher]').click();await (form==='payment'?pf():f()).waitFor();};
  const save=()=>d().locator('[type=submit][value=draft]').click();const read=()=>d().locator('[data-voucher-read]').click();const apply=()=>d().getByRole('button',{name:'Застосувати узгоджені зміни'}).click();

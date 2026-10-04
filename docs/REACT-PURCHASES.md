@@ -138,3 +138,5 @@ Initial7af216b frontend CI PASS; server SQLite CI виявив8 помилок �
 кнопка закупівлі → Save+post/lost ACK → GET підтверджує проведення, без повторного
 PUT/post. Артефакт: `/tmp/tsukenya-purchases-maintenance-proof/post-partial-report.json`.
 Syntax усіх змінених helpers і frontend build PASS; повну регресію не запускали.
+
+Root додатково адаптував readiness waits у settings/recovery/date/layout/portal/voucher helpers: actual React purchases policy/actions ready замість fleeting native .panel. Syntax7helpers/diff/browser-policy225 PASS. Один affected існуючий `VOUCHER_QA_FROM=post` terminal PASS `/tmp/tsukenya-purchases-integrated-native-post/post-partial-report.json`: actual Save+post/lostACK→GET confirmation, no repeated PUT/post. Інші сім’ї й повну матрицю не повторювали. Matching build після non-action data-document-id PASS; frontend geometry/actions/accounting незмінні.

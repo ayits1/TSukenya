@@ -8,4 +8,9 @@ function newDocumentButton(page,kind){
  const native=page.locator(`#main [data-trade=new-voucher][data-kind="${kind}"]`);
  return labels[kind]?native.or(page.getByRole('button',{name:'+ '+labels[kind],exact:true})):native;
 }
-module.exports={documentButton,newDocumentButton};
+async function waitForTradingRoute(page,tab){
+ if(tab!=='purchases'){await page.locator('#main .panel').first().waitFor();return;}
+ await page.locator('[data-react-purchases]').waitFor();
+ await page.waitForFunction(()=>{const host=document.querySelector('[data-react-purchases]');return host&&host.querySelector('.purchases-create button:not(:disabled)')&&![...host.querySelectorAll('[role=status]')].some(el=>el.textContent.includes('Завантаження закупівель'));});
+}
+module.exports={documentButton,newDocumentButton,waitForTradingRoute};

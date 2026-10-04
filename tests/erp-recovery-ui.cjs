@@ -25,7 +25,7 @@ Store.objects.filter(pk=Store.objects.first().pk).update(name='Магазин '+
  const ctx=await browser.newContext({viewport:{width:320,height:1000}});page=await ctx.newPage();page.on('pageerror',error=>errors.push(error.message));
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.route('https://fonts.gstatic.com/**',route=>route.abort());
  await require('./browser-login.cjs')(page,base,password);
- const go=async tab=>{const url=base+'/#trade/'+tab;if(page.url()===url)await page.reload({waitUntil:'domcontentloaded'});else await page.goto(url,{waitUntil:'domcontentloaded'});await page.locator('#main .panel').first().waitFor();await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'),tab);};
+ const go=async tab=>{const url=base+'/#trade/'+tab;if(page.url()===url)await page.reload({waitUntil:'domcontentloaded'});else await page.goto(url,{waitUntil:'domcontentloaded'});await waitForTradingRoute(page,tab);await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'),tab);};
  const dialog=()=>page.locator('.trade-dialog[open]');
  const noOverflow=async()=>assert.equal(await dialog().evaluate(d=>d.scrollWidth>d.clientWidth+1),false,'Dialog must fit 320px');
  if(['all','users'].includes(from)){
