@@ -92,4 +92,7 @@ def prepare_task(user, path, data, previous=None):
     if 'status' in value:
         require(isinstance(value['status'], str) and value['status'] in TASK_STATUSES,
                 'Виберіть коректний статус задачі.')
+    if previous is not None and alert_task(path,previous):
+        from .managed_alerts import legacy_status
+        value=legacy_status(user,value,previous)
     return value

@@ -17,7 +17,7 @@ from .services import require, dec, day, ledger_lock, audit
 EDIT_ROLES = {'owner', 'manager', 'warehouse'}
 TEXT_FIELDS = {'name': 250, 'type': 160, 'category': 160, 'pack': 160, 'size': 160, 'unit': 30, 'barcode': 80}
 PRICE_FIELDS = {'cost', 'markup', 'price', 'manualPrice', 'promotionPrice'}
-PRODUCT_FIELDS = set(TEXT_FIELDS) | PRICE_FIELDS | {'promotion', 'priceAt', 'priceReviewed', 'minStock'}
+PRODUCT_FIELDS = set(TEXT_FIELDS) | PRICE_FIELDS | {'promotion', 'priceAt', 'priceReviewed', 'minStock', 'expiryAlertDays'}
 PRICE_DATE = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}')
 
 
@@ -48,6 +48,10 @@ def pricing_revision(config=None):
     material = json.dumps({key: plain(value) for key, value in config.items()}, sort_keys=True, separators=(',', ':'))
     return hmac.new(settings.SECRET_KEY.encode(), material.encode(), hashlib.sha256).hexdigest()
 
+
+def expiry_alert_days(data):
+    value=data.get('expiryAlertDays')
+    return value if type(value) is int and 0<=value<=3650 else 7
 
 def new_product_data(config):
     return {'unit': 'шт', 'markup': float(config['markup']), 'cost': 0, 'manualPrice': False, 'price': None}
@@ -151,6 +155,7 @@ def serialize(document, user, config, resolver=None):
         'promotionPrice': format(promotion, 'f') if promotion is not None else None,
         'salePrice': resolved['salePrice'],
         'manualPrice': manual, 'promotion': bool(data.get('promotion')), **resolved,
+        'expiryAlertDays': data.get('expiryAlertDays') if type(data.get('expiryAlertDays')) is int and 0<=data['expiryAlertDays']<=3650 else None,
         'priceAt': price_date(data.get('priceAt')), 'minStock': format(decimal(data.get('minStock')), 'f'),
     }
 
@@ -293,6 +298,10 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
     if validate_references:
         from .catalog_references import validate_reference_fields
         validate_reference_fields(data, old, creating=not bool(old.get('name')), references=references)
+    if 'expiryAlertDays' in value:
+        threshold=value['expiryAlertDays']
+        require(threshold is None or type(threshold) is int and 0<=threshold<=3650,'Поріг придатності: вкажіть ціле число днів від 0 до 3650 або залиште типовий.')
+        data['expiryAlertDays']=threshold
     if 'minStock' in value: data['minStock'] = float(dec(value['minStock'], 'Мінімальний залишок', Decimal('.001')))
     for key in ('cost', 'markup', 'price', 'promotionPrice'):
         if key in value:

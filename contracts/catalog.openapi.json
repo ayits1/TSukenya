@@ -1976,6 +1976,15 @@
           "priceContext": {
             "$ref": "#/components/schemas/PriceContext",
             "readOnly": true
+          },
+          "expiryAlertDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 3650,
+            "description": "Поріг сповіщення про придатність SKU: null — чинний типовий 7 днів; 0 — дата придатності, прострочені включаються завжди."
           }
         }
       },
@@ -2135,6 +2144,15 @@
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
             "description": "Optional preview pricing settings revision. Mismatch returns pricing_revision_conflict before any write."
+          },
+          "expiryAlertDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 3650,
+            "description": "Поріг сповіщення про придатність SKU: null — чинний типовий 7 днів; 0 — дата придатності, прострочені включаються завжди."
           }
         },
         "additionalProperties": false
@@ -2222,6 +2240,15 @@
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
             "description": "Optional preview pricing settings revision. Mismatch returns pricing_revision_conflict before any write."
+          },
+          "expiryAlertDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 3650,
+            "description": "Поріг сповіщення про придатність SKU: null — чинний типовий 7 днів; 0 — дата придатності, прострочені включаються завжди."
           }
         },
         "additionalProperties": false

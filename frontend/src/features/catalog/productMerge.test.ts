@@ -12,6 +12,7 @@ const base: ProductDraft = {
   unit: 'шт',
   barcode: '',
   minStock: '0',
+  expiryAlertDays: '',
   cost: '10.01',
   markup: '30',
   manualPrice: false,

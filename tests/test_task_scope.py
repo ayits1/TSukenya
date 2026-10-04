@@ -152,8 +152,12 @@ class TaskScopeTests(TestCase):
             self.assertEqual(self.write('delete', '/api/docs/' + alert.pk).status_code, 400)
             self.assertNotEqual(self.write('put', '/api/docs/' + alert.pk, {'status': 'done'}).status_code, 200)
         alert.refresh_from_db()
-        self.assertEqual({k: v for k, v in alert.data.items() if k != 'status'},
-                         {k: v for k, v in original.items() if k != 'status'})
+        from server.erp.managed_alerts import WORK_FIELDS
+        excluded={'status',*WORK_FIELDS}
+        self.assertEqual({k:v for k,v in alert.data.items() if k not in excluded},
+                         {k:v for k,v in original.items() if k not in excluded})
+        self.assertEqual(alert.data['_alertWorkState'],'accepted')
+        self.assertEqual(alert.data['_alertAcceptedBy'],'task-manager')
         product.data['minStock'] = 0
         product.save(update_fields=['data'])
         self.assertEqual(sync_alerts(self.user)['resolved'], 1)

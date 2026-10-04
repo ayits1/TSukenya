@@ -53,6 +53,9 @@ def observe_prices(user, documents, source, reason, *, seed=False, config=None, 
                 '_priceProduct': document.path.split('/', 1)[1], '_priceContext': store.pk if store else None,
                 '_priceChange': change.pk, 'createdAt': old.get('createdAt') or stamp.isoformat(),
                 'order': old.get('order') or int(stamp.timestamp() * 1000)}
+            from .managed_alerts import clear_work
+            clear_work(task);task['_alertCycle']=int(old.get('_alertCycle') or 0)+1
+            task['_alertNote']='Ціну змінено: потрібен новий передрук';task['_alertNoteAt']=stamp.isoformat()
             Document.objects.update_or_create(pk=task_path, defaults={'data': task})
             audit(user, 'price_changed', document.path, {'store': store.pk if store else None,
                 'before': previous, 'after': value, 'source': change_source, 'reason': change_reason[:500], 'change': change.pk})

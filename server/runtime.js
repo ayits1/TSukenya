@@ -150,6 +150,7 @@
 
   // Explicit refreshes follow writes made through other APIs (catalogue, import, pricing): a background
   // poll that is already in flight may predate them, so it is followed by a new read instead of shared.
+  window.TSUKENYA_REFRESH_AFTER_WRITE = () => refresh(started);
   window.TSUKENYA_REFRESH = () => refresh(loading && loadingId === polled ? loadingId : undefined);
   window.TSUKENYA_SERVER = true;
   window.claude = {

@@ -73,6 +73,7 @@ CASHIER_PRODUCT_FIELDS={'name','type','category','pack','size','unit','barcode',
 def legacy_state(user):
     from .catalog import revision, defaults
     from .task_scope import task_visible, task_permissions
+    from .managed_alerts import task_revision
     from .legacy_settings import settings_for_role
     catalog_config=defaults()
     from .promotion_prices import PriceResolver, context_store
@@ -114,7 +115,7 @@ def legacy_state(user):
             data[col].append({'id':id,'data':product,
                              **({'permissions':{'canEdit':False,'canDelete':False} if link else task_permissions(user,d.path,product)} if col=='tasks' else {}),
                              **({'initiative':initiative} if initiative else {}),
-                             **({'revision':revision(d,catalog_config)} if col=='products' else {})})
+                             **({'revision':revision(d,catalog_config)} if col=='products' else {'revision':task_revision(d)} if col=='tasks' else {})})
         elif d.path=='settings/main':data[d.path]=settings_for_role(d.data,user.profile.role,user.profile.store_id)
         elif d.path=='project/state' and user.profile.role=='owner':data[d.path]=d.data
     return data
@@ -443,7 +444,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -476,7 +477,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -500,6 +501,10 @@ def handle(request):
     if path.startswith('/api/') and path[5:] in COLLECTIONS and request.method=='POST':
         col=path[5:];id=secrets.token_urlsafe(18).replace('-','_')
         return legacy_mutation(request,user,col+'/'+id,request.headers.get('Idempotency-Key') if col in {'tasks','ideas','expenses'} else None)
+    match=re.fullmatch(r'/api/erp/alerts/tasks/((?:auto_|reprint_)[a-f0-9]{32})/actions',path)
+    if match and request.method=='POST':
+        from .managed_alerts import action
+        return action(request,user,match[1])
     if path=='/api/erp/alerts' and request.method=='POST':
         require(user.profile.role in {'owner','manager'},'Недостатньо прав.')
         from .alerts import run_alerts

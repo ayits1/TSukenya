@@ -1,4 +1,4 @@
-"""B19 alert lifecycle: done does not hide an active condition, recurrence opens a new cycle, run status is visible. Isolated data only."""
+"""B19 alert lifecycle: completed work keeps the active condition visible, recurrence opens a new cycle, run status is visible. Isolated data only."""
 import json
 from io import StringIO
 from unittest import mock
@@ -25,28 +25,18 @@ class AlertLifecycleTests(AccountingFixture):
 
     def set_status(self, doc, status):
         doc.data['status'] = status
+        doc.data['_alertWorkState'] = 'completed' if status=='done' else 'accepted' if status=='doing' else 'open'
         doc.save(update_fields=['data'])
 
-    def test_done_on_active_condition_is_reopened_with_note(self):
-        sync_alerts(self.u)
-        doc = self.low()
-        self.assertEqual(doc.data['_alertCycle'], 1)
-        self.assertNotIn('_alertNote', doc.data)
-        self.set_status(doc, 'done')
-        result = sync_alerts(self.u)
-        self.assertEqual(result['reopened'], 1)
-        self.assertEqual(result['created'], 0)
-        doc.refresh_from_db()
-        self.assertEqual(doc.data['status'], 'todo')
-        self.assertEqual(doc.data['_alertNote'], 'Умова досі діє')
-        self.assertTrue(doc.data['_alertNoteAt'])
-        self.assertEqual(doc.data['_alertCycle'], 1)
-        # Work in progress is left alone and keeps the note until the condition ends.
-        self.set_status(doc, 'doing')
-        self.assertEqual(sync_alerts(self.u)['reopened'], 0)
-        doc.refresh_from_db()
-        self.assertEqual((doc.data['status'], doc.data['_alertNote']), ('doing', 'Умова досі діє'))
-        self.assertEqual(sum(d.data['_alertKey'] == doc.data['_alertKey'] for d in Document.objects.filter(path__startswith='tasks/auto_')), 1)
+    def test_completed_work_keeps_active_condition_visible_without_cron_reopen(self):
+        sync_alerts(self.u);doc=self.low();self.set_status(doc,'done')
+        result=sync_alerts(self.u);doc.refresh_from_db()
+        self.assertEqual(result['reopened'],0);self.assertEqual(result['created'],0)
+        self.assertEqual(doc.data['status'],'done');self.assertTrue(doc.data['_alertActive'])
+        self.assertEqual(doc.data['_alertWorkState'],'completed');self.assertEqual(doc.data['_alertCycle'],1)
+        self.set_status(doc,'doing');self.assertEqual(sync_alerts(self.u)['reopened'],0)
+        doc.refresh_from_db();self.assertEqual(doc.data['_alertWorkState'],'accepted')
+        self.assertEqual(sum(d.data['_alertKey']==doc.data['_alertKey'] for d in Document.objects.filter(path__startswith='tasks/auto_')),1)
 
     def test_resolved_condition_that_recurs_starts_new_cycle_without_duplicate(self):
         sync_alerts(self.u)

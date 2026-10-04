@@ -53,6 +53,7 @@ function initial(product: Product | undefined, markup: string): ProductDraft {
     priceAt: product?.priceAt || '',
     priceReviewed: false,
     minStock: product?.minStock || '0',
+    expiryAlertDays: product?.expiryAlertDays == null ? '' : String(product.expiryAlertDays),
   };
 }
 export function ProductEditor({
@@ -162,9 +163,16 @@ export function ProductEditor({
     mutationFn: () => {
       if (!activePreview || comparison)
         throw new Error('Дочекайтеся актуального розрахунку ціни та узгодьте зміни.');
+      const rawThreshold = draft.expiryAlertDays.trim();
+      if (rawThreshold && (!/^\d+$/.test(rawThreshold) || Number(rawThreshold) > 3650))
+        throw new Error(
+          'Поріг придатності: ціле число днів від 0 до 3650 або порожнє поле для типових 7 днів.',
+        );
+      const expiryAlertDays = rawThreshold === '' ? null : Number(rawThreshold);
+      const values = { ...draft, expiryAlertDays };
       const payload: ProductCreate | ProductPatch = current
-        ? { ...draft, revision: current.revision, pricingRevision: activePreview.pricingRevision }
-        : { ...draft, pricingRevision: activePreview.pricingRevision };
+        ? { ...values, revision: current.revision, pricingRevision: activePreview.pricingRevision }
+        : { ...values, pricingRevision: activePreview.pricingRevision };
       return api.save(payload, current?.id);
     },
     retry: false,
@@ -423,6 +431,13 @@ export function ProductEditor({
                 {reference('unit')}
                 {text('barcode', 'Штрихкод')}
                 {text('minStock', 'Мінімальний залишок')}
+                <TextField
+                  label="Сповіщення про придатність, днів"
+                  inputMode="numeric"
+                  value={draft.expiryAlertDays}
+                  onChange={(value) => setDraft((old) => ({ ...old, expiryAlertDays: value }))}
+                  description="Порожньо — типовий поріг 7 днів. 0 — дата придатності; прострочені партії включаються завжди."
+                />
               </div>
             </fieldset>
             <fieldset disabled={referenceBusy}>
