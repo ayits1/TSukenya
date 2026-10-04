@@ -16,3 +16,13 @@
 Артефакти завершеного запуску: `proof.json`, `optional-empty-320.png`, `optional-empty-1440.png` у `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-directory-empty-RgW9j2/`.
 
 Базова гілка `b49212a`; новий пакет не змінює раніше доставлені звіти. Повну регресію, Linux PNG baselines, WebKit, перевірку скринрідером і розгортання не виконували; успішні незмінені перевірки повторно не запускали.
+
+## Незалежне інтеграційне рев’ю
+
+Root source review і перегляд author PNG320/1440 — PASS. Пакет інтегровано поверх accepted #62;
+combined TypeScript/Vite build PASS. Новий harness фіксує test Django settings/secret, прибирає inherited
+DB/PG/URL/require connection variables, перевіряє ранній server exit та очікує завершення власного сервера.
+Повторено лише цей affected native integration: PASS, артефакти
+`/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-directory-empty-uzwLnc/`.
+Author six Storybook states та незмінні keyboard/layout assertions перевикористані; broad regression
+не повторювалася. Новий native harness зареєстровано один раз у explicit full runner.
