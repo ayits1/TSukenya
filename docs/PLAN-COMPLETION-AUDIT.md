@@ -273,3 +273,14 @@ PR #69 прийнято exacthead9b0f1a9 після frontend/server/PostgreSQL S
 fast-forward. Planning пакет перебазовано на цей main; source/tests/contracts/build inputs
 порівняно з перевіреним integration tree — без відмінностей. Production залишено на
 прийнятому #68/94dece2; #69 і цей наступний пакет ще не розгорнуто.
+
+
+## Прийняття і публікація #69–70 · 04.10.2026
+
+#69 merged24b5e0c, #70 merged5b079bb після успішних exact-head frontend/server/
+PostgreSQL CI. Останній функціональний main5b079bb розгорнуто; backup, SHA health,
+worker, незмінний JSON digest і read-only reconcile0 задокументовано в
+SERVER-DEPLOYMENT.md. Planning/category/monthly інтеграція прийнята; цей факт
+не закриває B06 reload persistence, B24 capacity/fanout, external integrations
+або повну міграцію торговельних екранів React. Повного локального test:full
+і offsite0.1 не було. Hidden catalogue та bounded report children ще в роботі.

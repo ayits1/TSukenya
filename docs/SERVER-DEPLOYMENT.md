@@ -329,3 +329,37 @@ JSON digest незмінний `a85eef4aa5063ec958c3a1e0b8e515ef595e4a09e2e9bd31
 Відкат коду: stop worker; release.py з pre-20261004T110334Z.tar.gz; після health
 перебудувати worker сумісного попереднього коду. Не відновлювати БД поверх нових записів.
 Нова erp0020 лише додає таблицю receipt; дані при code rollback не видаляти.
+
+
+## Реліз прийнятих PR #69–70 · 04.10.2026
+
+За дорученням власника опубліковано останній перевірений функціональний main
+`5b079bb578a9dfecd53abd18d86fc4aa78118e90` (#70), після проміжного #69
+`24b5e0c2da48f4d7bbfa885cf297ede7ace59207`. Exact-head frontend/server/PostgreSQL
+CI обох PR успішні. Локальний checkout Documents/Projects/TSukenya синхронізовано
+fast-forward. #69 додав safe original snapshot/identity для tasks/ideas/expenses;
+#70 — creator receipts і узгодження category/monthly budget без втрати плану.
+Чернетки після reload залишаються окремою роботою.
+
+Обидва релізи: immutable git archive, release.py --check, scoped stop worker,
+штатний backup/web build/migrate/health, rebuild/restart worker тієї самої SHA.
+Нова схема лише additive erp0021/0022; Compose/env/gateway не замінювали,
+PostgreSQL container `8b74e7132c36` не перезапускався. Final web `82b17aae7aaa`,
+worker `16163cb147b5` healthy; внутрішній/публічний health показали потрібний SHA,
+imports available. Сусідній бізнес HTTPS200. Початковий worker probe відразу
+після startup завершився до першого heartbeat; повторено лише read-only probe, PASS.
+
+Backup #69: `backups/tsukenya-crm-20261004T113805Z.dump`; попередній код
+`releases/pre-20261004T113805Z.tar.gz`. Backup #70:
+`backups/tsukenya-crm-20261004T114211Z.dump`; попередній код
+`releases/pre-20261004T114210Z.tar.gz`. Checksum та pg_restore --list обох PASS.
+Read-only reconcile exit0/issues0. До/після 90 Document, 0 Voucher/StockEntry/
+CashEntry, 28 AuditEvent; importRuns0. JSON digest незмінний:
+`a85eef4aa5063ec958c3a1e0b8e515ef595e4a09e2e9bd319d285e17a16573df`.
+Production mutation-тестів, повної локальної регресії, offsite0.1 не виконували.
+Authenticated production UI не перевірявся: потрібний звичайний вхід власника.
+
+Відкат коду #70: спочатку scoped stop worker; штатний release.py з
+pre-20261004T114210Z.tar.gz; після healthy web перебудувати worker сумісної
+попередньої версії. БД не відновлювати поверх нових записів; erp0021/0022
+та квитанції після code rollback зберігаються.
