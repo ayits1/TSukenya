@@ -118,3 +118,7 @@ Lazy-список і підготовка замовлення звіряють 
 prepare з підміненим магазином. Останній доводить, що native callback не
 викликається, частина не позначається відкритою, підтверджений список лишається.
 Серверні та browser докази вище повторно не запускали: їхні входи не змінені.
+
+## Root integration · accepted main9507bdd
+
+Backend/sourcec1054e7 та strict handoff fix604f1b6 інтегровано поверх прийнятих рецептур/workShift/категорій. Native loaders і static allowlist збережені; full registry env scrub аддитивний. Matching build/types, integrated12 API/state units, syntax/py_compile/diff/browser policy222 та full registry dry-run PASS. Після rebase на9507bdd matching frontend build PASS; API/state inputs не змінились. Actual callbacks terminal PASS `/tmp/tsukenya-purchases-integrated-callbacks/callbacks-report.json`: native order edit/save, saved PUT+list503 readonly retry, post/from-order receipt, receipt→price review і supplier-return prefill. Independent initial source review знайшло header-binding/array enum зауваження; виправлено604f1b6, narrow regressions red→green, root diff підтвердив перевірку всіх immutable headers/preview. Авторські unchanged PG/RR/privacy/layout/story/205parts докази повторно використано. PR/CI й deployment ще окремі gates; full suite не запускали.
