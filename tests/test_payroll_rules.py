@@ -70,10 +70,10 @@ class PayrollRuleTests(AccountingFixture):
         self.assertEqual((ws.accrued, payroll.total), (Decimal('100.00'), Decimal('100.00')))
         self.assertEqual(self.owner_report()['cashiers'][0]['late_return_bonus'], '0.00')
 
-    def test_percent_payroll_still_blocks_return_on_accrual_date(self):
+    def test_percent_payroll_allows_return_posted_after_same_day_accrual(self):
         worker, shift, sale, ws, payroll = self.late_return(percent=10)
-        with self.assertRaisesMessage(BusinessError, 'Зарплату за цей день уже нараховано'):
-            self.cash_return(sale, self.till(), 1, 100, date=self.yesterday)
+        self.assertEqual(self.cash_return(sale, self.till(), 1, 100, date=self.yesterday).status, 'posted')
+        self.assertEqual(report(self.u, {'from': self.yesterday, 'to': self.yesterday})['cashiers'][0]['late_return_bonus'], '10.00')
 
     def test_return_before_accrual_is_not_late(self):
         worker = Employee.objects.create(name='Worker', store=self.store, shift_rate=0, bonus_percent=10)

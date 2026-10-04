@@ -204,7 +204,8 @@ def late_return_bonus(user, start, end, store=None):
     eligible=WorkShift.objects.filter(payroll__status='posted',bonus_percent__gt=0,cash_shift__isnull=False)
     returns=scoped(Voucher.objects.filter(status='posted',kind='customer_return',date__lte=end,reference__shift__in=eligible.values('cash_shift')).select_related('reference__shift__employee','reference__shift__opened_by'),user).order_by('date','pk')
     if store:returns=returns.filter(store_id=store)
-    returns=list(returns)
+    from .payroll_chronology import is_late_return, return_order
+    returns=sorted(returns, key=return_order)
     by_shift={}
     for w in eligible.filter(cash_shift_id__in={r.reference.shift_id for r in returns}).select_related('payroll'):
         by_shift.setdefault(w.cash_shift_id,[]).append([w,w.basis_amount])
@@ -217,7 +218,7 @@ def late_return_bonus(user, start, end, store=None):
             total=result.setdefault(key,[ZERO,cash_shift.employee.name if cash_shift.employee_id else cash_shift.opened_by.username])
         for item in by_shift.get(cash_shift.pk,[]):
             w,remaining=item
-            if w.payroll.date>=r.date or (w.bonus_basis=='personal' and sale.employee_id!=w.employee_id):continue
+            if not is_late_return(r, w.payroll) or (w.bonus_basis=='personal' and sale.employee_id!=w.employee_id):continue
             used=min(max(ZERO,r.total-r.cost if w.bonus_basis=='profit' else r.total),remaining);item[1]=remaining-used
             if total is not None:total[0]+=used*w.bonus_percent/Decimal(100)
     return result
