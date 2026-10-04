@@ -51,3 +51,24 @@ Restore завжди явний. Controller перечитує session, поті
 `controller.dismiss()` скасовує pending session/authorize reads через AbortSignal+generation та прибирає лише стан діалогу. `controller.suspend()` додатково блокує binding і викликає hide-only callbacks усіх підключених редакторів. Close/Escape recovery-діалогу використовують dismiss: після завершеного Restore введення лишається доступним для редагування. Pagehide/hidden/revoke/dispose використовують suspend. Focus повертається до елемента, що відкрив діалог. Немає автоматичного Save після Restore або Close.
 
 Цільові unit `-t 'dismissing'`: **2 PASS**, 10 skipped (87ms) — completed Restore→Dismiss з подальшим локальним save, окремий pending Restore→Dismiss→late response без adoption. Types/lint/build PASS. `QA_DRAFT_FROM=dismiss PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/draft-persistence-ui.cjs`: **PASS**, фактичний Restore→Enter Close→локальне редагування сирого невалідного draft і capture у sessionStorage; потім видалення isolated PortalSession→GET401 приховує редактор та очищає записи, 0 бізнес-записів. Артефакт `dismiss-report.json` у тому самому proof directory. Старе неправильне очікування «Close очищає restored payload» виправлено у default harness. Незмінені PG/Story/попередні storage/layout scenarios не повторювались. Дозволені `QA_DRAFT_FROM`: undefined (цілий standalone target), `tail` (друга вкладка/401), `dismiss` (цей окремий continuation).
+
+## Інтеграція в поточний main
+
+Основа та обидва виправлення незалежного рев’ю інтегровані після прийнятого #78.
+Root перевірив session HMAC/свіжі права/READ ONLY snapshot, immutable first intent,
+quota, ізоляцію denied resource та відмінність dismiss від privacy suspend.
+Actual320 PNG переглянуто: довга українська назва, дії44px і ширина діалогу коректні.
+
+Комбінована frontend збірка й типи PASS. Після зміни глобального runtime у #76
+виконано тільки зачеплений actual native `QA_DRAFT_FROM=dismiss`: PASS,
+`/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-draft-p0-proof-C9mSto/dismiss-report.json`.
+Restore → Close → локальне редагування/capture працює; справжній GET401 очищує
+відновлений редактор та сховище; бізнес-записів0. Незмінені PG/unit/Story докази
+використано повторно. Цей доказ стосується спільної основи із synthetic codec,
+а не ще не підключених робочих форм.
+
+Harness має ізоляцію env до password helper, server log, exit/signal startup guard
+і awaited SIGTERM/SIGKILL cleanup. До explicit full registry додано основний сценарій
+і окремий dismiss/local-edit сценарій; повтор tail не потрібен, він уже в основному.
+QA_DRAFT_FROM не успадковується в full. Syntax та test:full -- --plan PASS;
+повний прогін, production/Sheet/VPS зміни не виконувалися. P1 почато окремою роботою.
