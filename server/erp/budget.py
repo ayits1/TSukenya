@@ -65,7 +65,8 @@ def validate_expense(data):
 def budget_fact(user, params):
     """Actual expenses of one month by accounting category, for the budget plan-versus-fact view."""
     from .historical_reports import period_documents, period_sign, read_snapshot, require_reversal_dates, stores_for
-    require(user.profile.role == 'owner', 'Бюджет витрат доступний власнику мережі.')
+    from .financial_scope import require_network_owner
+    require_network_owner(user)
     today = timezone.localdate()
     raw = str(params.get('month') or today.strftime('%Y-%m'))
     match = re.fullmatch(r'([0-9]{4})-([0-9]{2})', raw)

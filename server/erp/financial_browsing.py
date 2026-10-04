@@ -63,7 +63,8 @@ def ledger(user, params):
 
 
 def audit_events(user, params):
-    require(user.profile.role == 'owner', 'Недостатньо прав для журналу змін.')
+    from .financial_scope import require_network_owner
+    require_network_owner(user)
     requested = page_number(params)
     query = AuditEvent.objects.select_related('user').annotate(
         local_day=TruncDate('at', tzinfo=ZoneInfo('Europe/Kyiv')),
