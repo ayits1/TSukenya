@@ -232,4 +232,7 @@ RUNNERS = {'lot_balance': check_lots, 'voucher_total': check_totals, 'double_pos
 def reconcile():
     """Runs every check; returns {'checks': {name: {'title', 'issues'}}, 'issues': n}."""
     result = {name: {'title': CHECKS[name], 'issues': run()} for name, run in RUNNERS.items()}
-    return {'checks': result, 'issues': sum(len(c['issues']) for c in result.values()), 'counts': {'lots': StockLot.objects.count(), 'vouchers': Voucher.objects.count(), 'stock_entries': StockEntry.objects.count(), 'cash_entries': CashEntry.objects.count()}}
+    from .reconcile_periods import check_periods
+    found, coverage = check_periods()
+    result['closed_period'] = {'title': 'Закриті періоди та відомий порядок проведень', 'issues': found}
+    return {'coverage': coverage, 'checks': result, 'issues': sum(len(c['issues']) for c in result.values()), 'counts': {'lots': StockLot.objects.count(), 'vouchers': Voucher.objects.count(), 'stock_entries': StockEntry.objects.count(), 'cash_entries': CashEntry.objects.count()}}

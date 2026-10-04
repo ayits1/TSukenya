@@ -158,6 +158,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/promotion-legacy.cjs']);
     await run('node', ['tests/monthly-budget-decimal.cjs']);
     await run('node', ['tests/financial-scope-ui.cjs']);
+    await run('node', ['tests/reconciliation-contract.cjs']);
     await run('node', ['tests/catalog-import-parser.cjs']);
     await run('node', ['tests/catalog-import-jobs.cjs']);
     await run('node', ['tests/csv-format.cjs']);
@@ -194,6 +195,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/crm-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/customers-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/bounded-stock-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/reconciliation-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/multiple-work-shifts-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/ui-audit.cjs'], { env: { ...browserEnv, QA_ORDER_RESERVES_ONLY: '1' } });
     await run('node', ['tests/ui-audit.cjs'], { env: { ...browserEnv, QA_INITIATIVES_ONLY: '1' } });

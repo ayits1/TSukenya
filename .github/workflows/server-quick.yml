@@ -53,7 +53,7 @@ jobs:
         run: python manage.py test tests --noinput
       - name: Browser adapter and legacy module scenarios
         run: |
-          for scenario in sync-sim.js catalog-import-parser.cjs csv-format.cjs runtime-recovery.cjs runtime-create-key.cjs runtime-managed-refresh.cjs promotion-legacy.cjs monthly-budget-decimal.cjs financial-scope-ui.cjs; do
+          for scenario in sync-sim.js catalog-import-parser.cjs csv-format.cjs runtime-recovery.cjs runtime-create-key.cjs runtime-managed-refresh.cjs promotion-legacy.cjs monthly-budget-decimal.cjs financial-scope-ui.cjs reconciliation-contract.cjs; do
             echo "::group::$scenario"
             node "tests/$scenario"
             echo "::endgroup::"
