@@ -149,3 +149,12 @@ identity та AbortSignal fence. Скасування одразу закінч�
 пояснення про збережену чернетку); перший Storybook filter не відповідав
 відображуваному імені story і не запускав тест. Фінальні цільові результати
 стосуються поточного source/bundle; фізичний друк та пристрій не перевірялися.
+
+
+## Інтеграція з актуальним порталом · 04.10.2026
+
+Пакет інтегровано поверх PR86 (виправлення початкового завантаження) та P1 voucher drafts. Автоматичне злиття зберегло single-flight bootstrap, subscription cleanup і metadata identity handling. `portal-validator.cjs` PASS; matching TypeScript/Vite build PASS.
+
+Три нові browser harness перенесені на bundled Chromium Playwright `headless: true`, без `channel`, `executablePath` та системного Chrome. Статична policy перевірила 199 файлів. Full runner видаляє успадкований `QA_ARTIFACTS`; нові сценарії вже зареєстровані, full suite не запускали.
+
+Актуальна вузька перевірка `price-label-context-race-ui.cjs` PASS на інтегрованому коді та ізольованій базі: delayed signed Apply A відхилений після нового запиту B, B503 не підмінено кешованим A; keyboard cancel зберігає copies3 та dirty24pt; fresh review потрібний; 320 без horizontal overflow, prepare/save 0, page errors 0. Артефакти `/tmp/tsukenya-price-integration-context/`. Незмінені backend/unit/Storybook та primary/tail докази вище повторно використані; старі browser reports не оголошуються новим запуском. VPS/Google Sheet не змінювалися.
