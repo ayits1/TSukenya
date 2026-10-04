@@ -353,6 +353,7 @@
     const m = $("#main"),openPanels=[...m.querySelectorAll("[data-disclosure][open]")].map(el=>el.dataset.disclosure),scrolls=[...m.querySelectorAll(".pick,.field-list")].map(el=>[el.className,el.scrollTop,el.scrollLeft]);
     const drafts=inlineDrafts(),focus=m.contains(a)&&a!==m?focusKey(a):null;
     m.innerHTML = ({overview, devOverview, work, tasks, ideas, products, tags, expenses})[tab]();
+    window.BusinessInitiatives?.mount();
     if(tab==='expenses'){
       m.querySelectorAll(budgetFields).forEach(el=>{const draft=budgetDrafts.get(budgetKey(el));if(draft)el.value=draft.value;});
       budgetStatus();window.MonthlyBudgets?.mount(m.querySelector('#monthlyBudget'));
@@ -410,6 +411,7 @@
     const next=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     if(next!==tab && (window.CatalogImport?.pending()||window.CatalogPricing?.pending())){toast("Дочекайтеся завершення збереження.");history.replaceState(null,"","#"+SECTIONS[tab][0]+"/"+tab);return;}
     if(next!==tab && tab==='expenses' && window.MonthlyBudgets && !window.MonthlyBudgets.canLeave()){history.replaceState(null,'','#operations/expenses');return;}
+    if(next!==tab && window.BusinessInitiatives && !window.BusinessInitiatives.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && budgetSaves.size){toast('Дочекайтеся збереження бюджету.');history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     const draftKeys={work:['addWork'],tasks:['addTask'],ideas:['addIdea',...[...createPending.keys()].filter(key=>key.startsWith('ideaTask:'))],expenses:['addExp:fixed','addExp:variable']}[tab]||[];
     if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size)){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
@@ -507,7 +509,7 @@
   function devOverview(){
     const list=developmentTasks(), active=list.filter(t=>t.status==='doing'), accepted=S.ideas.filter(i=>i.reaction==='yes'), awaiting=S.ideas.filter(i=>!i.reaction);
     return `<section class="panel"><div class="stats"><div class="stat"><div class="l">Ідей на розгляді</div><div class="v num">${awaiting.length}</div></div><div class="stat"><div class="l">Обраних ідей</div><div class="v num">${accepted.length}</div></div><div class="stat"><div class="l">Задач у реалізації</div><div class="v num">${active.length}</div></div><div class="stat"><div class="l">Виконаних задач</div><div class="v num">${list.filter(t=>t.status==='done').length}</div></div></div></section>
-    <section class="panel"><h3 class="gap-lg">Від ідеї до результату</h3><div class="quick-actions"><a href="#development/ideas">1. Записати ідею<span>Можливість для бізнесу або новий інструмент</span></a><a href="#development/ideas">2. Обрати для реалізації<span>Оцінити пропозицію й визначити пріоритет</span></a><a href="#development/tasks">3. Виконати план<span>Конкретні задачі та їхній стан</span></a></div></section>
+    ${window.TSUKENYA_SERVER?'<section class="panel" data-initiatives></section>':''}<section class="panel"><h3 class="gap-lg">Від ідеї до результату</h3><div class="quick-actions"><a href="#development/ideas">1. Записати ідею<span>Можливість для бізнесу або новий інструмент</span></a><a href="#development/ideas">2. Обрати для реалізації<span>Оцінити пропозицію й визначити пріоритет</span></a><a href="#development/tasks">3. Виконати план<span>Конкретні задачі та їхній стан</span></a></div></section>
     <section class="panel"><div class="row between gap-lg"><h3>Зараз у реалізації</h3><a class="btn soft" href="#development/tasks">План реалізації</a></div>${active.length?active.map(taskRow).join(''):'<div class="empty">Активних задач розвитку поки немає.</div>'}</section>`;
   }
   function work(){
@@ -523,7 +525,7 @@
     const canEdit=t.permissions?.canEdit??!window.TSUKENYA_SERVER,canDelete=t.permissions?.canDelete??!window.TSUKENYA_SERVER;
     const status=canEdit?`<button class="chip ${s}" data-cycle="${esc(t.id)}" aria-label="${esc(t.title)}: ${ST_LABEL[s]}. Змінити на ${ST_LABEL[ST_NEXT[s]]}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>`:`<span class="chip ${s}">${ST_LABEL[s]}</span>`;
     const context=t._alertKey?'Системне нагадування':t.scope==='operations'&&!t.store?'Задача мережі':'';
-    return `<div class="task ${s}" data-task-id="${esc(t.id)}">${status}<span class="t">${esc(t.title)}${context?`<small class="task-date">${context}${!canEdit?' · лише перегляд':''}</small>`:''}${t._alertNote?`<small class="task-date">${esc(t._alertNote)}${t._alertNoteAt?' · '+esc(new Date(t._alertNoteAt).toLocaleString('uk-UA')):''}${t._alertCycle>1?' · цикл '+esc(t._alertCycle):''}</small>`:''}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span>${canDelete?`<button class="x" data-del-task="${esc(t.id)}" aria-label="Видалити задачу: ${esc(t.title)}">×</button>`:''}</div>`;
+    return `<div class="task ${s}" data-task-id="${esc(t.id)}">${status}<span class="t">${esc(t.title)}${context?`<small class="task-date">${context}${!canEdit?' · лише перегляд':''}</small>`:''}${t._alertNote?`<small class="task-date">${esc(t._alertNote)}${t._alertNoteAt?' · '+esc(new Date(t._alertNoteAt).toLocaleString('uk-UA')):''}${t._alertCycle>1?' · цикл '+esc(t._alertCycle):''}</small>`:''}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span>${t.initiative?window.BusinessInitiatives?.taskLink(t.initiative)||'':''}${canDelete?`<button class="x" data-del-task="${esc(t.id)}" aria-label="Видалити задачу: ${esc(t.title)}">×</button>`:''}</div>`;
   }
   function tasks(){
     const opts = STAGES.map(s=>`<option value="${s.n}">${s.n}. ${esc(s.name)}</option>`).join("");
@@ -543,10 +545,10 @@
     const r = i.reaction, linked=developmentTasks().find(t=>t.ideaId===i.id);
     return `<article class="idea ${r||""}"><h3>${esc(i.title)}</h3><p class="muted">${esc(i.text)}</p>
       <div class="acts">${r ? `<span class="muted">${r==="yes"?"Обрано для реалізації":"Відкладено"}</span><button class="btn soft" data-react="${i.id}" data-v="">Змінити</button>`
-        : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Обрати</button><button class="btn soft" data-react="${i.id}" data-v="no">Відкласти</button>`}${r==='yes'?(linked?'<a class="btn soft" href="#development/tasks">Перейти до плану</a>':`<button class="btn" data-idea-task="${esc(i.id)}">Створити задачу</button>`):''}</div></article>`;
+        : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Обрати</button><button class="btn soft" data-react="${i.id}" data-v="no">Відкласти</button>`}${window.TSUKENYA_SERVER&&(i.initiative||r==='yes')?(i.initiative?window.BusinessInitiatives?.taskLink(i.initiative)||'':`<button class="btn rasp" data-initiative-create="${esc(i.id)}">Створити проєкт</button>`):''}${r==='yes'?(linked?'<a class="btn soft" href="#development/tasks">Перейти до плану</a>':`<button class="btn" data-idea-task="${esc(i.id)}">Створити задачу</button>`):''}</div></article>`;
   }
   function ideas(){
-    return `<section class="panel"><p class="muted gap-lg">Зберігайте ідеї розвитку бізнесу та програмних інструментів. Обрані ідеї можна перевести в задачу плану реалізації.</p>
+    return `<section class="panel"><p class="muted gap-lg">Зберігайте ідеї розвитку бізнесу та програмних інструментів. З обраної ідеї можна створити окремий проєкт із планом та результатом. Стара задача залишається окремим варіантом.</p>
       ${S.ideas.length?`<div class="ideas">${S.ideas.map(ideaCard).join("")}</div>`:`<div class="empty">Ідей поки немає</div>`}</section>
     <section class="panel"><h3 class="gap-lg">Своя ідея</h3><div class="row"><input id="newIdea" type="text" aria-label="Нова ідея" placeholder="Коротко опишіть ідею…" style="flex:1;min-width:200px"><button class="btn" data-act="addIdea">Записати</button></div></section>`;
   }
@@ -1637,7 +1639,7 @@
     db = d; clearTimeout(noDbTimer);
     const byOrder = (a,b)=>(a.order??0)-(b.order??0);
     const sub = (col, key, sort) => db.collection(col).onSnapshot(s=>{
-      S[key] = s.docs.map(x=>({id:x.id, ...x.data(),...(col==='tasks'?{permissions:x.permissions?.()}: {})})).sort(sort); render();
+      S[key] = s.docs.map(x=>({id:x.id, ...x.data(),...(['tasks','ideas'].includes(col)?{permissions:x.permissions?.(),initiative:x.initiative}: {})})).sort(sort); render();
     }, ()=>{});
     sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
     sub("ideas","ideas",byOrder);

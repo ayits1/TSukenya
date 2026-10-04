@@ -443,7 +443,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -476,7 +476,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -612,10 +612,10 @@ def handle(request):
         from .initiatives import idea_info
         from .historical_reports import read_snapshot
         with read_snapshot():return response(idea_info(user,initiative_idea[1]))
-    initiative_match=re.fullmatch(r'/api/erp/initiatives/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/candidates)?',path)
+    initiative_match=re.fullmatch(r'/api/erp/initiatives/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/candidates|/sources)?',path)
     if initiative_match:
-        from .initiatives import detail,candidates,mutate
-        if request.method=='GET':return response((candidates if initiative_match[2] else detail)(user,initiative_match[1],request.GET))
+        from .initiatives import detail,candidates,source_detail,mutate
+        if request.method=='GET':return response(({'/candidates':candidates,'/sources':source_detail}.get(initiative_match[2],detail))(user,initiative_match[1],request.GET))
         require(request.method=='POST' and not initiative_match[2],'Метод не підтримується.');return response(mutate(user,body(request),initiative_match[1]))
     if path=='/api/erp/references' and request.method=='GET':
         from .browsing import references

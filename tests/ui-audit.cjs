@@ -25,6 +25,7 @@ const voucher=async body=>{const v=await ok('vouchers','POST',{store,warehouse:w
 await voucher({kind:'cash_opening',amount:1000,account:cash});
 
 if(process.env.QA_ORDER_RESERVES_ONLY){await require('./order-reserves-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}
+if(process.env.QA_INITIATIVES_ONLY){await require('./initiatives-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_NATIVE_ONLY){await require('./native-work-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_BROWSE_ONLY){await require('./erp-browse-ui.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_SHIFT_BROWSE_ONLY){await require('./shift-browse-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}

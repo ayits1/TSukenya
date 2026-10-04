@@ -10,7 +10,7 @@ from django.core.exceptions import PermissionDenied
 from tests.test_erp import AccountingFixture
 from server.erp.models import *
 from server.erp.services import BusinessError,Conflict,reverse_voucher
-from server.erp.initiatives import mutate,idea_info,project_json,detail,token,candidates,list_projects,business
+from server.erp.initiatives import mutate,idea_info,project_json,detail,token,candidates,list_projects,business,source_detail
 
 
 class InitiativeTests(TransactionTestCase):
@@ -99,3 +99,11 @@ class InitiativeTests(TransactionTestCase):
             with patch('server.erp.initiatives.project_json',side_effect=changed):self.assertEqual(detail(self.u,str(project.pk),{})['actualExpenses'],'10.00')
             self.assertEqual(detail(self.u,str(project.pk),{})['actualExpenses'],'0.00')
         docs=Document.objects.bulk_create([Document(path='tasks/page-'+str(i),data={'title':'Етап '+str(i),'status':'todo','scope':'development'}) for i in range(35)]);ProjectTask.objects.bulk_create([ProjectTask(project=project,document=d) for d in docs]);data=detail(self.u,str(project.pk),{'tasksPage':'2'});self.assertEqual(data['tasks']['total'],35);self.assertEqual(len(data['tasks']['items']),5);self.assertEqual(Document.objects.get(pk='project/state').data,{'stage':3,'nextStep':'Старий маршрут'});self.assertEqual(business(project)['project_task_count'],35);self.assertNotIn('project_tasks',business(project))
+
+    def test_source_comparison_current_revisions_and_scope(self):
+        project=self.project();task=Document.objects.create(path='tasks/source_compare',data={'title':'Поточна задача','status':'doing'})
+        result=source_detail(self.u,str(project.pk),{'task':'source_compare'});self.assertEqual(result['revision'],token(task));self.assertEqual(result['status'],'doing')
+        expense=self.expense('20.05');result=source_detail(self.u,str(project.pk),{'voucher':str(expense.pk)});self.assertEqual(result['revision'],expense.revision);self.assertEqual(result['amount'],'20.05')
+        self.login(self.u);response=self.client.get('/api/erp/initiatives/'+str(project.pk)+'/sources',{'task':'source_compare'});self.assertEqual(response.status_code,200);self.assertEqual(response.json()['title'],'Поточна задача')
+        other=Store.objects.create(name='Інший');self.u.profile.store=other;self.u.profile.save()
+        with self.assertRaises(PermissionDenied):source_detail(self.u,str(project.pk),{'voucher':str(expense.pk)})

@@ -71,7 +71,7 @@ def business(project):
     result['source_idea']=project.idea_id
     result['project_task_count']=project.task_links.count()
     result['project_expense_count']=project.expense_links.count()
-    result['actual_expenses']=str(project.expense_links.filter(voucher__status='posted').aggregate(total=Sum('voucher__total'))['total'] or Decimal('0.00'))
+    result['actual_expenses']=str((project.expense_links.filter(voucher__status='posted').aggregate(total=Sum('voucher__total'))['total'] or Decimal('0.00')).quantize(Decimal('0.01')))
     return result
 
 
@@ -82,7 +82,7 @@ def project_json(project,user,params=None):
     expenses=project.expense_links.select_related('voucher').order_by('pk')
     if user.profile.store_id is not None:expenses=expenses.filter(voucher__store_id=user.profile.store_id).filter(Q(voucher__payload__expense_scope='store')|Q(voucher__payload__expense_scope__isnull=True)|Q(voucher__payload__expense_scope=None))
     actual=expenses.filter(voucher__status='posted').aggregate(total=Sum('voucher__total'))['total'] or Decimal('0.00');expense_total=expenses.count();expense_page,expense_pages,expense_start=page_bounds(expense_total,expense_page)
-    return {'id':str(project.pk),'idea':project.idea_id.partition('/')[2],'title':project.title,'problem':project.problem,'hypothesis':project.hypothesis,'store':project.store_id,'responsible':project.responsible_id,'responsibleName':project.responsible.username if project.responsible else None,'responsibleActive':project.responsible.is_active if project.responsible else None,'state':project.state,'revision':project.revision,'plannedBudget':str(project.planned_budget) if project.planned_budget is not None else None,'actualExpenses':str(actual),'actualPolicy':'Поточна сума явно пов’язаних проведених витрат. Сторновані документи не входять; кошти повторно не проводяться.','metric':project.metric,'metricUnit':project.metric_unit,'targetValue':str(project.target_value) if project.target_value is not None else None,'factValue':str(project.fact_value) if project.fact_value is not None else None,'resultSummary':project.result_summary,'resultDate':project.result_date.isoformat() if project.result_date else None,'cancelReason':project.cancel_reason,
+    return {'id':str(project.pk),'idea':project.idea_id.partition('/')[2],'title':project.title,'problem':project.problem,'hypothesis':project.hypothesis,'store':project.store_id,'responsible':project.responsible_id,'responsibleName':project.responsible.username if project.responsible else None,'responsibleActive':project.responsible.is_active if project.responsible else None,'state':project.state,'revision':project.revision,'plannedBudget':str(project.planned_budget) if project.planned_budget is not None else None,'actualExpenses':str(actual.quantize(Decimal('0.01'))),'actualPolicy':'Поточна сума явно пов’язаних проведених витрат. Сторновані документи не входять; кошти повторно не проводяться.','metric':project.metric,'metricUnit':project.metric_unit,'targetValue':str(project.target_value) if project.target_value is not None else None,'factValue':str(project.fact_value) if project.fact_value is not None else None,'resultSummary':project.result_summary,'resultDate':project.result_date.isoformat() if project.result_date else None,'cancelReason':project.cancel_reason,
         'tasks':{'page':task_page,'pages':task_pages,'total':task_total,'items':[{'id':link.document_id.partition('/')[2],'title':link.document.data.get('title',''),'status':link.document.data.get('status','todo'),'phase':link.phase,'revision':token(link.document)} for link in tasks[start:start+30]]},
         'expenses':{'page':expense_page,'pages':expense_pages,'total':expense_total,'items':[{'id':link.voucher_id,'number':f'{link.voucher_id:06d}','date':link.voucher.date.isoformat(),'amount':str(link.voucher.total),'status':link.voucher.status,'store':link.voucher.store_id,'category':link.voucher.payload.get('category','Інше') if isinstance(link.voucher.payload,dict) else 'Невизначена стаття','canOpen':True} for link in expenses[expense_start:expense_start+30]]}}
 
@@ -122,6 +122,20 @@ def candidates(user,project_id,params):
             if search:query=query.filter(Q(note__icontains=search)|Q(payload__category__icontains=search)|Q(pk=int(search)) if search.isascii() and search.isdecimal() else Q(note__icontains=search)|Q(payload__category__icontains=search))
             total=query.count();page,pages,start=page_bounds(total,page_number(params));items=[{'id':v.pk,'number':f'{v.pk:06d}','date':str(v.date),'amount':str(v.total),'category':v.payload.get('category','Інше') if isinstance(v.payload,dict) else 'Невизначена стаття','revision':v.revision} for v in query[start:start+30]]
         return {'purpose':purpose,'items':items,'page':page,'pages':pages,'total':total}
+
+
+def source_detail(user,project_id,params):
+    """A current source read grants no ownership or financial mutation privilege."""
+    with read_snapshot():
+        project=get(IdeaProject,project_id,'Проєкт');access(user,project)
+        if params.get('task'):
+            document=get(Document,'tasks/'+identifier(params['task'],'Задача'),'Задача');require(isinstance(document.data,dict),'Некоректна задача.');link=ProjectTask.objects.filter(document=document).first();require(link is None or link.project_id==project.pk,'Задача вже належить іншому проєкту.')
+            require(document.data.get('scope') in (None,'development') and not document.path.startswith(('tasks/auto_','tasks/reprint_')) and not any(k.startswith(('_alert','_price')) for k in document.data),'Операційні та системні задачі не є планом розвитку.')
+            return {'kind':'task','id':params['task'],'title':text(document.data.get('title'),'Назва задачі',250,True),'status':document.data.get('status','todo'),'revision':token(document)}
+        require(params.get('voucher'),'Виберіть джерело задачі або витрати.');voucher=get(Voucher,integer(params['voucher'],'Витрата'),'Витрата')
+        if user.profile.store_id is not None and (voucher.store_id!=user.profile.store_id or not isinstance(voucher.payload,dict) or voucher.payload.get('expense_scope') not in (None,'store')):raise PermissionDenied('Немає доступу до витрати.')
+        require(voucher.kind=='expense' and isinstance(voucher.payload,dict),'Потрібен документ витрати.');expense_permission(user,voucher);require(project.store_id is None or voucher.store_id==project.store_id and voucher.payload.get('expense_scope') in (None,'store'),'Витрата не належить магазину проєкту.')
+        return {'kind':'expense','id':voucher.pk,'amount':str(voucher.total),'status':voucher.status,'revision':voucher.revision}
 
 
 def apply_plan(project,value):
