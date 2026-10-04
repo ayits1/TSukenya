@@ -169,3 +169,20 @@ scopes PASS: `/tmp/tsukenya-recipe-integrated-preflight/preflight-report.json`,
 proof. Попередні PG/15 UI scopes для незмінених входів використано повторно.
 Самостійного full/production mutation pass немає; цей запис не засвідчує
 merge чи deploy рецептур.
+
+
+### CI SQLite follow-up
+
+Initial PR103 CI: frontend PASS, PostgreSQL PASS; SQLite stage зупинився на
+надто широкому SQL assertion, яке сплутало JSON_TYPE(data, path) із прямим
+SELECT data. Assertion тепер відхиляє тільки прямий payload projection.
+Подальший affected test виявив SQLite JSONField type collapse: JSON false
+і текст «false» мали однакове представлення. SQLite CASE тепер явно розділяє
+JSON_TYPE і scalar JSON_EXTRACT; PostgreSQL branch незмінна.
+
+Вузький тест перевірив null/false/0/empty collections та текстові аналоги,
+501-row product payload guard і fresh actor на обох isolated SQLite/PG — PASS.
+Незалежне рев’ю двох змінених файлів PASS. Артефакти:
+`/tmp/tsukenya-recipe-context-sqlite-fixed.log`,
+`/tmp/tsukenya-recipe-context-pg-fixed.log`. Незмінені codec/UI/backend докази
+повторно не запускали; нового full pass немає.

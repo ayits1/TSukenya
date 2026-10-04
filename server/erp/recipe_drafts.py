@@ -2,7 +2,8 @@
 import hashlib
 import json
 import uuid
-from django.db.models import BooleanField, Case, Q, Value, When
+from django.db import connection
+from django.db.models import BooleanField, Case, F, FloatField, Func, Q, TextField, Value, When
 
 from .historical_reports import read_snapshot
 from .models import Document, RecipeVersion
@@ -34,7 +35,20 @@ def recovery_context(user, params):
             falsy = Q(data__hidden__isnull=True)
             for value in (None, False, 0, '', [], {}):
                 falsy |= Q(data__hidden=value)
-            product = Document.objects.filter(pk='products/' + product_id(identifier)).annotate(
+            products = Document.objects.filter(pk='products/' + product_id(identifier))
+            if connection.vendor == 'sqlite':
+                # SQLite's JSONField transform maps both JSON false and the text
+                # "false" to the same SQL text. Keep type and scalar separate.
+                products = products.annotate(
+                    recovery_type=Func(F('data'), Value('$.hidden'), function='JSON_TYPE', output_field=TextField()),
+                    recovery_text=Func(F('data'), Value('$.hidden'), function='JSON_EXTRACT', output_field=TextField()),
+                    recovery_number=Func(F('data'), Value('$.hidden'), function='JSON_EXTRACT', output_field=FloatField()))
+                falsy = (Q(recovery_type__isnull=True) | Q(recovery_type__in=['null', 'false']) |
+                         Q(recovery_type__in=['integer', 'real'], recovery_number=0) |
+                         Q(recovery_type='text', recovery_text='') |
+                         Q(recovery_type='array', recovery_text='[]') |
+                         Q(recovery_type='object', recovery_text='{}'))
+            product = products.annotate(
                 recovery_hidden=Case(When(falsy, then=Value(False)), default=Value(True),
                                      output_field=BooleanField())).values('pk', 'recovery_hidden').first()
         return {'mode': mode, 'product': identifier, 'role': user.profile.role,

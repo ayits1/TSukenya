@@ -85,7 +85,7 @@ class RecipeDraftTests(TransactionTestCase):
                           'networkOwner': True, 'canWrite': True, 'exists': None})
         self.assertFalse(recipe_drafts.recovery_context(self.user, {'mode': 'legacy', 'product': 'missing'})['canWrite'])
         missing = object()
-        for hidden in (missing, None, False, 0, 0.0, '', [], {}, True, 1, -1, 'false', [0], {'active': False}):
+        for hidden in (missing, None, False, 0, 0.0, '', [], {}, True, 1, -1, 'false', 'null', '0', '[]', '{}', [0], {'active': False}):
             data = {**self.output.data, 'recipe': [{'product': 'raw', 'quantity': '2'}] * 501, 'cost': 'private'}
             if hidden is not missing:
                 data['hidden'] = hidden
@@ -97,8 +97,9 @@ class RecipeDraftTests(TransactionTestCase):
             self.assertTrue(result['exists'])
             selected = next(q['sql'].split(' FROM ', 1)[0] for q in queries if 'FROM "erp_document"' in q['sql'])
             self.assertIn('recovery_hidden', selected)
-            self.assertNotIn('"erp_document"."data",', selected)
-            self.assertNotIn('"erp_document"."data" AS', selected)
+            # SQLite JSON_TYPE/JSON_EXTRACT references the data column inside
+            # functions. Reject only a direct selected payload, not scalar use.
+            self.assertNotRegex(selected, r'(?:^SELECT\s+|,\s*)"erp_document"\."data"(?:\s*,|\s+AS|\s*$)')
             self.assertNotIn('"recipe"', selected)
         Document.objects.filter(pk=self.output.pk).update(data=self.output.data)
         store = Store.objects.create(name='Поточний магазин', active=False)
