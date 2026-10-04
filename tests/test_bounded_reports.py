@@ -160,6 +160,16 @@ class BoundedReportsTests(TransactionTestCase):
             with self.assertRaises(service.sqlite3.OperationalError):
                 with service.Spool():pass
         self.assertFalse(os.path.exists(captured[0]))
+    def test_period_cash_movements_query_count_one_vs_65(self):
+        def entry():
+            voucher=Voucher.objects.create(kind='expense',status='posted',date=self.today,store=self.store,created_by=self.u,total=1,payload={'category':'Плата','expense_scope':'store'})
+            CashEntry.objects.create(voucher=voucher,account=self.cash,amount=-1)
+        entry()
+        with CaptureQueriesContext(connection) as one:service.summary(self.u,{'mode':'period'})
+        for _ in range(64):entry()
+        with CaptureQueriesContext(connection) as many:data=service.summary(self.u,{'mode':'period'})
+        self.assertEqual(len(many),len(one));self.assertLess(len(many),25)
+        self.assertEqual(data['cash_net'],'-65.00');self.assertEqual(data['cash_net'],report(self.u,{'mode':'period'})['cash_net'])
     def test_batched_queries_do_not_scale_per_stock_debt_row(self):
         self.wide()
         with CaptureQueriesContext(connection) as queries:service.rows(self.u,{'mode':'balances','section':'stock'})

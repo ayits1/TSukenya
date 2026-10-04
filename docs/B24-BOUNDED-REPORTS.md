@@ -26,14 +26,14 @@ ORM читає пакети200 документів із їхніми рядка
 
 ## Цільові докази backend
 
-Ізольована PostgreSQL18 localhost61144, окрема test_tsukenya_bounded_reports. Одинадцять нових методів `tests.test_bounded_reports.BoundedReportsTests` пройшли цільовими хвилями, без full suite:
+Ізольована PostgreSQL18 localhost61144, окрема test_tsukenya_bounded_reports. Дванадцять нових методів `tests.test_bounded_reports.BoundedReportsTests` пройшли цільовими хвилями, без full suite:
 
 -65+ рядків кожної з9 секцій: всі сторінки/clamp, суми/рядки паритетні чинному report; CSV охоплює весь результат, formula guard.
 - Точне сортування .98/.99 при1e14, від’ємні значення й literal wildcard search; tempfile0600.
 - Cutoff, future payment, Kyiv reversal, target-store cash/stock transfer; мережеві нерозподілені витрати; явний allocation/refund/reversal.
 - Пізній бонус і попередні повернення/остаточна база, owner/manager/accountant parity.
 - HTTP role/store/invalid filters/no writes; fresh actor при початку stream, cancel cleanup.
--65 джерел/партій без per-row SQL (менше35 SQL); реальний RR concurrent rename + READ ONLY відхилення запису.
+-65 рухів коштів period: кількість SQL однакова для1/65; account читається select_related.65 джерел/партій без per-row SQL (менше35 SQL); реальний RR concurrent rename + READ ONLY відхилення запису.
 
 Перший discovery також підхопив імпортовані payroll/history TestCase класи; після переходу на module imports наступні хвилі запускали лише потрібні методи. Успішні попередні сценарії не повторювалися.
 

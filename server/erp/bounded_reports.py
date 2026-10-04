@@ -139,7 +139,7 @@ def period(user, params, spool, stores, scoped):
                     direction=sign*(-1 if voucher.kind=='customer_return' else 1)
                     changes={'quantity':direction*line.quantity,'revenue':direction*line.amount,'cogs':direction*line.cost}
                 spool.add('products',line.product_id,initial,changes)
-    for entry in effective_entries(CashEntry,end,start).filter(account__store_id__in=ids).exclude(voucher__kind='cash_opening').iterator(chunk_size=200):
+    for entry in effective_entries(CashEntry,end,start).filter(account__store_id__in=ids).exclude(voucher__kind='cash_opening').select_related('account').iterator(chunk_size=200):
         whole['cash_net']+=entry.amount; spool.add('by_store',entry.account.store_id,{}, {'cash_net':entry.amount})
     for key,row in spool.rows('products'): spool.put('products',key,product_finish(row))
     for key,row in spool.rows('by_store'): spool.put('by_store',key,{**row,**totals({k:Decimal(row[k]) for k in whole})})
