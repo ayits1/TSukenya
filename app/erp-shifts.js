@@ -42,7 +42,7 @@
     function history(host, kind, {role, username}) {
       const form = host.querySelector('form');
       const state = historyStates.get(kind) || {params:{},page:1};historyStates.set(kind,state);
-      Object.entries(state.params).forEach(([key,value])=>{if(form.elements[key])form.elements[key].value=value;});
+      Object.entries(state.params).forEach(([key,value])=>{if(form.elements[key])window.TradeDirectories.setValue(form.elements[key],value);});
       const control = loader(host,kind === 'cash' ? 'shifts' : 'work-shifts',()=>Object.fromEntries(new FormData(form)),(data,body)=>{
         state.page=data.page;state.params=Object.fromEntries(new FormData(form));
         if(kind === 'cash') body.innerHTML = table(['Зміна','Магазин','Каса','Працівник','Стан','Дії'],data.items.map(s=>[
