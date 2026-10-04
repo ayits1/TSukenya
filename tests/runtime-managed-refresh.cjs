@@ -6,9 +6,9 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../server/runtime.js'), 'utf8');
 
 function payload(role = 'manager') {
-  return { role, csrf: 'isolated-csrf', labelRevision: 'label-revision', data: {
+  return { contract:'portal-metadata-v1',networkOwner:role==='owner',role, csrf: 'isolated-csrf', labelRevision: 'label-revision', data: {
     tasks: [{ id: 'existing', data: { title: 'Cached task', scope: 'operations' }, permissions: { canEdit: true, canDelete: true } }],
-    products: [{ id: 'p1', data: { name: 'Cached product' }, revision: 'product-revision' }],
+    ideas:[],expenses:[],'project/state':{},
     'settings/main': { chainName: 'Cached chain' },
   } };
 }
@@ -16,7 +16,7 @@ function response(status, value) {
   return { status, ok: status >= 200 && status < 300, async json() { return structuredClone(value); } };
 }
 function runtime() {
-  const window = new EventTarget(), calls = [], queue = [], intervals = [], notices = [], recoveries = [];
+  const window = new EventTarget();window.PortalApi=require('../app/portal-api.js');const calls = [], queue = [], intervals = [], notices = [], recoveries = [];
   window.addEventListener('tsukenya:refresh-failed', event => notices.push(event.detail));
   window.addEventListener('tsukenya:refresh-succeeded', () => recoveries.push(true));
   const location = { href: '/initial' };

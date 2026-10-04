@@ -1,0 +1,835 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya compact portal",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/portal/state": {
+      "get": {
+        "operationId": "portalState",
+        "responses": {
+          "200": {
+            "description": "Read-only snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/State"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          },
+          "304": {
+            "description": "Незмінний компактний стан; без JSON тіла"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/overview": {
+      "get": {
+        "operationId": "portalSummary",
+        "responses": {
+          "200": {
+            "description": "Read-only snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/catalogue-model": {
+      "get": {
+        "operationId": "portalCatalogueModel",
+        "responses": {
+          "200": {
+            "description": "Read-only snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/examples": {
+      "get": {
+        "operationId": "portalExamples",
+        "responses": {
+          "200": {
+            "description": "Read-only snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Examples"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/portal/sales-margin": {
+      "get": {
+        "operationId": "portalSalesMargin",
+        "responses": {
+          "200": {
+            "description": "Read-only snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesMargin"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/examples/delete": {
+      "post": {
+        "operationId": "deleteExamples",
+        "description": "Frozen revision/UUID пакет; authoritative existing stock/recipe/production/campaign guards; exact повтор повертає receipt, а не видаляє вдруге.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idempotencyKey": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "idempotencyKey",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Read-only snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "const": true
+                    },
+                    "idempotencyKey": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "deleted",
+                              "rejected",
+                              "conflicted"
+                            ]
+                          },
+                          "error": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "idempotencyKey",
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Лише current owner"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/catalogue.csv": {
+      "get": {
+        "operationId": "exportCatalogue",
+        "description": "Explicit streamed CSV, generator owns RR/READ ONLY snapshot, batches100, fresh role/cost policy and versioned formula guard. Not automatic sync/backup.",
+        "parameters": [
+          {
+            "name": "includeHidden",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "false"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Role-aware CSV; cashier has no cost/markup",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/pricing/preview": {
+      "post": {
+        "operationId": "previewFilteredPrices",
+        "description": "Additive selection instead of ids, same helper as paged catalogue, all matching ≤1000 IDs. Preview scope names store/category/promotion; commit freezes matching IDs/prices/Kyiv day plus existing full catalogue/settings revision. Existing ids/null retained.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "markup"
+                  },
+                  "selection": {
+                    "$ref": "#/components/schemas/PricingSelection"
+                  },
+                  "markup": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+                  },
+                  "resetManualPrices": {
+                    "type": "boolean"
+                  },
+                  "updateDefault": {
+                    "const": false
+                  }
+                },
+                "required": [
+                  "kind",
+                  "selection",
+                  "markup",
+                  "resetManualPrices",
+                  "updateDefault"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing pricing review DTO plus scope {kind,count,filters,storeName}"
+          },
+          "400": {
+            "description": "Invalid/empty/over1000 selection"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "State": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "const": "portal-metadata-v1"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "manager",
+              "cashier",
+              "warehouse",
+              "accountant"
+            ]
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "csrf": {
+            "type": "string"
+          },
+          "labelRevision": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "tasks": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "ideas": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "expenses": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "settings/main": {
+                "type": "object"
+              },
+              "project/state": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "tasks",
+              "ideas",
+              "expenses",
+              "settings/main",
+              "project/state"
+            ],
+            "additionalProperties": false
+          },
+          "stateVersions": {
+            "type": "object",
+            "properties": {
+              "products": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "references": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "tasks": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "ideas": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "expenses": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "settings/main": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "project/state": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "products",
+              "references",
+              "tasks",
+              "ideas",
+              "expenses",
+              "settings/main",
+              "project/state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "contract",
+          "role",
+          "networkOwner",
+          "csrf",
+          "labelRevision",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "Summary": {
+        "type": "object",
+        "properties": {
+          "catalogCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "noPriceCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stalePriceCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exampleCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "allExampleCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "nextChangeAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceBasis": {
+            "const": "legacy_product_promotion"
+          },
+          "staleBasis": {
+            "const": "elapsed_24h_strict_greater"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "plannedExpenses": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          }
+        },
+        "required": [
+          "catalogCount",
+          "noPriceCount",
+          "stalePriceCount",
+          "exampleCount",
+          "allExampleCount",
+          "generatedAt",
+          "nextChangeAt",
+          "priceBasis",
+          "staleBasis",
+          "revision"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogueModel": {
+        "type": "object",
+        "properties": {
+          "catalogCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "noPriceCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stalePriceCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exampleCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "allExampleCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "nextChangeAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceBasis": {
+            "const": "legacy_product_promotion"
+          },
+          "staleBasis": {
+            "const": "elapsed_24h_strict_greater"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "plannedExpenses": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "basis": {
+            "const": "legacy_catalogue_equal_weight"
+          },
+          "fixed": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "variable": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "coverage": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "equalWeightMargin": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "breakEvenRevenue": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "breakEvenDaily": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "breakEvenPerStore": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "marginPercent": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "reason": {
+            "enum": [
+              "ready",
+              "no_coverage",
+              "nonpositive_margin"
+            ]
+          },
+          "budgetStores": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": [
+          "catalogCount",
+          "noPriceCount",
+          "stalePriceCount",
+          "exampleCount",
+          "allExampleCount",
+          "generatedAt",
+          "nextChangeAt",
+          "priceBasis",
+          "staleBasis",
+          "revision",
+          "plannedExpenses",
+          "basis",
+          "fixed",
+          "variable",
+          "coverage",
+          "equalWeightMargin",
+          "breakEvenRevenue",
+          "breakEvenDaily",
+          "breakEvenPerStore",
+          "marginPercent",
+          "reason",
+          "budgetStores"
+        ],
+        "additionalProperties": false
+      },
+      "Examples": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "hidden": {
+                  "type": "boolean"
+                },
+                "revision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "hidden",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "const": 30
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "SalesMargin": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "revenue": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "gross": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "dailyRevenue": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "marginPercent": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "needDaily": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gapDaily": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "basis": {
+            "const": "accounting_dates_30d_weighted"
+          },
+          "reason": {
+            "enum": [
+              "ready",
+              "no_sales",
+              "nonpositive_margin"
+            ]
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "revenue",
+          "gross",
+          "dailyRevenue",
+          "marginPercent",
+          "needDaily",
+          "gapDaily",
+          "basis",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "PricingSelection": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "pack": {
+            "type": "string"
+          },
+          "store": {
+            "type": "string"
+          },
+          "promotion": {
+            "enum": [
+              "",
+              "yes",
+              "no"
+            ]
+          }
+        },
+        "required": [
+          "q",
+          "type",
+          "category",
+          "pack",
+          "store",
+          "promotion"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "ts_session"
+      }
+    }
+  },
+  "security": [
+    {
+      "session": []
+    }
+  ]
+}

@@ -179,22 +179,17 @@ def base_query():
     return Document.objects.filter(path__startswith='products/').filter(Q(data__hidden__isnull=True) | ~Q(data__hidden=True))
 
 
-def list_products(request, user):
-    from .views import response
-    try:
-        page = int(request.GET.get('page', 1)); limit = int(request.GET.get('limit', 20))
-    except ValueError:
-        return response({'error': 'Некоректна сторінка.', 'code': 'invalid_page'}, 400)
-    require(page >= 1 and limit in {10, 20, 50}, 'Некоректна сторінка або розмір списку.')
+def filtered_products(user, params, *, with_facets=False):
+    """One authoritative filter semantics for catalogue pages and frozen pricing scopes."""
     query = base_query()
-    words = request.GET.get('q', '').strip()[:250].split()
+    words = params.get('q', '').strip()[:250].split()
     for word in words:
         query = query.filter(Q(data__name__icontains=word) | Q(data__barcode__icontains=word))
-    promotion = request.GET.get('promotion', '')
+    promotion = params.get('promotion', '')
     require(promotion in {'', 'yes', 'no'}, 'Некоректний фільтр акції.')
     from .promotion_prices import PriceResolver, context_store
     config = defaults()
-    store = context_store(user, request.GET.get('store'))
+    store = context_store(user, params.get('store'))
     resolver = PriceResolver(config, store) if promotion else None
     if promotion:
         matched = [d.pk for d in query if bool(resolver.resolve(d)['effectivePromotion']) == (promotion == 'yes')]
@@ -202,11 +197,23 @@ def list_products(request, user):
     # Each following choice is constrained by its parents, never by itself.
     facets = {}
     for key in ('type', 'category', 'pack'):
-        values = query.order_by().values_list('data__' + key, flat=True).distinct()
-        facets[key] = sorted({str(value) for value in values if value}, key=str.casefold)
-        selected = request.GET.get(key, '')
+        values = query.order_by().values_list('data__' + key, flat=True).distinct() if with_facets else ()
+        if with_facets:facets[key] = sorted({str(value) for value in values if value}, key=str.casefold)
+        selected = params.get(key, '')
         require(len(selected) <= 160, 'Значення фільтра задовге.')
         if selected: query = query.filter(**{'data__' + key: selected})
+    return query, config, store, facets, resolver
+
+
+def list_products(request, user):
+    from .views import response
+    from .promotion_prices import PriceResolver
+    try:
+        page = int(request.GET.get('page', 1)); limit = int(request.GET.get('limit', 20))
+    except ValueError:
+        return response({'error': 'Некоректна сторінка.', 'code': 'invalid_page'}, 400)
+    require(page >= 1 and limit in {10, 20, 50}, 'Некоректна сторінка або розмір списку.')
+    query, config, store, facets, resolver = filtered_products(user, request.GET, with_facets=True)
     count = query.count()
     pages = max(1, (count + limit - 1) // limit)
     page = min(page, pages)

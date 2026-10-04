@@ -110,8 +110,7 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
   assert.equal(await page.getByRole('searchbox',{name:'Пошук товару'}).inputValue(),'Американо','filter retained after navigation');
   const before=await page.evaluate(async()=> (await (await fetch('/api/state')).json()).data.products);
   await page.locator('[data-disclosure=bulk] summary').click();await page.locator('#bulkC').selectOption('__f');await page.locator('#bulkM').fill('42');
-  page.once('dialog',async dialog=>{assert.match(dialog.message(),/для 1 товар/);await dialog.accept();});
-  await page.locator('[data-act=bulk]').click();
+  await page.locator('#bulkMarkupForm [type=submit]').click();await page.locator('[data-catalog-pricing=commit]').waitFor();await page.locator('[data-catalog-pricing=commit]').click();await page.getByText(/Зміни збережено. Цін змінено:/).waitFor();
   await until(async()=>await page.evaluate(async()=> (await (await fetch('/api/state')).json()).data.products.find(p=>p.data.name==='Американо').data.markup===42),'bulk filters compatibility');
   const after=await page.evaluate(async()=> (await (await fetch('/api/state')).json()).data.products);
   assert.equal(before.filter(p=>JSON.stringify(p.data)!==JSON.stringify(after.find(item=>item.id===p.id).data)).length,1,'bulk changed only the selected filter');

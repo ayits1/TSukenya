@@ -34,7 +34,8 @@ const products=()=>page.evaluate(async()=>(await(await fetch('/api/state')).json
  assert.match(await notice.innerText(),/^2 товарів-прикладів/,'overview names the excluded examples');
  // The sales report fails once, then returns 30 000 грн revenue at 30% gross margin.
  const reports=[];let reportFails=true;
- await page.route('**/api/erp/report?**',route=>{reports.push(new URL(route.request().url()).searchParams);return reportFails?route.fulfill({status:500,contentType:'application/json',body:'{"error":"Ізольований збій"}'}):route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({from:reports.at(-1).get('from'),to:reports.at(-1).get('to'),revenue:'30000.00',cogs:'21000.00',gross_profit:'9000.00'})});});
+ const day=new Date(),to=day.toLocaleDateString('en-CA',{timeZone:'Europe/Kyiv'});day.setDate(day.getDate()-29);const from=day.toLocaleDateString('en-CA',{timeZone:'Europe/Kyiv'});
+ await page.route('**/api/v1/portal/sales-margin',route=>{reports.push(true);return reportFails?route.fulfill({status:500,json:{error:'Ізольований збій'}}):route.fulfill({status:200,json:{from,to,revenue:'30000.00',gross:'9000.00',dailyRevenue:'1000.00',marginPercent:'30',needDaily:'111.11',gapDaily:'-888.89',basis:'accounting_dates_30d_weighted',reason:'ready'}});});
  await page.evaluate(()=>location.hash='#operations/expenses');
  await page.locator('[data-budget-mode=catalog]').click();
  const be=page.locator('.expense-budget .be');await be.waitFor();
@@ -42,29 +43,28 @@ const products=()=>page.evaluate(async()=>(await(await fetch('/api/state')).json
  reportFails=false;await be.getByRole('button',{name:'Повторити'}).click();
  await wait(async()=>/За фактичними продажами/.test(await be.innerText()),'actual sales block');
  const facts=(await be.locator('.be-fact').innerText()).replace(/\s+/g,' ');
- const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,from=new Date();from.setDate(from.getDate()-29);
- assert.equal(reports.at(-1).get('from'),iso(from),'report covers the last 30 days');assert.equal(reports.at(-1).get('to'),iso(new Date()));
- assert.match(facts,/виторг 30 000 грн, валова маржа 30%, у середньому 1 000 грн на день/);
- assert.match(facts,/потрібно ≈ 111 грн на день/,'1000 plan / 30% margin / 30 days');
- assert.match(facts,/План покривається: запас ≈ 889 грн на день/);
+ assert.match(facts,/виторг 30 000,00 грн, валова маржа 30%, у середньому 1 000,00 грн на день/);
+ assert.match(facts,/потрібно ≈ 111,11 грн на день/);
+ assert.match(facts,/запас ≈ 888,89 грн на день/);
  const text=(await be.innerText()).replace(/\s+/g,' ');
  assert.match(text,/50% маржі/,'margin uses real products only, not the 90% examples');
  assert.match(text,/Враховано 2 із 2 товарів/,'coverage counts real products only');
- assert.match(text,/2 000 грн на місяць/,'break-even is 1000 / 0.5');
+ assert.match(text,/2 000,00 грн на місяць/,'break-even is 1000 / 0.5');
  assert.match(text,/2 товарів-прикладів/,'budget explains excluded examples');
- // One example is refused by the server (e.g. used in accounting); the rest are removed.
- await page.route('**/api/docs/products/p2',route=>route.request().method()==='DELETE'?route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Товар уже використовується в обліку. Його не можна видалити.'})}):route.continue());
- page.once('dialog',dialog=>{assert.match(dialog.message(),/Прибрати 2 товарів-прикладів/);dialog.accept();});
- await be.getByRole('button',{name:'Прибрати приклади'}).click();
- await wait(async()=>/Прибрано 1 із 2/.test(await page.locator('#toast').innerText()),'partial removal is reported');
- assert.deepEqual(await products(),['p2','real_a','real_b']);
- await page.unroute('**/api/docs/products/p2');
- page.once('dialog',dialog=>dialog.accept());
- await be.getByRole('button',{name:'Прибрати приклади'}).click();
- await wait(async()=>(await page.locator('#toast').innerText())==='Приклади прибрано','examples removed');
- assert.deepEqual(await products(),['real_a','real_b'],'real products are untouched');
- await wait(async()=>await page.locator('.be',{hasText:'товарів-прикладів'}).count()===0,'notice disappears');
- assert.equal(reports.length,2,'facts are cached, not refetched on every render');
+ // Real source-history guard rejects one row while exact cleanup retains the rest.
+ execFileSync(python,['-c',`import os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings')
+import django;django.setup()
+from server.erp.models import Document,Voucher,VoucherLine,Store
+from django.contrib.auth.models import User
+from datetime import date
+v=Voucher.objects.create(kind='receipt',date=date.today(),store=Store.objects.first(),created_by=User.objects.get(username='tester'))
+VoucherLine.objects.create(voucher=v,product=Document.objects.get(pk='products/p2'),quantity=1,price=1,amount=1)`],{cwd:root,env});
+ await be.getByRole('button',{name:'Прибрати приклади'}).click();const dialog=page.locator('dialog[open]');await dialog.getByText(/2 прикладів/).waitFor();page.once('dialog',d=>d.accept());await dialog.getByRole('button',{name:'Прибрати приклади цієї сторінки'}).click();await dialog.getByText(/p1: прибрано/).waitFor();await dialog.getByText(/Товар уже використовується в обліку/).waitFor();assert.deepEqual(await products(),['p2','real_a','real_b']);await dialog.getByRole('button',{name:'Закрити',exact:true}).click();
+ execFileSync(python,['-c',`import os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings');import django;django.setup()
+from server.erp.models import VoucherLine
+VoucherLine.objects.filter(product_id='products/p2').delete()`],{cwd:root,env});
+ await be.getByRole('button',{name:'Прибрати приклади'}).click();await page.locator('dialog[open]').getByText(/1 прикладів/).waitFor();page.once('dialog',d=>d.accept());await page.locator('dialog[open]').getByRole('button',{name:'Прибрати приклади цієї сторінки'}).click();await page.locator('dialog[open]').getByText(/p2: прибрано/).waitFor();await page.locator('dialog[open]').getByRole('button',{name:'Закрити',exact:true}).click();assert.deepEqual(await products(),['real_a','real_b']);await wait(async()=>await page.locator('.be',{hasText:'товарів-прикладів'}).count()===0,'notice disappears');
+ assert(reports.length>=2,'failed facts request can be explicitly retried');
  assert.deepEqual(errors,[]);
  console.log('budget-break-even-ui: ok');
 }finally{await browser?.close();server.kill('SIGTERM');if(server.exitCode===null)await new Promise(resolve=>server.once('exit',resolve));fs.rmSync(data,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

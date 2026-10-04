@@ -49,10 +49,10 @@ async function check(condition,message){for(let i=0;i<80;i++){if(await condition
  await page.locator(`[data-del-task="${taskId}"]`).focus();await apiPost('/api/tasks',{title:'Задача з іншого сеансу',scope:'operations',status:'todo',order:Date.now()});
  await check(async()=>(await page.locator('#main').innerText()).includes('Задача з іншого сеансу'),'background poll render');assert.equal((await focused()).del,taskId,'focus survives a background poll');
  // A state read already in flight when a task is saved is followed by a fresh one: the saved task shows at once.
- await page.route('**/api/state',async route=>{const response=await route.fetch();await new Promise(r=>setTimeout(r,1200));await route.fulfill({response});});
+ await page.route('**/api/v1/portal/state',async route=>{const response=await route.fetch();await new Promise(r=>setTimeout(r,1200));await route.fulfill({response});});
  await page.evaluate(()=>{window.TSUKENYA_REFRESH().catch(()=>{});});await page.locator('#newWork').fill('Задача під час оновлення');await page.locator('[data-act=addWork]').click();
  await check(async()=>await page.locator('#newWork').inputValue()==='','race save confirmed');assert.equal(await page.locator('.task',{hasText:'Задача під час оновлення'}).count(),1,'saved task visible without waiting for focus to leave');
- assert.equal((await focused()).id,'newWork');await page.unroute('**/api/state');
+ assert.equal((await focused()).id,'newWork');await page.unroute('**/api/v1/portal/state');
  await go('development/tasks');assert(!(await page.locator('#main').innerText()).includes('Щоденна контрольна задача'));await page.locator('#newTask').fill('Розробити облік');await page.locator('[data-act=addTask]').click();await check(async()=> (await page.locator('#main').innerText()).includes('Розробити облік'),'development task created');await go('operations/work');assert(!(await page.locator('#main').innerText()).includes('Розробити облік'));
  await go('development/ideas');await page.locator('#newIdea').fill('Впровадити складський облік');await page.locator('[data-act=addIdea]').click();await check(async()=>await page.locator('[data-react]').count()===2,'idea saved');await page.locator('[data-v=yes]').click();await page.locator('[data-idea-task]').click();await page.locator('.idea a').waitFor();await go('development/tasks');assert.match(await page.locator('#main').innerText(),/Впровадити складський облік/);
  for(const width of [1440,1024,768,390,320]){await page.setViewportSize({width,height:844});for(const route of ['operations/products','operations/tags','operations/work','operations/expenses','development/ideas','development/tasks']){await go(route);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${route} overflow at ${width}`);}}
@@ -60,20 +60,7 @@ async function check(condition,message){for(let i=0;i<80;i++){if(await condition
 
  await page.setViewportSize({width:1440,height:1000});await page.emulateMedia({colorScheme:'light'});await go('operations/tags');await page.locator('.tk-studio').screenshot({path:path.join(os.tmpdir(),'tsukenya-builder-desktop.png')});
  await go('operations/products');await page.getByRole('button',{name:'Додати товар'}).click();await page.getByRole('dialog').screenshot({path:path.join(os.tmpdir(),'tsukenya-product-editor.png')});await page.getByRole('button',{name:'Закрити редактор'}).click();
- // Legacy product editor (shown when the React catalogue bundle is unavailable): stored values are escaped,
- // the save carries the revision the editor opened and a server refusal is shown in Ukrainian.
- const legacy=await context.newPage();legacy.on('pageerror',e=>errors.push(e.message));await legacy.route('**/frontend/assets/**',route=>route.abort());
- const target=(await state()).products.find(p=>p.data.name==='Американо'),hostile='"><img src=x onerror="window.__xss=1">';
- const patch=(id,body)=>page.evaluate(async([id,body])=>{const s=await(await fetch('/api/state')).json(),revision=s.data.products.find(p=>p.id===id).revision;const r=await fetch('/api/docs/products/'+id,{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf,'If-Match':revision},body:JSON.stringify(body)});return r.status;},[id,body]);
- // The server validates legacy writes now; a hostile markup can only come from legacy-migrated data.
- assert.equal(await patch(target.id,{markup:hostile}),400,'legacy write rejects a non-numeric markup');
- execFileSync(python,['-c',`import os\nos.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings')\nimport django;django.setup()\nfrom server.erp.models import Document\nd=Document.objects.get(pk='products/${target.id}');d.data={**d.data,'markup':${JSON.stringify(hostile)}};d.save()`],{cwd:root,env});
- await legacy.goto(base+'/#operations/products');await legacy.locator('#q').fill('Американо');await legacy.locator(`[data-edit-product="${target.id}"]`).first().click();await legacy.locator('#productForm').waitFor();
- assert.equal(await legacy.locator('#productEditor img').count(),0);assert.equal(await legacy.evaluate(()=>window.__xss),undefined);assert.equal(await legacy.locator('#productForm [name=markup]').getAttribute('value'),hostile);
- await legacy.locator('#productForm [name=markup]').fill('25');assert.equal(await patch(target.id,{size:'змінено в іншому сеансі'}),200);await legacy.evaluate(()=>window.TSUKENYA_REFRESH());
- await legacy.locator('#productForm [name=name]').fill('Американо з редактора');await legacy.locator('#productForm [type=submit]').click();
- await check(async()=>(await legacy.locator('#productError').innerText())==='Товар уже змінено. Оновіть дані перед повторним збереженням.','revision conflict reason shown');
- const kept=(await state()).products.find(p=>p.id===target.id).data;assert.equal(kept.name,'Американо');assert.equal(kept.size,'змінено в іншому сеансі');await patch(target.id,{markup:30});await legacy.close();
+ await require('./portal-module-case.cjs')(page,base);
  // Saved layout migration and physical output are exercised in the dedicated label suite.
- assert.deepEqual(errors,[]);console.log('PASS: product CRUD/promotion with reference comboboxes → React label preview, combobox keyboard/cancel, 13 element inspectors, scoped tasks/ideas, focus kept across re-renders, fresh read after save, escaped legacy editor with opened revision, keyboard and 5 viewport sizes.');
+ assert.deepEqual(errors,[]);console.log('PASS: product CRUD/promotion with reference comboboxes → React label preview, combobox keyboard/cancel, 13 element inspectors, scoped tasks/ideas, focus kept across re-renders, fresh read after save, explicit unavailable module / escaped React editor with opened revision, keyboard and 5 viewport sizes.');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill('SIGTERM');if(server.exitCode===null)await new Promise(r=>server.once('exit',r));fs.rmSync(data,{recursive:true,force:true});});

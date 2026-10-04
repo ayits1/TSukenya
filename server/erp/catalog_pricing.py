@@ -27,6 +27,8 @@ def validate_payload(payload, *, committing=False):
     kind = payload.get('kind')
     require(isinstance(kind, str) and kind in {'markup', 'rounding'}, 'Невідомий вид зміни цін.')
     fields = {'kind', 'ids', 'markup', 'resetManualPrices', 'updateDefault'} if kind == 'markup' else {'kind', 'rounding'}
+    if kind=='markup' and 'selection' in payload:
+        fields=(fields-{'ids'})|{'selection'}
     if committing:
         fields |= {'snapshot', 'idempotencyKey'}
     require(set(payload) == fields, 'Запит містить невідомі поля або не всі параметри зміни цін.')
@@ -35,12 +37,17 @@ def validate_payload(payload, *, committing=False):
         markup = dec(payload['markup'], 'Націнка', Decimal('.0001'))
         require(markup <= Decimal('99999999.99'), 'Націнка завелика.')
         require(type(payload['resetManualPrices']) is bool and type(payload['updateDefault']) is bool, 'Очікуються логічні параметри зміни цін.')
-        ids = payload['ids']
+        selection=payload.get('selection')
+        if 'selection' in payload:
+            require(isinstance(selection,dict) and set(selection)=={'q','type','category','pack','promotion','store'},'Некоректний вибір за фільтром.')
+            require(all(isinstance(selection[k],str) and len(selection[k]) <= (250 if k=='q' else 160) for k in selection),'Некоректні умови фільтра.')
+            require(selection['promotion'] in {'','yes','no'},'Некоректний фільтр акції.')
+        ids = payload.get('ids')
         require(ids is None or isinstance(ids, list) and 0 < len(ids) <= MAX_ENTRIES, 'Виберіть від 1 до 1000 товарів або всі активні товари.')
         if ids is not None:
             require(all(isinstance(identifier, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,120}', identifier) for identifier in ids), 'Некоректний ID товару.')
             require(len(set(ids)) == len(ids), 'Список товарів містить повторені ID.')
-        require(not payload['updateDefault'] or ids is None, 'Змінити націнку за замовчуванням можна лише для всіх активних товарів.')
+        require(not payload['updateDefault'] or ids is None and 'selection' not in payload, 'Змінити націнку за замовчуванням можна лише для всіх активних товарів.')
     else:
         require(isinstance(payload['rounding'], str) and payload['rounding'] in ROUNDING, 'Виберіть округлення: 0.01, 0.1, 0.5 або 1.')
     if committing:
@@ -48,8 +55,8 @@ def validate_payload(payload, *, committing=False):
         require(isinstance(payload['idempotencyKey'], str) and re.fullmatch(UUID_PATTERN, payload['idempotencyKey']), 'Ключ повтору має бути UUID у нижньому регістрі.')
 
 
-def price_pair(document, user, config):
-    product = serialize(document, user, config)
+def price_pair(document, user, config, resolver=None):
+    product = serialize(document, user, config, resolver=resolver)
     return {'regularPrice': product['regularPrice'], 'salePrice': product['salePrice']}
 
 
@@ -67,7 +74,13 @@ def plan(payload, user):
     active = {document.path.split('/', 1)[1]: document for document in documents if document.data.get('hidden') is not True}
     kind = payload['kind']
     if kind == 'markup':
-        ids = payload['ids']
+        ids = payload.get('ids')
+        if 'selection' in payload:
+            from .catalog import filtered_products
+            query,*_=filtered_products(user,payload['selection'])
+            ids=[path.split('/',1)[1] for path in query.values_list('path',flat=True)]
+            require(ids,'За вибраними фільтрами товарів немає.')
+            require(len(ids)<=MAX_ENTRIES,'Вибір за фільтром охоплює понад 1000 товарів. Зменшіть вибір.')
         if ids is not None:
             require(all(identifier in active for identifier in ids), 'Вибраний товар не існує або прихований. Оновіть каталог.')
         selected = set(active) if ids is None else set(ids)
@@ -82,13 +95,18 @@ def plan(payload, user):
         after_config['rounding'] = Decimal(payload['rounding'])
         candidates = documents
     require(len(candidates) <= MAX_ENTRIES, 'Зміна цін охоплює понад 1000 товарів. Зменшіть вибір; глобальне округлення потребує меншого каталогу.')
+    from .promotion_prices import PriceResolver,context_store,kyiv_day
+    price_store=context_store(user,payload.get('selection',{}).get('store'))
+    price_day=kyiv_day();paths=[d.path for d in candidates]
+    before_resolver=PriceResolver(before_config,price_store,price_day,product_paths=paths)
+    after_resolver=PriceResolver(after_config,price_store,price_day,product_paths=paths)
     entries = []
     prepared = []
     changed_prices = changed_records = skipped_manual = errors = 0
     for document in candidates:
         identifier = document.path.split('/', 1)[1]
         old = document.data
-        before = price_pair(document, user, before_config)
+        before = price_pair(document, user, before_config,before_resolver)
         entry = {'id': identifier, 'name': str(old.get('name') or ''), 'hidden': bool(old.get('hidden')),
                  'action': 'unchanged', 'before': before, 'after': dict(before)}
         try:
@@ -101,9 +119,9 @@ def plan(payload, user):
                         values.update(manualPrice=False, price=None)
                 elif payload['updateDefault'] and 'markup' not in old:
                     values['markup'] = format(before_config['markup'], 'f')
-            entry['after'] = price_pair(Document(path=document.path, data={**old, **values}), user, after_config)
-            data = normalise_product(values, old, document.path, validate_references=False, config=after_config, references=references)
-            entry['after'] = price_pair(Document(path=document.path, data=data), user, after_config)
+            entry['after'] = price_pair(Document(path=document.path, data={**old, **values}), user, after_config,after_resolver)
+            data = normalise_product(values, old, document.path, validate_references=False, config=after_config,old_config=before_config, references=references)
+            entry['after'] = price_pair(Document(path=document.path, data=data), user, after_config,after_resolver)
             # Only stored changes are written and audited; equal numbers compare alike (30 == 30.0).
             record_changed = data != old
             price_changed = before != entry['after']
@@ -119,7 +137,17 @@ def plan(payload, user):
     settings = {'before': settings_pair(before_config), 'after': settings_pair(after_config)}
     summary = {'candidates': len(entries), 'changedPrices': changed_prices, 'changedRecords': changed_records,
                'skippedManual': skipped_manual, 'errors': errors}
-    return {'valid': errors == 0, 'kind': kind, 'snapshot': snapshot(documents, before_config),
+    scope={'kind':'filter' if 'selection' in payload else 'all' if kind=='rounding' or payload.get('ids') is None else 'ids','count':len(selected) if kind=='markup' else len(candidates)}
+    if 'selection' in payload:
+        from .promotion_prices import context_store
+        store=context_store(user,payload['selection']['store'])
+        scope.update(filters=payload['selection'],storeName=store.name if store else None)
+    review=snapshot(documents,before_config)
+    if 'selection' in payload:
+        from django.conf import settings as django_settings
+        material={'catalogue':review,'selection':payload['selection'],'selected':sorted(selected),'prices':[[e['id'],e['before']] for e in entries],'day':price_day.isoformat()}
+        review=hmac.new(django_settings.SECRET_KEY.encode(),canonical(material).encode(),hashlib.sha256).hexdigest()
+    return {'valid': errors == 0, 'kind': kind, 'scope':scope, 'snapshot':review,
             'entries': entries, 'summary': summary, 'settings': settings}, prepared, after_config
 
 
