@@ -325,14 +325,14 @@ export function StudioView(props: StudioViewProps) {
                 onPress={() => props.onUndo?.()}
                 isDisabled={locked || !props.canUndo}
               >
-                ↶
+                <span title="Скасувати останню зміну">Скасувати</span>
               </Button>
               <Button
                 aria-label="Повторити зміну"
                 onPress={() => props.onRedo?.()}
                 isDisabled={locked || !props.canRedo}
               >
-                ↷
+                <span title="Повторити скасовану зміну">Повторити</span>
               </Button>
             </div>
             <div className="tk-studio-save">
