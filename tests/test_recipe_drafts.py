@@ -83,6 +83,23 @@ class RecipeDraftTests(TransactionTestCase):
                          {'mode': 'version', 'product': '', 'role': 'owner', 'storeId': None,
                           'networkOwner': True, 'canWrite': True, 'exists': None})
         self.assertFalse(recipe_drafts.recovery_context(self.user, {'mode': 'legacy', 'product': 'missing'})['canWrite'])
+        missing = object()
+        for hidden in (missing, None, False, 0, 0.0, '', [], {}, True, 1, -1, 'false', [0], {'active': False}):
+            data = {**self.output.data, 'recipe': [{'product': 'raw', 'quantity': '2'}] * 501, 'cost': 'private'}
+            if hidden is not missing:
+                data['hidden'] = hidden
+            Document.objects.filter(pk=self.output.pk).update(data=data)
+            with CaptureQueriesContext(connection) as queries, patch.object(
+                    Document, 'from_db', side_effect=AssertionError('Context must not materialize product data')):
+                result = recipe_drafts.recovery_context(self.user, {'mode': 'version', 'product': 'output'})
+            self.assertEqual(result['canWrite'], not bool(hidden) if hidden is not missing else True, repr(hidden))
+            self.assertTrue(result['exists'])
+            selected = next(q['sql'].split(' FROM ', 1)[0] for q in queries if 'FROM "erp_document"' in q['sql'])
+            self.assertIn('recovery_hidden', selected)
+            self.assertNotIn('"erp_document"."data",', selected)
+            self.assertNotIn('"erp_document"."data" AS', selected)
+            self.assertNotIn('"recipe"', selected)
+        Document.objects.filter(pk=self.output.pk).update(data=self.output.data)
         store = Store.objects.create(name='Поточний магазин', active=False)
         self.assertEqual(self.user.profile.role, 'owner')  # Cache a role before the fresh read.
         Profile.objects.filter(user=self.user).update(role='manager', store=store)

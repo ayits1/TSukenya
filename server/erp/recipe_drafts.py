@@ -2,6 +2,7 @@
 import hashlib
 import json
 import uuid
+from django.db.models import BooleanField, Case, Q, Value, When
 
 from .historical_reports import read_snapshot
 from .models import Document, RecipeVersion
@@ -28,13 +29,20 @@ def recovery_context(user, params):
         require(isinstance(identifier, str), 'Некоректний товар рецептури.')
         product = None
         if identifier:
-            product = Document.objects.filter(pk='products/' + product_id(identifier)).first()
+            # Resolve Python's existing bool(data.get('hidden')) policy in SQL;
+            # never return a product payload or a potentially huge legacy recipe.
+            falsy = Q(data__hidden__isnull=True)
+            for value in (None, False, 0, '', [], {}):
+                falsy |= Q(data__hidden=value)
+            product = Document.objects.filter(pk='products/' + product_id(identifier)).annotate(
+                recovery_hidden=Case(When(falsy, then=Value(False)), default=Value(True),
+                                     output_field=BooleanField())).values('pk', 'recovery_hidden').first()
         return {'mode': mode, 'product': identifier, 'role': user.profile.role,
                 'storeId': user.profile.store_id,
                 'networkOwner': user.profile.role == 'owner' and user.profile.store_id is None,
                 'exists': product is not None if identifier else None,
                 'canWrite': bool(not identifier or product is not None and
-                                 (mode == 'legacy' or not product.data.get('hidden')))}
+                                 (mode == 'legacy' or not product['recovery_hidden']))}
 
 
 def identity(user, value):
