@@ -1,3 +1,4 @@
+import * as monthlyBudgetEditor from './shared/native/monthlyBudget';
 import * as voucherEditor from './shared/native/voucher';
 import { createRoot } from 'react-dom/client';
 import { I18nProvider } from 'react-aria-components';
@@ -21,6 +22,7 @@ import * as recipeEditor from './shared/native/recipe';
 declare global {
   interface Window {
     NativePlanningCategoryEditor?: typeof planningCategoryEditor;
+    NativeMonthlyBudgetEditor?: typeof monthlyBudgetEditor;
     NativeVoucherEditor?: typeof voucherEditor;
     NativeBudgetTemplateEditor?: typeof budgetTemplateEditor;
     NativeEntityEditor?: typeof entityEditor;
@@ -41,6 +43,7 @@ declare global {
 }
 window.NativeBudgetTemplateEditor = budgetTemplateEditor;
 window.NativePlanningCategoryEditor = planningCategoryEditor;
+window.NativeMonthlyBudgetEditor = monthlyBudgetEditor;
 window.NativeEntityEditor = entityEditor;
 window.NativeLegacyEditor = legacyEditor;
 window.NativeRecipeEditor = recipeEditor;
