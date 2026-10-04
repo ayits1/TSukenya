@@ -61,5 +61,5 @@ function open(record,{patch={},needsReview=false,message='',deleting=false,onCon
  fill();sync();error.textContent=message;d.showModal();if(review)read.focus();else form.querySelector('input').focus();
 }
 window.addEventListener('beforeunload',event=>{if(pending.size||active?.open&&active.dataset.legacyDirty==='1'){event.preventDefault();event.returnValue='';}});
-window.LegacyEditors={snapshot,edit,update,remove,isPending:(collection,id)=>pending.has(collection+':'+id),pending:()=>pending.size>0||!!active?.open,canLeave:()=>{if(pending.size)return false;if(active?.open){active.querySelector('[data-close]').click();return !active.open;}return true;}};
+window.LegacyEditors={snapshot,edit,update,remove,reviewCreate:(original,patch,onConfirmed)=>{try{const record=adapter().decodeLegacyRecord(original,original.collection,original.id);open(record,{patch,needsReview:true,onConfirmed,message:'Початкове створення підтверджено. Узгодьте новіше введення з актуальним записом; збереження — окрема дія.'});}catch(error){openError(error);}},isPending:(collection,id)=>pending.has(collection+':'+id),pending:()=>pending.size>0||!!active?.open,canLeave:()=>{if(pending.size)return false;if(active?.open){active.querySelector('[data-close]').click();return !active.open;}return true;}};
 })();

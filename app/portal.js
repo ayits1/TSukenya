@@ -181,29 +181,66 @@
   // Editing the form after an uncertain write never changes that intent or its key.
   async function stableAdd(key,collection,payload,values=[]){
     let intent=createPending.get(key);
-    if(!intent){intent={collection,key:crypto.randomUUID(),payload:structuredClone(payload),values:[...values],uncertain:false,terminal:false};createPending.set(key,intent);}
-    let error;
-    const saved=await write(async()=>{try{return await db.collection(intent.collection).add(intent.payload,{createKey:intent.key});}catch(cause){error=cause;if(!(cause?.status>=400&&cause.status<500))intent.uncertain=true;throw cause;}});
-    if(saved)createPending.delete(key);
-    else if(['create_changed','create_deleted'].includes(error?.code)){
-      intent.terminal=true;
-      // This acknowledgement is read-only: the user's form and the saved record stay untouched.
-      await window.TSUKENYA_REFRESH?.().catch(()=>{});
-    }else if(error?.status>=400&&error.status<500&&!intent.uncertain&&!error.code?.startsWith('create_'))createPending.delete(key);
-    else intent.uncertain=true;
+    if(!intent){intent={collection,key:crypto.randomUUID(),payload:structuredClone(payload),values:[...values],uncertain:false,terminal:false,confirmedId:null,identity:null};createPending.set(key,intent);}
+    if(intent.confirmedId)return {saved:false,intent};
+    let error,result;
+    const saved=await write(async()=>{try{result=await db.collection(intent.collection).add(intent.payload,{createKey:intent.key,onConfirmed:ack=>{intent.confirmedId=ack.id;intent.terminal=true;}});intent.confirmedId=result.id;return result;}catch(cause){error=cause;if(!(cause?.status>=400&&cause.status<500))intent.uncertain=true;throw cause;}});
+    if(saved&&!window.TSUKENYA_SERVER){createPending.delete(key);return {saved,intent};}
+    if(saved){intent.terminal=true;intent.message='Початкове створення підтверджено. Читання квитанції — окрема дія; CREATE більше не повторюється.';}
+    else if(['create_changed','create_deleted'].includes(error?.code)){intent.terminal=true;intent.uncertain=true;intent.message='Початковий запис змінено або видалено. Перевірте квитанцію; введення збережено.';}
+    else if(error?.status>=400&&error.status<500&&!intent.uncertain&&!error.code?.startsWith('create_'))createPending.delete(key);
+    else{intent.uncertain=true;intent.message='Результат початкового створення не підтверджено. Можна повторити саме початковий запит або прочитати квитанцію.';}
     return {saved,intent};
   }
+  function createRecovery(key){
+    const intent=createPending.get(key);if(!intent||!window.TSUKENYA_SERVER)return '';
+    const state=intent.identity?.state,confirmed=!!intent.identity?.confirmed,busy=createRead?.key===key||inlineSaves.has(key)||inlineSaves.has(key.split(':')[0]);
+    return `<section data-create-recovery="${esc(key)}" aria-label="Відновлення початкового створення"><p role="status" aria-live="polite" class="muted">${esc(intent.message||'Чернетку й початковий запит збережено.')}</p><div class="row">${!intent.confirmedId&&!intent.terminal?`<button class="btn soft" type="button" data-create-exact="${esc(key)}" ${busy?'disabled':''}>Повторити початковий запит</button>`:''}<button class="btn soft" type="button" data-create-identity="${esc(key)}" ${busy?'disabled':''}>Перевірити початкове створення</button>${confirmed&&state!=='deleted'&&intent.identity.original&&intent.identity.current?.permissions.canEdit&&!intent.identity.current.managed&&!intent.identity.current.initiative?`<button class="btn soft" type="button" data-create-compare="${esc(key)}" ${busy?'disabled':''}>Узгодити новіші зміни</button>`:''}${confirmed?`<button class="btn soft" type="button" data-create-new="${esc(key)}" ${busy?'disabled':''}>Завершити відновлення</button>`:''}<button class="btn soft" type="button" data-create-cancel="${esc(key)}" ${createRead?.key===key?'':'hidden'}>Скасувати читання</button></div></section>`;
+  }
+  function refreshCreateRecovery(key){
+    const config=createControls(key);if(config.button)config.button.disabled=!!createPending.get(key)&&!!window.TSUKENYA_SERVER;
+    const panel=[...document.querySelectorAll('[data-create-recovery]')].find(el=>el.dataset.createRecovery===key);
+    if(panel){panel.outerHTML=createRecovery(key);return;}
+    const anchor=config.fields.at(-1)?.closest('.row')||config.button?.closest('.acts');if(anchor)anchor.insertAdjacentHTML('afterend',createRecovery(key));
+  }
+  function syncCreateRecoveries(){for(const key of createPending.keys())refreshCreateRecovery(key);}
+  function createControls(key){
+    const selectors={addWork:['#newWork','#newWorkDue'],addTask:['#newTask','#newTaskStage'],addIdea:['#newIdea']};
+    const fields=key.startsWith('addExp:')?[document.querySelector('[data-newexp="'+key.split(':')[1]+'"]')]: (selectors[key]||[]).map(selector=>$(selector));
+    const button=key.startsWith('ideaTask:')?[...document.querySelectorAll('[data-idea-task]')].find(el=>el.dataset.ideaTask===key.slice(9)):[...document.querySelectorAll('[data-act]')].find(el=>el.dataset.act===key.split(':')[0]&&(key.startsWith('addExp:')?el.dataset.g===key.split(':')[1]:true));
+    return {fields:fields.filter(Boolean),button};
+  }
+  let createRead=null,createSequence=0;
+  async function readCreateIdentity(key){
+    const intent=createPending.get(key);if(!intent||inlineSaves.size||createRead)return;
+    const n=++createSequence,path=location.hash,controller=new AbortController();createRead={key,controller};intent.identity=null;
+    const panel=[...document.querySelectorAll('[data-create-recovery]')].find(el=>el.dataset.createRecovery===key);
+    panel?.querySelectorAll('button').forEach(button=>button.disabled=!button.hasAttribute('data-create-cancel'));const cancel=panel?.querySelector('[data-create-cancel]');if(cancel)cancel.hidden=false;
+    try{const found=await db.collection(intent.collection).createIdentity(intent.key,controller.signal);if(n!==createSequence||path!==location.hash||createPending.get(key)!==intent)return;
+      if(found.confirmed){
+        if(found.original){window.NativeLegacyEditor.decodeLegacyRecord(found.original,intent.collection,found.id);window.PortalApi.decodeCreateAcknowledgement({ok:true,collection:found.collection,createKey:found.createKey,id:found.id,original:found.original},intent.collection,intent.key,intent.payload);}
+        if(found.current)window.NativeLegacyEditor.decodeLegacyRecord(found.current,intent.collection,found.id);
+        const wrongAck=intent.confirmedId&&intent.confirmedId!==found.id;intent.confirmedId=found.id;intent.identity=found;intent.terminal=true;
+        intent.message=wrongAck?'Попередня відповідь містила інший ID. Квитанція підтвердила початковий запис; поля збережено.':found.state==='deleted'?'Початковий запис уже створено й видалено. Повтор не відновлює його; введення збережено.':found.state==='changed'?'Початковий запис створено й згодом змінено. Введення збережено; узгодження й збереження — окремі дії.':'Початковий запис підтверджено. Новіше введення не змінено; можна явно узгодити зміни.';
+        if(!found.original&&found.state!=='deleted')intent.message+=' Історична квитанція не містить початкових полів, тому тристороннє узгодження недоступне.';
+      }else intent.message=intent.confirmedId||intent.terminal?'Квитанцію не знайдено. Підтверджений ID і введення збережено; повтор створення заблоковано.':'Квитанцію початкового створення не знайдено. Початковий запит і введення збережено; можна повторити саме цей запит.';
+    }catch(error){if(n===createSequence&&path===location.hash&&error.name!=='AbortError')intent.message=error.serverMessage||error.message||'Не вдалося перевірити квитанцію. Введення збережено.';}
+    finally{if(n===createSequence){createRead=null;refreshCreateRecovery(key);const button=[...document.querySelectorAll('[data-create-identity]')].find(el=>el.dataset.createIdentity===key);button?.focus({preventScroll:true});}}
+  }
+  function cancelCreateRead(){const active=createRead;if(!active)return;++createSequence;active.controller.abort();createRead=null;const intent=createPending.get(active.key);if(intent)intent.message='Читання скасовано. Початковий запит і введення збережено.';refreshCreateRecovery(active.key);}
+  async function retryCreate(key){const intent=createPending.get(key);if(!intent||intent.confirmedId||intent.terminal||inlineSaves.size||createRead)return;const controls=createControls(key);if(controls.fields.length)await addInline(key.split(':')[0],intent.collection,intent.payload,controls.fields,'Початковий запис підтверджено',true);else{inlineSaves.add(key);try{await stableAdd(key,intent.collection,intent.payload,intent.values);}finally{inlineSaves.delete(key);refreshCreateRecovery(key);}}}
+  function compareCreate(key){const intent=createPending.get(key),found=intent?.identity;if(!found?.confirmed||!found.original||!found.current||found.state==='deleted')return;const {fields}=createControls(key),original=found.original;let patch={};
+    if(fields.length){const title=fields[0].value;if(!title.trim()){fields[0].setCustomValidity('Введіть назву для узгодження.');fields[0].reportValidity();return;}fields[0].setCustomValidity('');patch=intent.collection==='expenses'?{name:title.trim()}: {title:title.trim(),...(key==='addWork'?{dueDate:fields[1].value||null}:key==='addTask'?{stage:Number(fields[1].value)}:{})};}
+    const values=fields.map(el=>el.value);window.LegacyEditors.reviewCreate({...original,permissions:found.current.permissions},patch,()=>{if(createPending.get(key)===intent){createPending.delete(key);fields.forEach((el,i)=>{if(el.isConnected&&el.value===values[i]&&el.tagName==='INPUT')el.value='';});refreshCreateRecovery(key);}});
+  }
+  window.addEventListener('hashchange',()=>cancelCreateRead());
   async function createIdeaTask(idea,button){
     const key=`ideaTask:${idea.id}`;
     if(inlineSaves.has(key))return;
-    const prior=createPending.get(key);
-    if(prior?.terminal){
-      if(!confirm('Попередній запит уже створив задачу, яку згодом змінили або видалили. Перевірте список задач. Почати окреме нове створення?'))return;
-      createPending.delete(key);
-    }
+    const prior=createPending.get(key);if(prior?.terminal||prior?.confirmedId){refreshCreateRecovery(key);return;}
     inlineSaves.add(key);button.disabled=true;
-    try{const {saved,intent}=await stableAdd(key,'tasks',{title:idea.title,scope:'development',ideaId:idea.id,stage:S.project.stage||1,status:'todo',order:Date.now()});if(saved)toast('Задачу створено');else if(intent.terminal&&developmentTasks().some(task=>task.ideaId===idea.id))createPending.delete(key);}
-    finally{inlineSaves.delete(key);button.disabled=false;if(pending)render();}
+    try{const {saved}=await stableAdd(key,'tasks',{title:idea.title,scope:'development',ideaId:idea.id,stage:S.project.stage||1,status:'todo',order:Date.now()});if(saved){createPending.delete(key);toast('Задачу створено');}}
+    finally{inlineSaves.delete(key);button.disabled=false;refreshCreateRecovery(key);if(pending)render();}
   }
   const budgetDrafts = new Map(), budgetSaves = new Set();
   window.addEventListener('tsukenya:legacy-pending',()=>budgetStatus());
@@ -271,24 +308,23 @@
   const fieldKey = el => el.id || `expense:${el.dataset.newexp}`;
   function inlineDrafts(){return [...document.querySelectorAll(inlineFields)].map(el=>[fieldKey(el),el.value]);}
   function hasInlineDraft(){return [...document.querySelectorAll('#newWork,#newTask,#newIdea,[data-newexp]')].some(el=>el.value.trim());}
-  async function addInline(action, collection, payload, fields, ok){
+  async function addInline(action, collection, payload, fields, ok, exact=false){
     if(inlineSaves.has(action))return;
-    const input=fields[0];
-    if(!input.value.trim()){input.setCustomValidity('Введіть назву.');input.reportValidity();return;}
+    const input=fields[0],existingKey=action==='addExp'?`${action}:${payload.group}`:action;
+    if(!exact&&createPending.has(existingKey)){refreshCreateRecovery(existingKey);return;}
+    if(!exact&&!input.value.trim()){input.setCustomValidity('Введіть назву.');input.reportValidity();return;}
     input.setCustomValidity('');
     const buttons=[...document.querySelectorAll(`[data-act="${action}"]`)].filter(button=>action!=='addExp'||button.dataset.g===payload.group);
     inlineSaves.add(action);const controls=[...fields,...buttons],disabled=controls.map(el=>el.disabled);
-    controls.forEach(el=>el.disabled=true);
+    controls.forEach(el=>el.disabled=true);refreshCreateRecovery(action==='addExp'?`${action}:${payload.group}`:action);
     try{
       const key=action==='addExp'?`${action}:${payload.group}`:action;
       const {saved,intent}=await stableAdd(key,collection,payload,fields.map(el=>el.value));
-      if(saved){
-        const unchanged=fields.every((el,i)=>el.value===intent.values[i]);
-        if(unchanged){fields.forEach(el=>{if(el.tagName==='INPUT')el.value='';});toast(ok);}
-        else toast('Початковий запис створено. Нове введення залишено; додайте його окремим натисканням.');
-      }
+      if(saved&&fields.every((el,i)=>el.value===intent.values[i])){createPending.delete(key);fields.forEach(el=>{if(el.tagName==='INPUT')el.value='';});toast(ok);}
+      else if(saved)toast('Початковий запис підтверджено. Новіше введення залишено; перевірте квитанцію для узгодження.');
+      refreshCreateRecovery(key);
     }finally{
-      controls.forEach((el,i)=>el.disabled=disabled[i]);inlineSaves.delete(action);
+      controls.forEach((el,i)=>el.disabled=disabled[i]);inlineSaves.delete(action);refreshCreateRecovery(action==='addExp'?`${action}:${payload.group}`:action);
       if(pending)render();
       const target=input.id?document.getElementById(input.id):document.querySelector(`[data-newexp="${input.dataset.newexp}"]`);
       target?.focus({preventScroll:true});
@@ -375,11 +411,12 @@
     for(const [key,value] of drafts){const el=[...m.querySelectorAll(inlineFields)].find(el=>fieldKey(el)===key);if(el)el.value=value;}
     for(const key of openPanels)m.querySelector(`[data-disclosure="${key}"]`)?.setAttribute("open","");
     for(const [cls,top,left]of scrolls){const el=m.getElementsByClassName(cls)[0];if(el){el.scrollTop=top;el.scrollLeft=left;}}
+    syncCreateRecoveries();
     if(focus)restoreFocus(m,focus);
     if (tab==="tags") renderPreview();
   }
   // Re-rendering #main replaces its controls; keyboard focus returns to the same control (same action and record).
-  const FOCUS_ATTRS = ['id','name','href','data-act','data-alert-id','data-alert-action','data-cycle','data-del-task','data-react','data-v','data-idea-task','data-exp','data-exp-cat','data-del-exp','data-g','data-newexp','data-budget-discard','data-edit-product','data-promotion','data-page','data-f','data-fclear','data-ddtoggle','data-tag','data-qty','data-store','data-style','data-prop','data-field','data-field-visible','data-edit-field','data-go','data-pf','data-id'];
+  const FOCUS_ATTRS = ['id','name','href','data-act','data-create-exact','data-create-identity','data-create-compare','data-create-new','data-create-cancel','data-alert-id','data-alert-action','data-cycle','data-del-task','data-react','data-v','data-idea-task','data-exp','data-exp-cat','data-del-exp','data-g','data-newexp','data-budget-discard','data-edit-product','data-promotion','data-page','data-f','data-fclear','data-ddtoggle','data-tag','data-qty','data-store','data-style','data-prop','data-field','data-field-visible','data-edit-field','data-go','data-pf','data-id'];
   function focusKey(el){
     const own=FOCUS_ATTRS.filter(name=>el.hasAttribute(name)).map(name=>[name,el.getAttribute(name)]),box=el.closest('[data-disclosure]')?.dataset.disclosure;
     return own.length||el.tagName==='SUMMARY'&&box ? {tag:el.tagName,own,box,selection:el.tagName==='INPUT'||el.tagName==='TEXTAREA'?[el.selectionStart,el.selectionEnd]:null} : null;
@@ -578,7 +615,7 @@
   }
   function work(){
     const list=operationTasks(),canCreate=!window.TSUKENYA_SERVER||['owner','manager'].includes(window.TSUKENYA_ROLE);
-    return `<section class="panel"><div class="row between gap-lg"><h3>Справи магазину</h3><span class="muted">${list.filter(t=>t.status!=='done').length} незавершених · ${list.filter(t=>t._alertActive).length} активних облікових умов</span></div>${['doing','todo','done'].map(status=>{const group=list.filter(t=>(t.status||'todo')===status);return group.length?`<div class="stage-block"><h3>${ST_LABEL[status]}</h3>${group.map(taskRow).join('')}</div>`:''}).join('')||`<div class="empty">${canCreate?'Додайте задачу: перевірити ціни, замовити товар або підготувати цінники.':'Поточних задач поки немає.'}</div>`}</section>${canCreate?'<section class="panel"><h3 class="gap-lg">Нова поточна задача</h3><div class="row"><label class="form-field grow">Що зробити<input id="newWork" type="text" maxlength="250" placeholder="Наприклад, оновити цінники…" autocomplete="off"></label><label class="form-field">Термін<input id="newWorkDue" type="date"></label><button class="btn rasp" data-act="addWork">Додати задачу</button></div></section>':''}`;
+    return `<section class="panel"><div class="row between gap-lg"><h3>Справи магазину</h3><span class="muted">${list.filter(t=>t.status!=='done').length} незавершених · ${list.filter(t=>t._alertActive).length} активних облікових умов</span></div>${['doing','todo','done'].map(status=>{const group=list.filter(t=>(t.status||'todo')===status);return group.length?`<div class="stage-block"><h3>${ST_LABEL[status]}</h3>${group.map(taskRow).join('')}</div>`:''}).join('')||`<div class="empty">${canCreate?'Додайте задачу: перевірити ціни, замовити товар або підготувати цінники.':'Поточних задач поки немає.'}</div>`}</section>${canCreate?`<section class="panel"><h3 class="gap-lg">Нова поточна задача</h3><div class="row"><label class="form-field grow">Що зробити<input id="newWork" type="text" maxlength="250" placeholder="Наприклад, оновити цінники…" autocomplete="off"></label><label class="form-field">Термін<input id="newWorkDue" type="date"></label><button class="btn rasp" data-act="addWork">Додати задачу</button></div>${createRecovery('addWork')}</section>`:''}`;
   }
 
   /* ---------- tasks ---------- */
@@ -600,7 +637,7 @@
       }).join("")}
     </section>
     <section class="panel"><h3 class="gap-lg">Додати задачу</h3>
-      <div class="row"><input id="newTask" type="text" aria-label="Назва задачі розвитку" placeholder="Що треба зробити…" style="flex:1;min-width:200px"><select id="newTaskStage" aria-label="Етап розвитку">${opts}</select><button class="btn" data-act="addTask">Додати</button></div>
+      <div class="row"><input id="newTask" type="text" aria-label="Назва задачі розвитку" placeholder="Що треба зробити…" style="flex:1;min-width:200px"><select id="newTaskStage" aria-label="Етап розвитку">${opts}</select><button class="btn" data-act="addTask">Додати</button></div>${createRecovery('addTask')}
     </section>`;
   }
 
@@ -609,12 +646,12 @@
     const r = i.reaction, linked=developmentTasks().find(t=>t.ideaId===i.id);
     return `<article class="idea ${r||""}"><h3>${esc(i.title)}</h3><p class="muted">${esc(i.text)}</p>
       <div class="acts">${i.permissions?.canEdit?`<button class="btn soft" data-legacy-edit="ideas" data-id="${esc(i.id)}">Редагувати</button>`:''}${r ? `<span class="muted">${r==="yes"?"Обрано для реалізації":"Відкладено"}</span><button class="btn soft" data-react="${i.id}" data-v="">Змінити</button>`
-        : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Обрати</button><button class="btn soft" data-react="${i.id}" data-v="no">Відкласти</button>`}${window.TSUKENYA_SERVER&&(i.initiative||r==='yes')?(i.initiative?window.BusinessInitiatives?.taskLink(i.initiative)||'':`<button class="btn rasp" data-initiative-create="${esc(i.id)}">Створити проєкт</button>`):''}${r==='yes'?(linked?'<a class="btn soft" href="#development/tasks">Перейти до плану</a>':`<button class="btn" data-idea-task="${esc(i.id)}">Створити задачу</button>`):''}</div></article>`;
+        : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Обрати</button><button class="btn soft" data-react="${i.id}" data-v="no">Відкласти</button>`}${window.TSUKENYA_SERVER&&(i.initiative||r==='yes')?(i.initiative?window.BusinessInitiatives?.taskLink(i.initiative)||'':`<button class="btn rasp" data-initiative-create="${esc(i.id)}">Створити проєкт</button>`):''}${r==='yes'?(linked?'<a class="btn soft" href="#development/tasks">Перейти до плану</a>':`<button class="btn" data-idea-task="${esc(i.id)}">Створити задачу</button>`):''}</div>${createRecovery('ideaTask:'+i.id)}</article>`;
   }
   function ideas(){
     return `<section class="panel"><p class="muted gap-lg">Зберігайте ідеї розвитку бізнесу та програмних інструментів. З обраної ідеї можна створити окремий проєкт із планом та результатом. Стара задача залишається окремим варіантом.</p>
       ${S.ideas.length?`<div class="ideas">${S.ideas.map(ideaCard).join("")}</div>`:`<div class="empty">Ідей поки немає</div>`}</section>
-    <section class="panel"><h3 class="gap-lg">Своя ідея</h3><div class="row"><input id="newIdea" type="text" aria-label="Нова ідея" placeholder="Коротко опишіть ідею…" style="flex:1;min-width:200px"><button class="btn" data-act="addIdea">Записати</button></div></section>`;
+    <section class="panel"><h3 class="gap-lg">Своя ідея</h3><div class="row"><input id="newIdea" type="text" aria-label="Нова ідея" placeholder="Коротко опишіть ідею…" style="flex:1;min-width:200px"><button class="btn" data-act="addIdea">Записати</button></div>${createRecovery('addIdea')}</section>`;
   }
 
   /* ---------- products ---------- */
@@ -1511,7 +1548,7 @@
     if(!window.TSUKENYA_SERVER||window.MonthlyBudgets?.catalogVisible()){loadSalesFacts();if(window.TSUKENYA_SERVER&&window.TSUKENYA_NETWORK_OWNER)loadPortalRead('portalModel');}
     const block = (title, hint, list, g, sum) => `<div class="expense-group"><h3>${title}</h3><p class="muted" style="margin:4px 0 8px">${hint}</p>
       ${list.map(expRow).join("")||`<p class="muted">Статей немає</p>`}
-      <div class="expense-add"><input type="text" placeholder="Нова стаття" maxlength="250" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
+      <div class="expense-add"><input type="text" placeholder="Нова стаття" maxlength="250" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>${createRecovery('addExp:'+g)}
       <div class="total"><span>Разом на місяць</span><span class="num">${window.TSUKENYA_SERVER&&t.model?window.PortalApi.money(t.model[g]):money(sum)} грн</span></div></div>`;
     const legacy = `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Орієнтир за каталогом</h2>
       <label class="inl budget-store-count">Планова кількість магазинів <input id="stores" type="number" inputmode="numeric" required min="1" max="1000" step="1" value="${stores}" ${window.TSUKENYA_SERVER?'disabled':''} aria-describedby="budgetSaveError"></label>${window.TSUKENYA_SERVER?'<button class="btn soft" type="button" data-budget-template-edit>Змінити кількість</button>':''}</div>
@@ -1552,6 +1589,11 @@
     const recordEdit=e.target.closest('[data-legacy-edit]');if(recordEdit){const collection=recordEdit.dataset.legacyEdit,id=recordEdit.dataset.id;window.LegacyEditors.edit(collection,S[collection].find(x=>x.id===id));return;}
     const field=e.target.closest('#individualPreview [data-field]');if(field){selectField(field.dataset.field);return;}
     const t = e.target.closest("button"); if(!t) return;
+    if(t.dataset.createExact){void retryCreate(t.dataset.createExact);return;}
+    if(t.dataset.createIdentity){void readCreateIdentity(t.dataset.createIdentity);return;}
+    if(t.dataset.createCancel){cancelCreateRead();return;}
+    if(t.dataset.createCompare){compareCreate(t.dataset.createCompare);return;}
+    if(t.dataset.createNew){const key=t.dataset.createNew;if(createPending.get(key)?.identity?.confirmed&&confirm('Завершити відновлення початкового створення? Новіше введення залишиться для окремого створення.')){createPending.delete(key);refreshCreateRecovery(key);}return;}
     if(t.id==='retryRefresh'){void retryRefresh(t);return;}
     if(t.dataset.page){S.catalogPage=Number(t.dataset.page);refreshFilters();$("#prodList").scrollIntoView({block:"start"});return;}
     if(t.dataset.editField){selectField(t.dataset.editField);return;}
@@ -1673,7 +1715,7 @@
       e.target.setCustomValidity?.('');
       const actions={newWork:'addWork',newTask:'addTask',newIdea:'addIdea'},key=actions[e.target.id]||(e.target.dataset.newexp?`addExp:${e.target.dataset.newexp}`:null);
       // Clearing a confirmed changed/deleted create explicitly starts a new draft.
-      if(key&&!e.target.value.trim()&&createPending.get(key)?.terminal)createPending.delete(key);
+      // Empty newer input is not proof that an ambiguous original write did not commit.
     }
     if(e.target.closest('#productForm')){S.editDirty=true;return;}
     if(e.target.dataset.style){const el=e.target;if(el.dataset.prop==='size'&&!el.value)return;const styles={...(tagCfg().styles||{}),[el.dataset.style]:{...((tagCfg().styles||{})[el.dataset.style]||{}),[el.dataset.prop]:el.dataset.prop==='size'?clamp(el.value,5,72):el.value}};S.settings.tag={...tagCfg(),styles};renderPreview();return;}

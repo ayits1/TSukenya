@@ -425,6 +425,114 @@
           }
         }
       }
+    },
+    "/api/v1/portal/create-identity": {
+      "get": {
+        "operationId": "legacyCreateIdentity",
+        "description": "Read-only REPEATABLE READ snapshot under current actor/author/store policy. Identity confirms the original CREATE, never adopts a current Save revision. Deleted original is never resurrected. Nullable original means historical receipt without snapshot; no comparison baseline is invented.",
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "tasks",
+                "ideas",
+                "expenses"
+              ]
+            }
+          },
+          {
+            "name": "createKey",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,80}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt identity (no writes or audit)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyCreateIdentity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query"
+          },
+          "403": {
+            "description": "Current role/store/original scope refused"
+          },
+          "409": {
+            "description": "Author/resource key collision"
+          }
+        }
+      }
+    },
+    "/api/{collection}": {
+      "post": {
+        "operationId": "legacyImmutableCreate",
+        "description": "Existing legacy CREATE with immutable Idempotency-Key. Exact same author/resource/request replay returns original identity without mutation or audit. Changed/deleted original refuses overwrite/resurrection. Current role/store checked after ledger lock. Original nullable only for historical receipts; read identity separately, never invent baseline.",
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "tasks",
+                "ideas",
+                "expenses"
+              ]
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,80}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Existing collection editable fields; server task scope/expense Decimal normalization remains authoritative."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Original identity acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyCreateAcknowledgement"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current policy refused"
+          },
+          "409": {
+            "description": "Key/payload collision or changed/deleted original"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1037,6 +1145,142 @@
           "revision": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "LegacyCreateIdentity": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "collection",
+              "createKey",
+              "confirmed"
+            ],
+            "properties": {
+              "collection": {
+                "enum": [
+                  "tasks",
+                  "ideas",
+                  "expenses"
+                ]
+              },
+              "createKey": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{16,80}$"
+              },
+              "confirmed": {
+                "const": false
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "collection",
+              "createKey",
+              "confirmed",
+              "id",
+              "state",
+              "original",
+              "current"
+            ],
+            "properties": {
+              "collection": {
+                "enum": [
+                  "tasks",
+                  "ideas",
+                  "expenses"
+                ]
+              },
+              "createKey": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{16,80}$"
+              },
+              "confirmed": {
+                "const": true
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              "state": {
+                "enum": [
+                  "unchanged",
+                  "changed",
+                  "deleted"
+                ]
+              },
+              "original": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/LegacyRecord"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "current": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/LegacyRecord"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "LegacyCreateAcknowledgement": {
+        "type": "object",
+        "required": [
+          "ok",
+          "id",
+          "collection",
+          "createKey",
+          "original"
+        ],
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "collection": {
+            "enum": [
+              "tasks",
+              "ideas",
+              "expenses"
+            ]
+          },
+          "createKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,80}$"
+          },
+          "original": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LegacyRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "replayed": {
+            "type": "boolean"
           }
         }
       }

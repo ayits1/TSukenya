@@ -15,6 +15,7 @@ function payload(role = 'manager') {
 function response(status, value) {
   return { status, ok: status >= 200 && status < 300, async json() { return structuredClone(value); } };
 }
+function createAck(id,data){return {ok:true,id,collection:'tasks',createKey:'synthetic-uuid',original:{collection:'tasks',id,revision:'a'.repeat(32),data,permissions:{canEdit:true,canDelete:true},managed:false,initiative:null}};}
 function runtime() {
   const window = new EventTarget();window.PortalApi=require('../app/portal-api.js');const calls = [], queue = [], intervals = [], notices = [], recoveries = [];
   window.addEventListener('tsukenya:refresh-failed', event => notices.push(event.detail));
@@ -48,8 +49,8 @@ function cached(db, collection) {
   {
     const r = runtime(), db = await r.db(), snapshots = [];
     db.collection('tasks').onSnapshot(s => snapshots.push(s));
-    r.queue.push(response(200, { ok: true, id: 'saved' }), response(503, { error: 'private downstream detail' }));
-    const saved = await db.collection('tasks').add({ title: 'New task', scope: 'operations' });
+    let confirmed=null;r.queue.push(response(200, createAck('saved',{title:'New task',scope:'operations'})), ()=>{assert.equal(confirmed,'saved','strict ACK confirms ID before post-write GET');return response(503, { error: 'private downstream detail' });});
+    const saved = await db.collection('tasks').add({ title: 'New task', scope: 'operations' },{createKey:'synthetic-uuid',onConfirmed:ack=>confirmed=ack.id});
     assert.equal(saved.id, 'saved', 'confirmed POST returns document even when subsequent GET fails');
     assert.equal(r.calls.filter(c => c.method === 'POST').length, 1, 'no automatic write retry');
     assert.equal(r.notices.length, 1);
@@ -148,7 +149,7 @@ function cached(db, collection) {
     const stale = r.window.TSUKENYA_REFRESH();
     const fresh = payload();
     fresh.data.tasks.push({ id: 'saved', data: { title: 'New task', scope: 'operations' }, permissions: { canEdit: true, canDelete: true } });
-    r.queue.push(response(200, { ok: true, id: 'saved' }), response(200, fresh));
+    r.queue.push(response(200, createAck('saved',{title:'New task',scope:'operations'})), response(200, fresh));
     let added = false;
     const write = db.collection('tasks').add({ title: 'New task', scope: 'operations' }).then(ref => { added = true; return ref; });
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -165,7 +166,7 @@ function cached(db, collection) {
     r.queue.push(() => new Promise(resolve => { releaseWrite = resolve; }), () => new Promise(resolve => { releaseRead = resolve; }));
     const second = db.collection('tasks').add({ title: 'Second' });
     await new Promise(resolve => setTimeout(resolve, 0));
-    releaseWrite(response(200, { ok: true, id: 'second' }));
+    releaseWrite(response(200, createAck('second',{title:'Second'})));
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.deepEqual(r.calls.slice(4).map(c => c.method), ['POST', 'GET']);
     const poll = r.window.TSUKENYA_REFRESH();
