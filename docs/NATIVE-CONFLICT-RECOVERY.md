@@ -197,7 +197,7 @@ runtime recovery VM PASS. Native main/inline/input/ACK targets PASS; ACK JSON nu
 
 ### Незалежне legacy інтеграційне рев’ю
 
-Пакет інтегровано поверх прийнятого #61 b49212a; entry/stories/doc sections злиті аддитивно,
+Пакет первісно інтегровано поверх прийнятого #61 b49212a та перебазовано на #62 b0b92b4; entry/stories/doc sections злиті аддитивно,
 Entity і WorkShift exports збережено. Root unit3/combined TypeScript/Vite build/affected lint-format PASS.
 Isolated root PostgreSQL2 (0.385 s): required/stale revision/whitelist і preservation unknown metadata
 в усіх трьох ресурсах; чинний scope перед token та no-audit/read-only відмова.
@@ -214,3 +214,8 @@ Full registry має один default entry та очищає всі partial fla
 Harness прибирає inherited DB/PG/URL/require змінні, фіксує test Django settings/secret і безпечно завершує
 вже закритий server process. `test:full -- --plan` тільки dry-run. Business create receipts/managed lifecycle
 та MonthlyBudget залишають свої наявні контракти, private production/Sheet/VPS не використовуються.
+
+Після перебазування на #62 повторено лише affected layout/invalidApply integration target: PASS,
+`/tmp/tsukenya-root-legacy-integrated/layout-report.json` (2 writes; refusal до mutation, окремий Save,
+1440/320 geometry). Злитий static loader зберігає report module й підключає legacy editor.
+Незмінні API/ACK/story proofs повторно не запускалися.

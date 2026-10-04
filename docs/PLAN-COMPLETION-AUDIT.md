@@ -190,3 +190,11 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B24 reports:** bounded summary/page30/streamed full CSV/native consumers інтегровано для PR/CI. Root PG3/protocol/authoritative CSV/actual503+401 recovery PASS; final1440/320 PNG переглянуто. Старі nine fixture сценарії адаптовано без повного повтору. Independent review виправило cash N+1, busy/prior-confirmed context, scoped expense captions і expired-session401 privacy. [B24-BOUNDED-REPORTS.md](B24-BOUNDED-REPORTS.md). O(N), fanout, temp-disk/RR/capacity та durable cache залишаються явними відкритими межами.
 - **B06 legacy tasks/ideas/expenses:** доставка отримана; root source review триває, пакет ще не прийнятий. Voucher/payment та recipe consumers розпочато окремо. Shared optional directory empty-label UX також окремий follow-up.
 - Повний regression, production deployment/VPS, зовнішні credentials і0.1 не виконані. Повний план не оголошується завершеним.
+
+
+## Після прийняття #62 · mainb0b92b4 · 04.10.2026
+
+- **B24 reports:** #62 MERGED, exact head143d2be frontend/server/PostgreSQL CI SUCCESS. Root503 і actual expired-session401/privacy/cancel proofs пройшли; authoritative CSV і scoped data/history checks зіставлено з matching server tests. Canonical clone fast-forwardb0b92b4 clean. Resource bounds/release limitations лишаються в [B24-BOUNDED-REPORTS.md](B24-BOUNDED-REPORTS.md).
+- **B06 legacy tasks/ideas/expenses:** інтегровано для PR/CI. Exact versioned readonly GET, mandatory If-Match для existing changes, auth/source beforetoken, whitelist/noresurrection, shared localApply/separateSave й frozen inline drafts. Root unit3/combinedbuild/PG2/ACK/layout-invalidApply PASS; авторські matching API/concurrency/story/native proofs перевикористані для незмінених inputs. Entry/stories/static loaders/styles злиті аддитивно з accepted entity/workshift/reports. [NATIVE-CONFLICT-RECOVERY.md](NATIVE-CONFLICT-RECOVERY.md).
+- **B06 vouchers/payments/recipes** реалізуються окремими наступними пакетами; shared optional directory filter label delivery отримано для рев’ю. Reload survival, monthly/template recovery та повна React CRM міграція залишаються відкритими.
+- Full runner має один legacy harness з явними isolated main/inline/input/ACK/layout stages; виконано лише dry-run реєстру. Deployment, повний regression, production capacity і0.1 не виконані.
