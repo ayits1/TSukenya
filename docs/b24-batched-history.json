@@ -1,0 +1,46 @@
+{
+  "baseline_commit": "e0233c64b08ba0a36211dfdfc390dd6ff69a5c9c",
+  "python": "3.14.7",
+  "django": "5.2.17",
+  "database": "PostgreSQL 180006",
+  "method": "Django Client HTTP middleware+handler, persistent PG connections, no external network/proxy/browser; burst threads in one Python process",
+  "stages": [
+    {
+      "stage": "500 SKU / 5000 historical sales",
+      "sku": 500,
+      "vouchers": 5001,
+      "voucher_lines": 5500,
+      "cash_entries": 5000,
+      "stock_entries": 5500,
+      "endpoints": {
+        "/api/erp/vouchers?kind=sale&page=1": {
+          "samples": 5,
+          "median_ms": 10.242,
+          "p95_ms": 10.708,
+          "sql_median_ms": 6.547,
+          "queries": [
+            5
+          ],
+          "bytes": [
+            12684
+          ],
+          "tables": {
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "auth_user": 2,
+            "erp_voucher": 4,
+            "erp_paymentallocation": 1
+          },
+          "etag": null,
+          "last_modified": null
+        }
+      }
+    }
+  ],
+  "ten_parallel_cashiers_state_poll": null,
+  "source_files_sha256": {
+    "server/erp/views.py": "004e8887bfef1d22010fc3f95b00c4ac07433602b9c8809e492896cbc8d93e2f",
+    "server/erp/reporting.py": "967809f70d3e516bd75c4bd528ccfabf4905425c73e69248d0780c4395b2ebf1"
+  },
+  "fixture_note": "Historical sales include embedded full payment payload."
+}

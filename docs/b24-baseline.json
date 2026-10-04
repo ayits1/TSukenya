@@ -1,0 +1,570 @@
+{
+  "baseline_commit": "e0233c64b08ba0a36211dfdfc390dd6ff69a5c9c",
+  "python": "3.14.7",
+  "django": "5.2.17",
+  "database": "PostgreSQL 180006",
+  "method": "Django Client HTTP middleware+handler, persistent PG connections, no external network/proxy/browser; burst threads in one Python process",
+  "stages": [
+    {
+      "stage": "50 SKU / no history",
+      "sku": 50,
+      "vouchers": 0,
+      "voucher_lines": 0,
+      "cash_entries": 0,
+      "stock_entries": 0,
+      "endpoints": {
+        "/api/state": {
+          "samples": 5,
+          "median_ms": 9.499,
+          "p95_ms": 13.328,
+          "sql_median_ms": 4.306,
+          "queries": [
+            8
+          ],
+          "bytes": [
+            48410
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 3,
+            "erp_store": 2,
+            "erp_promotioncampaign": 2,
+            "erp_promotionprice": 2,
+            "erp_promotioncampaign_stores": 2
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/v1/catalog/products?limit=20": {
+          "samples": 5,
+          "median_ms": 9.794,
+          "p95_ms": 12.631,
+          "sql_median_ms": 5.607,
+          "queries": [
+            9
+          ],
+          "bytes": [
+            29228
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 6,
+            "erp_store": 1,
+            "erp_promotioncampaign": 1,
+            "erp_promotionprice": 1,
+            "erp_promotioncampaign_stores": 1
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/v1/catalog/products?limit=20&promotion=yes": {
+          "samples": 5,
+          "median_ms": 8.559,
+          "p95_ms": 11.139,
+          "sql_median_ms": 4.488,
+          "queries": [
+            10
+          ],
+          "bytes": [
+            29228
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 7,
+            "erp_store": 1,
+            "erp_promotioncampaign": 1,
+            "erp_promotionprice": 1,
+            "erp_promotioncampaign_stores": 1
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/v1/labels/workspace": {
+          "samples": 5,
+          "median_ms": 1.311,
+          "p95_ms": 1.417,
+          "sql_median_ms": 0.749,
+          "queries": [
+            2
+          ],
+          "bytes": [
+            268
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 1
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/erp/state": {
+          "samples": 5,
+          "median_ms": 7.481,
+          "p95_ms": 7.567,
+          "sql_median_ms": 5.013,
+          "queries": [
+            12
+          ],
+          "bytes": [
+            5995
+          ],
+          "tables": {
+            "auth_user": 3,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_store": 1,
+            "erp_warehouse": 1,
+            "erp_counterparty": 1,
+            "erp_cashaccount": 1,
+            "erp_employee": 1,
+            "erp_cashshift": 3,
+            "erp_ledgerlock": 1,
+            "erp_setting": 2
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/erp/stock": {
+          "samples": 5,
+          "median_ms": 5.88,
+          "p95_ms": 5.94,
+          "sql_median_ms": 2.966,
+          "queries": [
+            6
+          ],
+          "bytes": [
+            27813
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_warehouse": 4,
+            "erp_assortment": 1,
+            "erp_stockreservation": 1,
+            "erp_voucherline": 1,
+            "erp_voucher": 1,
+            "erp_stocklot": 2,
+            "erp_ordercontrol": 1,
+            "erp_document": 2
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/erp/vouchers?kind=sale&page=1": {
+          "samples": 5,
+          "median_ms": 2.365,
+          "p95_ms": 3.082,
+          "sql_median_ms": 1.358,
+          "queries": [
+            3
+          ],
+          "bytes": [
+            48
+          ],
+          "tables": {
+            "auth_user": 2,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_voucher": 2
+          },
+          "etag": null,
+          "last_modified": null
+        }
+      }
+    },
+    {
+      "stage": "500 SKU / no history",
+      "sku": 500,
+      "vouchers": 0,
+      "voucher_lines": 0,
+      "cash_entries": 0,
+      "stock_entries": 0,
+      "endpoints": {
+        "/api/state": {
+          "samples": 5,
+          "median_ms": 21.986,
+          "p95_ms": 24.279,
+          "sql_median_ms": 5.35,
+          "queries": [
+            8
+          ],
+          "bytes": [
+            311480
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 3,
+            "erp_store": 2,
+            "erp_promotioncampaign": 2,
+            "erp_promotionprice": 2,
+            "erp_promotioncampaign_stores": 2
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/v1/catalog/products?limit=20": {
+          "samples": 5,
+          "median_ms": 6.479,
+          "p95_ms": 7.564,
+          "sql_median_ms": 3.706,
+          "queries": [
+            9
+          ],
+          "bytes": [
+            25808
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 6,
+            "erp_store": 1,
+            "erp_promotioncampaign": 1,
+            "erp_promotionprice": 1,
+            "erp_promotioncampaign_stores": 1
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/v1/catalog/products?limit=20&promotion=yes": {
+          "samples": 5,
+          "median_ms": 15.302,
+          "p95_ms": 16.878,
+          "sql_median_ms": 6.856,
+          "queries": [
+            10
+          ],
+          "bytes": [
+            29228
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 7,
+            "erp_store": 1,
+            "erp_promotioncampaign": 1,
+            "erp_promotionprice": 1,
+            "erp_promotioncampaign_stores": 1
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/v1/labels/workspace": {
+          "samples": 5,
+          "median_ms": 1.254,
+          "p95_ms": 1.377,
+          "sql_median_ms": 0.678,
+          "queries": [
+            2
+          ],
+          "bytes": [
+            268
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 1
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/erp/state": {
+          "samples": 5,
+          "median_ms": 6.893,
+          "p95_ms": 7.256,
+          "sql_median_ms": 4.719,
+          "queries": [
+            12
+          ],
+          "bytes": [
+            5995
+          ],
+          "tables": {
+            "auth_user": 3,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_store": 1,
+            "erp_warehouse": 1,
+            "erp_counterparty": 1,
+            "erp_cashaccount": 1,
+            "erp_employee": 1,
+            "erp_cashshift": 3,
+            "erp_ledgerlock": 1,
+            "erp_setting": 2
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/erp/stock": {
+          "samples": 5,
+          "median_ms": 16.792,
+          "p95_ms": 17.567,
+          "sql_median_ms": 5.15,
+          "queries": [
+            6
+          ],
+          "bytes": [
+            278414
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_warehouse": 4,
+            "erp_assortment": 1,
+            "erp_stockreservation": 1,
+            "erp_voucherline": 1,
+            "erp_voucher": 1,
+            "erp_stocklot": 2,
+            "erp_ordercontrol": 1,
+            "erp_document": 2
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/erp/vouchers?kind=sale&page=1": {
+          "samples": 5,
+          "median_ms": 2.182,
+          "p95_ms": 2.631,
+          "sql_median_ms": 1.147,
+          "queries": [
+            3
+          ],
+          "bytes": [
+            48
+          ],
+          "tables": {
+            "auth_user": 2,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_voucher": 2
+          },
+          "etag": null,
+          "last_modified": null
+        }
+      }
+    },
+    {
+      "stage": "500 SKU / 5000 historical sales",
+      "sku": 500,
+      "vouchers": 5001,
+      "voucher_lines": 5500,
+      "cash_entries": 5000,
+      "stock_entries": 5500,
+      "endpoints": {
+        "/api/state": {
+          "samples": 5,
+          "median_ms": 20.647,
+          "p95_ms": 21.996,
+          "sql_median_ms": 4.391,
+          "queries": [
+            8
+          ],
+          "bytes": [
+            311480
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 3,
+            "erp_store": 2,
+            "erp_promotioncampaign": 2,
+            "erp_promotionprice": 2,
+            "erp_promotioncampaign_stores": 2
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/v1/catalog/products?limit=20": {
+          "samples": 5,
+          "median_ms": 6.564,
+          "p95_ms": 7.583,
+          "sql_median_ms": 4.146,
+          "queries": [
+            9
+          ],
+          "bytes": [
+            25808
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 6,
+            "erp_store": 1,
+            "erp_promotioncampaign": 1,
+            "erp_promotionprice": 1,
+            "erp_promotioncampaign_stores": 1
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/v1/catalog/products?limit=20&promotion=yes": {
+          "samples": 5,
+          "median_ms": 14.014,
+          "p95_ms": 15.324,
+          "sql_median_ms": 6.147,
+          "queries": [
+            10
+          ],
+          "bytes": [
+            29228
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 7,
+            "erp_store": 1,
+            "erp_promotioncampaign": 1,
+            "erp_promotionprice": 1,
+            "erp_promotioncampaign_stores": 1
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/v1/labels/workspace": {
+          "samples": 5,
+          "median_ms": 1.117,
+          "p95_ms": 1.787,
+          "sql_median_ms": 0.597,
+          "queries": [
+            2
+          ],
+          "bytes": [
+            268
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_document": 1
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/erp/state": {
+          "samples": 5,
+          "median_ms": 5.375,
+          "p95_ms": 6.554,
+          "sql_median_ms": 3.333,
+          "queries": [
+            12
+          ],
+          "bytes": [
+            6138
+          ],
+          "tables": {
+            "auth_user": 3,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_store": 1,
+            "erp_warehouse": 1,
+            "erp_counterparty": 1,
+            "erp_cashaccount": 1,
+            "erp_employee": 1,
+            "erp_cashshift": 3,
+            "erp_ledgerlock": 1,
+            "erp_setting": 2
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/erp/stock": {
+          "samples": 5,
+          "median_ms": 16.052,
+          "p95_ms": 16.138,
+          "sql_median_ms": 4.806,
+          "queries": [
+            6
+          ],
+          "bytes": [
+            278414
+          ],
+          "tables": {
+            "auth_user": 1,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_warehouse": 4,
+            "erp_assortment": 1,
+            "erp_stockreservation": 1,
+            "erp_voucherline": 1,
+            "erp_voucher": 1,
+            "erp_stocklot": 2,
+            "erp_ordercontrol": 1,
+            "erp_document": 2
+          },
+          "etag": null,
+          "last_modified": null
+        },
+        "/api/erp/vouchers?kind=sale&page=1": {
+          "samples": 5,
+          "median_ms": 48.682,
+          "p95_ms": 51.747,
+          "sql_median_ms": 29.999,
+          "queries": [
+            63
+          ],
+          "bytes": [
+            12627
+          ],
+          "tables": {
+            "auth_user": 2,
+            "erp_profile": 1,
+            "erp_portalsession": 1,
+            "erp_voucher": 62,
+            "erp_paymentallocation": 30
+          },
+          "etag": null,
+          "last_modified": null
+        }
+      }
+    }
+  ],
+  "ten_parallel_cashiers_state_poll": {
+    "samples": 50,
+    "median_ms": 118.405,
+    "p95_ms": 181.731,
+    "sql_median_ms": 90.169,
+    "queries": [
+      8
+    ],
+    "bytes": [
+      311480
+    ],
+    "tables": {
+      "auth_user": 1,
+      "erp_profile": 1,
+      "erp_portalsession": 1,
+      "erp_document": 3,
+      "erp_store": 2,
+      "erp_promotioncampaign": 2,
+      "erp_promotionprice": 2,
+      "erp_promotioncampaign_stores": 2
+    },
+    "etag": null,
+    "last_modified": null,
+    "rounds": 5,
+    "cashiers": 10,
+    "wall_seconds_including_warmups": 1.155
+  },
+  "source_files_sha256": {
+    "server/erp/views.py": "21d72ece563933cf2af42ea95819fa7fcd52a3c71b643591fe37378e29afb1b4",
+    "server/erp/reporting.py": "fae284877530d9c1fb0fd22c204dde2a092277763f11f8943c31967f0e3146eb"
+  },
+  "fixture_note": "Initial historic header probe omitted embedded payments. Poll/state measurements do not read vouchers; use b24-paid-history.json for comparable paid voucher-list baseline."
+}
