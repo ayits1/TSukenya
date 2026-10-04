@@ -1,3 +1,4 @@
+import { createDraftRecovery } from './shared/recovery/bridge';
 import * as monthlyBudgetEditor from './shared/native/monthlyBudget';
 import * as voucherEditor from './shared/native/voucher';
 import { createRoot } from 'react-dom/client';
@@ -21,6 +22,7 @@ import * as recipeEditor from './shared/native/recipe';
 
 declare global {
   interface Window {
+    NativeDraftRecovery?: ReturnType<typeof createDraftRecovery>;
     NativePlanningCategoryEditor?: typeof planningCategoryEditor;
     NativeMonthlyBudgetEditor?: typeof monthlyBudgetEditor;
     NativeVoucherEditor?: typeof voucherEditor;
@@ -89,3 +91,11 @@ window.NativeConflictComparison = {
   },
 };
 window.dispatchEvent(new Event('tsukenya:native-conflict-ready'));
+
+if (document.querySelector('#accountLink')) {
+  try {
+    window.NativeDraftRecovery = createDraftRecovery(window);
+  } catch {
+    /* Unavailable storage must be reported by enrollment before any send. */
+  }
+}

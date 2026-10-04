@@ -2273,6 +2273,12 @@ export interface components {
       /** @enum {string} */
       role: 'owner' | 'manager' | 'warehouse' | 'cashier' | 'accountant';
       csrf: string;
+      /** @description Opaque actor binding, not an authorization token. */
+      draftOwner?: string;
+      /** @description Opaque per-login binding, not a session credential. */
+      draftSession?: string;
+      storeId?: number | null;
+      networkOwner?: boolean;
     };
     Error: {
       error: string;

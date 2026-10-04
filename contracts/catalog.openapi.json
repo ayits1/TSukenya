@@ -3277,6 +3277,26 @@
           },
           "csrf": {
             "type": "string"
+          },
+          "draftOwner": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Opaque actor binding, not an authorization token."
+          },
+          "draftSession": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Opaque per-login binding, not a session credential."
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "networkOwner": {
+            "type": "boolean"
           }
         }
       },

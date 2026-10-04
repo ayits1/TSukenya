@@ -1,0 +1,61 @@
+.tk-recovery {
+  color: var(--tk-ink);
+  background: var(--tk-paper);
+  padding: 20px;
+  max-width: 680px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tk-recovery h2 {
+  font-size: 22px;
+  margin: 0 0 12px;
+}
+.tk-recovery h3 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+.tk-recovery p {
+  margin: 8px 0 16px;
+}
+.tk-recovery ul {
+  list-style: none;
+  padding: 0;
+}
+.tk-recovery li {
+  padding: 16px 0;
+  border-top: 1px solid var(--tk-line);
+}
+.tk-recovery-actions,
+.tk-recovery [role='group'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.tk-recovery [role='group'] p {
+  flex-basis: 100%;
+}
+.tk-recovery .tk-button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+}
+.tk-recovery-dialog {
+  border: 1px solid var(--tk-line);
+  border-radius: var(--tk-radius);
+  padding: 0;
+  max-width: min(720px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+}
+.tk-recovery-dialog::backdrop {
+  background: #17232e66;
+}
+@media (max-width: 400px) {
+  .tk-recovery {
+    padding: 16px;
+  }
+  .tk-recovery-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

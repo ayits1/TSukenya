@@ -343,3 +343,16 @@ B06 foundation same-tab/same-session proposal прийнято як межу п�
 P0 identity/registry розробляється; P1–P3 actual consumers ще не enrolled. Увесь
 B06, versioned trading migration та весь початковий план залишаються відкритими.
 Full локально не запускали; 0.1, зовнішню Sheet/production mutation не виконували.
+
+## B06 — спільна основа збереження після reload
+
+P0 інтегровано для PR/CI після main #78: additive HMAC session binding, versioned
+bounded sessionStorage, явні Restore/Discard, immutable first intent, strict
+confirmation та privacy/lifetime fences. Root рев’ю виправило глобальне видалення
+чернеток при resource403, приховану помилку discard та втрату відновленого редактора
+після Close. Combined build/typecheck і actual native dismissal/session401 PASS;
+інші незмінені PG/unit/Story/native докази перелічені в DRAFT-PERSISTENCE-FOUNDATION.md.
+
+Це основа, а не виконання всього B06. Робочі native/React редактори й окремі actions
+P1–P3 потребують власних codecs та actual reload/identity/GET-barrier перевірок.
+На VPS цей пакет не опубліковано; там залишається функціональний реліз1021ae2.
