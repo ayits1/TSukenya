@@ -26,6 +26,22 @@ const dialog=()=>page.locator('.trade-dialog[open]');
   const receipts=fixture(`from server.erp.models import AlertTaskAction;print(AlertTaskAction.objects.filter(task_id='tasks/${id}').count())`).trim();assert.equal(receipts,'1');assert.deepEqual(errors,[]);
   console.log('PASS confirmed POST then GET503: visible read-only retry, keyboard recovery, no duplicate action/receipt');return;
  }
+ if(process.env.QA_ALERTS_FROM==='uncertain'){
+  const lost=new Set(['accept','defer']),bodies=[];
+  await page.route('**/api/erp/alerts/tasks/*/actions',async route=>{const body=route.request().postDataJSON();bodies.push(body);if(lost.has(body.action)){lost.delete(body.action);await route.fetch();return route.abort();}return route.continue();});
+  await row().locator('[data-alert-action=accept]').focus();await page.keyboard.press('Enter');await row().getByText('Відповідь не отримано.',{exact:false}).waitFor();
+  await page.evaluate(()=>window.TSUKENYA_REFRESH());await row().getByText('Прийнято в роботу',{exact:false}).waitFor();
+  assert(await row().locator('[data-alert-action=complete]').isDisabled());assert(await row().locator('[data-alert-action=defer]').isDisabled());
+  await page.evaluate(id=>window.ManagedAlerts.handle({dataset:{alertId:id,alertAction:'complete'}}),id);assert.equal(bodies.length,1,'another action blocked even after fresh GET exposes committed state');
+  await row().locator('[data-alert-action=retry]').focus();await page.keyboard.press('Enter');await row().locator('[data-alert-action=retry]').waitFor({state:'hidden'});assert.equal(bodies[0].idempotencyKey,bodies[1].idempotencyKey);assert.equal(bodies[1].action,'accept');assert(await row().locator('[data-alert-action=complete]').isEnabled());
+  await row().locator('[data-alert-action=defer]').click();const dates=JSON.parse(fixture("import json\nfrom datetime import timedelta\nfrom server.erp.managed_alerts import kyiv_day\nprint(json.dumps([(kyiv_day()+timedelta(days=n)).isoformat() for n in [1,2]]))"));
+  await dialog().locator('[name=until]').fill(dates[0]);await dialog().locator('[name=reason]').fill('Первісна причина');await dialog().locator('[type=submit]').click();await dialog().locator('[data-alert-error]').filter({hasText:'Відповідь не отримано'}).waitFor();
+  await dialog().locator('[name=until]').fill(dates[1]);await dialog().locator('[name=reason]').fill('Нова чернетка збережена після закриття');page.once('dialog',native=>native.accept());await page.keyboard.press('Escape');await dialog().waitFor({state:'hidden'});
+  assert(await row().locator('[data-alert-action=complete]').isDisabled());await row().locator('[data-alert-action=retry]').focus();await page.keyboard.press('Enter');assert.equal(await dialog().locator('[name=until]').inputValue(),dates[1]);assert.equal(await dialog().locator('[name=reason]').inputValue(),'Нова чернетка збережена після закриття');
+  await dialog().locator('[type=submit]').click();await dialog().locator('[data-alert-error]').filter({hasText:'Первісне відкладення підтверджено'}).waitFor();assert.equal(bodies[2].idempotencyKey,bodies[3].idempotencyKey);assert.equal(bodies[3].until,dates[0]);assert.equal(await dialog().locator('[name=reason]').inputValue(),'Нова чернетка збережена після закриття');
+  const receipts=fixture(`from server.erp.models import AlertTaskAction;print(AlertTaskAction.objects.filter(task_id='tasks/${id}').count())`).trim();assert.equal(receipts,'2');assert.deepEqual(errors,[]);
+  console.log('PASS unknown ACK locks other actions after fresh GET; keyboard same-intent retry; deferred new draft survives close/reopen and exact original retry');return;
+ }
  await row().locator('[data-alert-action=accept]').focus();await page.keyboard.press('Enter');await row().getByText('Прийнято в роботу',{exact:false}).waitFor();await row().locator('[data-alert-action=defer]').click();
  const dates=JSON.parse(fixture("import json\nfrom datetime import timedelta\nfrom server.erp.managed_alerts import kyiv_day\nprint(json.dumps([(kyiv_day()+timedelta(days=n)).isoformat() for n in [1,2]]))"));await dialog().locator('[name=until]').fill(dates[0]);await dialog().locator('[name=reason]').fill('Чекаємо поставку');
  let lost=true,keys=[];await page.route('**/api/erp/alerts/tasks/*/actions',async route=>{keys.push(route.request().postDataJSON().idempotencyKey);if(lost){lost=false;await route.fetch();return route.abort();}return route.continue();});

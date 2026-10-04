@@ -51,6 +51,27 @@ class ManagedAlertTests(ApiFixture):
         self.u.profile.role='owner';self.u.profile.save()
         self.assertEqual(AuditEvent.objects.count(),before)
         malformed=self.call('post',f'/api/erp/alerts/tasks/{self.task.path.split("/",1)[1]}/actions',{**body,'idempotencyKey':str(uuid.uuid4())});self.assertEqual(malformed.status_code,409)
+    def test_authorization_reload_after_ledger_wait_also_guards_exact_receipts(self):
+        from django.contrib.auth.models import User
+        from server.erp.services import ledger_lock
+        other=Store.objects.create(name='Revoked scope')
+        response,body=self.action('accept');self.assertEqual(response.status_code,200)
+        before_data=dict(Document.objects.get(pk=self.task.pk).data);before_audit=AuditEvent.objects.count()
+        for replay in [False,True]:
+            for change in ['role','store','active']:
+                with self.subTest(replay=replay,change=change):
+                    def wait_then_revoke():
+                        ledger_lock()
+                        if change=='role':Profile.objects.filter(user=self.u).update(role='cashier')
+                        elif change=='store':Profile.objects.filter(user=self.u).update(role='manager',store=other)
+                        else:User.objects.filter(pk=self.u.pk).update(is_active=False)
+                    request=body if replay else {**body,'action':'complete','revision':record_revision(Document.objects.get(pk=self.task.pk)),'idempotencyKey':str(uuid.uuid4())}
+                    with patch('server.erp.managed_alerts.ledger_lock',side_effect=wait_then_revoke):
+                        denied=self.call('post',f'/api/erp/alerts/tasks/{self.task.path.split("/",1)[1]}/actions',request)
+                    self.assertEqual(denied.status_code,403,denied.content)
+                    self.assertEqual(Document.objects.get(pk=self.task.pk).data,before_data)
+                    self.assertEqual(AlertTaskAction.objects.count(),1);self.assertEqual(AuditEvent.objects.count(),before_audit)
+
     def test_roles_scope_malformed_and_generic_status_clear_defer(self):
         for role in ['warehouse','cashier','accountant']:
             self.u.profile.role=role;self.u.profile.save();response,_=self.action();self.assertEqual(response.status_code,403)

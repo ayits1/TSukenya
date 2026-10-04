@@ -50,6 +50,10 @@ def task_json(doc):
 def action(request,user,identifier):
     from .views import body,response
     ledger_lock()
+    from django.contrib.auth.models import User
+    # The request's user/profile can predate a ledger wait and a role revocation.
+    user=User.objects.select_related('profile').filter(pk=user.pk,is_active=True,profile__isnull=False).first()
+    require(user is not None,'Недостатньо прав. Обліковий запис вимкнено.')
     require(re.fullmatch(r'(?:auto_|reprint_)[a-f0-9]{32}',identifier) is not None,'Некоректна системна задача.')
     doc=Document.objects.filter(pk='tasks/'+identifier).first()
     require(doc is not None,'Системну задачу не знайдено.')
