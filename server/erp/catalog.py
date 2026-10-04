@@ -402,6 +402,10 @@ def handle_catalog(request, user):
     from .views import response
     path = request.path.rstrip('/')
     collection = '/api/v1/catalog/products'
+    selection_match=re.fullmatch(r'/api/v1/catalog/price-results/(pricing|import)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/selection-preview',path)
+    if selection_match and request.method=='POST':
+        from .catalog_price_selection import preview
+        return preview(request,user,*selection_match.groups())
     result_match = re.fullmatch(r'/api/v1/catalog/price-results/(pricing|import)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', path)
     if result_match and request.method == 'GET':
         from .catalog_price_results import read_result

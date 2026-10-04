@@ -77,3 +77,7 @@ production READ ONLY/RR guard. Локально повторено лише affe
 метод: PASS0.142с, `/tmp/tsukenya-price-scope-fixture-pg.log`.
 Залежний перший server/PG CI #81 зупинено після встановлення причини; завершений
 frontend залишився успішним. Повного локального повтору не було.
+
+## Пакет 2
+
+Реальний перехід atomic/durable operation → current signed selection → Studio описаний у [PRICE-LABEL-HANDOFF.md](PRICE-LABEL-HANDOFF.md). Пакет3 invoice→catalogue review ще необхідний.

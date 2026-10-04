@@ -1823,6 +1823,13 @@
   const noDbTimer = setTimeout(()=>{ if(!databaseConnected){if(window.TSUKENYA_SERVER)showRefreshFailure();else $("#noDb").hidden=false;} }, 4000);
   window.claude?.use?.("downloads").then(d=>{ downloads=d; if(tab==="tags") render(); }).catch(()=>{});
   window.claude?.use?.("mcp").then(m=>{ mcp=m; if(tab==="tags"||tab==="products") render(); syncSetup(); }).catch(()=>{});
+  window.TSUKENYA_OPEN_PRICE_LABELS=(kind,id)=>{
+    if(window.ReactCatalog?.dirty()||window.CatalogImport?.dirty()||window.CatalogPricing?.dirty()||window.CatalogImport?.pending()||window.CatalogPricing?.pending()){
+      window.alert('Спершу збережіть або завершіть відкрите редагування чи перевірте результат початкового запису. Чернетка не закривається.');return;
+    }
+    if(!window.ReactLabels?.openOperation){window.alert('Студію цінників ще не завантажено.');return;}
+    window.ReactLabels.openOperation(kind,id);location.hash='#operations/tags';
+  };
   window.CatalogPricing?.configure(()=>({markup:defMarkup(),rounding:num(S.settings.rounding??0.5),categories:window.TSUKENYA_SERVER?[]:cats(),selection:scope=>window.TSUKENYA_SERVER&&scope==='__f'?window.ReactCatalog?.pricingFilter():null,selectIds:scope=>(scope==='__f'?(window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)):S.products.filter(p=>!p.hidden&&p.category===scope)).map(p=>p.id)}));
   let connectingDatabase=null;
   function connectDatabase(){

@@ -22,6 +22,10 @@ import {
 import type { LabelConfig, LabelField, LabelProduct, LabelSettings } from './domain';
 import type { LabelApi, Proof, Workspace } from './api';
 import { LABEL_MERGE_FIELDS } from './conflict';
+import type { PricingRequestGuard } from '../promotions/PricingContext';
+import { OperationSelectionReview } from './OperationSelectionReview';
+import type { PriceOperation } from './operationSelection';
+import type { PromotionApi, PromotionContext } from '../promotions/api';
 
 type Draft = { config: LabelConfig; settings: LabelSettings };
 export type StudioMemory = {
@@ -73,9 +77,21 @@ export function Studio({
   onMemory,
   priceStore,
   priceContext,
+  operation,
+  operationContext,
+  operationContextGuard,
+  promotions,
+  onOperationApply,
+  onOperationCancel,
 }: {
   priceContext?: { storeId: number | null; storeName: string | null } | undefined;
   priceStore?: number | null | undefined;
+  operation?: PriceOperation | null | undefined;
+  operationContext?: PromotionContext | undefined;
+  operationContextGuard?: PricingRequestGuard | undefined;
+  promotions?: PromotionApi | undefined;
+  onOperationApply?: ((context: PromotionContext) => void) | undefined;
+  onOperationCancel?: (() => void) | undefined;
   api: LabelApi;
   catalog: CatalogApi;
   onDirty: (value: boolean) => void;
@@ -111,6 +127,12 @@ export function Studio({
       api={api}
       priceStore={priceStore}
       priceContext={priceContext}
+      operation={operation}
+      operationContext={operationContext}
+      operationContextGuard={operationContextGuard}
+      promotions={promotions}
+      onOperationApply={onOperationApply}
+      onOperationCancel={onOperationCancel}
       catalog={catalog}
       initial={workspace.data}
       onDirty={onDirty}
@@ -131,9 +153,21 @@ function StudioWorkspace({
   onMemory,
   priceStore,
   priceContext,
+  operation,
+  operationContext,
+  operationContextGuard,
+  promotions,
+  onOperationApply,
+  onOperationCancel,
 }: {
   priceContext?: { storeId: number | null; storeName: string | null } | undefined;
   priceStore?: number | null | undefined;
+  operation?: PriceOperation | null | undefined;
+  operationContext?: PromotionContext | undefined;
+  operationContextGuard?: PricingRequestGuard | undefined;
+  promotions?: PromotionApi | undefined;
+  onOperationApply?: ((context: PromotionContext) => void) | undefined;
+  onOperationCancel?: (() => void) | undefined;
   api: LabelApi;
   catalog: CatalogApi;
   initial: Workspace;
@@ -697,6 +731,42 @@ function StudioWorkspace({
     .filter((product): product is LabelProduct => !!product);
   return (
     <StudioView
+      operationReview={
+        operation && operationContext && promotions ? (
+          <OperationSelectionReview
+            key={operation.token}
+            operation={operation}
+            context={operationContext}
+            contextGuard={operationContextGuard}
+            promotions={promotions}
+            selection={memory.selection}
+            isDisabled={outputBusy || preparing || comparisonBusy}
+            onCancel={() => onOperationCancel?.()}
+            onApply={(next, products, context) => {
+              if (busy.current || preparing || outputBusy)
+                throw Error('Дочекайтеся завершення поточної перевірки або друку.');
+              if (operationContextGuard && !operationContextGuard.isCurrent())
+                throw Error('Вибір магазину змінився. Прочитайте перегляд повторно.');
+              onOperationApply?.(context);
+              invalidate();
+              setMemory((previous) => ({
+                ...previous,
+                selection: next,
+                records: {
+                  ...previous.records,
+                  ...Object.fromEntries(products.map((product) => [product.id, toLabel(product)])),
+                },
+              }));
+              void client.invalidateQueries({ queryKey: ['label-products'] });
+              void client.invalidateQueries({ queryKey: ['label-preview'] });
+              setOutputStatus(
+                'Вибір за результатом операції застосовано. Перевірте актуальний друк окремою дією.',
+              );
+              onOperationCancel?.();
+            }}
+          />
+        ) : null
+      }
       config={draft.config}
       settings={draft.settings}
       previewSettings={

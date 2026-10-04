@@ -2175,6 +2175,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/catalog/price-results/{kind}/{id}/selection-preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Поточний read-only перегляд підтверджених рядків операції; не proof друку */
+    post: operations['previewOperationPriceSelection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3159,6 +3176,52 @@ export interface components {
       limit: 100;
       items: components['schemas']['OperationPriceResult'][];
     };
+    OperationPriceSelectionRequest: {
+      ordinals: number[];
+      page?: number;
+      snapshot?: string;
+    };
+    OperationPriceSelectionRow: {
+      operationResult: components['schemas']['OperationPriceResult'];
+      /** @enum {string} */
+      state: 'available' | 'hidden' | 'missing';
+      current: components['schemas']['Product'] | null;
+      currentTerms: components['schemas']['OperationPriceTerms'] | null;
+      amountChanged: boolean;
+      displayChanged: boolean;
+      revisionChanged: boolean;
+    };
+    OperationPriceSelectionPage: {
+      operation: {
+        /** @enum {string} */
+        kind: 'pricing' | 'import';
+        /** Format: uuid */
+        id: string;
+      };
+      priceContext: components['schemas']['PriceContext'];
+      /** Format: date */
+      effectiveDay: string;
+      ordinals: number[];
+      selection: {
+        ordinal: number;
+        id: string;
+      }[];
+      counts: {
+        selected: number;
+        available: number;
+        hidden: number;
+        missing: number;
+        changedAfterOperation: number;
+      };
+      canApply: boolean;
+      snapshot: string;
+      total: number;
+      page: number;
+      pages: number;
+      /** @enum {integer} */
+      limit: 100;
+      items: components['schemas']['OperationPriceSelectionRow'][];
+    };
   };
   responses: never;
   parameters: never;
@@ -3821,6 +3884,61 @@ export interface operations {
       };
       /** @description No result owned by the current author */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  previewOperationPriceSelection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        kind: 'pricing' | 'import';
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['OperationPriceSelectionRequest'];
+      };
+    };
+    responses: {
+      /** @description Поточні товари100/сторінку + компактний пакетдо1000; snapshot перевіряється перед explicit local Apply */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OperationPriceSelectionPage'];
+        };
+      };
+      /** @description Некоректний/непідтверджений пакет або legacy comparison unavailable */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Чинні права/контекст відкликані */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Чужа/відсутня операція */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Current snapshot уже змінився; потрібний новий review */
+      409: {
         headers: {
           [name: string]: unknown;
         };

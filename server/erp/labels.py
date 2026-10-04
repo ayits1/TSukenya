@@ -97,6 +97,8 @@ def prepare(request, user):
     from .views import body, response
     # Freeze one consistent read with the same lock used by catalogue/pricing writes.
     ledger_lock()
+    from .services import current_actor
+    user = current_actor(user)
     value = body(request)
     require('selection' in value and not (set(value) - {'selection', 'store'}), 'Некоректні параметри друку.')
     selection = value['selection']

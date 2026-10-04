@@ -1,0 +1,74 @@
+.tk-operation-review {
+  padding: 20px;
+  border: 1px solid var(--tk-border, #cfd5dc);
+  border-radius: 10px;
+  background: var(--tk-surface, #fff);
+  margin-bottom: 20px;
+  overflow-wrap: anywhere;
+}
+.tk-operation-review h2 {
+  scroll-margin-top: 80px;
+}
+.tk-operation-rows {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+  display: grid;
+  gap: 8px;
+}
+.tk-operation-rows > li {
+  padding: 12px;
+  border: 1px solid var(--tk-border, #cfd5dc);
+  border-radius: 6px;
+}
+.tk-operation-rows p {
+  margin: 6px 0;
+}
+.tk-operation-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.tk-operation-current {
+  margin-top: 20px;
+  border-top: 1px solid var(--tk-border, #cfd5dc);
+  padding-top: 16px;
+}
+.tk-operation-review .react-aria-Checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.tk-operation-review .tk-checkbox-mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border: 1px solid var(--tk-border, #888);
+  border-radius: 4px;
+}
+.tk-operation-review [data-selected] > .tk-checkbox-mark {
+  background: #2563a6;
+  box-shadow: inset 0 0 0 3px white;
+}
+.tk-operation-review [data-focus-visible] {
+  outline: 2px solid #2563a6;
+  outline-offset: 3px;
+}
+@media (max-width: 480px) {
+  .tk-operation-review {
+    padding: 12px;
+  }
+  .tk-operation-actions .tk-button {
+    max-width: 100%;
+    white-space: normal;
+    height: auto;
+    min-height: 44px;
+  }
+  .tk-operation-review .tk-select {
+    max-width: 100%;
+  }
+}

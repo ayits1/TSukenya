@@ -50,7 +50,7 @@ function context(v: unknown): Context {
   if ((storeId === null) !== (storeName === null) || storeName === '') fail();
   return { storeId, storeName };
 }
-function terms(v: unknown): Terms {
+export function decodeOperationPriceTerms(v: unknown): Terms {
   const value = object(v),
     regularPrice = text(value.regularPrice, amount),
     salePrice = text(value.salePrice, amount),
@@ -85,8 +85,8 @@ function terms(v: unknown): Terms {
 }
 export function decodeOperationPriceComparison(v: unknown): OperationPriceComparison {
   const value = object(v),
-    before = value.before === null ? null : terms(value.before),
-    after = terms(value.after),
+    before = value.before === null ? null : decodeOperationPriceTerms(value.before),
+    after = decodeOperationPriceTerms(value.after),
     retailChanged = flag(value.retailChanged),
     displayChanged = flag(value.displayChanged),
     created = flag(value.created);
@@ -101,7 +101,7 @@ export function decodeOperationPriceComparison(v: unknown): OperationPriceCompar
     fail();
   return { before, after, retailChanged, displayChanged, created };
 }
-function result(v: unknown): OperationPriceResult {
+export function decodeOperationPriceResult(v: unknown): OperationPriceResult {
   const value = object(v),
     compared = decodeOperationPriceComparison(value),
     rawContext = object(value.context),
@@ -158,7 +158,7 @@ export function decodeOperationPricePage(
     !Array.isArray(value.items)
   )
     fail();
-  const items = value.items.map(result);
+  const items = value.items.map(decodeOperationPriceResult);
   if (
     items.length !== Math.min(100, Math.max(0, total - (page - 1) * 100)) ||
     new Set(items.map((row) => row.ordinal)).size !== items.length ||
