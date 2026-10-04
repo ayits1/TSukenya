@@ -1,9 +1,12 @@
 /* Budget decimal display/ACK contract only; no browser, network, DB, or postings. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const window={addEventListener(){}};
+let persistenceConfiguration;
+const window={addEventListener(){},MonthlyBudgetPersistence:{configure(value){persistenceConfiguration=value;}}};
 // Expose private pure functions in the VM fixture, never in the served module.
 const source=fs.readFileSync(path.join(__dirname,'../app/monthly-budget.js'),'utf8').replace(/window\.MonthlyBudgets=\{shell,mount,canLeave[^;]*;/,'window.MonthlyBudgets={normalizedDecimal,decimalEqual,money,decode:savedBudget};');
 vm.runInNewContext(source,{window,Intl,Date,URLSearchParams,Number,BigInt,Object,Set,Map},{filename:'monthly-budget.js'});
+assert.deepEqual(Object.keys(persistenceConfiguration).sort(),['api','onSession','restore']);
+for(const callback of Object.values(persistenceConfiguration))assert.equal(typeof callback,'function');
 const {normalizedDecimal,decimalEqual,money,decode}=window.MonthlyBudgets;
 const compact=v=>v.replace(/[\s\u00a0\u202f]/g,'');
 assert.equal(compact(money('99999999999999.99')),'99999999999999,99','aggregate kopecks are exact');

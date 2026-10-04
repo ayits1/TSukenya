@@ -1,5 +1,6 @@
 import * as workShiftPersistence from './shared/native/workShiftPersistence';
 import * as recipePersistence from './shared/native/recipePersistence';
+import * as monthlyPersistence from './shared/native/monthlyPersistence';
 import * as categoryPersistence from './shared/native/categoryPersistence';
 import * as entityPersistence from './shared/native/entityPersistence';
 import * as voucherPersistence from './shared/native/voucherPersistence';
@@ -33,6 +34,7 @@ declare global {
     NativeWorkShiftPersistence?: typeof workShiftPersistence;
     NativeRecipePersistence?: typeof recipePersistence;
     NativeDraftRecovery?: ReturnType<typeof createDraftRecovery>;
+    NativeMonthlyPersistence?: typeof monthlyPersistence;
     NativeCategoryPersistence?: typeof categoryPersistence;
     NativePlanningCategoryEditor?: typeof planningCategoryEditor;
     NativeMonthlyBudgetEditor?: typeof monthlyBudgetEditor;
@@ -57,6 +59,7 @@ declare global {
 }
 window.NativeVoucherPersistence = voucherPersistence;
 window.NativeBudgetTemplateEditor = budgetTemplateEditor;
+window.NativeMonthlyPersistence = monthlyPersistence;
 window.NativeCategoryPersistence = categoryPersistence;
 window.NativePlanningCategoryEditor = planningCategoryEditor;
 window.NativeMonthlyBudgetEditor = monthlyBudgetEditor;

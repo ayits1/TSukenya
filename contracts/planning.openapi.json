@@ -157,6 +157,52 @@
           }
         }
       }
+    },
+    "/api/erp/monthly-budgets/recovery-context": {
+      "get": {
+        "summary": "Fresh read-only authorization of a frozen monthly draft context",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "No mutable financial fields or editing grants are stored locally.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyDraftContext"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -444,6 +490,65 @@
           },
           "canEdit": {
             "type": "boolean"
+          }
+        }
+      },
+      "MonthlyDraftContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resource",
+          "id",
+          "month",
+          "store",
+          "exists",
+          "role",
+          "storeId",
+          "networkOwner",
+          "canEdit"
+        ],
+        "properties": {
+          "resource": {
+            "const": "monthly_budget"
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "month": {
+            "type": "string"
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "exists": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "role": {
+            "const": "owner"
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "canEdit": {
+            "const": true
           }
         }
       }
