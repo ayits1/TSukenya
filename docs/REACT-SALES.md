@@ -143,3 +143,16 @@ layout і posting/cash author proofs вище повторно не запуск
 boundary перевірка двох знахідок, не full regression/production deployment.
 Full runner вже очищує `QA_SALES_FROM`; нових env flags не додано. Обидва stages
 доступні явно; `all` включає їх у чинний helper.
+
+## Інтеграція в accepted портал
+
+Own source та незалежний callback fix інтегровано поверх accepted PR105.
+Адитивно збережено recipe await/recovery, work-shift recovery та всі purchases
+loader/routes. Shared trading readiness helper тепер чекає актуальний React
+sales root та завантажені дії; portal/zoom checks використовують його для
+обох migrated routes. Matching TypeScript/Vite build, JS/Python syntax,
+diff і static browser policy PASS; full runner тільки --plan.
+Actual integrated cash stage PASS: pages30/62, server shortage -0.13,
+Kyiv times, keyboard/layout1440/320. Author PG5/unit/stories/callback/privacy
+та два незалежні detail regression proofs reused за незмінних inputs.
+Пакет ще не розгорнуто; бухгалтерські записи лишаються Django/PostgreSQL.
