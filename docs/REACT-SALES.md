@@ -112,3 +112,34 @@ DB/PG/production-secret env до створення hash/server, завершу�
 native сценаріїв, capacity benchmark або screen-reader перевірку. Збереження,
 проведення й закриття каси перевірено на ізольованих даних; їхні серверні
 реалізації не змінені. Інші CRM модулі та редактори документів і далі змішані.
+
+## Незалежне рев’ю native callback boundary
+
+Окремий follow-up поверх exact `ba592405679b1c6835b21aa17858890073845de8`:
+
+- Current native document detail401/403 більше не поглинається
+  `openSalesDocument`: помилка доходить до `SalesModel.action` і deny прибирає
+  приватні результати, фільтри й дії. Non-auth помилки зберігають чинний
+  `savedRefreshFeedback` та окремий GET-only retry.
+- `viewVoucher` передає optional response-live guard: перевірка після awaited
+  bootstrap, до глобальної401/decode/hydration і після awaited captions.
+  Obsolete GET не може відкликати новий сеанс або відкрити модальну форму.
+  Для інших API callers optional guard є no-op; write/receipt/posting semantics
+  не змінено.
+
+Виконано тільки два нові actual isolated SQLite/bundled headless Chromium stages:
+`QA_SALES_FROM=detail-privacy` — PASS,
+`/tmp/tsukenya-sales-detail-privacy/detail-privacy-report.json` (реальне
+owner→warehouse перед current detailGET: сервер403, private rows/captions/actions
+прибрано, no forbidden retry/no writes);
+`QA_SALES_FROM=detail-late` — PASS,
+`/tmp/tsukenya-sales-detail-late/detail-late-report.json` (затриманий native
+GET401 після routeleave/new successful mount: zero global invalidation,
+no redirect,30 fresh rows, no modal/no writes).
+
+Own matching TypeScript/Vite build, JS syntax/diff і static browser-policy223
+PASS. Незмінені server scalar/RR/precision, strict API/state, shared stories,
+layout і posting/cash author proofs вище повторно не запускались. Це read/action
+boundary перевірка двох знахідок, не full regression/production deployment.
+Full runner вже очищує `QA_SALES_FROM`; нових env flags не додано. Обидва stages
+доступні явно; `all` включає їх у чинний helper.
