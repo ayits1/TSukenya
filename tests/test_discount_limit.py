@@ -2,6 +2,7 @@
 import hashlib
 import json
 import time
+import uuid
 from decimal import Decimal
 from server.erp.models import *
 from server.erp.services import *
@@ -217,7 +218,10 @@ class DiscountApiTests(DiscountBase):
         self.assertEqual(self.call('post', '/api/erp/discount-limit', {'percent': '7,5'}).json(), {'percent': '7.5'})
         self.set_limit(0)
         events = list(AuditEvent.objects.filter(action='discount_limit_changed').order_by('pk').values_list('detail', flat=True))
-        self.assertEqual(events, [{'old': '10', 'new': '7.5'}, {'old': '7.5', 'new': '0'}])
+        for event in events:
+            self.assertEqual(set(event), {'old', 'new', 'request_id'})
+            self.assertEqual(str(uuid.UUID(event['request_id'])), event['request_id'])
+        self.assertEqual([{k:v for k,v in event.items() if k != 'request_id'} for event in events], [{'old': '10', 'new': '7.5'}, {'old': '7.5', 'new': '0'}])
         self.assertEqual(self.client.get('/api/erp/state').json()['max_discount'], '0')
 
     def test_direct_api_cannot_bypass_the_limit(self):

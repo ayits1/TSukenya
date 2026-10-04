@@ -1,5 +1,6 @@
 import hashlib
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from threading import Barrier
@@ -99,7 +100,8 @@ class RecipeEndpointTests(TestCase):
         self.assertEqual(self.product.data, {**self.original, 'recipe': first_recipe})
         event = AuditEvent.objects.get()
         self.assertEqual((event.user_id, event.action, event.subject), (self.user.pk, 'recipe_saved', self.product.pk))
-        self.assertEqual(event.detail, {'recipe': first_recipe})
+        self.assertEqual(event.detail, {'recipe': first_recipe, 'request_id': first['X-Request-ID']})
+        self.assertEqual(str(uuid.UUID(event.detail['request_id'])), first['X-Request-ID'])
         fresh = self.read(client=second_client).json()
         self.assertEqual(fresh['recipe'], first_recipe)
         retry = self.save_recipe([{'product': 'milk', 'quantity': '0.300'}], fresh['revision'],
@@ -181,7 +183,8 @@ class RecipeEndpointTests(TestCase):
         self.assertEqual(self.product.data, {**self.original, 'recipe': []})
         self.assertEqual(response.json()['revision'], revision(self.product))
         self.assertNotEqual(response.json()['revision'], version)
-        self.assertEqual(AuditEvent.objects.get().detail, {'recipe': []})
+        self.assertEqual(AuditEvent.objects.get().detail, {'recipe': [], 'request_id': response['X-Request-ID']})
+        self.assertEqual(str(uuid.UUID(response['X-Request-ID'])), response['X-Request-ID'])
 
     def test_roles_allow_only_owner_manager_and_warehouse(self):
         for role in ('cashier', 'accountant', 'owner', 'manager', 'warehouse'):
