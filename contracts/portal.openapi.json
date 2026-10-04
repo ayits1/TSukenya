@@ -533,6 +533,303 @@
           }
         }
       }
+    },
+    "/api/v1/portal/metadata": {
+      "get": {
+        "operationId": "portalMetadataV2",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Independent current RR READ ONLY snapshot; not a persisted snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataV2"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректні фільтри"
+          },
+          "401": {
+            "description": "Сеанс завершено"
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          },
+          "304": {
+            "description": "Unchanged scoped validator, no collection scan"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/collections/tasks": {
+      "get": {
+        "operationId": "portalTasksPage",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "space",
+            "schema": {
+              "enum": [
+                "operations",
+                "development"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "all",
+                "todo",
+                "doing",
+                "done"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage",
+            "schema": {
+              "enum": [
+                "all",
+                "unknown",
+                "1",
+                "2",
+                "3",
+                "4"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Independent current RR READ ONLY snapshot; not a persisted snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректні фільтри"
+          },
+          "401": {
+            "description": "Сеанс завершено"
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/collections/ideas": {
+      "get": {
+        "operationId": "portalIdeasPage",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "reaction",
+            "schema": {
+              "enum": [
+                "all",
+                "awaiting",
+                "yes",
+                "no"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Independent current RR READ ONLY snapshot; not a persisted snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректні фільтри"
+          },
+          "401": {
+            "description": "Сеанс завершено"
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/collections/expenses": {
+      "get": {
+        "operationId": "portalExpensesPage",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "group",
+            "schema": {
+              "enum": [
+                "all",
+                "fixed",
+                "variable"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Independent current RR READ ONLY snapshot; not a persisted snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректні фільтри"
+          },
+          "401": {
+            "description": "Сеанс завершено"
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/collections/tasks/{id}": {
+      "get": {
+        "operationId": "portalPinnedTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,120}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Independent current RR READ ONLY snapshot; not a persisted snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректні фільтри"
+          },
+          "401": {
+            "description": "Сеанс завершено"
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        }
+      }
+    },
+    "/api/v1/portal/collections/summary": {
+      "get": {
+        "operationId": "portalCollectionSummary",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "section",
+            "schema": {
+              "enum": [
+                "operations",
+                "development",
+                "budget"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Independent current RR READ ONLY snapshot; not a persisted snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректні фільтри"
+          },
+          "401": {
+            "description": "Сеанс завершено"
+          },
+          "403": {
+            "description": "Недостатньо прав"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1281,6 +1578,269 @@
           },
           "replayed": {
             "type": "boolean"
+          }
+        }
+      },
+      "MetadataV2": {
+        "type": "object",
+        "required": [
+          "contract",
+          "role",
+          "networkOwner",
+          "scopeStore",
+          "csrf",
+          "labelRevision",
+          "data"
+        ],
+        "properties": {
+          "contract": {
+            "const": "portal-metadata-v2"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "manager",
+              "cashier",
+              "warehouse",
+              "accountant"
+            ]
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "csrf": {
+            "type": "string"
+          },
+          "labelRevision": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "settings/main",
+              "project/state"
+            ],
+            "properties": {
+              "settings/main": {
+                "type": "object"
+              },
+              "project/state": {
+                "type": "object"
+              }
+            }
+          },
+          "stateVersions": {
+            "type": "object",
+            "properties": {
+              "products": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "references": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "tasks": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "ideas": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "expenses": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "settings/main": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "project/state": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "products",
+              "references",
+              "tasks",
+              "ideas",
+              "expenses",
+              "settings/main",
+              "project/state"
+            ],
+            "additionalProperties": false
+          },
+          "scopeStore": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      },
+      "CollectionItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "revision",
+          "data",
+          "permissions",
+          "initiative",
+          "managed"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "data": {
+            "type": "object"
+          },
+          "permissions": {
+            "type": "object",
+            "required": [
+              "canEdit",
+              "canDelete"
+            ],
+            "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
+              "canDelete": {
+                "type": "boolean"
+              }
+            }
+          },
+          "initiative": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "managed": {
+            "type": "boolean"
+          },
+          "hasDevelopmentTask": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CollectionPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "generatedAt",
+          "context"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/CollectionItem"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "const": 30
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "context": {
+            "type": "object"
+          }
+        }
+      },
+      "CollectionSummary": {
+        "type": "object",
+        "required": [
+          "section",
+          "generatedAt",
+          "context"
+        ],
+        "properties": {
+          "section": {
+            "enum": [
+              "operations",
+              "development",
+              "budget"
+            ]
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "context": {
+            "type": "object"
+          },
+          "statuses": {
+            "type": "object"
+          },
+          "stages": {
+            "type": "object"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "unfinished": {
+            "type": "integer"
+          },
+          "unknownStatus": {
+            "type": "integer"
+          },
+          "activeConditions": {
+            "type": "integer"
+          },
+          "nearest": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/CollectionItem"
+            }
+          },
+          "reactions": {
+            "type": "object"
+          },
+          "totals": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "counts": {
+            "type": "object"
+          },
+          "byCategory": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       }
