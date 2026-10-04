@@ -418,3 +418,34 @@ offsite0.1 чи authenticated UI перевірки цього разу не в�
 після healthy web перебудувати worker попереднього сумісного коду. БД не
 відновлювати поверх нових записів. Локальні журнали:
 `/tmp/tsukenya-release-9174b00-web.log`, `/tmp/tsukenya-release-9174b00-worker.log`.
+
+## Реліз списків і ABC #76–77 · 04.10.2026
+
+За новим дорученням власника сайт оновлено до прийнятого main
+`1021ae245d492f1550ff063b6273107379384f67`. Exact-head frontend/server/PostgreSQL
+CI #76 і #77 успішні. Опубліковано посторінкові задачі/ідеї/планові витрати,
+підсумки оглядів та етапів і ABC-аналітику проведених системних продажів.
+Canonical checkout синхронізовано fast-forward. WIP чернеток після reload,
+єдиної схеми й immutable price results до архіву не входили.
+
+Immutable git archive та штатний release.py --check PASS. Scoped stop worker,
+backup/web release/health, потім rebuild/restart worker тієї самої версії.
+Web/worker/PostgreSQL healthy; публічний health показує1021ae2 та imports.available.
+Нових міграцій немає; PostgreSQL не перезапускався, Compose/env/gateway не
+замінювали. Сусідній сайт HTTPS200.
+
+Backup: `backups/tsukenya-crm-20261004T135212Z.dump`, checksum та
+pg_restore --list PASS. Першу checksum команду виконано з неправильного cwd;
+повторено тільки її з backups/, успішно. Попередній код:
+`releases/pre-20261004T135212Z.tar.gz`. Read-only reconcile exit0/issues0.
+До/після90Document/0Voucher/0StockEntry/0CashEntry/28AuditEvent, importRuns0.
+Однакова контрольна сума canonical JSON ordered(path,data):
+`6358ba98ea6873884bdef41adb4c2846cfd3877ffb6e55b972802dd6036b4f59`.
+Цей probe має іншу серіалізацію від попереднього; digest порівнювали лише
+між before/after того самого probe. Production mutation-тестів, повної локальної
+регресії, offsite0.1 та authenticated UI перевірки не виконували.
+
+Відкат коду: scoped stop worker; штатний release.py з pre-20261004T135212Z.tar.gz;
+після healthy web перебудувати worker сумісної попередньої версії. БД не
+відновлювати поверх нових записів. Локальні журнали:
+`/tmp/tsukenya-release-1021ae2-web.log`, `/tmp/tsukenya-release-1021ae2-worker.log`.

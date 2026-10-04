@@ -332,11 +332,11 @@ metadata-v2 не видає повні tasks/ideas/expenses; всі actual consu
 renderPath, мають page30/whole summaries, unknown-stage coverage, видимі stale
 підсумки/GET retry, off-page drafts/actions та authoritative ID. Два старі
 Node fixtures виправлено без зміни strict runtime. B24-PORTAL-COLLECTIONS.md
-описує targeted PG/Node/native proofs та O(N)/resource межі. На VPS #76 ще немає.
+описує targeted PG/Node/native proofs та O(N)/resource межі. Опубліковано разом із #77.
 
 #77 ABC source інтегровано після #76 без зміни фінансових формул; є незалежне
 рев’ю, target PG12/unit5/Story5/native/strict/CSV докази. Після rebase фінальний
-CI має знову підтвердити exact head; це не прийнята робота до merge. Системні
+CI підтвердив exact head418cbc3; PR прийнято як main1021ae2 та розгорнуто. Системні
 проведення не замінюють відсутній касовий імпорт/історичну повноту.
 
 B06 foundation same-tab/same-session proposal прийнято як межу першого пакета.
