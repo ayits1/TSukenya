@@ -516,7 +516,17 @@ def payroll_locked(v):
     if v.kind == 'sale':
         return bool(v.shift_id) and accrued.filter(cash_shift_id=v.shift_id).exists()
     source_shift = v.reference.shift_id if v.reference else None
-    return bool(source_shift) and accrued.filter(cash_shift_id=source_shift, payroll__date__gte=v.date).exists()
+    if not source_shift:
+        return False
+    from .payroll_chronology import posted_after
+    attempt_at = timezone.now() if v.status == 'draft' else None
+    for work in accrued.filter(cash_shift_id=source_shift, payroll__date__gte=v.date).select_related('payroll'):
+        # Preserve the backdating boundary. Same-day returns after an actual
+        # modern accrual do not rewrite its frozen basis or final bonus.
+        if v.date == work.payroll.date and posted_after(v, work.payroll, attempt_at=attempt_at) is True:
+            continue
+        return True
+    return False
 
 def payroll_amount(v):
     ids = v.payload.get('shift_ids', [])

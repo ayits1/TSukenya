@@ -165,16 +165,15 @@ class PayrollAndCashControlTests(AccountingFixture):
         sale=self.cash_sale(evening)
         returned=self.cash_return(sale,evening)
         reverse_voucher(self.u,returned.pk,'test');reverse_voucher(self.u,sale.pk,'test')
-        # Returning goods of the accrued cash shift still changes its percent basis.
-        with self.assertRaisesMessage(BusinessError,'Зарплату за цей день уже нараховано'):self.cash_return(morning_sale,evening)
+        # A new return after accrual leaves its final bonus unchanged.
+        self.assertEqual(self.cash_return(morning_sale,evening).status, 'posted')
     def test_linked_return_before_accrual_cannot_be_reversed(self):
         shift=self.till(self.morning)
         sale=self.v('sale',2,10,shift=shift.pk,party=self.customer.pk,payload={'payments':[{'account':self.bank.pk,'amount':'20'}]})
         returned=self.v('customer_return',1,10,reference=sale.pk,party=self.customer.pk,payload={'payments':[{'account':self.bank.pk,'amount':'10'}]})
         self.close(shift);self.assertEqual(self.accrue(self.morning,shift).total,Decimal('300.50'))
         with self.assertRaisesMessage(BusinessError,'Спочатку скасуйте нарахування зарплати'):reverse_voucher(self.u,returned.pk,'test')
-        with self.assertRaisesMessage(BusinessError,'Зарплату за цей день уже нараховано'):
-            self.v('customer_return',1,10,reference=sale.pk,party=self.customer.pk,payload={'payments':[{'account':self.bank.pk,'amount':'10'}]})
+        self.assertEqual(self.v('customer_return',1,10,reference=sale.pk,party=self.customer.pk,payload={'payments':[{'account':self.bank.pk,'amount':'10'}]}).status, 'posted')
     def test_legacy_percent_without_cash_shift_still_locks_the_store_day(self):
         seller=Employee.objects.create(name='Seller',store=self.store,shift_rate=300)
         shift=self.till();sale=self.cash_sale(shift)
