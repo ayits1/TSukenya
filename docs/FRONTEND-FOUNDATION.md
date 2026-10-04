@@ -94,3 +94,22 @@ GitHub Actions і Dependabot додано як конфігурацію; від�
 ## CRM межа · 04.10.2026
 
 Клієнтську базу на `#trade/customers` перенесено на React/TypeScript із TanStack Query та окремим OpenAPI `contracts/crm.openapi.json`. Список/аналітика мають серверний paging і рольовий scope. Створення/редагування контакту та історія залишаються чинними native діалогами. Торговельні модулі загалом ще змішані; деталі, цільові докази й межі — [CRM-CUSTOMERS.md](CRM-CUSTOMERS.md). Це кодова інтеграція, не доказ deployment.
+
+## Фільтри довідників у торговельних формах · 04.10.2026
+
+React bridge позначає замінений native label класом `trade-directory-field`.
+Спільний toolbar розподіляє ширину між цими полями та звичайними полями дат;
+на вузькому екрані поля стають в один стовпець. Mobile flex-basis стосується
+лише прямих полів toolbar, щоб внутрішній React label не створював порожній
+проміжок над контролом. Paged popup має читабельну мінімальну ширину з
+урахуванням меж viewport і native dialog.
+
+Цільові докази: production tsc/Vite build, scoped ESLint, Storybook
+`CompactTriggerPagination` (вузький trigger, pager, Enter/Escape/focus),
+`tests/directory-toolbar-ui.cjs` (actual табель/касові зміни,1440/320px,
+збільшений CSS-текст, server search, native IDs/FormData і read-only history GET).
+Сценарій вимірює compound control окремо від текстового input і перевіряє
+відстань між підписом та полем. Новий harness використовує ізольований SQLite,
+синтетичні довідники й bundled headless Chromium; payroll/business POST не виконує.
+Він зареєстрований у full runner; його вузькі FROM/ONLY/PORT/PROOF змінні
+очищаються перед повним режимом. Повна регресія не запускалась.

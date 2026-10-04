@@ -1,0 +1,197 @@
+/* Actual shift-history directory toolbars. Disposable SQLite + bundled headless Chromium. */
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { spawn, execFileSync } = require('node:child_process');
+const { chromium } = require('playwright');
+
+const cases = [['staff', 'work', 1440, 1], ['sales', 'cash', 1440, 1], ['staff', 'work', 320, 1], ['sales', 'cash', 320, 1], ['staff', 'work', 1440, 2], ['sales', 'cash', 1440, 2]];
+const caseLabel = ([tab, , width, scale]) => `${tab}-${width}${scale === 2 ? '-text200' : ''}`;
+const from = process.env.QA_DIRECTORY_TOOLBAR_FROM;
+const only = process.env.QA_DIRECTORY_TOOLBAR_ONLY?.split(',');
+assert(!only || (only.length && only.every(label => cases.some(row => caseLabel(row) === label))), 'Unknown QA_DIRECTORY_TOOLBAR_ONLY');
+assert(!only || from === undefined, 'Use only one directory toolbar stage selector');
+assert(from === undefined || cases.some(row => caseLabel(row) === from), 'Unknown QA_DIRECTORY_TOOLBAR_FROM');
+const root = path.resolve(__dirname, '..');
+const python = process.env.PYTHON_BIN || 'python3';
+const port = Number(process.env.QA_DIRECTORY_TOOLBAR_PORT || 18637);
+assert(Number.isInteger(port) && port > 1024 && port < 65536, 'Invalid isolated port');
+const proof = process.env.DIRECTORY_TOOLBAR_PROOF_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'tsukenya-directory-toolbar-proof-'));
+fs.mkdirSync(proof, { recursive: true });
+const data = fs.mkdtempSync(path.join(os.tmpdir(), 'tsukenya-directory-toolbar-data-'));
+const base = `http://localhost:${port}`, password = 'isolated-directory-toolbar-password';
+const env = { ...process.env };
+for (const key of Object.keys(env))
+  if (/^(?:DB_|PG|DATABASE_URL$|POSTGRES_URL$|OWNER_PASSWORD|DJANGO_SETTINGS_MODULE$|DJANGO_SECRET_KEY$|TSUKENYA_REQUIRE_POSTGRES$)/.test(key)) delete env[key];
+Object.assign(env, { HOST: '127.0.0.1', PORT: String(port), DATA_DIR: data, ERP_DB_PATH: path.join(data, 'isolated.sqlite3'), OWNER_USERNAME: 'tester', DJANGO_SETTINGS_MODULE: 'server.settings', DJANGO_SECRET_KEY: 'isolated-directory-toolbar-secret-not-production-at-least-fifty-characters' });
+env.OWNER_PASSWORD_HASH = execFileSync(python, ['-c', `from server.auth import hash_password;print(hash_password('${password}'))`], { cwd: root, env, encoding: 'utf8' }).trim();
+const log = fs.openSync(path.join(proof, 'server.log'), 'w');
+const server = spawn(python, ['-m', 'server.main'], { cwd: root, env, stdio: ['ignore', log, log] });
+let browser, page, ids;
+const requests = [], errors = [], measurements = [], artifacts = [], stages = [];
+const source = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+const manifest = path.join(root, 'frontend/dist/.vite/manifest.json');
+const buildManifestSha256 = fs.existsSync(manifest) ? crypto.createHash('sha256').update(fs.readFileSync(manifest)).digest('hex') : null;
+
+async function wait(check, message) {
+  for (let i = 0; i < 250; i++) {
+    if (server.exitCode !== null || server.signalCode !== null) throw Error('Isolated server exited: ' + message);
+    if (await check()) return;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw Error('Timed out: ' + message);
+}
+async function capture(name) {
+  const file = path.join(proof, name + '.png');
+  await page.screenshot({ path: file, fullPage: false });
+  artifacts.push(file);
+}
+async function ready(host) {
+  await wait(async () => (await host.locator('[data-shift-status]').innerText()) !== 'Завантажуємо зміни…' && !(await host.locator('[data-shift-results]').getAttribute('aria-busy')), 'shift history ready');
+  assert.equal(await host.locator('[data-shift-error]').innerText(), '', 'History read succeeded');
+}
+async function closeMenu(input) {
+  await input.press('Escape');
+  await page.getByRole('listbox').waitFor({ state: 'hidden' });
+}
+async function inspectFields(form, label, width, scale) {
+  const boxes = await form.locator('input[role=combobox]').evaluateAll(inputs => inputs.map(input => {
+    const rect = input.getBoundingClientRect(), control = input.closest('.tk-combo-group').getBoundingClientRect(), field = input.closest('.trade-directory-field').getBoundingClientRect(), caption = input.closest('.tk-field').querySelector('.tk-label').getBoundingClientRect(), style = getComputedStyle(input);
+    const canvas = document.createElement('canvas'), context = canvas.getContext('2d');
+    context.font = style.font;
+    return { label: input.getAttribute('aria-label'), placeholder: input.placeholder, value: input.value, x: rect.x, y: rect.y, width: rect.width, height: rect.height, controlWidth: control.width, fieldWidth: field.width, controlX: control.x, controlRight: control.right, labelControlGap: control.y - caption.bottom, textWidth: context.measureText(input.placeholder).width, contentWidth: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) };
+  }));
+  assert.equal(boxes.length, 2, 'Actual store and employee React controls');
+  for (const box of boxes) {
+    assert.equal(box.value, '', label + ' empty caption remains a placeholder');
+    if (width === 1440) assert(box.controlWidth >= 180 && box.fieldWidth >= 180, label + ' field shrink: ' + JSON.stringify(box));
+    assert(box.height >= 44, label + ' field touch height');
+    assert(box.labelControlGap >= -1 && box.labelControlGap <= 12, label + ' label/control vertical gap: ' + JSON.stringify(box));
+    assert(box.x >= -1 && box.x + box.width <= width + 1 && box.controlX >= -1 && box.controlRight <= width + 1, label + ' field outside viewport');
+    assert(box.contentWidth >= box.textWidth, label + ' empty caption clipped: ' + JSON.stringify(box));
+  }
+  assert.deepEqual(boxes.map(box => box.placeholder), ['Усі магазини', 'Усі працівники']);
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), label + ' document overflow');
+  measurements.push({ label, width, scale, fields: boxes });
+}
+async function inspectMenu(label, width, expectedNames) {
+  const popup = page.locator('.tk-popover--paged');
+  await popup.waitFor();
+  await wait(async () => (await popup.locator('[data-directory-paging] [role=status]').innerText()) === `${expectedNames.length} записів · 1 / 1`, label + ' directory page ready');
+  assert.deepEqual(await page.getByRole('option').allTextContents(), expectedNames);
+  const geometry = await popup.evaluate(element => {
+    const bounds = node => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom }; };
+    const footer = element.querySelector('[data-directory-paging]');
+    const words = [];
+    for (const option of element.querySelectorAll('[role=option]')) {
+      const walker = document.createTreeWalker(option, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        for (const match of node.textContent.matchAll(/[\p{L}]{8,}/gu)) {
+          const range = document.createRange(); range.setStart(node, match.index); range.setEnd(node, match.index + match[0].length);
+          words.push({ word: match[0], lines: new Set([...range.getClientRects()].map(rect => Math.round(rect.y))).size });
+        }
+      }
+    }
+    return { popup: bounds(element), footer: bounds(footer), hint: bounds(footer.querySelector('small')), buttons: [...footer.querySelectorAll('button')].map(button => ({ text: button.textContent.trim(), ...bounds(button) })), scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, viewport: { width: innerWidth, height: innerHeight }, words };
+  });
+  const p = geometry.popup;
+  assert(p.width >= Math.min(280, width - 64) - 1, label + ' unreadable popup width: ' + JSON.stringify(geometry));
+  assert(p.x >= -1 && p.right <= width + 1 && p.y >= -1 && p.bottom <= geometry.viewport.height + 1, label + ' popup outside viewport: ' + JSON.stringify(geometry));
+  assert(geometry.scrollWidth <= geometry.clientWidth + 1, label + ' popup horizontal overflow');
+  for (const row of [geometry.footer, geometry.hint, ...geometry.buttons]) assert(row.x >= p.x - 1 && row.right <= p.right + 1 && row.y >= p.y - 1 && row.bottom <= p.bottom + 1, label + ' footer clipped: ' + JSON.stringify(geometry));
+  assert.deepEqual(geometry.buttons.map(button => button.text), ['Назад', 'Далі']);
+  for (const button of geometry.buttons) assert(button.width >= 44 && button.height >= 44, label + ' pager touch target');
+  assert(geometry.words.every(word => word.lines === 1), label + ' ordinary word broken inside narrow option: ' + JSON.stringify(geometry.words));
+  measurements.push({ label, menu: geometry });
+  await capture(label + '-popup');
+}
+async function exercise(tab, kind, width, scale = 1) {
+  const label = `${tab}-${width}${scale === 2 ? '-text200' : ''}`;
+  await page.setViewportSize({ width, height: 1050 });
+  await page.goto(base + '/#trade/' + tab);
+  const host = page.locator(`[data-shift-history=${kind}]`), form = host.locator('form.trade-toolbar');
+  await form.getByRole('combobox', { name: 'Працівник', exact: true }).waitFor();
+  await ready(host);
+  const enlarged = scale === 2 ? await page.addStyleTag({ content: 'html{font-size:32px!important}.trade-toolbar :is(.tk-label,.tk-combo-input,.tk-button,label,input,select){font-size:28px!important}.tk-popover--paged :is(.tk-option,.tk-directory-paging,.tk-directory-paging button){font-size:26px!important}.tk-popover--paged .tk-directory-paging small{font-size:22px!important}' }) : null;
+  // History state is intentionally remembered by the real module; explicitly clear
+  // previous selections so each geometry case proves the actual empty captions.
+  for (const name of ['Магазин', 'Працівник']) {
+    const clear = form.getByRole('button', { name: 'Очистити вибір: ' + name, exact: true });
+    if (await clear.count()) await clear.click();
+  }
+  await ready(host);
+  await form.scrollIntoViewIfNeeded();
+  await inspectFields(form, label, width, scale);
+  await capture(label + '-toolbar');
+  const store = form.getByRole('combobox', { name: 'Магазин', exact: true });
+  const nativeStore = form.locator('select[name=store]'), nativeEmployee = form.locator('select[name=employee]');
+  assert.equal(await nativeStore.inputValue(), ''); assert.equal(await nativeStore.getAttribute('hidden'), '');
+  await store.focus(); await store.press('ArrowDown');
+  await inspectMenu(label, width, ids.stores.map(row => row.name).sort((a, b) => a.localeCompare(b, 'uk')));
+  await store.fill('Тимчасовий пошук'); await closeMenu(store);
+  assert.equal(await nativeStore.inputValue(), '', 'Escape cannot commit temporary search');
+  assert.equal(await store.inputValue(), '');
+  await store.fill('Центральний');
+  await wait(async () => await page.locator('[data-directory-paging] [role=status]').innerText() === '1 записів · 1 / 1', 'searched store page');
+  await store.press('ArrowDown'); await store.press('Enter');
+  await wait(async () => await nativeStore.inputValue() === String(ids.stores[0].id), 'keyboard store ID commit');
+  await closeMenu(store); await ready(host);
+  await wait(async () => await store.inputValue() === ids.stores[0].name, 'committed store caption');
+  await store.fill('Незбережений текст'); await closeMenu(store);
+  assert.equal(await nativeStore.inputValue(), String(ids.stores[0].id));
+  assert.equal(await store.inputValue(), ids.stores[0].name, 'Escape restores committed caption');
+  const employee = form.getByRole('combobox', { name: 'Працівник', exact: true });
+  await employee.fill('Коваленко');
+  await wait(async () => await page.locator('[data-directory-paging] [role=status]').innerText() === '1 записів · 1 / 1', 'searched employee page');
+  await employee.press('ArrowDown'); await employee.press('Enter');
+  await wait(async () => await nativeEmployee.inputValue() === String(ids.employees[0].id), 'keyboard employee ID commit');
+  await closeMenu(employee); await ready(host);
+  const fields = await form.evaluate(element => Object.fromEntries(new FormData(element)));
+  assert.equal(fields.store, String(ids.stores[0].id)); assert.equal(fields.employee, String(ids.employees[0].id));
+  const resource = kind === 'work' ? 'work-shifts' : 'shifts';
+  const response = page.waitForResponse(value => { const url = new URL(value.url()); return url.pathname === '/api/erp/' + resource && url.searchParams.get('store') === fields.store && url.searchParams.get('employee') === fields.employee; });
+  await form.getByRole('button', { name: 'Показати', exact: true }).press('Enter');
+  assert.equal((await response).status(), 200); await ready(host);
+  measurements.push({ label, committedFormData: fields });
+  stages.push(label + ': actual toolbar/popup/keyboard/native ID/FormData/filtered GET PASS');
+  if (enlarged) await enlarged.evaluate(element => element.remove());
+}
+
+(async () => {
+  assert(buildManifestSha256, 'Matching built frontend is required');
+  await wait(async () => { try { return (await fetch(base + '/health')).ok; } catch { return false; } }, 'readiness');
+  ids = JSON.parse(execFileSync(python, ['-c', `import os,json
+import django;django.setup()
+from server.erp.models import Store,Employee
+first=Store.objects.order_by('pk').first();first.name='Магазин «Центральний Поділ»';first.save()
+second=Store.objects.create(name='Магазин «Сонячна Долина»');third=Store.objects.create(name='Магазин «Третя Набережна»')
+employees=[Employee.objects.create(name='Працівниця Марія Коваленко',store=first,shift_rate=0,bonus_percent=0,bonus_basis='store'),Employee.objects.create(name='Працівник Остап Гончаренко',store=first,shift_rate=0,bonus_percent=0,bonus_basis='store')]
+assert Store.objects.count()==3 and Employee.objects.count()==2
+print(json.dumps({'stores':[{'id':s.pk,'name':s.name} for s in [first,second,third]],'employees':[{'id':e.pk,'name':e.name} for e in employees]}))`], { cwd: root, env, encoding: 'utf8' }));
+  browser = await chromium.launch({ headless: true });
+  page = await browser.newPage({ viewport: { width: 1440, height: 1050 } });
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('request', request => { if (request.url().startsWith(base + '/api/')) requests.push({ method: request.method(), url: request.url() }); });
+  await page.route('https://fonts.googleapis.com/**', route => route.abort());
+  await page.route('https://fonts.gstatic.com/**', route => route.abort());
+  await require('./browser-login.cjs')(page, base, password);
+  for (const row of (only ? cases.filter(row => only.includes(caseLabel(row))) : cases.slice(from === undefined ? 0 : cases.findIndex(row => caseLabel(row) === from)))) await exercise(...row);
+  assert(requests.some(row => row.url.includes('/directories/stores?') && new URL(row.url).searchParams.get('q') === 'Центральний'), 'Actual server store search');
+  assert(requests.some(row => row.url.includes('/directories/employees?') && new URL(row.url).searchParams.get('q') === 'Коваленко'), 'Actual server employee search');
+  assert(requests.every(row => row.method === 'GET' || row.url.endsWith('/api/login') || row.url.endsWith('/directories/details')), 'No business mutation requests');
+  assert.deepEqual(errors, []);
+  fs.writeFileSync(path.join(proof, 'report.json'), JSON.stringify({ pass: true, partial: from !== undefined || !!only, from: from || null, only: only || null, source, buildManifestSha256, ids, stages, measurements, artifacts, requests, errors, limitations: ['Synthetic SQLite directory fixtures; no payroll or posting mutations.', 'CSS text enlargement at1440;320 at normal text. No system browser or full regression.'] }, null, 2));
+  console.log('DIRECTORY TOOLBAR PASS ' + proof);
+})().catch(async error => {
+  console.error(error);
+  if (page) { await capture('failure').catch(() => {}); fs.writeFileSync(path.join(proof, 'failure-dom.txt'), await page.locator('body').innerText().catch(() => '')); }
+  fs.writeFileSync(path.join(proof, 'report.json'), JSON.stringify({ pass: false, partial: from !== undefined || !!only, from: from || null, only: only || null, source, buildManifestSha256, error: String(error), ids, stages, measurements, artifacts, requests, errors }, null, 2));
+  console.error('proof=' + proof); process.exitCode = 1;
+}).finally(async () => {
+  await browser?.close();
+  if (server.exitCode === null && server.signalCode === null) await new Promise(resolve => { const timer = setTimeout(() => server.kill('SIGKILL'), 5000); server.once('exit', () => { clearTimeout(timer); resolve(); }); server.kill('SIGTERM'); });
+  fs.closeSync(log); fs.rmSync(data, { recursive: true, force: true });
+});

@@ -215,6 +215,7 @@ function mount(select: HTMLSelectElement, type: DirectoryType) {
   if (parent.tagName === 'LABEL') {
     const field = document.createElement('div');
     field.className = parent.className;
+    field.classList.add('trade-directory-field');
     for (const attr of parent.attributes)
       if (attr.name !== 'class') field.setAttribute(attr.name, attr.value);
     for (const child of [...parent.childNodes])

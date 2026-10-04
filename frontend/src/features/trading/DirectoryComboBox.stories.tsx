@@ -201,3 +201,43 @@ export const RequiredEmpty: Story = {
     ).not.toBeInTheDocument();
   },
 };
+
+export const CompactTriggerPagination: Story = {
+  render: () => (
+    <div style={{ width: 88 }}>
+      <Fixture empty />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement),
+      body = within(document.body);
+    const input = canvas.getByRole('combobox', { name: 'Магазин' });
+    await userEvent.click(input);
+    await waitFor(() => expect(body.getByText('67 записів · 1 / 3')).toBeVisible());
+    const popover = body.getByRole('listbox').closest('.tk-popover')!;
+    const bounds = popover.getBoundingClientRect();
+    const minimum = Math.min(
+      20 * parseFloat(getComputedStyle(document.documentElement).fontSize),
+      innerWidth - 64,
+    );
+    await expect(bounds.width).toBeGreaterThanOrEqual(minimum - 1);
+    await expect(bounds.left).toBeGreaterThanOrEqual(0);
+    await expect(bounds.right).toBeLessThanOrEqual(innerWidth);
+    const paging = popover.querySelector<HTMLElement>('.tk-directory-paging')!;
+    for (const button of within(paging).getAllByRole('button')) {
+      const rect = button.getBoundingClientRect();
+      await expect(rect.left).toBeGreaterThanOrEqual(bounds.left);
+      await expect(rect.right).toBeLessThanOrEqual(bounds.right);
+      await expect(rect.width).toBeGreaterThanOrEqual(44);
+      await expect(rect.height).toBeGreaterThanOrEqual(44);
+    }
+    await userEvent.tab();
+    await expect(body.getByRole('button', { name: 'Далі' })).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(body.getByText('67 записів · 2 / 3')).toBeVisible());
+    await waitFor(() => expect(input).toHaveFocus());
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(input).toHaveAttribute('aria-expanded', 'false'));
+    await expect(canvas.getByText('Обрано: —')).toBeVisible();
+  },
+};
