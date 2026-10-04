@@ -16,7 +16,7 @@
     if (fraction.length > precision || Number(raw) > 99999999.99) throw Error(`${label}: максимум ${precision} знаки після коми та 99 999 999,99.`);
     return raw;
   }
-  function parseRows(table, fileName) {
+  function parseRows(table, fileName, maxRows = 1000) {
     const csv = typeof module !== 'undefined' && module.exports ? require('./csv.js') : globalThis.TSukenyaCsv;
     table = csv.decode(table);
     const nameHeader = h => ['назва','товар','name'].includes(h) || /назв|найменув|номенклатур/.test(h);
@@ -63,14 +63,14 @@
       rows.push(row);
     }
     if (!rows.length) return {fileName,error:'У файлі немає рядків товарів.'};
-    if (rows.length > 1000) return {fileName,error:'У файлі понад 1000 товарів. Розділіть його на окремі пакети.'};
+    if (rows.length > maxRows) return {fileName,error:`У файлі понад ${maxRows} товарів. Розділіть його на окремі пакети.`};
     return {fileName, rows, mapping:Object.values(columns).map(index => clean(table[headerIndex][index])), hasGeneric:columns.generic !== undefined};
   }
   let state = null, sequence = 0, initialMarkup = '30';
-  const locked = () => !!(state?.saving || state?.uncertain);
-  const notify = () => { const host = document.querySelector('#impBox'); if (host) host.innerHTML = html(); };
+  const locked = () => !!(state?.saving || state?.uncertain || globalThis.CatalogImportJobs?.dirty());
+  const notify = () => { const host = document.querySelector('#impBox'); if (host) {const active=host.contains(document.activeElement)?document.activeElement:null;const selector=active?.id?'#'+active.id:active?.dataset.importJob?'[data-import-job="'+active.dataset.importJob+'"]':null;host.innerHTML = html();if(selector)host.querySelector(selector)?.focus({preventScroll:true});} };
   const button = (action,text,disabled=false) => `<button type="button" class="btn soft" data-catalog-import="${action}" ${disabled?'disabled':''}>${text}</button>`;
-  function html(options = {}) {
+  function atomicHtml(options = {}) {
     if (!state && options.markup !== undefined) initialMarkup = String(options.markup);
     const title = '<h3>Імпорт товарів</h3>';
     if (!state) return `${title}<p>Оберіть CSV або Excel. Перед збереженням перевірте кожен рядок. Порожні клітинки зберігають поточні значення; товари зі збіжною назвою оновлюються.</p><p class="muted">Для Google-таблиці завантажте потрібний аркуш у CSV або Excel. Пряме підключення Google Drive на сервері ще не налаштовано.</p><button class="btn" data-act="pickFile">Обрати файл</button>`;
@@ -89,19 +89,40 @@
       ${cards?`<ul class="catalog-import-list">${cards}</ul><nav class="catalog-import-pagination" aria-label="Сторінки попереднього перегляду імпорту">${button('previous','Попередня',page<=1||busy)}<span>${page} / ${pages}</span>${button('next','Наступна',page>=pages||busy)}</nav>`:''}
       <div class="row">${!state.completed&&!localErrors.length?button(state.uncertain?'commit':state.conflict?'preview':preview?.valid?'commit':'preview',state.uncertain?'Перевірити результат / повторити':state.conflict?'Оновити попередній перегляд':preview?.valid?'Зберегти весь пакет':'Перевірити файл',busy):''}${state.refreshFailed?button('refresh','Оновити каталог',busy):''}${controls}</div>`;
   }
+  function html(options = {}) {
+    const original = atomicHtml(options);
+    if (!globalThis.CatalogImportJobs) return original;
+    const large = state?.large || state?.rows?.length>1000 || (state?.rows && globalThis.CatalogImportJobs.needsFile());
+    const body = large ? `<h3>Імпорт товарів</h3><p>${escape(state.fileName)} · ${state.rows.length} рядків.</p>
+      <p>Великий файл завантажується порціями. Сервер перевірить увесь план; застосування почнеться лише після вашого підтвердження. Кожна порція зберігається окремо.</p>
+      <div class="catalog-import-options"><label class="form-field">Націнка нових товарів, %<input id="catalogImportMarkup" type="number" inputmode="decimal" min="0" step="0.0001" value="${escape(state.markup)}" ${locked()||globalThis.CatalogImportJobs.needsFile()?'disabled':''}></label>${state.hasGeneric?`<label class="form-field">Стовпець «Ціна» означає<select id="catalogImportGeneric" ${locked()||globalThis.CatalogImportJobs.needsFile()?'disabled':''}><option value="cost" ${state.genericAs==='cost'?'selected':''}>Закупівлю</option><option value="price" ${state.genericAs==='price'?'selected':''}>Звичайну ціну продажу</option></select></label>`:''}</div>
+      ${state.rows.some(r=>r.errors.length)?`<p class="form-error" role="alert">Є некоректні рядки. Виправте файл: ${state.rows.filter(r=>r.errors.length).slice(0,20).map(r=>`рядок ${r.line}: ${escape(r.errors.join(' '))}`).join('; ')}</p>`:''}
+      ${state.failure?`<p class="form-error" role="alert">${escape(state.failure)}</p>`:''}<div class="row">${button('upload',globalThis.CatalogImportJobs.needsFile()?'Перевірити файл і продовжити':'Завантажити для перевірки',locked()||state.rows.some(r=>r.errors.length))}${button('reset','Очистити вибір файлу',locked())}<button class="btn soft" data-act="pickFile" ${locked()?'disabled':''}>Обрати інший файл</button></div>` : original;
+    return body+'<section id="catalogImportJobs" aria-label="Журнал імпорту">'+globalThis.CatalogImportJobs.html()+'</section>';
+  }
+  async function upload() {
+    if (!state?.rows || locked() || state.rows.some(r=>r.errors.length)) return;
+    const current=state;current.saving=true;notify();
+    try {
+      const entries=state.rows.map(row=>{const values={...row.values};if(row.generic!==undefined){values[state.genericAs]=row.generic;if(state.genericAs==='price')values.manualPrice=true;}return {line:row.line,values,...(row.id?{id:row.id}:{})};});
+      await globalThis.CatalogImportJobs.start({file:state.file,entries,defaultMarkup:decimal(state.markup,'Націнка',4),genericAs:state.genericAs});
+    } catch(error) { if(state===current)state.failure=error.message; }
+    finally { current.saving=false;if(state===current)notify(); }
+  }
   async function read(file, readers) {
     if (!file || locked()) return;
     if(window.CatalogPricing?.dirty()){window.alert('Спершу перевірте результат незавершеної зміни цін.');return;}
     const token = ++sequence; state?.controller?.abort(); state = {fileName:file.name,loading:true}; notify();
     try {
-      if (file.size > 5*1024*1024) throw Error('Файл більший за 5 МіБ. Розділіть його на окремі пакети.');
+      if (file.size > 50*1024*1024) throw Error('Файл більший за 50 МіБ. Розділіть його на окремі пакети.');
       let table;
       if (/\.csv$/i.test(file.name)) table = readers.parseCsv(await file.text());
       else if (/\.xlsx?$/i.test(file.name)) { const X = await readers.loadXlsx(), workbook = X.read(await file.arrayBuffer(),{type:'array'}); table = X.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]],{header:1,raw:true,defval:''}); }
       else throw Error('Оберіть CSV, XLS або XLSX.');
       if (token !== sequence) return;
-      state = {...parseRows(table,file.name),markup:initialMarkup,genericAs:'cost',page:1}; notify();
-      if (!state.error && !state.rows.some(row => row.errors.length)) await preview();
+      const originalOptions=globalThis.CatalogImportJobs?.fileOptions();
+      state = {...parseRows(table,file.name,100000),file,large:file.size>5*1024*1024,markup:originalOptions?.defaultMarkup??initialMarkup,genericAs:originalOptions?.genericAs??'cost',page:1}; notify();
+      if (!state.error && !state.large && state.rows.length<=1000 && !globalThis.CatalogImportJobs?.needsFile() && !state.rows.some(row => row.errors.length)) await preview();
     } catch (error) { if (token === sequence) { state = {fileName:file.name,error:error.message==='load'?'Не вдалося завантажити модуль Excel. Спробуйте CSV.':error.message}; notify(); } }
   }
   async function request(path,payload,signal) {
@@ -119,7 +140,7 @@
     return data;
   }
   async function preview() {
-    if (!state?.rows || state.loading || locked() || state.completed) return;
+    if (!state?.rows || state.rows.length>1000 || state.loading || locked() || state.completed) return;
     const current = state; current.preview = null; current.failure = ''; current.conflict = false; current.page = 1;
     try {
       const markup = decimal(current.markup,'Націнка',4), entries = current.rows.map(row => {
@@ -127,7 +148,7 @@
         return {line:row.line,values,...(row.id?{id:row.id}:{})};
       });
       current.payload = {entries,defaultMarkup:markup}; current.commitPayload = null;
-      if (new TextEncoder().encode(JSON.stringify(current.payload)).length > 1024*1024-256) throw Error('Дані імпорту більші за 1 МіБ. Розділіть файл на менші пакети.');
+      if (new TextEncoder().encode(JSON.stringify(current.payload)).length > 1024*1024-256) {current.large=true;notify();return;}
       current.loading = true; current.controller = new AbortController(); notify();
       const timer = setTimeout(() => current.controller.abort(),30000);
       try { current.preview = await request('preview',current.payload,current.controller.signal); } finally { clearTimeout(timer); }
@@ -156,15 +177,25 @@
     } finally { clearTimeout(timeout); current.saving = false; if (state === current) notify(); }
     if (current.completed) await refresh();
   }
+  function syncLocks() {
+    const host=document.querySelector('#impBox');if(!host||!state)return;
+    const block=locked(),busy=state.loading||state.saving;
+    for(const element of host.querySelectorAll('#catalogImportMarkup,#catalogImportGeneric'))element.disabled=!!(block||busy||state.completed||globalThis.CatalogImportJobs?.needsFile());
+    for(const element of host.querySelectorAll('[data-catalog-import], [data-act="pickFile"]')) {
+      const action=element.dataset.catalogImport;
+      if(['previous','next'].includes(action))continue;
+      element.disabled=!!(block||busy||(action==='upload'&&state.rows?.some(r=>r.errors.length)));
+    }
+  }
   function reset() { if (locked()) return; sequence++; state?.controller?.abort(); state = null; notify(); }
-  const api = {html,read,parseRows,decimal,commit,reset,pending:() => !!state?.saving,dirty:() => !!(state?.saving||state?.uncertain)};
+  const api = {html,read,parseRows,decimal,commit,reset,syncLocks,pending:() => !!(state?.saving||globalThis.CatalogImportJobs?.pending()),dirty:() => !!(state?.saving||state?.uncertain||globalThis.CatalogImportJobs?.dirty())};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.CatalogImport = api;
   if (typeof document !== 'undefined') {
     document.addEventListener('click',event => {
       const target = event.target.closest('[data-catalog-import]'); if (!target || target.disabled) return;
       const action = target.dataset.catalogImport;
-      if (action === 'preview') void preview(); else if (action === 'commit') void commit(); else if (action === 'refresh') void refresh(); else if (action === 'reset') reset();
+      if (action === 'upload') void upload(); else if (action === 'preview') void preview(); else if (action === 'commit') void commit(); else if (action === 'refresh') void refresh(); else if (action === 'reset') reset();
       else if (state && ['previous','next'].includes(action)) { state.page = Math.max(1,(state.page||1)+(action==='next'?1:-1)); notify(); document.querySelector('.catalog-import-pagination [data-catalog-import='+action+']')?.focus(); }
     });
     document.addEventListener('change',event => {

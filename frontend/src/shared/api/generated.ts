@@ -1274,6 +1274,867 @@ export interface paths {
     patch: operations['updateCampaign'];
     trace?: never;
   };
+  '/api/v1/catalog/import/runs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Active current edit role and authenticated creator only. Exact author/body retry recovers the same ACK; different payload 409. No product writes. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogImportRunCreate'];
+        };
+      };
+      responses: {
+        /** @description CatalogImportCreateAck */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportCreateAck'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/import/history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read-only creator journal, 30 per page. No role bypass for administrators. */
+    get: {
+      parameters: {
+        query?: {
+          page?: number;
+          status?:
+            | 'uploading'
+            | 'queued'
+            | 'running'
+            | 'ready'
+            | 'invalid'
+            | 'completed'
+            | 'completed_with_issues'
+            | 'blocked'
+            | 'failed'
+            | 'cancelled';
+          mode?: 'atomic' | 'chunked';
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description CatalogImportRunPage */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportRunPage'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/import/runs/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read-only creator job details. GET never advances work or repeats writes. */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description CatalogImportRun */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportRun'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/import/runs/{id}/rows': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read-only stored outcomes/preview, 100 per page. */
+    get: {
+      parameters: {
+        query?: {
+          page?: number;
+          status?:
+            | 'uploaded'
+            | 'planned'
+            | 'invalid'
+            | 'created'
+            | 'updated'
+            | 'skipped'
+            | 'conflicted'
+            | 'failed';
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description CatalogImportRowPage */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportRowPage'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/import/runs/{id}/chunks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read-only persisted upload receipts in ascending offset, 100 per page. No raw file input. */
+    get: {
+      parameters: {
+        query?: {
+          page?: number;
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description CatalogImportChunkPage */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportChunkPage'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    put?: never;
+    /** @description Exact retry returns stored ACK even after seal; different body at same offset or upload gap 409. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogImportChunkRequest'];
+        };
+      };
+      responses: {
+        /** @description CatalogImportChunkAck */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportChunkAck'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/import/runs/{id}/seal': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Freeze uploaded input and pricing configuration; all rows must have arrived. Exact retry recovers original ACK. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogImportEmptyRequest'];
+        };
+      };
+      responses: {
+        /** @description CatalogImportSealAck */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportSealAck'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/import/runs/{id}/apply': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Explicit approval of a valid current plan. Exact retry recovers original ACK even after completion; changed plan/config 409. Worker commits each batch separately. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogImportApplyRequest'];
+        };
+      };
+      responses: {
+        /** @description CatalogImportApplyAck */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportApplyAck'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/import/runs/{id}/resume': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Resume failed/blocked stored phase and cursor. Already committed rows remain. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogImportResumeRequest'];
+        };
+      };
+      responses: {
+        /** @description CatalogImportRun */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportRun'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/import/runs/{id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Stop pending work after any current serialized worker batch. Already applied products are retained. */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['CatalogImportEmptyRequest'];
+        };
+      };
+      responses: {
+        /** @description CatalogImportRun */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogImportRun'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1945,6 +2806,202 @@ export interface components {
       pages: number;
       total: number;
       limit: number;
+    };
+    CatalogImportJobLimits: {
+      /** @constant */
+      maxRows: 100000;
+      /** @constant */
+      uploadRows: 200;
+      /** @constant */
+      workerRows: 100;
+      /** @constant */
+      maxEntryBytes: 16384;
+      /** @constant */
+      maxTotalBytes: 52428800;
+      /** @constant */
+      maxChunkBytes: 1048576;
+    };
+    CatalogImportJobError: {
+      code: string;
+      message: string;
+    } | null;
+    /** @description Creator-only durable job. Counts describe actual outcomes; planned is separate. No whole-file atomicity: worker commits batches separately. Old atomic receipts may have a technical journal creation time and null startedAt/finishedAt. */
+    CatalogImportRun: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      mode: 'atomic' | 'chunked';
+      fileName: string;
+      expectedRows: number;
+      uploadedRows: number;
+      inputBytes: number;
+      inputHash: string | null;
+      /** @description Client supplied SHA256 of the entire raw source file. Only an identity check for upload recovery; server independently hashes canonical rows and the plan. */
+      sourceHash: string | null;
+      defaultMarkup: string | null;
+      /** @enum {string|null} */
+      genericAs: 'cost' | 'price' | null;
+      planRevision: string | null;
+      /** @enum {string} */
+      status:
+        | 'uploading'
+        | 'queued'
+        | 'running'
+        | 'ready'
+        | 'invalid'
+        | 'completed'
+        | 'completed_with_issues'
+        | 'blocked'
+        | 'failed'
+        | 'cancelled';
+      /** @enum {string} */
+      phase: 'uploading' | 'indexing' | 'validating' | 'applying' | 'finished';
+      progress: {
+        done: number;
+        total: number;
+      };
+      counts: {
+        created: number;
+        updated: number;
+        skipped: number;
+        conflicted: number;
+        failed: number;
+        invalid: number;
+        pending: number;
+      };
+      planned: {
+        create: number;
+        update: number;
+        skip: number;
+      };
+      canApply: boolean;
+      canResume: boolean;
+      canCancel: boolean;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      /** Format: date-time */
+      startedAt: string | null;
+      /** Format: date-time */
+      finishedAt: string | null;
+      error: components['schemas']['CatalogImportJobError'];
+      limits: components['schemas']['CatalogImportJobLimits'];
+      /** @description Optional durable count of indexed catalogue paths, distinct from imported file row progress. */
+      indexedPaths?: number;
+    };
+    CatalogImportJobRow: {
+      ordinal: number;
+      line: number | null;
+      /** @enum {string} */
+      status:
+        | 'uploaded'
+        | 'planned'
+        | 'invalid'
+        | 'created'
+        | 'updated'
+        | 'skipped'
+        | 'conflicted'
+        | 'failed';
+      /** @enum {string|null} */
+      action: 'create' | 'update' | 'skip' | null;
+      id: string | null;
+      revision: string | null;
+      currentRevision: string | null;
+      /** @description Normalized preview, not raw input. Empty for older atomic receipts. */
+      values: {
+        [key: string]: unknown;
+      };
+      regularPrice: string | null;
+      salePrice: string | null;
+      error: components['schemas']['CatalogImportJobError'];
+    };
+    /** @description Immutable create body for exact retry. UI always supplies sourceHash and genericAs; uploads without sourceHash cannot safely recover a reselected file. */
+    CatalogImportRunCreate: {
+      /** Format: uuid */
+      idempotencyKey: string;
+      fileName: string;
+      expectedRows: number;
+      /** @description Initial markup for newly created products; omitted uses the server default. Does not replace an existing markup. */
+      defaultMarkup?: string;
+      sourceHash?: string;
+      /** @enum {string} */
+      genericAs?: 'cost' | 'price';
+    };
+    CatalogImportCreateAck: {
+      /** @constant */
+      ok: true;
+      /** Format: uuid */
+      id: string;
+      /** @constant */
+      status: 'uploading';
+      expectedRows: number;
+      sourceHash: string | null;
+      limits: components['schemas']['CatalogImportJobLimits'];
+    };
+    /** @description Sequential zero-based offset. UTF8 JSON chunk <=1 MiB, each entry <=16 KiB, total canonical input <=50 MiB. */
+    CatalogImportChunkRequest: {
+      offset: number;
+      entries: components['schemas']['CatalogImportEntry'][];
+    };
+    /** @description Persisted immutable ACK; chunkHash is SHA256 of JSON {offset,entries} with recursively sorted keys, UTF8 Unicode, no whitespace. */
+    CatalogImportChunkAck: {
+      /** @constant */
+      ok: true;
+      /** Format: uuid */
+      id: string;
+      offset: number;
+      count: number;
+      uploadedRows: number;
+      chunkHash: string;
+    };
+    CatalogImportSealAck: {
+      /** @constant */
+      ok: true;
+      /** Format: uuid */
+      id: string;
+      inputHash: string;
+      /** @constant */
+      status: 'queued';
+      /** @constant */
+      phase: 'indexing';
+    };
+    CatalogImportApplyRequest: {
+      planRevision: string;
+    };
+    /** @description Required for an applying-phase resume; resumes stored cursor only. Does not change input. */
+    CatalogImportResumeRequest: {
+      planRevision?: string;
+    };
+    CatalogImportApplyAck: {
+      /** @constant */
+      ok: true;
+      /** Format: uuid */
+      id: string;
+      planRevision: string;
+      /** @constant */
+      status: 'queued';
+      /** @constant */
+      phase: 'applying';
+    };
+    CatalogImportEmptyRequest: Record<string, never>;
+    CatalogImportRunPage: {
+      items: components['schemas']['CatalogImportRun'][];
+      total: number;
+      page: number;
+      pages: number;
+    };
+    CatalogImportRowPage: {
+      items: components['schemas']['CatalogImportJobRow'][];
+      total: number;
+      page: number;
+      pages: number;
+    };
+    CatalogImportChunkPage: {
+      items: components['schemas']['CatalogImportChunkAck'][];
+      total: number;
+      page: number;
+      pages: number;
     };
   };
   responses: never;

@@ -105,3 +105,16 @@
 .budget-fact-table .num { text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums; }
 .budget-fact-table tfoot th,.budget-fact-table tfoot td { font-weight:600;border-bottom:0; }
 @media(max-width:600px){.budget-fact-table thead{display:none}.budget-fact-table,.budget-fact-table tbody,.budget-fact-table tfoot,.budget-fact-table tr{display:block;width:100%}.budget-fact-table tr{padding:10px 0;border-bottom:1px solid var(--line)}.budget-fact-table th,.budget-fact-table td{display:flex;justify-content:space-between;gap:12px;border:0;padding:2px 0}.budget-fact-table td:empty{display:none}.budget-fact-table td[data-col]::before{content:attr(data-col);color:var(--muted)}.budget-fact-table .num{text-align:right}}
+.import-jobs { border-top:1px solid var(--ui-line);margin-top:24px;padding-top:20px;min-width:0; }
+.import-jobs .row { flex-wrap:wrap; }
+.import-job-detail { margin-block:16px 24px;overflow-wrap:anywhere; }
+.import-job-detail h4 { font-size:1.15rem;scroll-margin-top:24px; }
+.import-job-detail progress { width:100%;height:12px;accent-color:var(--ui-brand); }
+.import-job-counts { display:flex;flex-wrap:wrap;gap:12px 24px; }
+.import-job-counts > div { flex:0 1 120px; }
+.import-job-counts dt { color:var(--ui-muted); }
+.import-job-counts dd { margin:4px 0;font-weight:600;font-size:1.2rem; }
+.import-jobs .form-field { display:flex;flex-direction:column;gap:8px;max-width:360px;min-width:0; }
+.import-jobs .form-field select { width:100%; }
+.import-jobs .btn { white-space:normal;min-height:44px;max-width:100%; }
+#importJobError { overflow-wrap:anywhere; }

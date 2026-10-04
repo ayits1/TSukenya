@@ -25,4 +25,6 @@ assert(parse([['Назва','Закупівля'],['',10]]).rows[0].errors.lengt
 assert.equal(parse([['Назва','Закупівля'],['Разом',10],['Товар',10]]).rows.length,1);
 assert.match(parse([['Назва','Закупівля'],...Array.from({length:1001},(_,i)=>['Товар '+i,10])]).error,/1000/);
 assert.equal(parse([['Назва','Закупівля'],...Array.from({length:1000},(_,i)=>['Товар '+i,10])]).rows.length,1000);
+assert.equal(parseRows([['Назва','Закупівля'],...Array.from({length:1001},(_,i)=>['Товар '+i,10])],'synthetic.csv',100000).rows.length,1001);
+assert.match(parseRows([['Назва','Закупівля'],...Array.from({length:100001},(_,i)=>['Товар '+i,10])],'synthetic.csv',100000).error,/100000/);
 console.log('PASS: import column presence, explicit zero, strict numbers/booleans, percentage compatibility incl. exact Excel percents, precise lines/ID, custom units, blank names, summary names, 1000-row boundary.');

@@ -1806,6 +1806,903 @@
           }
         }
       }
+    },
+    "/api/v1/catalog/import/runs": {
+      "post": {
+        "description": "Active current edit role and authenticated creator only. Exact author/body retry recovers the same ACK; different payload 409. No product writes.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportCreateAck",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportCreateAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogImportRunCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/import/history": {
+      "get": {
+        "description": "Read-only creator journal, 30 per page. No role bypass for administrators.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportRunPage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportRunPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "uploading",
+                "queued",
+                "running",
+                "ready",
+                "invalid",
+                "completed",
+                "completed_with_issues",
+                "blocked",
+                "failed",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "atomic",
+                "chunked"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/import/runs/{id}": {
+      "get": {
+        "description": "Read-only creator job details. GET never advances work or repeats writes.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportRun",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/import/runs/{id}/rows": {
+      "get": {
+        "description": "Read-only stored outcomes/preview, 100 per page.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportRowPage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportRowPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "uploaded",
+                "planned",
+                "invalid",
+                "created",
+                "updated",
+                "skipped",
+                "conflicted",
+                "failed"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/import/runs/{id}/chunks": {
+      "get": {
+        "description": "Read-only persisted upload receipts in ascending offset, 100 per page. No raw file input.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportChunkPage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportChunkPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      },
+      "post": {
+        "description": "Exact retry returns stored ACK even after seal; different body at same offset or upload gap 409.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportChunkAck",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportChunkAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogImportChunkRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/import/runs/{id}/seal": {
+      "post": {
+        "description": "Freeze uploaded input and pricing configuration; all rows must have arrived. Exact retry recovers original ACK.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportSealAck",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportSealAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogImportEmptyRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/import/runs/{id}/apply": {
+      "post": {
+        "description": "Explicit approval of a valid current plan. Exact retry recovers original ACK even after completion; changed plan/config 409. Worker commits each batch separately.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportApplyAck",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportApplyAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogImportApplyRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/import/runs/{id}/resume": {
+      "post": {
+        "description": "Resume failed/blocked stored phase and cursor. Already committed rows remain.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportRun",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogImportResumeRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/import/runs/{id}/cancel": {
+      "post": {
+        "description": "Stop pending work after any current serialized worker batch. Already applied products are retained.",
+        "responses": {
+          "200": {
+            "description": "CatalogImportRun",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogImportEmptyRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -4708,6 +5605,772 @@
           "total",
           "limit"
         ]
+      },
+      "CatalogImportJobLimits": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "maxRows",
+          "uploadRows",
+          "workerRows",
+          "maxEntryBytes",
+          "maxTotalBytes",
+          "maxChunkBytes"
+        ],
+        "properties": {
+          "maxRows": {
+            "type": "integer",
+            "const": 100000
+          },
+          "uploadRows": {
+            "type": "integer",
+            "const": 200
+          },
+          "workerRows": {
+            "type": "integer",
+            "const": 100
+          },
+          "maxEntryBytes": {
+            "type": "integer",
+            "const": 16384
+          },
+          "maxTotalBytes": {
+            "type": "integer",
+            "const": 52428800
+          },
+          "maxChunkBytes": {
+            "type": "integer",
+            "const": 1048576
+          }
+        }
+      },
+      "CatalogImportJobError": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "CatalogImportRun": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "mode",
+          "fileName",
+          "expectedRows",
+          "uploadedRows",
+          "inputBytes",
+          "inputHash",
+          "sourceHash",
+          "defaultMarkup",
+          "genericAs",
+          "planRevision",
+          "status",
+          "phase",
+          "progress",
+          "counts",
+          "planned",
+          "canApply",
+          "canResume",
+          "canCancel",
+          "createdAt",
+          "updatedAt",
+          "startedAt",
+          "finishedAt",
+          "error",
+          "limits"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "atomic",
+              "chunked"
+            ]
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "expectedRows": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "uploadedRows": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "inputBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 52428800
+          },
+          "inputHash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "sourceHash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Client supplied SHA256 of the entire raw source file. Only an identity check for upload recovery; server independently hashes canonical rows and the plan."
+          },
+          "defaultMarkup": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
+          },
+          "genericAs": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "cost",
+              "price",
+              null
+            ]
+          },
+          "planRevision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "uploading",
+              "queued",
+              "running",
+              "ready",
+              "invalid",
+              "completed",
+              "completed_with_issues",
+              "blocked",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "uploading",
+              "indexing",
+              "validating",
+              "applying",
+              "finished"
+            ]
+          },
+          "progress": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "done",
+              "total"
+            ],
+            "properties": {
+              "done": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "created",
+              "updated",
+              "skipped",
+              "conflicted",
+              "failed",
+              "invalid",
+              "pending"
+            ],
+            "properties": {
+              "created": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "updated": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "skipped": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "conflicted": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "invalid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "pending": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              }
+            }
+          },
+          "planned": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "create",
+              "update",
+              "skip"
+            ],
+            "properties": {
+              "create": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "update": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "skip": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              }
+            }
+          },
+          "canApply": {
+            "type": "boolean"
+          },
+          "canResume": {
+            "type": "boolean"
+          },
+          "canCancel": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "error": {
+            "$ref": "#/components/schemas/CatalogImportJobError"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/CatalogImportJobLimits"
+          },
+          "indexedPaths": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optional durable count of indexed catalogue paths, distinct from imported file row progress."
+          }
+        },
+        "description": "Creator-only durable job. Counts describe actual outcomes; planned is separate. No whole-file atomicity: worker commits batches separately. Old atomic receipts may have a technical journal creation time and null startedAt/finishedAt."
+      },
+      "CatalogImportJobRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ordinal",
+          "line",
+          "status",
+          "action",
+          "id",
+          "revision",
+          "currentRevision",
+          "values",
+          "regularPrice",
+          "salePrice",
+          "error"
+        ],
+        "properties": {
+          "ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "uploaded",
+              "planned",
+              "invalid",
+              "created",
+              "updated",
+              "skipped",
+              "conflicted",
+              "failed"
+            ]
+          },
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "create",
+              "update",
+              "skip",
+              null
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currentRevision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Normalized preview, not raw input. Empty for older atomic receipts."
+          },
+          "regularPrice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
+          },
+          "salePrice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+(\\.[0-9]+)?$"
+          },
+          "error": {
+            "$ref": "#/components/schemas/CatalogImportJobError"
+          }
+        }
+      },
+      "CatalogImportRunCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "idempotencyKey",
+          "fileName",
+          "expectedRows"
+        ],
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "fileName": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "expectedRows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "defaultMarkup": {
+            "type": "string",
+            "pattern": "^[0-9]+(\\.[0-9]{1,4})?$",
+            "description": "Initial markup for newly created products; omitted uses the server default. Does not replace an existing markup."
+          },
+          "sourceHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "genericAs": {
+            "type": "string",
+            "enum": [
+              "cost",
+              "price"
+            ]
+          }
+        },
+        "description": "Immutable create body for exact retry. UI always supplies sourceHash and genericAs; uploads without sourceHash cannot safely recover a reselected file."
+      },
+      "CatalogImportCreateAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "id",
+          "status",
+          "expectedRows",
+          "sourceHash",
+          "limits"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "uploading"
+          },
+          "expectedRows": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "sourceHash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/CatalogImportJobLimits"
+          }
+        }
+      },
+      "CatalogImportChunkRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "offset",
+          "entries"
+        ],
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "entries": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/CatalogImportEntry"
+            }
+          }
+        },
+        "description": "Sequential zero-based offset. UTF8 JSON chunk <=1 MiB, each entry <=16 KiB, total canonical input <=50 MiB."
+      },
+      "CatalogImportChunkAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "id",
+          "offset",
+          "count",
+          "uploadedRows",
+          "chunkHash"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "uploadedRows": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "chunkHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "description": "Persisted immutable ACK; chunkHash is SHA256 of JSON {offset,entries} with recursively sorted keys, UTF8 Unicode, no whitespace."
+      },
+      "CatalogImportSealAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "id",
+          "inputHash",
+          "status",
+          "phase"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "inputHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "queued"
+          },
+          "phase": {
+            "type": "string",
+            "const": "indexing"
+          }
+        }
+      },
+      "CatalogImportApplyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "planRevision"
+        ],
+        "properties": {
+          "planRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "CatalogImportResumeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "planRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "description": "Required for an applying-phase resume; resumes stored cursor only. Does not change input."
+      },
+      "CatalogImportApplyAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "id",
+          "planRevision",
+          "status",
+          "phase"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "planRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "queued"
+          },
+          "phase": {
+            "type": "string",
+            "const": "applying"
+          }
+        }
+      },
+      "CatalogImportEmptyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {}
+      },
+      "CatalogImportRunPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/CatalogImportRun"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CatalogImportRowPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/CatalogImportJobRow"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CatalogImportChunkPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/CatalogImportChunkAck"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
       }
     }
   }
