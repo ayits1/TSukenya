@@ -1,3 +1,4 @@
+const finance=require('./finance-navigation.cjs');
 /* B15 isolated payment UI: explicit multi allocation, advance, refund and party reconciliation. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
@@ -23,17 +24,17 @@ const wait=async fn=>{for(let n=0;n<100;n++){if(await fn())return;await new Prom
  const a=await posted({kind:'receipt',warehouse,party:supplier,lines:[{product,quantity:'10',price:'100'}]}),b=await posted({kind:'receipt',warehouse,party:supplier,lines:[{product,quantity:'10',price:'50'}]});
  if(process.argv.includes('--failure-only')){
   await posted({kind:'payment',party:supplier,account,amount:'100',allocations:[]});
-  await page.goto(base+'/#trade/finance');await page.locator('[data-advances] [data-pay=allocate]').waitFor();
+  await page.goto(base+'/#trade/finance');await finance.tab(page,'advances');await finance.advance(page,'allocate').waitFor();
   const reject=route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Ізольована тимчасова помилка читання.'})});
-  await page.route('**/api/erp/advances?*',reject);await page.locator('[data-advances] form button[type=submit], [data-advances] form button:not([type])').click();
-  await page.locator('[data-advances] [data-pay-error]').getByText('Ізольована тимчасова помилка читання.').waitFor();assert.equal(await page.locator('[data-advances] [data-pay=allocate]').count(),0);
-  await page.unroute('**/api/erp/advances?*',reject);await page.locator('[data-advances] form button:not([type])').click();await page.locator('[data-advances] [data-pay=allocate]').waitFor();
-  await chooseParty(page.locator('[data-advances]'));await page.locator('[data-advances] [data-pay=statement]').click();await page.locator('[data-pay-statement]').getByText('Звірка сходиться',{exact:true}).waitFor();
+  await page.route('**/api/v1/trading/finance/advances?*',reject);await finance.workspace(page).getByRole('button',{name:'Знайти',exact:true}).click();
+  await finance.workspace(page).getByRole('alert').getByText('Ізольована тимчасова помилка читання.').waitFor();assert.equal(await finance.advance(page,'allocate').count(),0);
+  await page.unroute('**/api/v1/trading/finance/advances?*',reject);await finance.workspace(page).getByRole('button',{name:'Повторити читання',exact:true}).click();await finance.tab(page,'advances');await finance.advance(page,'allocate').waitFor();
+  await finance.tab(page,'advances');await finance.directory(page,'Контрагент','B15 постачальник',/B15 постачальник/);await finance.workspace(page).getByRole('button',{name:'Управлінська звірка',exact:true}).click();await page.locator('[data-pay-statement]').getByText('Звірка сходиться',{exact:true}).waitFor();
   await page.route('**/api/v1/trading/settlements/statement?*',reject);await page.locator('dialog[open] form button').click();await page.locator('#tradeFormError').getByText('Ізольована тимчасова помилка читання.').waitFor();assert.equal(await page.locator('[data-pay-statement] table').count(),0);assert.equal(await page.locator('[data-pay-statement]').innerText(),'');
   await page.unroute('**/api/v1/trading/settlements/statement?*',reject);await page.locator('dialog[open] form button').click();await page.locator('[data-pay-statement]').getByText('Звірка сходиться',{exact:true}).waitFor();assert.deepEqual(errors,[]);
   console.log('PAYMENTS READ FAILURE PASS: stale advance actions/statement removed after GET503; GET retry restores authoritative read');return;
  }
- await page.goto(base+'/#trade/finance');await page.locator('[data-trade=new-voucher][data-kind=payment]').click();
+ await page.goto(base+'/#trade/finance');await finance.create(page,'payment').click();
  const form=()=>page.locator('#tradeAllocationForm');await chooseParty(form());await form().locator('[name=amount]').fill('1600');await form().locator('[name=note]').fill('Чернетка не губиться під час пошуку');
  await page.locator('[data-pay=add]').click();await page.locator('.trade-document-browser[open] [data-browse-results]').waitFor();await page.keyboard.press('Escape');await page.locator('.trade-document-browser[open]').waitFor({state:'hidden'});
  assert.equal(await form().locator('[name=note]').inputValue(),'Чернетка не губиться під час пошуку');assert(await page.locator('[data-pay=add]').evaluate(el=>document.activeElement===el));
@@ -45,9 +46,9 @@ const wait=async fn=>{for(let n=0;n<100;n++){if(await fn())return;await new Prom
  const c=await posted({kind:'receipt',warehouse,party:supplier,lines:[{product,quantity:'1',price:'50'}]});
  await page.locator('[data-trade=use-advance]').click();await form().waitFor();await add(c);assert.equal(await form().locator('[name=amount]').inputValue(),'50.00');await page.locator('[form=tradeAllocationForm][value=post]').click();await page.getByRole('heading',{name:/Використання авансу · №/}).waitFor();
  const allocations=await ok('erp/vouchers?kind=advance_allocation'),allocation=await ok('erp/vouchers/'+allocations.items[0].id);assert.equal(allocation.cash_movements.length,0);assert.equal(allocation.allocations[0].source,c.id);payment=await ok('erp/vouchers/'+payment.id);assert.equal(payment.unallocated,'50.00');
- await page.locator('[data-trade=close]').click();await page.locator('[data-advances] [data-pay=refund]').click();await form().waitFor();assert.equal(await form().locator('[name=amount]').inputValue(),'50.00');await page.locator('[form=tradeAllocationForm][value=post]').click();await page.getByRole('heading',{name:/Повернення авансу · №/}).waitFor();
+ await page.locator('[data-trade=close]').click();await finance.tab(page,'advances');await finance.advance(page,'refund',payment.id).click();await form().waitFor();assert.equal(await form().locator('[name=amount]').inputValue(),'50.00');await page.locator('[form=tradeAllocationForm][value=post]').click();await page.getByRole('heading',{name:/Повернення авансу · №/}).waitFor();
  const refunds=await ok('erp/vouchers?kind=payment_refund'),refund=await ok('erp/vouchers/'+refunds.items[0].id);assert.equal(refund.cash_movements[0].amount,'50.00');assert.equal((await ok('erp/vouchers/'+payment.id)).unallocated,'0.00');
- await page.locator('[data-trade=close]').click();await chooseParty(page.locator('[data-advances]'));await page.locator('[data-advances] [data-pay=statement]').click();await page.locator('[data-pay-statement]').getByText('Звірка сходиться',{exact:true}).waitFor();assert.match(await page.locator('[data-pay-statement]').innerText(),/на кінець: 0,00 грн/);assert.equal(await page.locator('dialog[open]').getAttribute('data-dirty'),null);
+ await page.locator('[data-trade=close]').click();await finance.tab(page,'advances');await finance.directory(page,'Контрагент','B15 постачальник',/B15 постачальник/);await finance.workspace(page).getByRole('button',{name:'Управлінська звірка',exact:true}).click();await page.locator('[data-pay-statement]').getByText('Звірка сходиться',{exact:true}).waitFor();assert.match(await page.locator('[data-pay-statement]').innerText(),/на кінець: 0,00 грн/);assert.equal(await page.locator('dialog[open]').getAttribute('data-dirty'),null);
  for(const width of [1440,390,320]){await page.setViewportSize({width,height:950});assert(await page.locator('dialog[open]').evaluate(d=>d.scrollWidth<=d.clientWidth+1),`statement dialog overflow ${width}`);}
  let confirmCount=0;page.on('dialog',async d=>{confirmCount++;await d.dismiss();});await page.locator('dialog[open] [name=from]').fill(day);await page.keyboard.press('Escape');await page.locator('dialog[open]').waitFor({state:'hidden'});assert.equal(confirmCount,0,'read-only date filter must not become an unsaved document');
  await page.goto(base+'/#trade/reports');await page.locator('[data-report-mode=balances]').click();await page.locator('[data-report-section=advances]').waitFor();assert.match(await page.locator('[data-report-summary]').innerText(),/Аванси клієнтів\s+0,00 грн/);
