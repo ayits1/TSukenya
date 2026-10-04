@@ -24,6 +24,7 @@ const date=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Eu
 const voucher=async body=>{const v=await ok('vouchers','POST',{store,warehouse:wh,date,...body});return ok('vouchers/'+v.id+'/post','POST',{});};
 await voucher({kind:'cash_opening',amount:1000,account:cash});
 
+if(process.env.QA_ORDER_RESERVES_ONLY){await require('./order-reserves-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_NATIVE_ONLY){await require('./native-work-ux.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_BROWSE_ONLY){await require('./erp-browse-ui.cjs')(page,base,wait);assert.deepEqual(errors,[]);return;}
 if(process.env.QA_SHIFT_BROWSE_ONLY){await require('./shift-browse-ui.cjs')(page,base,wait,auditEnv,python);assert.deepEqual(errors,[]);return;}

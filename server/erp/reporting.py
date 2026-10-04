@@ -16,6 +16,9 @@ def voucher_json(v, detail=False, *, user):
         result['outstanding'] = str(obligation(v))
     if detail:
         result['payload']=deepcopy(v.payload)
+        if v.kind in {'customer_order','purchase_order'}:
+            from .orders import order_json
+            result['order']=order_json(v,user)
         if v.kind in {'payment','advance_allocation'}:
             result['allocations']=[{'source':r.source_id,'number':f'{r.source_id:06d}','amount':str(r.amount)} for r in v.allocation_entries.all()]
         if v.kind=='payment' and v.status=='posted':
@@ -135,14 +138,16 @@ def stock(user):
     # Lots sold down to zero still count: a product with movement history stays in the totals of its warehouse.
     lots=scoped(StockLot.objects.select_related('product','warehouse'),user,'warehouse__store_id').order_by('warehouse_id','product_id','expiry','pk')
     result, grouped=[],{}
+    from .reservations import held_quantities
+    reserved=held_quantities(lots.values_list('pk',flat=True))
     def group(warehouse_id,p):
         sold,minimum=effective_assortment(rules,warehouse_id,p)
-        return grouped.setdefault((warehouse_id,p.pk),{'warehouse':warehouse_id,'product':p.pk.split('/',1)[1],'name':p.data.get('name',''),'unit':p.data.get('unit','шт'),'quantity':ZERO,'value':ZERO,'available':ZERO,'minimum':minimum,'sold':sold})
+        return grouped.setdefault((warehouse_id,p.pk),{'warehouse':warehouse_id,'product':p.pk.split('/',1)[1],'name':p.data.get('name',''),'unit':p.data.get('unit','шт'),'quantity':ZERO,'value':ZERO,'available':ZERO,'reserved':ZERO,'minimum':minimum,'sold':sold})
     for l in lots:
-        if l.quantity>0:result.append({'id':l.pk,'warehouse':l.warehouse_id,'product':l.product_id.split('/',1)[1],'name':l.product.data.get('name',''),'unit':l.product.data.get('unit','шт'),'lot':l.code,'expiry':l.expiry.isoformat() if l.expiry else None,'quantity':str(l.quantity),'value':str(l.value),'expired':bool(l.expiry and l.expiry<today)})
+        if l.quantity>0:result.append({'id':l.pk,'warehouse':l.warehouse_id,'product':l.product_id.split('/',1)[1],'name':l.product.data.get('name',''),'unit':l.product.data.get('unit','шт'),'lot':l.code,'expiry':l.expiry.isoformat() if l.expiry else None,'quantity':str(l.quantity),'value':str(l.value),'reserved':str(reserved.get(l.pk,ZERO)),'available':str(max(ZERO,l.quantity-reserved.get(l.pk,ZERO)) if not l.expiry or l.expiry>=today else ZERO),'expired':bool(l.expiry and l.expiry<today)})
         g=group(l.warehouse_id,l.product)
         g['quantity']+=l.quantity;g['value']+=l.value
-        if not l.expiry or l.expiry>=today:g['available']+=l.quantity
+        if not l.expiry or l.expiry>=today:g['available']+=max(ZERO,l.quantity-reserved.get(l.pk,ZERO));g['reserved']+=reserved.get(l.pk,ZERO)
     # Products without lots appear where they are sold with a positive minimum.
     products=list(Document.objects.filter(path__startswith='products/'))
     for w in whs:
