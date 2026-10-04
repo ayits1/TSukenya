@@ -15,7 +15,7 @@ const password = 'isolated-workshift-test-password';
 const hash = execFileSync(python, ['-c', `from server.auth import hash_password;print(hash_password('${password}'))`], {cwd:root,encoding:'utf8'}).trim();
 const env = {...process.env, PORT:'18484', HOST:'127.0.0.1', DATA_DIR:data,
   ERP_DB_PATH:path.join(data,'crm.sqlite3'), OWNER_USERNAME:'tester', OWNER_PASSWORD_HASH:hash};
-for(const key of ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD']) delete env[key];
+for(const key of ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD','TSUKENYA_REQUIRE_POSTGRES']) delete env[key];
 const log = fs.openSync(path.join(proof, 'server.log'), 'w');
 const server = spawn(python, ['-m','server.main'], {cwd:root,env,stdio:['ignore',log,log]});
 let browser;

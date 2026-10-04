@@ -50,9 +50,8 @@
 нарахування далі використовує чинні блокування й перевірки payroll.
 
 Міграція `0016_multiple_daily_work_shifts` додає дві partial unique
-constraints та `WorkShiftCreateReceipt`. У цьому ізольованому пакеті її
-тимчасова залежність — `0014_managed_alerts`; під час інтеграції вона має
-залежати від `0015_state_versions`. Міграція не містить перетворення даних.
+constraints та `WorkShiftCreateReceipt` і залежить від прийнятої
+`0015_state_versions`. Міграція не містить перетворення даних.
 
 ## Перевірка
 
@@ -102,3 +101,13 @@ PYTHON_BIN=/path/to/python node tests/multiple-work-shifts-ui.cjs
 
 `makemigrations --check --dry-run`, Node syntax та `git diff --check` PASS.
 Повний набір, push, VPS і резервні копії не виконувалися.
+
+## Інтеграція з прийнятим main
+
+Після інтеграції з B24/CRM міграція 0016 залежить від 0015. Два цільові
+PostgreSQL сценарії (окремі умови й конкурентне подвійне нарахування) PASS;
+`makemigrations --check --dry-run` — без змін. Інтегрований native UI
+повторено один раз: recovery/GET503/revision409, клавіатура, 1440/320 px
+та зарплата 600.00 PASS. Переглянуто PNG порівняння й результату;
+докази `/tmp/tsukenya-b04-root-proof/report.json`. Незмінні попередні серверні
+сценарії повторно не запускалися; повну регресію та VPS не запускали.
