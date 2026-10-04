@@ -12,6 +12,7 @@ const base = 'http://localhost:18213', password = 'isolated-budget-password';
 const hash = execFileSync(python, ['-c', 'from server.auth import hash_password; print(hash_password("isolated-budget-password"))'], { cwd: root, encoding: 'utf8' }).trim();
 const env = { ...process.env, DATA_DIR: data, ERP_DB_PATH: path.join(data, 'crm.sqlite3'), PORT: '18213', HOST: '127.0.0.1', OWNER_USERNAME: 'tester', OWNER_PASSWORD_HASH: hash };
 for (const key of ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']) delete env[key];
+delete env.TSUKENYA_REQUIRE_POSTGRES;
 const server = spawn(python, ['-m', 'server.main'], { cwd: root, env, stdio: 'ignore' });
 let browser, page;
 async function until(check, message) {
@@ -45,6 +46,7 @@ async function until(check, message) {
     }
   });
   await page.goto(base + '/#operations/expenses', { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-budget-mode=catalog]').click();
   await page.locator('[data-exp=qa_rent]').waitFor();
   assert.equal(await page.locator('#stores').inputValue(), '2', 'legacy store array has a usable numeric budget count');
   for (const colorScheme of ['light', 'dark']) {
@@ -72,7 +74,7 @@ async function until(check, message) {
   assert.equal(await amount.evaluate(el => el.checkValidity()), true, 'kopecks are a valid budget amount');
   await amount.press('Tab');
   await until(async () => await page.evaluate(async () => (await (await fetch('/api/state')).json()).data.expenses.find(e => e.id === 'qa_rent')?.data.amount === 12345.67), 'budget amount autosaved exactly');
-  await page.reload();
+  await page.reload();await page.locator('[data-budget-mode=catalog]').click();
   await amount.waitFor();
   assert.equal(await amount.inputValue(), '12345.67', 'budget amount survives reload');
   assert.match(await page.locator('.expense-group .total .num').first().innerText(), /,67 грн$/, 'budget total preserves kopecks');
@@ -124,7 +126,7 @@ async function until(check, message) {
   assert.deepEqual(after.state.data['settings/main'].storeNames,before.state.data['settings/main'].storeNames);
   assert.deepEqual(after.erp.stores,before.erp.stores);
   assert.equal(after.labels.revision,before.labels.revision,'budget has no label revision conflict');
-  await page.reload();await count.waitFor();assert.equal(await count.inputValue(),'7');
+  await page.reload();await page.locator('[data-budget-mode=catalog]').click();await count.waitFor();assert.equal(await count.inputValue(),'7');
   // A draft whose source was removed in another session remains visible.
   const orphan=page.locator('[data-exp=qa_long]');
   await page.route('**/api/docs/expenses/qa_long',route=>route.request().method()==='PATCH'?route.fulfill({status:503,json:{error:'Ізольований збій'}}):route.continue());
@@ -159,7 +161,7 @@ u=User.objects.create_user(username='budget_manager',password='isolated-budget-p
   for(const [cost,price,expense,message] of [[10,20,0,'План витрат дорівнює нулю'],[0,20,10,'Недостатньо даних'],[30,20,10,'Середня маржа товарів нульова або від’ємна']]){
     const fixture=structuredClone(realState);fixture.data.products=[{id:'qa_analytical',data:{name:'Тест',cost,price,manualPrice:true}}];fixture.data.expenses=[{id:'qa_analytical',data:{name:'Оренда',group:'fixed',amount:expense}}];
     await page.route('**/api/state',route=>route.fulfill({json:fixture}));
-    await page.reload();await page.locator('.be').waitFor();assert((await page.locator('.be').innerText()).includes(message),'correct analytical state: '+message);
+    await page.reload();await page.locator('[data-budget-mode=catalog]').click();await page.locator('.be').waitFor();assert((await page.locator('.be').innerText()).includes(message),'correct analytical state: '+message);
     await page.unroute('**/api/state');
   }
   page.off('request',onRequest);

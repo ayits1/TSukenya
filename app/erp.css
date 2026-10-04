@@ -76,3 +76,6 @@
 .trade-source-changed{padding:12px;border:1px solid var(--line);border-radius:8px}
 [data-report-sources] .btn,[data-trade="report-sources"]{min-height:44px;white-space:normal;max-width:100%}
 [data-report-sources] h2:focus{outline-offset:6px}
+/* Monthly planning rows share the trading controls; narrow screens keep labels with inputs. */
+.monthly-budget-line{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.5fr) minmax(0,1fr) 44px;align-items:end;gap:12px;margin:16px 0}.monthly-budget-line label{min-width:0}.monthly-budget-line [hidden]{display:none!important}.monthly-budget-line button{width:44px;padding:0}.monthly-budget-line input,.monthly-budget-line select,#monthlyBudgetForm>label{width:100%;min-width:0}#monthlyBudgetForm>label{display:block;max-width:360px}#monthlyCategoryForm .inl input{width:auto}#monthlyBudget [role=alert]:empty{display:none}
+@media(max-width:600px){.monthly-budget-line{grid-template-columns:minmax(0,1fr) 44px}.monthly-budget-line label{grid-column:1}.monthly-budget-line button{grid-column:2;grid-row:1/4;align-self:start}}

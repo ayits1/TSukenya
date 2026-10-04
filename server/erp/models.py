@@ -196,3 +196,4 @@ class Assortment(models.Model):
 
 # Kept in a domain module so promotion policy does not enlarge the accounting models file.
 from .promotion_models import PromotionCampaign, PromotionPrice, PriceObservation, PriceChange
+from .budget_models import ExpenseCategory, ExpenseCategoryAlias, MonthlyBudget, BudgetLine

@@ -408,7 +408,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -441,7 +441,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -529,6 +529,26 @@ def handle(request):
     if path=='/api/erp/ledger' and request.method=='GET':
         from .financial_browsing import ledger
         return response(ledger(user,request.GET))
+    if path.startswith('/api/erp/budget-categories') or path.startswith('/api/erp/monthly-budgets'):
+        from . import monthly_budgets as budgets
+        if user.profile.role not in {'owner','manager','accountant'}:return response({'error':'Недостатньо прав.'},403)
+        if path=='/api/erp/budget-categories':
+            if request.method=='GET':return response(budgets.categories(user))
+            if request.method=='POST':
+                if user.profile.role!='owner':return response({'error':'Лише власник може змінювати статті.'},403)
+                return response(budgets.save_category(user,body(request)),201)
+        match=re.fullmatch(r'/api/erp/budget-categories/([0-9a-fA-F-]{36})',path)
+        if match and request.method=='PUT':
+            if user.profile.role!='owner':return response({'error':'Лише власник може змінювати статті.'},403)
+            return response(budgets.save_category(user,body(request),match[1]))
+        if path.startswith('/api/erp/monthly-budgets'):
+            if user.profile.role!='owner':return response({'error':'Бюджет доступний лише власнику.'},403)
+            if path=='/api/erp/monthly-budgets':
+                if request.method=='GET':return response(budgets.view(user,request.GET))
+                if request.method=='POST':return response(budgets.save(user,body(request)),201)
+            match=re.fullmatch(r'/api/erp/monthly-budgets/([0-9a-fA-F-]{36})',path)
+            if match and request.method=='PUT':return response(budgets.save(user,body(request),match[1]))
+        return response({'error':'Невідомий маршрут бюджету.'},404)
     if path=='/api/erp/budget-fact' and request.method=='GET':
         from .budget import budget_fact
         return response(budget_fact(user,request.GET))

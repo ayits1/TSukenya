@@ -6,6 +6,7 @@ const data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-break-even-db-'));
 const hash=execFileSync(python,['-c',`from server.auth import hash_password;print(hash_password('${password}'))`],{cwd:root,encoding:'utf8'}).trim();
 const env={...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};
 for(const key of Object.keys(env))if(/^DB_|^PG/.test(key)||['DATABASE_URL','POSTGRES_URL'].includes(key))delete env[key];
+delete env.TSUKENYA_REQUIRE_POSTGRES;
 const log=fs.openSync(path.join(data,'server.log'),'a'),server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:['ignore',log,log]});fs.closeSync(log);let browser,page;
 const wait=async(fn,label)=>{for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw Error(label);};
 // Two real products at 50% margin, two artifact examples at 90% margin, one fixed expense.
@@ -35,6 +36,7 @@ const products=()=>page.evaluate(async()=>(await(await fetch('/api/state')).json
  const reports=[];let reportFails=true;
  await page.route('**/api/erp/report?**',route=>{reports.push(new URL(route.request().url()).searchParams);return reportFails?route.fulfill({status:500,contentType:'application/json',body:'{"error":"Ізольований збій"}'}):route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({from:reports.at(-1).get('from'),to:reports.at(-1).get('to'),revenue:'30000.00',cogs:'21000.00',gross_profit:'9000.00'})});});
  await page.evaluate(()=>location.hash='#operations/expenses');
+ await page.locator('[data-budget-mode=catalog]').click();
  const be=page.locator('.expense-budget .be');await be.waitFor();
  await wait(async()=>/Не вдалося завантажити фактичні продажі/.test(await be.innerText()),'report failure is explained');
  reportFails=false;await be.getByRole('button',{name:'Повторити'}).click();
