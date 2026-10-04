@@ -542,6 +542,9 @@ def handle(request):
     if path=='/account' and not request.portal_user:
         result=HttpResponse(status=302);result['Location']='/';return result
     user=auth(request)
+    if path=='/api/v1/catalog/template.xlsx' and request.method in {'GET','HEAD'}:
+        from .catalog_schema import template
+        return template(user,request.GET)
     if path.startswith('/api/v1/portal/'):
         from .portal_api import handle_portal
         return handle_portal(request,user)
@@ -579,7 +582,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':

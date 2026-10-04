@@ -1,3 +1,4 @@
+const CatalogSchema=require('../app/catalog-schema.js');
 const fs=require('fs');
 const html=fs.readFileSync(process.argv[2]||__dirname+'/../app/portal.js','utf8');
 const src=html.match(/\/\* SYNC-ENGINE-START \*\/[\s\S]*?\/\* SYNC-ENGINE-END \*\//)[0];

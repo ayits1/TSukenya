@@ -5,13 +5,13 @@
   const normal = value => clean(value).toLocaleLowerCase('uk-UA').replace(/[.,:;()№]/g, ' ').replace(/\s+/g, ' ').trim();
   const amount = value => Number(value).toLocaleString('uk-UA',{minimumFractionDigits:2,maximumFractionDigits:2});
   const present = value => value !== undefined && value !== null && clean(value) !== '';
-  function decimal(value, label, precision = 2, percent = false) {
+  function decimal(value, label, precision = 2, percent = false, fractionalPercent = true) {
     let raw = clean(value).replace(/[\s\u00a0]/g, '').replace(/(?:грн|₴|uah)$/i, '').replace(',', '.');
     const hasPercent = raw.endsWith('%');
     if (percent && hasPercent) raw = raw.slice(0, -1);
     if (!/^\d+(?:\.\d+)?$/.test(raw) || !Number.isFinite(Number(raw))) throw Error(`${label}: некоректне число.`);
     // Excel stores 7 % as 0.07: move the decimal point in the text (0.07 → 7), never multiply a binary float.
-    if (percent && !hasPercent && Number(raw) > 0 && Number(raw) < 1) { const [whole, fraction = ''] = raw.split('.'), shifted = whole + fraction.padEnd(2, '0'), point = whole.length + 2; raw = [shifted.slice(0, point).replace(/^0+(?=\d)/, ''), shifted.slice(point).replace(/0+$/, '')].filter(Boolean).join('.'); }
+    if (percent && fractionalPercent && !hasPercent && Number(raw) > 0 && Number(raw) < 1) { const [whole, fraction = ''] = raw.split('.'), shifted = whole + fraction.padEnd(2, '0'), point = whole.length + 2; raw = [shifted.slice(0, point).replace(/^0+(?=\d)/, ''), shifted.slice(point).replace(/0+$/, '')].filter(Boolean).join('.'); }
     const fraction = (raw.split('.')[1] || '').replace(/0+$/, '');
     if (fraction.length > precision || Number(raw) > 99999999.99) throw Error(`${label}: максимум ${precision} знаки після коми та 99 999 999,99.`);
     return raw;
@@ -22,22 +22,10 @@
     const nameHeader = h => ['назва','товар','name'].includes(h) || /назв|найменув|номенклатур/.test(h);
     const headerIndex = table.slice(0,20).findIndex(row => row.map(normal).some(nameHeader) && row.filter(present).length >= 2);
     if (headerIndex < 0) return {fileName, error:'Не знайдено заголовок «Назва» або «Найменування». Додайте його у перші 20 рядків.'};
-    const headers = table[headerIndex].map(normal), used = new Set(), columns = {};
-    const take = (key, predicate) => { const index = headers.findIndex((h,i) => h && !used.has(i) && predicate(h)); if (index >= 0) { columns[key] = index; used.add(index); } };
-    take('name',nameHeader);
-    take('promotionPrice',h => h.includes('акційна ціна') || ['promotionprice','promotion price'].includes(h));
-    take('price',h => /звичайна ціна|ціна продаж|ціна прод|роздр/.test(h) || ['продаж','price'].includes(h));
-    take('cost',h => /закупів|закуп|собівартість|вхідн|ціна прихо/.test(h) || h === 'cost');
-    take('markup',h => /націнк/.test(h) || ['%','markup'].includes(h));
-    take('type',h => h === 'тип' || h.startsWith('тип ') || h.startsWith('група') || h === 'вид');
-    take('category',h => h.includes('категор'));
-    take('promotion',h => ['акція','promotion'].includes(h));
-    take('pack',h => /пакуван/.test(h) || h === 'тара');
-    take('size',h => /розмір|фасув|об.?[єе]м/.test(h));
-    take('unit',h => h === 'од' || h.startsWith('од ') || /одиниц|вим/.test(h) || ['unit','шт/кг'].includes(h));
-    take('id',h => ['id','id товару','ідентифікатор товару'].includes(h));
-    take('barcode',h => /штрих.?код/.test(h) || h === 'barcode');
-    if (columns.cost === undefined && columns.price === undefined) take('generic',h => ['ціна','ціна грн'].includes(h));
+    const schema = typeof module !== 'undefined' && module.exports ? require('./catalog-schema.js') : globalThis.CatalogSchema;
+    let mapped;
+    try { mapped=schema.mapping(table[headerIndex]); } catch(error){return {fileName,error:error.message};}
+    const columns=mapped.columns;
     const rows = [];
     for (let index = headerIndex + 1; index < table.length; index++) {
       const cells = table[index]; if (!cells.some(present)) continue;
@@ -48,9 +36,13 @@
         const raw = cells[col]; if (!present(raw) || field === 'name') continue;
         try {
           if (['cost','price','promotionPrice','markup','generic'].includes(field)) {
-            const value = decimal(raw,table[headerIndex][col],field === 'markup' ? 4 : 2,field === 'markup');
+            const value = decimal(raw,table[headerIndex][col],schema.field(field === 'generic' ? 'cost' : field).scale,field === 'markup',!mapped.canonical);
             if (field === 'generic') row.generic = value; else values[field] = value;
-            if (field === 'price') values.manualPrice = true;
+            if (field === 'price' && columns.manualPrice === undefined) values.manualPrice = true;
+          } else if (field === 'manualPrice') {
+            const mode=clean(raw),choices=schema.field('manualPrice').values;
+            if (!Object.hasOwn(choices,mode)) throw Error('Спосіб розрахунку ціни: вкажіть «Автоматична» або «Ручна».');
+            values.manualPrice=choices[mode];
           } else if (field === 'promotion') {
             if (/^(так|true|1|акція|yes)$/i.test(clean(raw))) values.promotion = true;
             else if (/^(ні|false|0|no)$/i.test(clean(raw))) values.promotion = false;
@@ -59,12 +51,14 @@
           else values[field] = clean(raw);
         } catch (error) { errors.push(error.message); }
       }
+      if (values.price !== undefined && values.manualPrice === false) errors.push('Автоматична ціна: залиште ручну ціну порожньою.');
+      if (values.price !== undefined && values.manualPrice === undefined) values.manualPrice=true;
       if (!name) errors.push('Вкажіть назву товару.');
       rows.push(row);
     }
     if (!rows.length) return {fileName,error:'У файлі немає рядків товарів.'};
     if (rows.length > maxRows) return {fileName,error:`У файлі понад ${maxRows} товарів. Розділіть його на окремі пакети.`};
-    return {fileName, rows, mapping:Object.values(columns).map(index => clean(table[headerIndex][index])), hasGeneric:columns.generic !== undefined};
+    return {fileName, rows, mapping:Object.values(columns).map(index => clean(table[headerIndex][index])), readonly:mapped.readonly, hasGeneric:columns.generic !== undefined};
   }
   let state = null, sequence = 0, initialMarkup = '30';
   const locked = () => !!(state?.saving || state?.uncertain || globalThis.CatalogImportJobs?.dirty());
@@ -73,7 +67,7 @@
   function atomicHtml(options = {}) {
     if (!state && options.markup !== undefined) initialMarkup = String(options.markup);
     const title = '<h3>Імпорт товарів</h3>';
-    if (!state) return `${title}<p>Оберіть CSV або Excel. Перед збереженням перевірте кожен рядок. Порожні клітинки зберігають поточні значення; товари зі збіжною назвою оновлюються.</p><p class="muted">Для Google-таблиці завантажте потрібний аркуш у CSV або Excel. Пряме підключення Google Drive на сервері ще не налаштовано.</p><button class="btn" data-act="pickFile">Обрати файл</button>`;
+    if (!state) return `${title}<p>Оберіть CSV або Excel. Перед збереженням перевірте кожен рядок. Порожні клітинки зберігають поточні значення; товари зі збіжною назвою оновлюються.</p><p class="muted">Для Google-таблиці завантажте потрібний аркуш у CSV або Excel. Пряме підключення Google Drive на сервері ще не налаштовано.</p><div class="row"><button class="btn" data-act="pickFile">Обрати файл</button><a class="btn soft" href="/api/v1/catalog/template.xlsx" download>Завантажити шаблон XLSX</a></div><p class="muted">Схема каталогу 1: ручна й розрахована ціни розділені. Поля «лише перегляд» не імпортуються.</p>`;
     const busy = state.loading || state.saving, block = locked(), preview = state.preview;
     const controls = `${button('reset',state.completed?'Завершити':'Скасувати',block)}<button class="btn soft" data-act="pickFile" ${block?'disabled':''}>Обрати інший файл</button>`;
     if (state.error) return `${title}<p class="form-error" role="alert">${escape(state.error)}</p><div class="row">${controls}</div>`;
@@ -82,7 +76,7 @@
     const rows = localErrors.length ? localErrors.map(row => ({line:row.line,action:'error',error:row.errors.join(' '),values:row.values})) : preview?.entries || [];
     const page = state.page || 1, pages = Math.max(1,Math.ceil(rows.length/20));
     const cards = rows.slice((page-1)*20,page*20).map(row => `<li class="catalog-import-item ${row.action==='error'?'warn':''}"><div><strong>Рядок ${row.line}: ${escape(row.values?.name || state.rows.find(source => source.line === row.line)?.values.name || 'Без назви')}</strong><span class="badge">${row.action==='error'?'Помилка':row.action==='create'?'Новий товар':'Оновлення'}</span></div>${row.error?`<p role="alert">${escape(row.error)}</p>`:`<p class="muted">Закупівля: ${escape(amount(row.values.cost))} грн · Звичайна ціна: ${escape(amount(row.regularPrice))} грн · Діюча: ${escape(amount(row.salePrice))} грн</p>`}</li>`).join('');
-    return `${title}<p class="muted">${escape(state.fileName)} · ${state.rows.length} рядків · Стовпці: ${state.mapping.map(escape).join(', ')}</p>
+    return `${title}<p class="muted">${escape(state.fileName)} · ${state.rows.length} рядків · Стовпці: ${state.mapping.map(escape).join(', ')}</p>${state.readonly?.length?`<p class="muted">Лише перегляд — не імпортуються: ${state.readonly.map(escape).join(', ')}</p>`:''}
       <div class="catalog-import-options"><label class="form-field">Націнка нових товарів, %<input id="catalogImportMarkup" type="number" inputmode="decimal" min="0" max="99999999.99" step="0.0001" required value="${escape(state.markup)}" ${busy||block||state.completed?'disabled':''}></label>${state.hasGeneric?`<label class="form-field">Стовпець «Ціна» означає<select id="catalogImportGeneric" ${busy||block||state.completed?'disabled':''}><option value="cost" ${state.genericAs==='cost'?'selected':''}>Закупівлю</option><option value="price" ${state.genericAs==='price'?'selected':''}>Звичайну ціну продажу</option></select></label>`:''}</div>
       <p role="status" aria-live="polite">${state.saving?'Зберігаємо весь пакет…':state.loading?'Перевіряємо товари на сервері…':state.completed?`Імпорт збережено: додано ${state.completed.counts.created}, оновлено ${state.completed.counts.updated}.`:preview?`Нових: ${preview.counts.created} · Оновлень: ${preview.counts.updated} · Помилок: ${preview.counts.errors}`:localErrors.length?`Рядків із помилками: ${localErrors.length}. Виправте файл і завантажте знову.`:'Потрібна перевірка перед збереженням.'}</p>
       ${state.failure?`<p class="form-error" role="alert">${escape(state.failure)}</p>`:''}

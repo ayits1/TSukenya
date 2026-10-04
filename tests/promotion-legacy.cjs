@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'..');
 const portal=fs.readFileSync(path.join(root,'app/portal.js'),'utf8');
 const erp=fs.readFileSync(path.join(root,'app/erp.js'),'utf8');
 const h=require('./sync-harness.js');
-const ctx={dialog:null,editing:null,S:{settings:{rounding:.5,defaultMarkup:30}},num:h.env.parseNum,C:{rounding:.5,defaultMarkup:30}};
+const ctx={CatalogSchema:require('../app/catalog-schema.js'),dialog:null,editing:null,S:{settings:{rounding:.5,defaultMarkup:30}},num:h.env.parseNum,C:{rounding:.5,defaultMarkup:30}};
 vm.createContext(ctx);
 vm.runInContext(portal.slice(portal.indexOf('  const defMarkup ='),portal.indexOf('  const marginOf ='))+'\n'+erp.match(/function retailPrice\(p\)\{[^\n]+/)[0],ctx);
 for(const [p,want] of [
@@ -55,6 +55,7 @@ Object.assign(ctx,{norm:env.norm,parseNum:env.parseNum,unitNorm:env.unitNorm,pac
 ctx.S.products=[p];
 vm.runInContext(portal.slice(portal.indexOf('  function parseSheet('),portal.indexOf('  function importInner(')),ctx);
 const parsed=ctx.parseSheet([['Назва','Звичайна ціна, грн','Акційна ціна, грн','Діюча ціна, грн','Акція'],['Товар','20,00','18,00','18,00','Так']],'synthetic.csv');
+assert.equal(parsed.error,undefined,'legacy parser receives the same schema dependency as app/index.html');
 assert.equal(parsed.rows[0].price,20);assert.equal(parsed.rows[0].promotionPrice,18);assert.equal(parsed.hasGeneric,false);
 const imported=ctx.buildPlan(parsed);assert.equal(imported.items[0].data.price,20);assert.equal(imported.items[0].data.promotionPrice,18);
 const omitted=ctx.buildPlan(ctx.parseSheet([['Назва','Ціна продажу, грн'],['Товар',22]],'synthetic.csv'));

@@ -10,6 +10,11 @@ on:
       - 'app/**'
       - 'manage.py'
       - '.nvmrc'
+      - 'contracts/catalog-exchange.schema.json'
+      - 'scripts/generate-catalog-schema.mjs'
+      - 'scripts/build-catalog-template.mjs'
+      - 'data/catalogue-template-v1.xlsx'
+      - 'docs/CATALOG-SCHEMA-FIELDS.md'
       - '.github/workflows/server-quick.yml'
   push:
     branches: [main, master]
@@ -19,6 +24,11 @@ on:
       - 'app/**'
       - 'manage.py'
       - '.nvmrc'
+      - 'contracts/catalog-exchange.schema.json'
+      - 'scripts/generate-catalog-schema.mjs'
+      - 'scripts/build-catalog-template.mjs'
+      - 'data/catalogue-template-v1.xlsx'
+      - 'docs/CATALOG-SCHEMA-FIELDS.md'
       - '.github/workflows/server-quick.yml'
 permissions:
   contents: read
@@ -53,7 +63,8 @@ jobs:
         run: python manage.py test tests --noinput
       - name: Browser adapter and legacy module scenarios
         run: |
-          for scenario in sync-sim.js catalog-import-parser.cjs csv-format.cjs runtime-recovery.cjs runtime-create-key.cjs runtime-managed-refresh.cjs portal-metadata-contract.cjs promotion-legacy.cjs monthly-budget-decimal.cjs financial-scope-ui.cjs reconciliation-contract.cjs bounded-reports-contract.cjs cashier-csv.cjs; do
+          node scripts/generate-catalog-schema.mjs --check
+          for scenario in sync-sim.js catalog-import-parser.cjs catalog-schema.cjs csv-format.cjs runtime-recovery.cjs runtime-create-key.cjs runtime-managed-refresh.cjs portal-metadata-contract.cjs promotion-legacy.cjs monthly-budget-decimal.cjs financial-scope-ui.cjs reconciliation-contract.cjs bounded-reports-contract.cjs cashier-csv.cjs; do
             echo "::group::$scenario"
             node "tests/$scenario"
             echo "::endgroup::"
@@ -86,6 +97,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
