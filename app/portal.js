@@ -637,7 +637,7 @@
   window.addEventListener('tsukenya:data-changed',()=>{const next=window.TSUKENYA_ROLE+'|'+window.TSUKENYA_SCOPE_STORE;if(collectionIdentity&&collectionIdentity!==next)render(true);collectionIdentity=next;});
   function collectionSummary(section){return window.PortalCollections.view('summary',{section});}
   function collectionReadStatus(state){return `<p class="muted" role="${state.state==='error'?'alert':'status'}">${state.state==='error'?esc(state.error):'Завантажуємо доступні записи…'}</p>${state.state==='error'?'<button type="button" class="btn soft" data-collections-retry>Повторити читання</button>':''}`;}
-  function collectionSummaryNotice(read){return `${read.state!=='ready'?collectionReadStatus(read):''}${read.value?`<p class="muted">${read.state!=='ready'?'Попередні підтверджені підсумки':'Підсумки'} на ${esc(new Date(read.value.generatedAt).toLocaleString('uk-UA'))}. Окреме поточне читання; значення не належать новому запиту, поки його не підтверджено.</p>`:''}`;}
+  function collectionSummaryNotice(read){return `${read.state!=='ready'?collectionReadStatus(read):''}${read.value?`<p class="muted">${read.state!=='ready'?'Попередні підтверджені підсумки':'Підсумки'} на ${esc(new Date(read.value.generatedAt).toLocaleString('uk-UA'))}.${read.state!=='ready'?' Оновлення ще не підтверджено.':''}</p>`:''}`;}
   function collectionList(name,kind,row){
     const key=name+':'+kind,filter=collectionFilters.get(key)||{page:1,q:'',value:'all'};collectionFilters.set(key,filter);
     const field=name==='tasks'?(kind==='operations'?'status':'stage'):name==='ideas'?'reaction':'group';
