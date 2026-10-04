@@ -97,6 +97,12 @@ def source(user, params):
     summed = 'SUM(amount)' if pg else 'tsukenya_purchase_sum(amount)'
     nonnegative = 'GREATEST(0,COALESCE(o.ordered,0)-COALESCE(o.received,0))' if pg else 'MAX(0,COALESCE(o.ordered,0)-COALESCE(o.received,0))'
     source_price = 'line.price' if pg else 'tsukenya_purchase_price(line.price)'
+    # Older SQLite cannot resolve an outer alias inside a correlated ORDER BY.
+    # Prefer the same warehouse first, then the latest receipt in its store;
+    # keep each subquery's ordering entirely within its own scope.
+    local_receipt = """SELECT line.id FROM erp_voucherline line JOIN erp_voucher v ON v.id=line.voucher_id
+          WHERE line.product_id=t.product AND v.kind='receipt' AND v.status='posted' AND v.store_id=w.store_id"""
+    source_id = f"({local_receipt} ORDER BY CASE WHEN v.warehouse_id=t.warehouse THEN 0 ELSE 1 END,v.date DESC,v.id DESC,line.id ASC LIMIT 1)" if pg else f"COALESCE(({local_receipt} AND v.warehouse_id=t.warehouse ORDER BY v.date DESC,v.id DESC,line.id ASC LIMIT 1),({local_receipt} ORDER BY v.date DESC,v.id DESC,line.id ASC LIMIT 1))"
     sql += f""", ordered AS (
       SELECT l.voucher_id,l.id,l.product_id,v.warehouse_id,l.quantity,
         COALESCE((SELECT SUM(r.quantity) FROM erp_voucherline r JOIN erp_voucher rv ON rv.id=r.voucher_id
@@ -110,9 +116,7 @@ def source(user, params):
     ), candidates AS (
       SELECT t.*,w.store_id AS store,s.name AS store_name,
         {nonnegative} AS on_order,
-        (SELECT line.id FROM erp_voucherline line JOIN erp_voucher v ON v.id=line.voucher_id
-          WHERE line.product_id=t.product AND v.kind='receipt' AND v.status='posted' AND v.store_id=w.store_id
-          ORDER BY CASE WHEN v.warehouse_id=t.warehouse THEN 0 ELSE 1 END,v.date DESC,v.id DESC,line.id ASC LIMIT 1) AS source_id
+        {source_id} AS source_id
       FROM totals t JOIN erp_warehouse w ON w.id=t.warehouse JOIN erp_store s ON s.id=w.store_id
       LEFT JOIN order_totals o ON o.warehouse_id=t.warehouse AND o.product_id=t.product WHERE t.low
     ), priced AS (
