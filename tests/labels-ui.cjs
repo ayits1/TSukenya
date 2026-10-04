@@ -316,7 +316,7 @@ async function checkStudio() {
   await until(async () => await pages.count() === 1, 'interactive preview mounts only the current A4');
   assert.equal(await pages.locator('.tk-label[data-product]').count(), 21);
   assert(await page.getByText(/Аркуш 1 із 2 · усі 22 цінників увійдуть у PDF та друк/).isVisible(), 'all22copies retained for two output pages');
-  assert.equal(await page.getByRole('button', { name: 'Завантажити PDF', exact: true }).isEnabled(), true);
+  await until(async () => await page.getByRole('button', { name: 'Завантажити PDF', exact: true }).isEnabled(), 'physical validation completed before PDF');
   const geometry = await pages.first().evaluate(sheet => {
     const tag = sheet.querySelector('.tk-label[data-product]');
     const computed = getComputedStyle(sheet), label = getComputedStyle(tag);
