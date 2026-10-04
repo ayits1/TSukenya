@@ -58,6 +58,18 @@ class SourceExplanationTests(TransactionTestCase):
         actor=User.objects.create(username=role+str(User.objects.count()));Profile.objects.create(user=actor,role=role,store=store);return actor
     def sources(self,metric,user=None,**params):
         return drilldown(user or self.u,{'from':self.today,'to':self.today,'metric':metric,**params})
+    def test_malformed_source_payload_is_actionable_without_writes(self):
+        self.cash_start()
+        expense=self.v('expense',amount=10,account=self.cash.pk,payload={'expense_scope':'store'})
+        Voucher.objects.filter(pk=expense.pk).update(payload=[])
+        from server.erp.models import AuditEvent, CashEntry
+        before=(AuditEvent.objects.count(),CashEntry.objects.count())
+        for metric in ('profit','cash_net'):
+            with self.assertRaisesMessage(BusinessError,f'Документ {expense.pk}'):
+                self.sources(metric)
+        with self.assertRaisesMessage(BusinessError,f'Документ {expense.pk}'):
+            report(self.u,{'from':self.today,'to':self.today})
+        self.assertEqual((AuditEvent.objects.count(),CashEntry.objects.count()),before)
     def test_signed_components_reconcile_with_period_and_kyiv_reversal(self):
         self.cash_start();self.v('expense',amount=10,account=self.cash.pk,payload={'expense_scope':'store'})
         self.v('expense',amount=20,account=self.cash.pk,payload={'expense_scope':'network'})

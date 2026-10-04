@@ -1,7 +1,7 @@
 name: Server quick checks
 # Accounting, roles and the legacy browser adapter: Django tests on disposable SQLite
-# plus dependency-free Node scenarios. PostgreSQL concurrency and browsers stay in the
-# manual full check (quality.yml / npm run test:full).
+# plus dependency-free Node scenarios and PostgreSQL concurrency in the separate job below.
+# Browsers and visual baselines remain in the explicit manual full check.
 on:
   pull_request:
     paths:

@@ -42,3 +42,5 @@
 - `QA_BUSINESS_AUDIT_ONLY=1 PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/ui-audit.cjs`: тимчасова SQLite, keyboard/focus/retry/close-abort/open document/current mismatch, stock/cash, business diff, manager privacy, 320/1440px, 44px. Артефакти локального прогону: `/tmp/tsukenya-business-audit-proof/report.json` та PNG поруч; ширина й фокус переглянуті.
 
 Повна регресія, публікація, VPS і backups не входили до цієї перевірки. B14 історія цін та B15 формули/моделі розрахунків збережені.
+
+Рев’ю інтеграції: пошкоджені реквізити історичної витрати/складової показника повертають зрозумілу помилку з ID документа, а не необроблений виняток або вигадану суму. Два цільові PG сценарії (corruption/no writes і спільні signed totals/Kyiv сторно) пройшли.
