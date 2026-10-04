@@ -29,7 +29,8 @@ class ProductionVersionTests(ApiFixture):
         changed={**body,'reason':'Інший зміст'};self.assertEqual(self.call('post','/api/erp/recipes/versions',changed).status_code,409)
         stale={**body,'idempotencyKey':str(uuid.uuid4())};self.assertEqual(self.call('post','/api/erp/recipes/versions',stale).status_code,409)
         next_version,_=self.approve(components=[{'product':'p','quantity':'21.000'}]);self.assertEqual(next_version['version'],2)
-        detail=self.client.get('/api/erp/recipes/versions/'+version['id']);self.assertEqual(detail.json(),version)
+        from server.erp.recipes_versions import terms
+        self.assertEqual(terms(RecipeVersion.objects.select_related('approved_by').prefetch_related('components').get(pk=version['id'])),version)
         self.assertEqual(self.call('patch','/api/docs/products/p',{'unit':'кг'},HTTP_IF_MATCH=self.product()['revision']).status_code,400)
         out=self.product('output');self.assertEqual(self.call('delete','/api/v1/catalog/products/output',{'revision':out['revision']}).status_code,400)
         self.assertEqual(RecipeComponent.objects.filter(recipe_id=version['id']).get().quantity,20)
@@ -174,3 +175,61 @@ class ProductionConcurrencyTests(TransactionTestCase):
         self.assertEqual(self.concurrent([lambda user:post_voucher(user,draft.pk).status,lambda user:post_voucher(user,draft.pk).status]),['posted','posted'])
         self.assertEqual(StockLot.objects.get(product=self.p).quantity,10);self.assertEqual(StockLot.objects.get(product=self.output).quantity,10)
         self.assertEqual(StockEntry.objects.filter(voucher=draft).count(),2);self.assertEqual(AuditEvent.objects.filter(action='production_posted').count(),1)
+
+class ProductionReadSnapshotTests(TransactionTestCase):
+    # GET owns its transaction; Django TestCase's outer writable transaction is unsuitable.
+    setUp=ProductionConcurrencyTests.setUp
+    body=ProductionConcurrencyTests.body
+    create=ProductionConcurrencyTests.create
+
+    def test_version_detail_readonly_snapshot_and_permissions(self):
+        from server.erp.recipes_versions import handle_versions
+        saved=json.loads(self.create(self.u,self.body()).content)
+        before=AuditEvent.objects.count()
+        response=handle_versions(RequestFactory().get('/api/erp/recipes/versions/'+saved['id']),self.u)
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(json.loads(response.content),saved)
+        self.assertEqual(AuditEvent.objects.count(),before)
+        self.u.profile.role='cashier';self.u.profile.save()
+        with self.assertRaisesMessage(BusinessError,'Недостатньо прав'):
+            handle_versions(RequestFactory().get('/api/erp/recipes/versions/'+saved['id']),self.u)
+
+    def test_list_and_latest_share_snapshot_during_concurrent_approval(self):
+        if connection.vendor!='postgresql':self.skipTest('PostgreSQL repeatable read')
+        from server.erp.recipes_versions import handle_versions
+        from server.erp.promotions import paginate
+        first=json.loads(self.create(self.u,self.body()).content)
+        next_body={**self.body(),'expectedVersion':first['id'],'reason':'Нові умови'}
+        results=[]
+        def writer():
+            close_old_connections()
+            try:results.append(self.create(User.objects.get(pk=self.u.pk),next_body).status_code)
+            except Exception as error:results.append(str(error))
+            finally:connections.close_all()
+        def after_page(request,query):
+            rows,page=paginate(request,query)
+            with connection.cursor() as cursor:
+                cursor.execute('SHOW transaction_isolation');self.assertEqual(cursor.fetchone()[0],'repeatable read')
+                cursor.execute('SHOW transaction_read_only');self.assertEqual(cursor.fetchone()[0],'on')
+            thread=Thread(target=writer);thread.start();thread.join(timeout=10)
+            self.assertFalse(thread.is_alive());self.assertEqual(results,[201])
+            return rows,page
+        with patch('server.erp.promotions.paginate',side_effect=after_page):
+            response=handle_versions(RequestFactory().get('/api/erp/recipes/versions',{'product':'output'}),self.u)
+        data=json.loads(response.content)
+        self.assertEqual(data['total'],1);self.assertEqual(data['latestVersion'],first['id'])
+        self.assertEqual([item['id'] for item in data['items']],[first['id']])
+        self.assertEqual(RecipeVersion.objects.count(),2)
+        self.assertEqual(AuditEvent.objects.filter(action='recipe_version_approved').count(),2)
+
+    def test_approval_rechecks_role_after_ledger_wait(self):
+        actual=ledger_lock
+        def changed_actor():
+            result=actual()
+            type(self.u.profile).objects.filter(user=self.u).update(role='warehouse')
+            return result
+        with patch('server.erp.recipes_versions.ledger_lock',side_effect=changed_actor):
+            with self.assertRaisesMessage(BusinessError,'Немає доступу'):
+                self.create(self.u,self.body())
+        self.assertEqual(RecipeVersion.objects.count(),0)
+        self.assertEqual(AuditEvent.objects.filter(action='recipe_version_approved').count(),0)

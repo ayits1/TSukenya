@@ -26,6 +26,9 @@ def create_version(request,user):
     from .catalog import revision
     require(user.profile.role in {'owner','manager'}, 'Немає доступу до затвердження рецептури: потрібен власник або керівник.')
     ledger_lock()
+    user.refresh_from_db(fields=['is_active'])
+    user.profile.refresh_from_db()
+    require(user.is_active and user.profile.role in {'owner','manager'}, 'Немає доступу до затвердження рецептури: потрібен власник або керівник.')
     value=body(request)
     fields={'idempotencyKey','product','expectedVersion','catalogRevision','outputQuantity','components','expiryPolicy','shelfLifeDays','reason'}
     require(set(value)==fields,'Некоректні реквізити версії рецептури.')
@@ -64,6 +67,12 @@ def create_version(request,user):
     return response(snapshot,201)
 
 def handle_versions(request,user):
+    if request.method=='GET':
+        from .historical_reports import read_snapshot
+        with read_snapshot():return _handle_versions(request,user)
+    return _handle_versions(request,user)
+
+def _handle_versions(request,user):
     from .views import response
     from .catalog import revision
     require(user.profile.role in {'owner','manager','warehouse'},'Недостатньо прав для рецептур.')
