@@ -132,3 +132,11 @@ Actual integrated late scope PASS: ignored-abort detail401 після leave
 `/tmp/tsukenya-finance-integrated-late/late-report.json`. Інші авторські
 PG/unit/story/privacy/layout докази повторно використано для незмінених inputs.
 Full regression і production mutations не виконували.
+
+Тестові споживачі ownе83a9c8 інтегровано окремо, зі збереженням
+чинних sales/finance route-ready helpers. Matching bundle не змінився.
+Root actual `--finance-keyboard` PASS: Enter відкриває native документ,
+Escape повертає фокус на його connected rowbutton; лог
+`/tmp/tsukenya-finance-root-keyboard.log`. Browser policy235 source files PASS.
+Межі інших prefixes/tails наведено в FINANCE-TEST-MIGRATION.md;
+повного результату ui-audit цим пакетом не заявлено.
