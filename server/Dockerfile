@@ -15,6 +15,8 @@ COPY server/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ /app/app/
 COPY server/ /app/server/
+COPY contracts/catalog-exchange.schema.json /app/contracts/catalog-exchange.schema.json
+COPY data/catalogue-template-v1.xlsx /app/data/catalogue-template-v1.xlsx
 COPY manage.py /app/manage.py
 COPY --from=frontend /build/frontend/dist /app/frontend/dist
 COPY data/tovary-source-2026-09-29.csv /app/seed.csv

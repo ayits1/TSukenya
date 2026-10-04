@@ -1,0 +1,33 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const schema=require('../app/catalog-schema.js'),csv=require('../app/csv.js'),{parseRows}=require('../app/catalog-import.js');
+const registry=JSON.parse(fs.readFileSync('contracts/catalog-exchange.schema.json','utf8'));
+assert.deepEqual(schema.fields,registry.fields);assert.equal(schema.columns('exchange').length,14);assert.equal(schema.columns('export',false).length,18);assert.equal(schema.columns('artifactGS').length,15);assert.equal(schema.columns('artifactBase').length,12);
+const headers=schema.columns('export').map((f,i)=>f.label+(i===0?schema.marker:''));
+const values={name:'Товар',unit:'кг',barcode:'001234',cost:'0',markup:'0',manualPrice:'Автоматична',promotion:'Ні',id:'p1',regularPrice:'99.00',salePrice:'88.00',effectivePromotion:'Так',hidden:'Так',priceAt:'2020-01-01',per100:'8.80'};
+let parsed=parseRows([headers,schema.columns('export').map(f=>values[f.key]??'')],'current.xlsx');
+assert.equal(parsed.rows[0].id,'p1');assert.deepEqual(parsed.rows[0].values,{name:'Товар',unit:'кг',barcode:'001234',cost:'0',markup:'0',manualPrice:false,promotion:false});assert.equal(parsed.readonly.length,6);assert.deepEqual(parsed.rows[0].errors,[]);
+// Canonical values are percentage points, unlike an unversioned Excel percentage cell.
+for(const raw of [0.5,'0.5','0.5%'])assert.equal(parseRows([['Назва'+schema.marker,'Націнка, %'],['N',raw]],'current.xlsx').rows[0].values.markup,'0.5');
+assert.equal(parseRows([['Націнка, %','Назва'+schema.marker],[0.5,'N']],'reordered.xlsx').rows[0].values.markup,'0.5');
+assert.match(parseRows([['Націнка, %','Назва [Каталог TSukenya 2]'],[0.5,'N']],'unknown.xlsx').error,/Версія/);
+assert.match(parseRows([['Назва'+schema.marker,'Націнка, %'+schema.marker],['N',0.5]],'duplicates.xlsx').error,/Повторена позначка/);
+assert.equal(parseRows([['Назва','Націнка, %'],['N',0.07]],'external-percent.xlsx').rows[0].values.markup,'7');
+assert.equal(parseRows([['Назва','Націнка, %'],['N','0.5%']],'external.xlsx').rows[0].values.markup,'0.5');
+assert.match(parseRows([['Назва','Закупівля','cost'],['N',1,2]],'x').error,/Повторений/);
+assert.match(parseRows([['Назва [Каталог TSukenya 2]','Закупівля'],['N',1]],'x').error,/Версія/);
+assert.equal(parseRows([['Назва','Звичайна ціна, грн'],['N','12.50']],'old').rows[0].values.manualPrice,true);
+assert.match(parseRows([['Назва','Спосіб розрахунку ціни','Ручна ціна продажу, грн'],['N','Автоматична',12]],'x').rows[0].errors[0],/порожньою/);
+assert.equal(parseRows([['Назва','Спосіб розрахунку ціни','Ручна ціна продажу, грн'],['N','Ручна','12.50']],'x').rows[0].values.price,'12.50');
+assert.equal(parseRows([['Назва','Спосіб розрахунку ціни','Ручна ціна продажу, грн'],['N','','']],'x').rows[0].values.manualPrice,undefined);
+const serialized=csv.serialize(schema.columns('exchange').map((f,i)=>({label:f.label+(i===0?schema.marker:''),kind:f.kind==='decimal'?'number':'text'})),[schema.columns('exchange').map(f=>({...values,name:'=N'})[f.key]??'')],{reversible:true});
+assert.equal(parseRows(csv.parse(serialized),'x').rows[0].values.name,'=N');
+// Exercise the actual Artifact adapters too; no connector, writes or second parser.
+const vm=require('node:vm'),source=fs.readFileSync('app/portal.js','utf8');
+const product={id:'p1',name:'Товар',unit:'кг',cost:10,markup:30,manualPrice:true,price:77,promotion:false};
+const context={CatalogSchema:schema,window:{CatalogImport:{parseRows}},S:{products:[product]},defMarkup:()=>30,today:()=> '2026-10-04',allTypes:()=>[],allPacks:()=>[]};
+vm.createContext(context);vm.runInContext(source.slice(source.indexOf('  const norm = v'),source.indexOf('  function importInner()')),context);
+const artifact=context.parseSheet([headers,schema.columns('export').map(f=>values[f.key]??'')],'exchange.xlsx');assert(!artifact.error,artifact.error);
+const plan=context.buildPlan(artifact);assert.equal(plan.items.length,1);assert.equal(plan.items[0].data.cost,0);assert.equal(plan.items[0].data.markup,0);assert.equal(plan.items[0].data.manualPrice,false);assert.equal(plan.items[0].data.price,null);assert(!Object.hasOwn(plan.items[0].data,'hidden'));
+assert.match(context.parseSheet([['Назва'+schema.marker,'Спосіб розрахунку ціни','Ручна ціна продажу, грн'],['Товар','Ручна','0']],'zero.xlsx').error,/додатну ручну/);
+const reorderedArtifact=context.parseSheet([['Націнка, %','Назва'+schema.marker],[0.5,'Товар']],'reordered.xlsx');assert.equal(context.buildPlan(reorderedArtifact).items[0].data.markup,0.5);
+console.log('PASS canonical14/profile projections, readonly before aliases, automatic/blank/zero/ID, old manual alias, collision/version refusal, CSV transport roundtrip');

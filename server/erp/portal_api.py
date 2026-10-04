@@ -205,14 +205,28 @@ def catalogue_csv(user,params):
             private=user.profile.role!='cashier';config=defaults();store=context_store(user,params.get('store'))
             query=Document.objects.filter(path__startswith='products/').order_by('path')
             if hidden=='false':query=query.filter(Q(data__hidden__isnull=True)|~Q(data__hidden=True))
-            yield '\ufeff'+row(['Назва'+MARKER,'Група','Категорія','Пакування','Об’єм / вага','Од.','Штрихкод',*(['Закупівля, грн','Націнка, %'] if private else []),'Звичайна ціна, грн','Діюча ціна, грн','Ціна оновлена','Акція','Прихований','ID'])
+            from .catalog_schema import columns, schema
+            export_fields=columns(private=private)
+            headers=[field['label'] for field in export_fields]
+            headers[0]+=schema()['marker']+MARKER
+            yield '\ufeff'+row(headers)
             iterator=query.iterator(chunk_size=100)
             from itertools import islice
             while batch:=list(islice(iterator,100)):
                 resolver=PriceResolver(config,store,product_paths=[d.path for d in batch])
                 for document in batch:
                     p=document.data;prices=resolver.resolve(document)
-                    yield row([p.get(k,'') or '' for k in ('name','type','category','pack','size','unit','barcode')]+([format(decimal(p.get('cost')),'.2f'),plain(decimal(p.get('markup',config['markup'])))] if private else [])+[prices['regularPrice'],prices['salePrice'],p.get('priceAt') or '', 'Так' if prices['effectivePromotion'] else 'Ні','Так' if p.get('hidden') else 'Ні',document.path.split('/',1)[1]])
+                    values={k:p.get(k,'') or '' for k in ('name','type','category','pack','size','unit','barcode')}
+                    values.update(cost=format(decimal(p['cost']),'.2f') if p.get('cost') is not None else '',markup=plain(decimal(p['markup'])) if p.get('markup') is not None else '',
+                        manualPrice='Ручна' if p.get('manualPrice') else 'Автоматична',
+                        price=format(decimal(p.get('price')),'.2f') if p.get('manualPrice') and p.get('price') is not None else '',
+                        promotion='Так' if p.get('promotion') else 'Ні',
+                        promotionPrice=format(decimal(p.get('promotionPrice')),'.2f') if p.get('promotionPrice') is not None else '',
+                        regularPrice=prices['regularPrice'],salePrice=prices['salePrice'],
+                        effectivePromotion='Так' if prices['effectivePromotion'] else 'Ні',
+                        per100=format((decimal(prices['salePrice'])/10).quantize(Decimal('.01'),rounding=ROUND_HALF_UP),'.2f') if p.get('unit')=='кг' else '',
+                        priceAt=p.get('priceAt') or '',hidden='Так' if p.get('hidden') else 'Ні',id=document.path.split('/',1)[1])
+                    yield row([values[field['key']] for field in export_fields])
     from django.db.models import Q
     result=StreamingHttpResponse(generate(),content_type='text/csv; charset=utf-8')
     result['Content-Disposition']='attachment; filename="catalogue.csv"';result['Cache-Control']='private, no-store'

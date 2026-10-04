@@ -1096,29 +1096,37 @@
     const isName = h => h==="назва" || h==="товар" || h==="name" || h.includes("назв") || h.includes("найменув") || h.includes("номенклатур");
     const hi = aoa.slice(0, 20).findIndex(r => r.map(norm).some(isName) && r.filter(c=>String(c).trim()!=="").length >= 2);
     if (hi < 0) return {fileName, error:"Не знайшов стовпець із назвою товару. Назвіть його «Назва» або «Найменування» у рядку із заголовками таблиці."};
-    const hdr = aoa[hi].map(norm), used = new Set(), col = {};
-    const take = (key, pred) => { const i = hdr.findIndex((h,i)=>h && !used.has(i) && pred(h)); if (i>=0){ used.add(i); col[key]=i; } };
-    take("name", isName);
-    take("promotionPrice", h=>h.includes("акційна ціна") || h==="promotionprice" || h==="promotion price");
-    take("price", h=>h.includes("звичайна ціна") || h.includes("ціна продаж") || h.includes("ціна прод") || h.includes("роздр") || h==="продаж" || h==="price");
-    take("cost", h=>h.includes("закупів") || h.includes("закуп") || h.includes("собівартість") || h.includes("вхідн") || h.includes("ціна прихо") || h==="cost");
-    take("markup", h=>h.includes("націнк") || h==="%" || h==="markup");
-    take("type", h=>h==="тип" || h.startsWith("тип ") || h.startsWith("група") || h==="вид");
-    take("category", h=>h.includes("категор"));
-    take("promotion", h=>h==="акція"||h==="promotion");
-    take("pack", h=>h.includes("пакуван") || h==="тара");
-    take("size", h=>h.includes("розмір") || h.includes("фасув") || /об.?[єе]м/.test(h));
-    take("unit", h=>h==="од" || h.startsWith("од ") || h.includes("одиниц") || h.includes("вим") || h==="unit" || h==="шт/кг");
-    if (col.cost === undefined && col.price === undefined) take("generic", h=>h==="ціна" || h==="ціна грн");
+    let mapped;try{mapped=CatalogSchema.mapping(aoa[hi]);}catch(error){return {fileName,error:error.message};}
+    if(mapped.canonical){
+      const parsed=window.CatalogImport.parseRows(aoa,fileName);
+      if(parsed.error)return parsed;
+      const invalid=parsed.rows.find(r=>r.errors.length);if(invalid)return {fileName,error:`Рядок ${invalid.line}: ${invalid.errors.join(' ')}`};
+      for(const row of parsed.rows){
+        const existing=S.products.find(p=>norm(p.name)===norm(row.values.name));
+        if(row.id&&(!existing||existing.id!==row.id))return {fileName,error:'Назва та ID товару не відповідають поточному каталогу.'};
+        if(row.values.manualPrice===true&&row.values.price===undefined&&!existing?.manualPrice)return {fileName,error:'Вкажіть додатну ручну ціну продажу.'};
+        if(row.values.manualPrice===true&&row.values.price!==undefined&&!(Number(row.values.price)>0))return {fileName,error:'Вкажіть додатну ручну ціну продажу.'};
+        if(row.values.promotionPrice!==undefined&&!(Number(row.values.promotionPrice)>0))return {fileName,error:'Вкажіть додатну акційну ціну або залиште клітинку порожньою.'};
+      }
+      return {...parsed,rows:parsed.rows.map(r=>({name:r.values.name,canonicalValues:r.values})),genericAs:'cost',markup:defMarkup(),defType:''};
+    }
+    const col=mapped.columns;
     const c = (r,k) => col[k]===undefined ? "" : r[col[k]];
     if(col.promotionPrice!==undefined){
       const bad=aoa.slice(hi+1).findIndex(r=>String(c(r,"name")).trim() && String(c(r,"promotionPrice")??"").trim() && !(parseNum(c(r,"promotionPrice"))>0));
       if(bad>=0)return {fileName,error:`Некоректна акційна ціна в рядку ${hi+bad+2}. Вкажіть додатну суму або залиште клітинку порожньою.`};
     }
+    for(let index=hi+1;index<aoa.length;index++){
+      const r=aoa[index];if(!String(c(r,'name')).trim())continue;
+      const mode=String(c(r,'manualPrice')).trim(),identifier=String(c(r,'id')).trim().replace(/^'/,'');
+      if(mode&&!Object.hasOwn(CatalogSchema.field('manualPrice').values,mode))return {fileName,error:'Спосіб розрахунку ціни: вкажіть «Автоматична» або «Ручна».'};
+      if(mode==='Автоматична'&&String(c(r,'price')??'').trim())return {fileName,error:'Автоматична ціна: залиште ручну ціну порожньою.'};
+      if(identifier&&!S.products.some(p=>p.id===identifier&&norm(p.name)===norm(c(r,'name'))))return {fileName,error:'Назва та ID товару не відповідають поточному каталогу.'};
+    }
     const rows = aoa.slice(hi+1).map(r=>{
       let mk = c(r,"markup"); const mkRaw = String(mk); mk = parseNum(mk); if (mk>0 && mk<1 && !mkRaw.includes("%")) mk *= 100;
       const nm = String(c(r,"name")).trim();
-      return {name:nm,...(col.promotion!==undefined?{promotion:/^(так|true|1|акція|yes)$/i.test(String(c(r,"promotion")).trim())}:{}),cost:parseNum(c(r,"cost")), price:parseNum(c(r,"price")), ...(col.promotionPrice!==undefined?{promotionPrice:parseNum(c(r,"promotionPrice"))||null}:{}), generic:parseNum(c(r,"generic")),
+      return {name:nm,...(String(c(r,'manualPrice')).trim()?{manualPrice:CatalogSchema.field('manualPrice').values[String(c(r,'manualPrice')).trim()]}:{}),...(col.promotion!==undefined?{promotion:/^(так|true|1|акція|yes)$/i.test(String(c(r,"promotion")).trim())}:{}),cost:parseNum(c(r,"cost")), price:parseNum(c(r,"price")), ...(col.promotionPrice!==undefined?{promotionPrice:parseNum(c(r,"promotionPrice"))||null}:{}), generic:parseNum(c(r,"generic")),
         markup:mk, category:String(c(r,"category")).trim(), type:typeNorm(c(r,"type")), unit:unitNorm(c(r,"unit")), pack:packNorm(c(r,"pack")) || packFromName(nm), size:String(c(r,"size")).trim() || sizeFromName(nm)};
     }).filter(r=>r.name && !/^(разом|всього|итого|підсумок)/i.test(r.name));
     const labels = {name:"Назва", price:"Звичайна ціна", promotionPrice:"Акційна ціна", cost:"Закупівля", generic:"Ціна", markup:"Націнка", type:"Тип", category:"Категорія",promotion:"Акція", pack:"Пакування", size:"Розмір", unit:"Од."};
@@ -1133,12 +1141,21 @@
       if (seen.has(k)) { dup++; continue; }
       let cost = r.cost, price = r.price;
       if (imp.hasGeneric){ if (imp.genericAs==="price") price = price || r.generic; else cost = cost || r.generic; }
-      if (!(cost>0 || price>0) && !sync) { skipped++; continue; }
+      if (!(cost>0 || price>0) && !sync && !r.canonicalValues) { skipped++; continue; }
       seen.add(k);
       const ex = byName.get(k), data = {name:r.name, unit:r.unit || ex?.unit || "шт"};
+      if(r.canonicalValues){
+        Object.assign(data,r.canonicalValues);
+        for(const field of ['cost','markup','price','promotionPrice'])if(data[field]!==undefined&&data[field]!==null)data[field]=Number(data[field]);
+        if(data.manualPrice===false)data.price=null;
+        if(!ex){data.cost??=0;data.markup??=imp.markup;data.manualPrice??=false;data.price??=null;}
+        if(['cost','markup','price','manualPrice','promotion','promotionPrice'].some(field=>Object.hasOwn(data,field)&&data[field]!==ex?.[field]))data.priceAt=today();
+        items.push({ex,data});continue;
+      }
       if (cost>0) data.cost = cost; else if (!ex) data.cost = 0;
-      if (price>0){ data.price = price; data.manualPrice = true; }
-      else { if (r.markup>0) data.markup = r.markup; else if (!sync || !ex) data.markup = imp.markup; data.manualPrice = false; data.price = null; }
+      if (r.manualPrice===true&&!price&&ex?.manualPrice){data.price=ex.price;data.manualPrice=true;}
+      else if (price>0){ data.price = price; data.manualPrice = true; }
+      else { if (r.markup>0) data.markup = r.markup; else if (!sync||!ex) data.markup = imp.markup; data.manualPrice = r.manualPrice===true; data.price = null; }
       if(typeof r.promotion==="boolean")data.promotion=r.promotion;
       if(Object.hasOwn(r,"promotionPrice"))data.promotionPrice=r.promotionPrice;
       if (r.category) data.category = r.category; else if (!ex) data.category = "";
@@ -1215,13 +1232,10 @@
     if (!downloads) { toast("Завантаження файлів тут недоступне"); return; }
     try{
       const X = await loadXlsx();
-      const ws = X.utils.aoa_to_sheet([
-        ["Назва","Тип","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Звичайна ціна, грн","Акція","Акційна ціна, грн"],
-        ["Цукерки шоколадні вагові","Цукерки","Цукерки","Ваговий","","кг",210,30,"","Так",250],
-        ["Печиво вівсяне 300 г","Печиво і вафлі","Печиво","Упаковка","300 г","шт",32,35,""],
-        ["Coca-Cola 0,5 л","Напої","Готові напої","ПЕТ","0,5 л","шт",24,30,""],
-        ["Лате XL","Напої","Кав'ярня","Стакан","XL","шт","","",49]]);
-      ws["!cols"] = [{wch:32},{wch:18},{wch:16},{wch:12},{wch:10},{wch:8},{wch:16},{wch:12},{wch:18},{wch:10},{wch:18}];
+      const fields=CatalogSchema.columns('exchange');
+      const ws = X.utils.aoa_to_sheet([fields.map((f,i)=>f.label+(i===0?CatalogSchema.marker:'')),
+        fields.map(f=>({name:'Приклад: чай',type:'Напої',category:'Чай',pack:'Упаковка',size:'100 г',unit:'шт',cost:10,markup:30,manualPrice:'Автоматична',promotion:'Ні'})[f.key]??'')]);
+      ws["!cols"]=fields.map(f=>({wch:f.kind==='text'?24:22}));
       const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Товари");
       await save("shablon-tovary.xlsx", X.write(wb, {bookType:"xlsx", type:"array"}));
     }catch(e){ toast("Не вдалося створити шаблон"); }
@@ -1293,12 +1307,13 @@
 
   /* ---------- Google Таблиця як джерело: автосинхронізація ---------- */
   function baseCsv(list){
-    const rows = [["Назва","Група","Категорія","Пакування","Розмір","Од.","Закупівля, грн","Націнка, %","Ціна продажу, грн","Ціна на цінник, грн","Акція","Акційна ціна, грн"]].concat(list.map(p=>{
-      const pr = priceOf(p), c = num(p.cost), man = p.manualPrice && p.price!=null;
-      return [p.name, typeOf(p)===NOTYPE ? "" : typeOf(p), p.category||"", p.pack||"", p.size||"", p.unit||"шт", c>0 ? dec(c) : "", man ? "" : dec(num(p.markup ?? defMarkup())), man ? dec(num(p.price)) : "", pr>0 ? dec(pr) : "", p.promotion ? "Так" : "Ні", num(p.promotionPrice)>0 ? dec(num(p.promotionPrice)) : ""];
-    }));
-    const [headers,...values]=rows;
-    return window.TSukenyaCsv.serialize(headers.map((label,index)=>({label,kind:[6,7,8,9,11].includes(index)?'number':'text'})),values,{delimiter:',',reversible:true,bom:false});
+    const columns=CatalogSchema.columns('artifactBase');
+    const rows=list.map(p=>{
+      const pr=priceOf(p),man=p.manualPrice&&p.price!=null;
+      const values={...p,type:typeOf(p)===NOTYPE?'':typeOf(p),unit:p.unit||'шт',cost:num(p.cost)>0?dec(num(p.cost)):'',markup:man?'':dec(num(p.markup??defMarkup())),price:man?dec(num(p.price)):'',salePrice:pr>0?dec(pr):'',promotion:p.promotion?'Так':'Ні',promotionPrice:num(p.promotionPrice)>0?dec(num(p.promotionPrice)):''};
+      return columns.map(f=>values[f.key]??'');
+    });
+    return window.TSukenyaCsv.serialize(columns.map(f=>({label:f.label,kind:f.kind==='decimal'?'number':'text'})),rows,{delimiter:',',reversible:true,bom:false});
   }
   const timeText = t => new Date(t).toLocaleTimeString("uk-UA",{hour:"2-digit",minute:"2-digit"});
   function syncText(){
@@ -1351,22 +1366,22 @@
   /* SYNC-ENGINE-START */
   // Двостороння синхронізація товарів із Google Таблицею. Чиста функція: на вході рядки таблиці й товари, на виході — план записів.
   const GS_COLS = [
-    {k:"name",     h:"Назва",                  m:h=>h==="назва" || h.includes("назв") || h.includes("найменув")},
-    {k:"type",     h:"Група",                  m:h=>h==="група" || h.startsWith("група") || h==="тип"},
-    {k:"category", h:"Категорія",              m:h=>h.includes("категор")},
-    {k:"pack",     h:"Пакування",              m:h=>h.includes("пакуван") || h==="тара"},
-    {k:"size",     h:"Об’єм / вага",           m:h=>h.includes("розмір") || h.includes("фасув") || /об.?[єе]м/.test(h)},
-    {k:"unit",     h:"Од.",                    m:h=>h==="од" || h.startsWith("од ") || h.includes("одиниц")},
-    {k:"cost",     h:"Закупівля, грн",         m:h=>h.includes("закуп")},
-    {k:"markup",   h:"Націнка, %",             m:h=>h.includes("націнк")},
-    {k:"price",    h:"Ціна продажу, грн",      m:h=>h.includes("звичайна ціна") || h.includes("ціна продаж") || h.includes("ціна вручну")},
-    {k:"per100",   h:"Ціна за 100 г, грн",     m:h=>h.includes("100 г") || h.includes("100г"), calc:true},
-    {k:"priceAt",  h:"Ціна оновлена",          m:h=>h.includes("оновлен"), calc:true},
-    {k:"tagPrice", h:"Ціна на цінник, грн",    m:h=>h.includes("цінник"), calc:true},
-    {k:"promotion", h:"Акція", m:h=>h==="акція" || h==="promotion"},
-    {k:"promotionPrice", h:"Акційна ціна, грн", m:h=>h.includes("акційна ціна") || h==="promotionprice" || h==="promotion price"},
-    {k:"id",       h:"ID",                     m:h=>h==="id" || h==="код товару в застосунку", calc:true}
-  ];
+    {k:"name",                  m:h=>h==="назва" || h.includes("назв") || h.includes("найменув")},
+    {k:"type",                  m:h=>h==="група" || h.startsWith("група") || h==="тип"},
+    {k:"category",              m:h=>h.includes("категор")},
+    {k:"pack",              m:h=>h.includes("пакуван") || h==="тара"},
+    {k:"size",           m:h=>h.includes("розмір") || h.includes("фасув") || /об.?[єе]м/.test(h)},
+    {k:"unit",                    m:h=>h==="од" || h.startsWith("од ") || h.includes("одиниц")},
+    {k:"cost",         m:h=>h.includes("закуп")},
+    {k:"markup",             m:h=>h.includes("націнк")},
+    {k:"price",      m:h=>h.includes("звичайна ціна") || h.includes("ціна продаж") || h.includes("ціна вручну")},
+    {k:"per100",     m:h=>h.includes("100 г") || h.includes("100г"), calc:true},
+    {k:"priceAt",          m:h=>h.includes("оновлен"), calc:true},
+    {k:"tagPrice",    m:h=>h.includes("цінник"), calc:true},
+    {k:"promotion", m:h=>h==="акція" || h==="promotion"},
+    {k:"promotionPrice", m:h=>h.includes("акційна ціна") || h==="promotionprice" || h==="promotion price"},
+    {k:"id",                     m:h=>h==="id" || h==="код товару в застосунку", calc:true}
+  ].map(c=>({...c,h:CatalogSchema.columns('artifactGS').find(f=>f.key===(c.k==='tagPrice'?'salePrice':c.k)).label}));
   const SYNC_F = ["name","type","category","pack","size","unit","cost","markup","price","promotion","promotionPrice"];
   const n2 = x => { const v = Math.round((+x || 0)*100)/100; return String(v); };
   function colLetter(i){ let s = ""; i++; while (i > 0){ const m = (i-1) % 26; s = String.fromCharCode(65+m) + s; i = Math.floor((i-1)/26); } return s; }

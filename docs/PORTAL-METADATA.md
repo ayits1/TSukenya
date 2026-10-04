@@ -67,3 +67,7 @@ node tests/portal-metadata-contract.cjs
 ```
 
 Браузерний harness створює власну SQLite, видаляє DB env і зупиняє свій сервер; mutation не на production. PostgreSQL перевірки використовували тільки tsukenya_portal_metadata на локальному isolated61144. Нема схеми/migration/posting/ROLE_KINDS змін.
+
+## Поточні файлові профілі каталогу
+
+`catalogue.csv` використовує [схему каталогу 1](CATALOG-SCHEMA.md): 20 стовпців для приватних ролей, 18 для касира. Збережені ручні/локальні умови розділені з розрахованими regular/effective цінами й кампаніями. GET та CSV зберігають чинні scope/current-actor/RR/streaming правила; шаблон імпорту має 14 стовпців і окремий авторизований download. Artifact/історичні профілі лишаються сумісними проєкціями, не поточним Django DTO.
