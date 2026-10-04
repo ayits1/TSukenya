@@ -426,7 +426,8 @@ def work_shift_save(user,value):
             scope(user,receipt.work_shift.store)
             if receipt.author_id!=user.pk or receipt.fingerprint!=fingerprint:
                 raise Conflict('Ключ повтору вже використано для іншого запису табеля.', 'idempotency_conflict')
-            return response({'id':receipt.work_shift_id})
+            from .work_shift_recovery import acknowledgement
+            return response(acknowledgement(receipt.work_shift_id,value))
     d=day(value.get('date'));require(d<=timezone.localdate(),'Зміну не можна відмітити майбутнім днем.')
     require(not lock.closed_through or d>lock.closed_through,'Обліковий період закритий.')
     s=get(WorkShift,value['id'],'Зміна') if value.get('id') else WorkShift(employee=e,store=e.store,date=d)
@@ -458,6 +459,9 @@ def work_shift_save(user,value):
     audit(user,'work_shift_saved',f'work_shift/{s.pk}',{'rate':str(s.shift_rate),'percent':str(s.bonus_percent),'basis':s.bonus_basis, **audit_change(before, audit_snapshot('work_shift', s), observed=value.get('revision'), reason=value.get('reason'))})
     if key is not None:
         WorkShiftCreateReceipt.objects.create(key=key,author=user,work_shift=s,fingerprint=fingerprint)
+    if key is not None:
+        from .work_shift_recovery import acknowledgement
+        return response(acknowledgement(s.pk,value))
     return response({'id':s.pk})
 
 def portal(request):
@@ -522,7 +526,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/planning-category-editor.js"></script><script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-entity-persistence.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/receipt-catalog-review.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/planning-category-editor.js"></script><script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-entity-persistence.js"></script><script src="/erp-workshift-persistence.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/receipt-catalog-review.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         if RELEASE!='unknown':
             html=html.replace('id="applicationVersion">Локальна версія','id="applicationVersion">Версія '+RELEASE[:7],1).replace('id="applicationCommit">Невідомий','id="applicationCommit">'+RELEASE,1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
@@ -571,6 +575,11 @@ def handle(request):
     if path.startswith('/api/v1/receipt-pricing/'):
         from .receipt_pricing import handle as receipt_pricing
         return receipt_pricing(request,user)
+    if path in {'/api/v1/trading/work-shifts/recovery-context','/api/v1/trading/work-shifts/current','/api/v1/trading/work-shifts/identity'}:
+        from . import work_shift_recovery
+        if path.endswith('/identity') and request.method=='POST':return response(work_shift_recovery.identity(user,body(request)))
+        if request.method=='GET' and not path.endswith('/identity'):
+            return response(work_shift_recovery.current(user,request.GET) if path.endswith('/current') else work_shift_recovery.recovery_context(user,request.GET))
     if path.startswith('/api/v1/'):
         if path.startswith('/api/v1/trading/'):
             from .directories import handle as handle_directories
@@ -592,7 +601,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-entity-persistence.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/receipt-catalog-review.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-entity-persistence.js','/erp-workshift-persistence.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/receipt-catalog-review.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -864,7 +873,20 @@ def handle(request):
                 return response({'error':message,**proof},400)
             return result
     if path=='/api/erp/shifts' and request.method=='POST':return shift_action(user,body(request))
-    if path=='/api/erp/work-shifts' and request.method=='POST':return work_shift_save(user,body(request))
+    if path=='/api/erp/work-shifts' and request.method=='POST':
+        value=body(request)
+        with transaction.atomic():
+            try:
+                result=work_shift_save(user,value)
+            except Conflict:
+                raise
+            except (BusinessError,ValidationError) as exc:
+                message=' '.join(exc.messages) if isinstance(exc,ValidationError) else str(exc)
+                if any(word in message for word in ('прав','роль','доступ','не підтверджений')):raise
+                key=value.get('idempotency_key')
+                proof={'write_rejected':True,'request_key':key,'type':'work_shift'} if isinstance(key,str) and re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',key) and not value.get('id') else {}
+                return response({'error':message,**proof},400)
+            return result
     if path=='/api/erp/shifts' and request.method=='GET':
         from .shift_browsing import cash_shifts
         return response(cash_shifts(user,request.GET))

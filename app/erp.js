@@ -407,32 +407,41 @@ form.onsubmit=e=>{e.preventDefault();void recovery.save(e.submitter?.value==='po
 function retailPrice(p){if(typeof p?.salePrice==='string'&&/^\d+\.\d{2}$/.test(p.salePrice))return p.salePrice;throw Error('Ціну для цього магазину не підтверджено. Повторіть вибір товару.');}
 async function viewVoucher(id){if(!current)return;const source=dialog,token=generation,tab=current;const v=await api('vouchers/'+id);if(token!==generation||tab!==current||dialog!==source)return;const detail=[['Документ',`№ ${v.number}`],['Дата',v.date],['Стан',status[v.status]],['Магазин',name('stores',v.store)],['Склад',name('warehouses',v.warehouse)],['Контрагент',name('parties',v.party)],['Працівник',name('employees',v.employee)],['Сума',amount(v.total)+' грн'],...(v.cost===undefined?[]:[['Собівартість руху',amount(v.cost)+' грн']])];let html=`<dl class="trade-detail">${detail.map(([k,val])=>`<div><dt>${k}</dt><dd>${esc(val)}</dd></div>`).join('')}</dl>${v.note?`<p>${esc(v.note)}</p>`:''}${v.reference?`<p>Пов’язаний документ ${v.kind==='payment'?'№ '+esc(v.reference):button('№ '+v.reference,'view',`data-id="${v.reference}"`)}</p>`:''}${v.payload.fiscal_ref?`<p>Чек ПРРО: ${esc(v.payload.fiscal_ref)}</p>`:''}`;if(v.lines.length)html+=table(['Товар','Партія / придатний до','Кількість','Ціна','Сума',...(v.cost===undefined?[]:['Собівартість'])],v.lines.map(l=>[esc(l.name),esc(l.lot||'—')+(l.origin_known===false?' · походження не встановлено':'')+(l.expiry?' / '+esc(l.expiry):'')+(l.reference_line?' · вихідний рядок № '+esc(l.reference_line):''),quantity(l.quantity)+' '+esc(l.unit),unitPrice(l.price)+' грн',amount(l.amount)+' грн',...(v.cost===undefined?[]:[amount(l.cost)+' грн'])]));if(v.order)html+=orderUI.panel(v);if(v.kind==='production')html+=productionUI.summary(v);if(v.allocations)html+=`<h3>Розподіли платежу</h3>`+table(['Документ','Сума'],v.allocations.map(r=>['№ '+esc(r.number),amount(r.amount)+' грн']));if(v.unallocated!==undefined)html+=`<p>Невикористаний аванс: ${amount(v.unallocated)} грн</p>`;if(v.payload.calculation)html+=table(['Зміна','Ставка','Відсоток','Виторг для %','Нараховано'],v.payload.calculation.map(c=>[esc(c.date)+`<span class="muted">Табель № ${esc(c.id)}${c.cash_shift?' · Касова зміна № '+esc(c.cash_shift):''}</span>`,amount(Number(c.rate)*Number(c.units))+' грн',quantity(c.percent)+' %',amount(c.basis_amount)+' грн',amount(c.accrued)+' грн']));if(v.cash_movements.length)html+=`<h3 class="trade-section-title">Рух коштів</h3>`+table(['Рахунок','Сума','Операція'],v.cash_movements.map(e=>[esc(name('accounts',e.account)),amount(e.amount)+' грн',e.reversal?'Скасування':'Проведення']));if(v.movements.length)html+=`<details><summary>Складські проведення</summary>${table(['Склад','Партія','Кількість',...(v.cost===undefined?[]:['Вартість'])],v.movements.map(m=>[esc(name('warehouses',m.warehouse)),esc(m.lot),quantity(m.quantity),...(v.cost===undefined?[]:[amount(m.value)+' грн'])]))}</details>`;const mayChange=v.kind!=='expense'||v.payload.expense_scope!=='network'||['owner','accountant'].includes(E.role);if(v.kind==='expense')html+=`<p>Належність витрати: ${v.payload.expense_scope==='network'?'мережева, без розподілу':'магазин'}. Рахунок оплати належить магазину документа.</p>`;let actions='';if(v.status==='draft'&&mayChange)actions=button('Редагувати','edit-voucher',`data-id="${id}"`)+button('Провести','post-voucher',`data-id="${id}" data-revision="${v.revision}"`,true)+button('Видалити чернетку','delete-voucher',`data-id="${id}" data-revision="${v.revision}"`);if(v.status==='posted'){if(mayChange&&['owner','manager','accountant'].includes(E.role))actions+=button('Скасувати','reverse-voucher',`data-id="${id}"`);if(v.kind==='purchase_order'&&v.order?.state!=='closed'&&v.lines.some(l=>Number(l.remaining)>0))actions+=button('Створити надходження','from-order',`data-id="${id}" data-kind="receipt"`,true);if(v.kind==='customer_order'&&v.order?.state!=='closed'&&v.lines.some(l=>Number(l.remaining)>0))actions+=button('Створити продаж','from-order',`data-id="${id}" data-kind="sale"`,true);if(['sale','receipt'].includes(v.kind)&&v.lines.some(l=>Number(l.remaining)>0))actions+=button(v.kind==='sale'?'Повернення покупця':'Повернення постачальнику','from-order',`data-id="${id}" data-kind="${v.kind==='sale'?'customer_return':'supplier_return'}"`);if(v.kind==='payment'&&Number(v.unallocated)>0)actions+=button('Використати аванс','use-advance',`data-id="${v.id}"`)+button('Повернути аванс','refund-advance',`data-id="${v.id}"`);if(Number(v.outstanding)>0&&roleKinds[E.role].includes('payment'))actions+=button('Оплатити борг','pay-debt',`data-id="${id}"`,true);}if(v.kind==='receipt'&&['draft','posted'].includes(v.status)&&['owner','manager','warehouse'].includes(E.role))actions+=button('Переглянути закупівельні та продажні ціни','receipt-pricing',`data-id="${v.id}"`);const opened=modal(`${kinds[v.kind]} · № ${v.number}`,html,actions);opened._confirmedVoucher=v;return opened;}
 function simpleForm(title,html,fn){const d=modal(title,`<form id="tradeSimpleForm"><div class="trade-form-grid">${html}</div><div class="row trade-section-title"><button class="btn" type="submit">Зберегти</button></div></form>`,'',true);d.querySelector('form').onsubmit=e=>{e.preventDefault();submit(e.target,fn);};}
-async function workShiftForm(id){
+const localWorkProjection=value=>({cash_shift:value.cash_shift||'',units:value.units,shift_rate:value.shift_rate,bonus_percent:value.bonus_percent,bonus_basis:value.bonus_basis,note:value.note||''});
+async function workShiftForm(id,restored=null){
  const editor=window.NativeWorkShiftEditor;if(!editor){errorPanel(Error('Модуль табеля недоступний. Оновіть сторінку.'));return;}
- const source=dialog,token=generation,tab=current;
- let s={},initialEmployee=null;
+ const source=dialog,token=generation,tab=current,openingStore=filterStore||E.defaultStoreId,codec=window.NativeWorkShiftPersistence;
+ const state=restored?codec.decodeWorkShiftState(restored.payload.baseline):null;
+ const localId=state?.recordId||'workshift_'+crypto.randomUUID(),initialKey=state?.key||crypto.randomUUID();
+ let s=state?(state.original||{id:state.id,employee_id:state.employee,store_id:state.store,date:state.date}):{},initialEmployee=null;
  try{
-  const result=id?await api('work-shifts?'+new URLSearchParams({id:String(id)})):null;
+  if(!restored){await window.TradeWorkShiftPersistence.prepare({recordId:localId,key:initialKey,id:id?Number(id):null,store:!id?Number(openingStore)||null:null,employee:null,date:'',original:null,createBase:null,needsReview:false,confirmed:false});if(source!==dialog||token!==generation||tab!==current)return;}
+  if(restored?.signal.aborted)return;
+  const result=id&&!restored?await api('../v1/trading/work-shifts/current?'+new URLSearchParams({id:String(id)}),'GET',undefined,undefined,false):null;
   if(source!==dialog||token!==generation||tab!==current)return;
-  s=result?editor.decodeWorkShift(result,Number(id)):{};
-  if(s.employee_id){initialEmployee=(await window.TradeDirectories.hydrate([{type:'employees',id:String(s.employee_id)}],{purpose:'work_shift'})).items[0];if(!initialEmployee||initialEmployee.store_id!==s.store_id)throw Error('Не вдалося перевірити працівника табеля в межах магазину.');}
-  else{initialEmployee=(await window.TradeDirectories.api.list('employees',{purpose:'work_shift',page:1})).items[0];if(initialEmployee)window.TradeDirectories.remember('employees',[initialEmployee]);}
+  if(result)s=editor.decodeWorkShift(result,Number(id));
+  if(s.employee_id){initialEmployee=(await window.TradeDirectories.hydrate([{type:'employees',id:String(s.employee_id)}],{purpose:'work_shift'},restored?.signal)).items[0];if(!initialEmployee||initialEmployee.store_id!==s.store_id)throw Error('Не вдалося перевірити працівника табеля в межах магазину.');}
+  else{initialEmployee=(await window.TradeDirectories.api.list('employees',{purpose:'work_shift',page:1,...openingStore?{store:String(openingStore)}:{}},restored?.signal)).items[0];if(initialEmployee)window.TradeDirectories.remember('employees',[initialEmployee]);}
   if(source!==dialog||token!==generation||tab!==current)return;
   if(!s.id&&initialEmployee){try{editor.employeeWorkTerms(initialEmployee);}catch{throw Error('Умови працівника неповні або некоректні. Значення не підмінено нулями; повторно відкрийте форму після оновлення довідника.');}}
  }catch(error){if(source===dialog&&token===generation&&tab===current)errorPanel(error);return;}
+ if(restored?.signal.aborted)return;
  const employees=initialEmployee?[initialEmployee]:[];
- const html=field('Працівник',(s.id?lockedSelect:select)('employee',employees,s.employee_id||initialEmployee?.id,true))+field('Дата',input('date',s.date||date(),'date',`required max="${date()}" ${s.id?'readonly':''} ${E.closed_through?`min="${dayOffset(E.closed_through,1)}"`:''}`))+`<div class="wide"><input type="hidden" name="cash_shift" value="${s.cash_shift_id||''}"><div id="tradeWorkCashChoice"></div></div>`+field('Кількість змін',num('units',s.units||1,'0.01','required min="0.01" max="10"'))+field('Ставка за зміну, грн',num('shift_rate',s.shift_rate??initialEmployee?.shift_rate??0,'0.01','required'))+field('Відсоток від виторгу, %',num('bonus_percent',s.bonus_percent??initialEmployee?.bonus_percent??0,'0.001','required max="100"'))+field('База відсотка',select('bonus_basis',[{id:'store',name:'Виторг магазину за касову зміну'},{id:'personal',name:'Особисті продажі'},{id:'profit',name:'Валовий прибуток'}],s.bonus_basis||initialEmployee?.bonus_basis||'store',true))+field('Примітка',input('note',s.note||'','text','maxlength="2000"'))+'<p class="trade-caption wide">Для кожної касової зміни цього дня створіть окремий запис. «Кількість змін» множить лише ставку; відсоток нараховується один раз від виторгу вибраної касової зміни. Без касової зміни дозволений один запис дня зі ставкою та відсотком 0. Працівник і дата збереженого табеля незмінні.</p>';
- let createKey=s.id?undefined:crypto.randomUUID(),pendingIntent=null,originalIntent=null,confirmedId=null,latest=null,needsReview=false,originalIdentity=null;
- let baseline=s.id?editor.workShiftProjection(s):null,reading=false,readToken=0,readController,comparisonHandle;
+ const html=field('Працівник',(s.id?lockedSelect:select)('employee',employees,s.employee_id||initialEmployee?.id,true))+field('Дата',input('date',s.date||date(),'date',`required max="${date()}" ${s.id?'readonly':''} ${E.closed_through?`min="${dayOffset(E.closed_through,1)}"`:''}`))+`<div class="wide"><input type="hidden" name="cash_shift" value="${s.cash_shift_id||''}"><div id="tradeWorkCashChoice"></div></div>`+field('Кількість змін',input('units',s.units||1,'text','inputmode="decimal" required'))+field('Ставка за зміну, грн',input('shift_rate',s.shift_rate??initialEmployee?.shift_rate??0,'text','inputmode="decimal" required'))+field('Відсоток від виторгу, %',input('bonus_percent',s.bonus_percent??initialEmployee?.bonus_percent??0,'text','inputmode="decimal" required'))+field('База відсотка',select('bonus_basis',[{id:'store',name:'Виторг магазину за касову зміну'},{id:'personal',name:'Особисті продажі'},{id:'profit',name:'Валовий прибуток'}],s.bonus_basis||initialEmployee?.bonus_basis||'store',true))+field('Примітка',input('note',s.note||'','text','maxlength="2000"'))+'<p class="trade-caption wide">Для кожної касової зміни цього дня створіть окремий запис. «Кількість змін» множить лише ставку; відсоток нараховується один раз від виторгу вибраної касової зміни. Без касової зміни дозволений один запис дня зі ставкою та відсотком 0. Працівник і дата збереженого табеля незмінні.</p>';
+ let createKey=initialKey,pendingIntent=restored?.payload.firstIntent?.body.idempotency_key?structuredClone(restored.payload.firstIntent.body):null,originalIntent=pendingIntent?Object.fromEntries(codec.rawKeys.map(k=>[k,pendingIntent[k]])):null,confirmedId=state?.confirmed?state.id:null,latest=null,needsReview=Boolean(state&&state.id),ambiguous=Boolean(restored),originalIdentity=state?{employee_id:state.employee,date:state.date,store_id:state.store}:null;
+ let baseline=state?.createBase?localWorkProjection(state.createBase):s.id?editor.workShiftProjection(s):null,reading=false,readToken=0,readController,comparisonHandle;
  let choice,hintToken=0,employeeTermsValid=Boolean(s.id||initialEmployee);
  const d=modal('Відпрацьована зміна',`<form id="tradeSimpleForm"><fieldset data-work-editor><div class="trade-form-grid">${html}</div><div class="row trade-section-title"><button class="btn" type="submit">Зберегти</button></div></fieldset></form>`,'',true);
  const form=d.querySelector('form');form.dataset.directoryPurpose='work_shift';const cashShift=form.elements.cash_shift,saveButton=form.querySelector('[type=submit]'),editable=form.querySelector('[data-work-editor]');
  const recovery=document.createElement('section');recovery.className='trade-section-title';recovery.hidden=true;
- recovery.innerHTML='<h3 tabindex="-1" data-work-confirmation>Узгодження табеля</h3><p class="trade-caption" role="status" data-work-recovery-status></p><p class="trade-caption" data-work-baseline></p><div data-work-comparison></div><button class="btn soft" type="button" data-work-exact-retry>Повторити початкове збереження</button><button class="btn soft" type="button" data-work-read-retry>Порівняти з поточною версією</button><button class="btn soft" type="button" data-work-read-cancel hidden>Скасувати читання</button>';
+ recovery.innerHTML='<h3 tabindex="-1" data-work-confirmation>Узгодження табеля</h3><p class="trade-caption" role="status" data-work-recovery-status></p><p class="trade-caption" data-work-baseline></p><div data-work-comparison></div><button class="btn soft" type="button" data-work-exact-retry>Повторити початкове збереження</button><button class="btn soft" type="button" data-work-identity hidden>Перевірити початкове створення</button><button class="btn soft" type="button" data-work-read-retry>Порівняти з поточною версією</button><button class="btn soft" type="button" data-work-read-cancel hidden>Скасувати читання</button>';
  editable.after(recovery);
- const readValues=()=>Object.fromEntries([...form.elements].filter(element=>element.name).map(element=>[element.name,element.value]));
+ const readValues=()=>Object.fromEntries(codec.rawKeys.map(key=>[key,form.elements.namedItem(key)?.value||'']));
  const localProjection=value=>({cash_shift:value.cash_shift||'',units:value.units,shift_rate:value.shift_rate,bonus_percent:value.bonus_percent,bonus_basis:value.bonus_basis,note:value.note||''});
  const live=()=>d.open&&dialog===d&&generation===token&&current===tab;
+ if(restored){for(const [key,value] of Object.entries(restored.payload.draft)){const el=form.elements.namedItem(key);if(el)el.value=value;}}
+ const persistence=window.TradeWorkShiftPersistence.enroll({d,form,restored:restored?.payload,captureRaw:readValues,cancel:()=>stopComparison(),initial:{recordId:localId,key:createKey,id:s.id||null,store:s.store_id||initialEmployee?.store_id||Number(openingStore)||null,employee:s.employee_id||Number(form.elements.employee.value)||null,date:form.elements.date.value,original:s.id?s:null,createBase:null,needsReview,confirmed:Boolean(confirmedId)}});
+ const durable=()=>persistence.capture({...persistence.payload.baseline,needsReview});
  function stopComparison(){readController?.abort();readController=null;readToken++;reading=false;comparisonHandle?.unmount();comparisonHandle=null;recovery.querySelector('[data-work-comparison]').replaceChildren();}
  function renderRecovery(){
   if(!live())return;
@@ -441,7 +450,8 @@ async function workShiftForm(id){
   editable.disabled=reading||Boolean(comparisonHandle);
   saveButton.disabled=Boolean(unresolved||needsReview||reading||comparisonHandle||latest?.payroll_id||!employeeTermsValid);
   saveButton.textContent=confirmedId?`Зберегти поточні поля в табелі № ${confirmedId}`:'Зберегти';
-  recovery.querySelector('[data-work-exact-retry]').hidden=!unresolved;
+  recovery.querySelector('[data-work-exact-retry]').hidden=!unresolved||reading||Boolean(comparisonHandle);
+  recovery.querySelector('[data-work-identity]').hidden=!unresolved||!ambiguous||reading;
   recovery.querySelector('[data-work-read-retry]').hidden=unresolved||(!needsReview&&!confirmedId)||reading||Boolean(comparisonHandle);
   recovery.querySelector('[data-work-read-cancel]').hidden=!reading;
   if(reading)recovery.querySelector('[data-work-recovery-status]').textContent='Читаємо поточну версію табеля…';
@@ -459,14 +469,16 @@ async function workShiftForm(id){
   const active=()=>live()&&read===readToken&&!controller.signal.aborted;
   renderRecovery();d.querySelector('#tradeFormError').textContent='';
   try{
-   const row=editor.decodeWorkShift(await api('work-shifts?'+new URLSearchParams({id:String(s.id||confirmedId)}),'GET',undefined,controller.signal),s.id||confirmedId);
+   const {row,cashIds,employee,store}=await persistence.read(async signal=>{
+    const row=editor.decodeWorkShift(await api('../v1/trading/work-shifts/current?'+new URLSearchParams({id:String(s.id||confirmedId)}),'GET',undefined,signal,false),s.id||confirmedId);
+    if(!editor.workShiftIdentityMatches(s,row))throw Error('Працівник, магазин або дата актуального табеля не відповідають відкритому запису.');
+    const cashIds=[...new Set([baseline?.cash_shift,mine.cash_shift,row.cash_shift_id].filter(Boolean).map(String))];
+    const captions=await window.TradeDirectories.hydrate([{type:'employees',id:String(row.employee_id)},{type:'stores',id:String(row.store_id)},...cashIds.map(id=>({type:'cash_shifts',id}))],{purpose:'label'},signal);
+    const employee=window.TradeDirectories.get('employees',String(row.employee_id)),store=window.TradeDirectories.get('stores',String(row.store_id));
+    if(captions.unavailable.length||!employee||employee.store_id!==row.store_id||!store||cashIds.some(id=>window.TradeDirectories.get('cash_shifts',id)?.store_id!==row.store_id))throw Error('Не вдалося перевірити реквізити табеля в межах магазину.');
+    return {row,cashIds,employee,store};
+   },controller.signal);
    if(!active())return;
-   if(!editor.workShiftIdentityMatches(s,row))throw Error('Працівник, магазин або дата актуального табеля не відповідають відкритому запису. Ваші поля збережено; узгодження недоступне.');
-   const cashIds=[...new Set([baseline?.cash_shift,mine.cash_shift,row.cash_shift_id].filter(Boolean).map(String))];
-   const captions=await window.TradeDirectories.hydrate([{type:'employees',id:String(row.employee_id)},{type:'stores',id:String(row.store_id)},...cashIds.map(id=>({type:'cash_shifts',id}))],{purpose:'label'},controller.signal);
-   if(!active())return;
-   const employee=window.TradeDirectories.get('employees',String(row.employee_id)),store=window.TradeDirectories.get('stores',String(row.store_id));
-   if(captions.unavailable.length||!employee||employee.store_id!==row.store_id||!store||cashIds.some(id=>window.TradeDirectories.get('cash_shifts',id)?.store_id!==row.store_id))throw Error('Не вдалося перевірити реквізити табеля в межах магазину. Ваші поля збережено; повторіть читання.');
    latest=Object.freeze(row);
    recovery.querySelector('[data-work-baseline]').textContent=`Табель № ${row.id} · ${employee.name}${employee.active===false?' · неактивний':''} · ${store.name} · ${row.date}. Нараховано ${amount(row.accrued)} грн; база ${amount(row.basis_amount)} грн. Ці показники лише для читання.`;
    if(row.payroll_id)return;
@@ -479,10 +491,10 @@ async function workShiftForm(id){
     onApply:merged=>{
      if(!active())return;
      let verified;try{verified=editor.captureWorkShiftDraft(merged);}catch{formError(Error('Узгоджені умови табеля некоректні. Ваші поля й початкова ревізія збережені; поверніться до чернетки та повторіть порівняння.'),d);return;}
-     stopComparison();Object.assign(s,row);baseline=editor.workShiftProjection(row);latest=null;needsReview=false;employeeTermsValid=true;
+     stopComparison();Object.assign(s,row);baseline=editor.workShiftProjection(row);latest=null;needsReview=false;employeeTermsValid=true;persistence.confirm('apply',{items:[row],total:1,page:1,pages:1});
      for(const [key,value] of Object.entries(verified))if(form.elements[key])form.elements[key].value=String(value??'');
      recovery.querySelector('[data-work-baseline]').textContent='';recovery.querySelector('[data-work-recovery-status]').textContent='Узгоджені зміни застосовано до чернетки. Натисніть «Зберегти» окремо.';
-     markDirty(d);renderRecovery();void choice.update({store:s.store_id,day:s.date,selected:cashShift.value});saveButton.focus();
+     durable();markDirty(d);renderRecovery();void choice.update({store:s.store_id,day:s.date,selected:cashShift.value});saveButton.focus();
     }
    });
   }catch(error){if(active()&&error.name!=='AbortError'){latest=null;formError(error,d);}}
@@ -490,44 +502,57 @@ async function workShiftForm(id){
  }
  async function saveWork(value,exact=false){
   if(!exact){
-   if(!employeeTermsValid)throw Error('Умови вибраного працівника не перевірені. Виберіть працівника з повними умовами або повторно відкрийте форму; ваші поля збережено.');
-   if(pendingIntent&&!confirmedId)throw Error('Спочатку повторіть початкове збереження, щоб перевірити його результат.');
-   if(needsReview)throw Error('Спочатку узгодьте поточну версію табеля. Ваші поля збережено.');
+   if(!employeeTermsValid)throw Error('Умови працівника не підтверджені. Ваші поля збережено.');
+   if(pendingIntent&&!confirmedId||needsReview)throw Error('Спочатку перевірте початкове збереження або узгодьте поточну версію табеля.');
    if(!choice?.ready)throw Error('Дочекайтеся завантаження касових змін або повторіть запит.');
-   if(Number(value.bonus_percent)>0&&!value.cash_shift)throw Error('Для відсотка виберіть касову зміну.');
-   if(s.id&&(String(value.employee)!==String(s.employee_id)||value.date!==s.date))throw Error('Працівник і дата підтвердженого табеля незмінні. Новіші поля залишаються у формі; для збереження цього запису поверніть початкового працівника й дату.');
+   editor.captureWorkShiftDraft(value);
+   if(!/^[1-9]\d*$/.test(value.employee)||!value.date)throw Error('Виберіть працівника й дату.');
+   if(s.id&&(String(value.employee)!==String(s.employee_id)||value.date!==s.date))throw Error('Працівник і дата підтвердженого табеля незмінні.');
   }
   if(!s.id&&!pendingIntent){originalIntent=Object.freeze({...value});baseline=localProjection(originalIntent);originalIdentity=Object.freeze({employee_id:Number(value.employee),date:value.date,store_id:window.TradeDirectories.get('employees',value.employee)?.store_id});pendingIntent=Object.freeze({...value,idempotency_key:createKey});}
   const body=exact?pendingIntent:s.id?{...value,id:s.id,revision:s.revision}:pendingIntent;
+  let sent=false;
   try{
-   const saved=await api('work-shifts','POST',body);
-   if(!Number.isSafeInteger(saved.id)||saved.id<=0)throw Error('Відповідь не підтверджує збережений табель. Повторіть початковий запит.');
+   const frozen=await persistence.before(body);if(!live())return {keepFormOpen:true};sent=true;
+   const saved=await api('work-shifts','POST',frozen);
    if(!s.id){
-    confirmedId=saved.id;pendingIntent=null;
-    if(JSON.stringify(readValues())!==JSON.stringify(originalIntent)){
-     Object.assign(s,{id:confirmedId,...originalIdentity});employeeTermsValid=true;needsReview=true;
-     await readCurrent();return{id:saved.id,keepFormOpen:true};
-    }
-   }
-   return saved;
+    const identifier=codec.decodeWorkShiftReceipt(saved,createKey,pendingIntent);persistence.confirm('create',saved);
+    confirmedId=identifier;pendingIntent=null;Object.assign(s,{id:identifier,...originalIdentity});d.dataset.confirmedId=String(identifier);
+   }else persistence.confirm('update',saved);
+   needsReview=true;durable();
+   if(!live())return {keepFormOpen:true};
+   const row=await persistence.read(async signal=>editor.decodeWorkShift(await api('../v1/trading/work-shifts/current?'+new URLSearchParams({id:String(s.id)}),'GET',undefined,signal,false),s.id));
+   if(!live())return {keepFormOpen:true};
+   const remaining=persistence.confirm('complete',{items:[row],total:1,page:1,pages:1});
+   if(!remaining)return saved;
+   dialogStatus(d,'Збереження підтверджено. Новіші поля збережені; прочитайте поточну версію, застосуйте узгодження й збережіть окремо.');return {id:s.id,keepFormOpen:true};
   }catch(error){
-   if(s.id){latest=null;needsReview=true;}
-   if(!exact&&!s.id&&!confirmedId&&error.status>=400&&error.status<500&&error.status!==408){pendingIntent=null;originalIntent=null;createKey=crypto.randomUUID();}
+   if(s.id){latest=null;needsReview=true;try{durable();}catch{}}
+   else if(sent&&!ambiguous&&error.status===400&&error.detail?.write_rejected===true&&error.detail.request_key===createKey&&error.detail.type==='work_shift'){
+    persistence.confirm('rejected',error.detail);pendingIntent=null;originalIntent=null;
+   }else if(sent)ambiguous=true;
+   if(error.status===401||error.status===403){try{await persistence.read(async()=>{throw error;});}catch{}}
    throw error;
   }
  }
- form.onsubmit=event=>{event.preventDefault();void submit(form,value=>saveWork(value)).finally(renderRecovery);};
- recovery.querySelector('[data-work-exact-retry]').onclick=()=>{if(!pendingIntent)return;void submit(form,()=>saveWork(null,true)).finally(renderRecovery);};
+ form.onsubmit=event=>{event.preventDefault();void submit(form,()=>saveWork(readValues())).finally(renderRecovery);};
+ recovery.querySelector('[data-work-exact-retry]').onclick=()=>{if(!pendingIntent||reading||comparisonHandle||!live())return;void submit(form,()=>saveWork(null,true)).finally(renderRecovery);};
+ recovery.querySelector('[data-work-identity]').onclick=async()=>{
+  if(!pendingIntent||reading||!live())return;const request=++readToken;readController=new AbortController();reading=true;renderRecovery();
+  try{const {raw,found}=await persistence.read(async signal=>{const raw=await api('../v1/trading/work-shifts/identity','POST',{request:pendingIntent},signal);return {raw,found:codec.decodeWorkShiftIdentity(raw,createKey,pendingIntent)};},readController.signal);if(!live()||request!==readToken)return;if(found===null){dialogStatus(d,'Початкове створення не підтверджено. Запит збережено; можна повторити точний запит.');return;}persistence.confirm('identity',raw);confirmedId=found;pendingIntent=null;const saved=codec.decodeWorkShiftState(persistence.payload.baseline);Object.assign(s,{id:found,employee_id:saved.employee,date:saved.date,store_id:saved.store});baseline=localProjection(saved.createBase);needsReview=true;durable();d.dataset.confirmedId=String(found);}
+  catch(error){if(live()&&request===readToken&&error.name!=='AbortError')formError(error,d);}finally{if(live()&&request===readToken){reading=false;readController=null;renderRecovery();}}
+ };
  recovery.querySelector('[data-work-read-retry]').onclick=()=>void readCurrent();
  recovery.querySelector('[data-work-read-cancel]').onclick=()=>{stopComparison();renderRecovery();recovery.querySelector('[data-work-read-retry]').focus();};
  d.addEventListener('close',()=>{stopComparison();hintToken++;},{once:true});
  const hint=document.createElement('p');hint.className='trade-caption wide';hint.setAttribute('role','status');hint.dataset.percentHint='';d.querySelector('#tradeWorkCashChoice').parentElement.after(hint);
- async function showHint(){const mine=++hintToken,cash=cashShift.value,employee=form.elements.employee.value;hint.textContent='';if(!cash||!(Number(form.elements.bonus_percent.value)>0))return;try{const data=await api('work-shifts?'+new URLSearchParams({cash_shift:cash,percent:'1',exclude_employee:employee}));if(mine!==hintToken||!d.isConnected)return;if(data.total)hint.textContent=`На цій касовій зміні вже є відсоток від виторгу в табелі: ${[...new Map(data.items.map(x=>[x.employee_id,name('employees',x.employee_id)+' — '+quantity(x.bonus_percent)+' %'])).values()].slice(0,3).join(', ')}${new Set(data.items.map(x=>x.employee_id)).size>3||data.total>data.items.length?' та інші':''}. Кожен працівник отримує власний відсоток від усього виторгу зміни, тож цей запис додає ще один відсоток від того самого виторгу. Власник може зменшити відсоток у цьому записі.`;}catch(e){if(mine===hintToken)hint.textContent='';}}
+ async function showHint(){const mine=++hintToken,cash=cashShift.value,employee=form.elements.employee.value;hint.textContent='';if(!cash||!(Number(form.elements.bonus_percent.value)>0))return;try{const data=await api('work-shifts?'+new URLSearchParams({cash_shift:cash,percent:'1',exclude_employee:employee}));if(mine!==hintToken||!d.isConnected)return;if(data.total)hint.textContent=`На цій касовій зміні вже є відсоток від виторгу в табелі: ${[...new Map(data.items.map(x=>[x.employee_id,name('employees',x.employee_id)+' — '+quantity(x.bonus_percent)+' %'])).values()].slice(0,3).join(', ')}${new Set(data.items.map(x=>x.employee_id)).size>3||data.total>data.items.length?' та інші':''}. Кожен працівник отримує власний відсоток від усього виторгу зміни, тож цей запис додає ще один відсоток від того самого виторгу. Власник може зменшити відсоток у цьому записі.`;}catch(e){if(mine===hintToken){hint.textContent='';if(e.status===401||e.status===403){try{await persistence.read(async()=>{throw e;});}catch{}}}}}
  const values=()=>({store:window.TradeDirectories.get('employees',form.elements.employee.value)?.store_id,day:form.elements.date.value,selected:cashShift.value});
- choice=shiftUI.cashChoice(d.querySelector('#tradeWorkCashChoice'),{...values(),required:()=>Number(form.elements.bonus_percent.value)>0,changed:value=>{if(cashShift.value!==value){cashShift.value=value;markDirty(d);void showHint();}}});
+ choice=shiftUI.cashChoice(d.querySelector('#tradeWorkCashChoice'),{...values(),required:()=>Number(form.elements.bonus_percent.value)>0,changed:value=>{if(cashShift.value!==value){cashShift.value=value;markDirty(d);form.dispatchEvent(new Event('tsukenya:draft-change'));void showHint();}}});
  d.addEventListener('close',()=>choice.cancel(),{once:true});void showHint();
  form.elements.bonus_percent.addEventListener('input',()=>{choice.updateRequired();void showHint();});
- form.addEventListener('change',event=>{if(event.target.name==='employee'&&!s.id){const employee=window.TradeDirectories.get('employees',event.target.value);try{const terms=editor.employeeWorkTerms(employee);employeeTermsValid=true;form.elements.shift_rate.value=terms.shift_rate;form.elements.bonus_percent.value=terms.bonus_percent;form.elements.bonus_basis.value=terms.bonus_basis;}catch{employeeTermsValid=false;formError(Error('Не вдалося перевірити повні умови працівника. Значення не підмінено нулями; виберіть іншого працівника або повторно відкрийте форму.'),d);}renderRecovery();}if(event.target.name==='employee')void showHint();if(['employee','date'].includes(event.target.name))void choice.update(values());});
+ form.addEventListener('change',event=>{if(event.target.name==='employee'&&!s.id){const employee=window.TradeDirectories.get('employees',event.target.value);try{const terms=editor.employeeWorkTerms(employee);employeeTermsValid=true;form.elements.shift_rate.value=terms.shift_rate;form.elements.bonus_percent.value=terms.bonus_percent;form.elements.bonus_basis.value=terms.bonus_basis;}catch{employeeTermsValid=false;formError(Error('Не вдалося перевірити повні умови працівника. Значення не підмінено нулями; виберіть іншого працівника або повторно відкрийте форму.'),d);}renderRecovery();}if(event.target.name==='employee')void showHint();if(['employee','date'].includes(event.target.name))void choice.update(values());form.dispatchEvent(new Event('tsukenya:draft-change'));});
+ renderRecovery();return d;
 }
 async function userList(){
  const token=generation,tab=current;
@@ -593,6 +618,21 @@ window.TradeEntityPersistence.configure({api,restore:async(payload,signal,sessio
  if(signal.aborted)return;
  if(E.role!==session.role||E.storeId!==session.storeId)throw Object.assign(Error('Контекст доступу змінився. Повторіть перевірку сеансу.'),{status:403});
  const opened=await entityForm(saved.resource,saved.id,saved.kind,{payload,signal});
+ if(signal.aborted&&opened?.open)opened.close();
+}});
+
+window.TradeWorkShiftPersistence.configure({api,employeeStore:id=>window.TradeDirectories.get('employees',id)?.store_id||null,restore:async(payload,signal,session)=>{
+ const saved=window.NativeWorkShiftPersistence.decodeWorkShiftState(payload.baseline);
+ const tab='staff';
+ const target='#trade/'+tab;
+ if(signal.aborted)return;
+ if(current!==tab||mountedTab!==tab){await new Promise((resolve,reject)=>{let timer;const stop=()=>{clearTimeout(timer);window.removeEventListener('tsukenya:trading-mounted',done);window.removeEventListener('tsukenya:trading-mount-failed',failed);window.removeEventListener('hashchange',changed);signal.removeEventListener('abort',abort);};const fail=e=>{stop();reject(e);};const done=e=>{if(e.detail?.tab!==tab)return;if(signal.aborted||location.hash!==target||current!==tab)return fail(new DOMException('Скасовано','AbortError'));stop();resolve();};const failed=e=>{if(e.detail?.tab===tab)fail(Error('Не вдалося відкрити редактор довідника. Чернетка збережена.'));};const changed=()=>{if(location.hash!==target)fail(new DOMException('Скасовано','AbortError'));};const abort=()=>fail(new DOMException('Скасовано','AbortError'));window.addEventListener('tsukenya:trading-mounted',done);window.addEventListener('tsukenya:trading-mount-failed',failed);window.addEventListener('hashchange',changed);signal.addEventListener('abort',abort,{once:true});timer=setTimeout(()=>fail(Error('Відкриття розділу не завершено. Повторіть відновлення.')),30000);if(signal.aborted)abort();else if(location.hash===target)window.Trade.mount(tab,true);else location.hash=target;});}
+ if(signal.aborted)return;
+ const ctx=await api('../v1/trading/work-shifts/recovery-context?'+new URLSearchParams({...saved.id?{id:saved.id}:{},...saved.store?{store:String(saved.store)}:{},...saved.employee?{employee:String(saved.employee)}:{}}),'GET',undefined,signal,false);
+ window.NativeWorkShiftPersistence.decodeWorkShiftContext(ctx,saved,session);
+ if(signal.aborted)return;
+ if(E.role!==session.role||E.storeId!==session.storeId)throw Object.assign(Error('Контекст доступу змінився. Повторіть перевірку сеансу.'),{status:403});
+ const opened=await workShiftForm(saved.id,{payload,signal});
  if(signal.aborted&&opened?.open)opened.close();
 }});
 

@@ -58,6 +58,7 @@ const wait = async predicate => {
   }
   const go=async()=>{await page.goto(base+'/#trade/staff');await page.locator('[data-trade=work-shift]').first().waitFor();};
   const form=()=>page.locator('#tradeSimpleForm');
+  const privateReadRecovery=async()=>{await wait(async()=>await page.evaluate(()=>window.NativeDraftRecovery.controller.snapshot().state==='error'));assert(await form().evaluate(f=>f.closest('.trade-dialog-body').hidden));const before=writes;await page.locator('[data-workshift-access]').getByRole('button',{name:'Перевірити доступ до форми',exact:true}).click();await wait(async()=>await form().evaluate(f=>!f.closest('.trade-dialog-body').hidden));assert.equal(writes,before);};
   const pickEmployee=async(host,label)=>{const input=host.getByRole('combobox',{name:'Працівник',exact:true});await input.fill(label);await page.getByRole('option',{name:new RegExp(label)}).click();};
   let writes=0;page.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/erp/work-shifts')writes++;});
   const chooseMine=async()=>{for(const radio of await page.getByRole('radio',{name:'Залишити мої зміни',exact:true}).all()){await radio.focus();await page.keyboard.press('Space');}};
@@ -103,14 +104,14 @@ const wait = async predicate => {
       await select.selectOption(String(tills[1]));
       await form().locator('[name=note]').fill('Новіші поля після втраченої відповіді');
       let failRead=true;
-      await page.route('**/api/erp/work-shifts?*',async route=>{
+      await page.route('**/api/v1/trading/work-shifts/current?*',async route=>{
         if(failRead&&new URL(route.request().url()).searchParams.get('id')===String(row.id)){
           failRead=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Актуальні умови тимчасово недоступні.'})});
         }
         return route.continue();
       });
       await page.locator('[data-work-exact-retry]').focus();await page.keyboard.press('Enter');
-      await page.locator('[data-work-read-retry]').waitFor({state:'visible'});
+      await privateReadRecovery();await page.locator('[data-work-read-retry]').waitFor({state:'visible'});
       assert.equal(await form().locator('[name=shift_rate]').inputValue(),'');
       assert.equal(await select.inputValue(),String(tills[1]));
       assert.equal(await form().locator('[name=note]').inputValue(),'Новіші поля після втраченої відповіді');
@@ -123,7 +124,7 @@ const wait = async predicate => {
       assert.equal(await form().locator('[name=shift_rate]').inputValue(),'');
       assert.equal(await page.getByRole('radio').count(),0,'Invalid newer draft does not block GET or enter actionable merge.');
       assert(await form().locator('[type=submit]').isDisabled());
-      await page.unroute('**/api/erp/work-shifts?*');
+      await page.unroute('**/api/v1/trading/work-shifts/current?*');
       await form().locator('[name=shift_rate]').fill('175');await select.selectOption(String(tills[0]));
       const beforeCompare=writes;
       await page.locator('[data-work-read-retry]').click();await apply().waitFor();
@@ -164,10 +165,10 @@ const wait = async predicate => {
     const close=async()=>{page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Закрити вікно'}).click();await page.locator('dialog[open]').waitFor({state:'hidden'});};
     if(process.env.WORK_CONFLICT_FROM==='semantic'){
       await open();await form().locator('[name=note]').fill('Збережена новіша примітка');await update({shift_rate:'15'});await form().locator('[type=submit]').click();await page.locator('[data-work-read-retry]').waitFor({state:'visible'});
-      const malformed={...await row(),units:'0.00'};await page.route('**/api/erp/work-shifts?*',route=>new URL(route.request().url()).searchParams.get('id')===String(saved)?route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({total:1,page:1,pages:1,items:[malformed]})}):route.continue());
-      const before=writes;await page.locator('[data-work-read-retry]').click();await wait(async()=>!(await page.locator('[data-work-read-cancel]').isVisible()));
+      const malformed={...await row(),units:'0.00'};await page.route('**/api/v1/trading/work-shifts/current?*',route=>new URL(route.request().url()).searchParams.get('id')===String(saved)?route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({total:1,page:1,pages:1,items:[malformed]})}):route.continue());
+      const before=writes;await page.locator('[data-work-read-retry]').click();await privateReadRecovery();
       assert.equal(await form().locator('[name=note]').inputValue(),'Збережена новіша примітка');assert.equal(await form().locator('[name=units]').inputValue(),'1.00');assert(await form().locator('[type=submit]').isDisabled());assert.equal(await apply().count(),0);assert((await page.locator('#tradeFormError').innerText()).length>0);assert.equal(writes,before);
-      await page.unroute('**/api/erp/work-shifts?*');
+      await page.unroute('**/api/v1/trading/work-shifts/current?*');
       await page.evaluate(()=>{const mount=window.NativeConflictComparison.mount;window.NativeConflictComparison.mount=(host,props)=>{window.qaWorkComparison=props;return mount(host,props);};});
       await review();await page.evaluate(()=>window.qaWorkComparison.onApply({...window.qaWorkComparison.mine,units:'0'}));
       assert.equal(await form().locator('[name=units]').inputValue(),'1.00');assert(await form().locator('[type=submit]').isDisabled());assert.equal(writes,before);assert(await apply().isVisible());
@@ -197,15 +198,17 @@ const wait = async predicate => {
       if(fault==='503'||fault==='403')return route.fulfill({status:Number(fault),contentType:'application/json',body:JSON.stringify({error:'Перевірка '+fault})});
       const bad=fault==='resource'?{id:saved,name:'Це довідник'}:fault==='other-id'?{...current,id:saved+100}:fault==='store'?{...current,store_id:store+100}:fault==='semantic'?{...current,units:'0.00'}:{...current,date:'2024-01-01'};
       return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({total:1,page:1,pages:1,items:[bad]})});};
-    await page.route('**/api/erp/work-shifts?*',reader);before=writes;
-    for(const issue of ['resource','other-id','store','date','semantic','503','403']){fault=issue;await page.locator('[data-work-read-retry]').click();await wait(async()=>!(await page.locator('[data-work-read-cancel]').isVisible()));assert.equal(await form().locator('[name=shift_rate]').inputValue(),'25');assert(await form().locator('[type=submit]').isDisabled());assert.equal(await apply().count(),0);assert((await page.locator('#tradeFormError').innerText()).length>0);}
-    assert.equal(writes,before);await page.unroute('**/api/erp/work-shifts?*',reader);existingChecks.push('strict wrong resource/ID/immutable scope/date + GET503/403 preserve draft');
+    await page.route('**/api/v1/trading/work-shifts/current?*',reader);before=writes;
+    for(const issue of ['resource','other-id','store','date','semantic','503']){fault=issue;await page.locator('[data-work-read-retry]').click();await privateReadRecovery();assert.equal(await form().locator('[name=shift_rate]').inputValue(),'25');assert(await form().locator('[type=submit]').isDisabled());assert.equal(await apply().count(),0);assert((await page.locator('#tradeFormError').innerText()).length>0);}
+    assert.equal(writes,before);await page.unroute('**/api/v1/trading/work-shifts/current?*',reader);existingChecks.push('strict wrong resource/ID/immutable scope/date + GET503 preserve draft behind authorization-only retry');
     await review();await page.getByRole('button',{name:'Повернутися до чернетки'}).click();await apply().waitFor({state:'hidden'});assert(await form().locator('[type=submit]').isDisabled());assert.equal(await form().locator('[name=shift_rate]').inputValue(),'25');
     let release,started=false;const delayed=async route=>{if(new URL(route.request().url()).searchParams.get('id')!==String(saved))return route.continue();const response=await route.fetch();started=true;await new Promise(resolve=>release=resolve);try{await route.fulfill({response});}catch{}};
-    await page.route('**/api/erp/work-shifts?*',delayed);await page.locator('[data-work-read-retry]').click();await wait(()=>started);await page.locator('[data-work-read-cancel]').click();release();await page.unroute('**/api/erp/work-shifts?*',delayed);await new Promise(resolve=>setTimeout(resolve,150));assert.equal(await apply().count(),0);assert.equal(await form().locator('[name=shift_rate]').inputValue(),'25');existingChecks.push('cancel aborted GET discards late response without baseline adoption');
+    await page.route('**/api/v1/trading/work-shifts/current?*',delayed);await page.locator('[data-work-read-retry]').click();await wait(()=>started);await page.locator('[data-workshift-read-cancel]').click();release();await page.unroute('**/api/v1/trading/work-shifts/current?*',delayed);await new Promise(resolve=>setTimeout(resolve,150));assert.equal(await apply().count(),0);assert.equal(await form().locator('[name=shift_rate]').inputValue(),'25');await page.locator('[data-workshift-access]').getByRole('button',{name:'Перевірити доступ до форми',exact:true}).click();await wait(async()=>await form().evaluate(f=>!f.closest('.trade-dialog-body').hidden));existingChecks.push('cancel aborted GET discards late response without baseline adoption');
     await close();await open();await form().locator('[name=note]').fill('Після зовнішнього нарахування');
     await voucher({kind:'payroll',employee:extraEmployee,payload:{shift_ids:[saved]}});await form().locator('[type=submit]').click();await page.locator('[data-work-read-retry]').waitFor({state:'visible'});await page.locator('[data-work-read-retry]').click();await page.locator('[data-work-recovery-status]').filter({hasText:'включено в нарахування'}).waitFor();
     assert(await form().locator('[type=submit]').isDisabled());assert.equal(await apply().count(),0);assert.equal(await form().locator('[name=note]').inputValue(),'Після зовнішнього нарахування');existingChecks.push('actual external posted payroll refuses Apply and Save');
+    await page.route('**/api/v1/trading/work-shifts/current?*',route=>route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({error:'Немає доступу до табеля'})}));
+    await page.locator('[data-work-read-retry]').click();await wait(async()=>await page.evaluate(()=>window.NativeDraftRecovery.controller.snapshot().state==='error'));assert(await form().evaluate(f=>f.closest('.trade-dialog-body').hidden));assert.equal(await page.locator('.trade-dialog[open] #tradeDialogTitle').innerText(),'Локальна чернетка призупинена');assert(await page.evaluate(()=>!window.NativeDraftRecovery.store.entries().some(e=>e.id.startsWith('workshift_'))));await page.unroute('**/api/v1/trading/work-shifts/current?*');existingChecks.push('current resource403 hides private fields and removes only denied timesheet record; no stale salary edit');
     await close();assert.deepEqual(errors,[]);fs.writeFileSync(path.join(proof,'existing-report.json'),JSON.stringify({pass:true,checks:existingChecks},null,2));console.log('PASS: B06 existing workshift recovery '+existingChecks.length+' groups.');return;
   }
   await go();await create(0,true);await page.setViewportSize({width:320,height:900});await create(1);

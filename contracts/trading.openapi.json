@@ -707,6 +707,159 @@
           }
         }
       }
+    },
+    "/api/v1/trading/work-shifts/recovery-context": {
+      "get": {
+        "operationId": "workShiftRecoveryContext",
+        "description": "Fresh actor, scope and REPEATABLE READ READ ONLY. No business write. Identity is creator-bound; ID never supplies the current revision.",
+        "responses": {
+          "200": {
+            "description": "Authorized read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkShiftRecoveryContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Read denied or malformed"
+          },
+          "401": {
+            "description": "Read denied or malformed"
+          },
+          "403": {
+            "description": "Read denied or malformed"
+          },
+          "409": {
+            "description": "Read denied or malformed"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "employee",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/work-shifts/current": {
+      "get": {
+        "operationId": "workShiftCurrent",
+        "description": "Fresh actor, scope and REPEATABLE READ READ ONLY. No business write. Identity is creator-bound; ID never supplies the current revision.",
+        "responses": {
+          "200": {
+            "description": "Authorized read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkShiftExactPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Read denied or malformed"
+          },
+          "401": {
+            "description": "Read denied or malformed"
+          },
+          "403": {
+            "description": "Read denied or malformed"
+          },
+          "409": {
+            "description": "Read denied or malformed"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/work-shifts/identity": {
+      "post": {
+        "operationId": "workShiftIdentity",
+        "description": "Fresh actor, scope and REPEATABLE READ READ ONLY. No business write. Identity is creator-bound; ID never supplies the current revision.",
+        "responses": {
+          "200": {
+            "description": "Authorized read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkShiftCreateIdentity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Read denied or malformed"
+          },
+          "401": {
+            "description": "Read denied or malformed"
+          },
+          "403": {
+            "description": "Read denied or malformed"
+          },
+          "409": {
+            "description": "Read denied or malformed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/WorkShiftCreateRequest"
+                  }
+                },
+                "required": [
+                  "request"
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1655,6 +1808,349 @@
             ]
           }
         }
+      },
+      "WorkShiftCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "employee": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "date": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "cash_shift": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "units": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "shift_rate": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "bonus_percent": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "bonus_basis": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "employee",
+          "date",
+          "cash_shift",
+          "units",
+          "shift_rate",
+          "bonus_percent",
+          "bonus_basis",
+          "note",
+          "idempotency_key"
+        ]
+      },
+      "WorkShiftCreateAcknowledgement": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "type": {
+            "const": "work_shift"
+          },
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request": {
+            "$ref": "#/components/schemas/WorkShiftCreateRequest"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "request_key",
+          "request"
+        ]
+      },
+      "WorkShiftCreateIdentity": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "confirmed": {
+                "const": false
+              },
+              "type": {
+                "const": "work_shift"
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "confirmed",
+              "type",
+              "request_key"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "confirmed": {
+                "const": true
+              },
+              "id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "type": {
+                "const": "work_shift"
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "request": {
+                "$ref": "#/components/schemas/WorkShiftCreateRequest"
+              }
+            },
+            "required": [
+              "confirmed",
+              "id",
+              "type",
+              "request_key",
+              "request"
+            ]
+          }
+        ]
+      },
+      "WorkShiftRecoveryContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "work_shift"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "employee": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "accountant"
+            ]
+          },
+          "storeId": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "exists": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canEdit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "store",
+          "employee",
+          "role",
+          "storeId",
+          "networkOwner",
+          "exists",
+          "canEdit"
+        ]
+      },
+      "WorkShiftRead": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "units": {
+            "type": "string"
+          },
+          "shift_rate": {
+            "type": "string"
+          },
+          "bonus_percent": {
+            "type": "string"
+          },
+          "bonus_basis": {
+            "type": "string"
+          },
+          "accrued": {
+            "type": "string"
+          },
+          "basis_amount": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "employee_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "store_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "cash_shift_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payroll_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "date",
+          "units",
+          "shift_rate",
+          "bonus_percent",
+          "bonus_basis",
+          "accrued",
+          "basis_amount",
+          "note",
+          "revision",
+          "id",
+          "employee_id",
+          "store_id",
+          "cash_shift_id",
+          "payroll_id"
+        ]
+      },
+      "WorkShiftExactPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/WorkShiftRead"
+            }
+          },
+          "total": {
+            "const": 1
+          },
+          "page": {
+            "const": 1
+          },
+          "pages": {
+            "const": 1
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages"
+        ]
       }
     }
   }
