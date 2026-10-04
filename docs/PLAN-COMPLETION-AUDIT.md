@@ -377,3 +377,12 @@ reconcile/backup checksum+list PASS, business digest незмінний. Canonic
 синхронізовано. B06 consumers, вся CRM migration, capacity, зовнішні залежності
 та весь початковий план не закриті. Повний локальний набір не запускався;0.1
 виключено. Наступні P1 та price-package2 розробляються в окремих clone.
+
+## Каталогова маржа та поточний реліз · #83
+
+Початковий issue1/2.1 у робочому бюджеті: діапазон каталогу, явне покриття та
+непозитивні маржі, фактична маржа першою. Прийнято exact24d57c3 після final CI
+і незалежного рев’ю з виправленням доступу sales_margin; merge6a0f4dd розгорнуто.
+Health/worker/backup/read-only reconcile успішні, дані до/після збігаються.
+Історичний Artifact, P1–P3 recovery, price-package2/receipt review та React Stock
+мають окреме подальше приймання.0.1 виключено.
