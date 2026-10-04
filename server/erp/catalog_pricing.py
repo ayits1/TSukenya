@@ -1,4 +1,5 @@
 """Owner-only, bounded catalogue price plans and atomic retry-safe changes."""
+from .catalog_access import revalidate_actor
 from .business_audit import snapshot as audit_snapshot, change as audit_change
 import hashlib
 import hmac
@@ -138,6 +139,7 @@ def commit_pricing(request, user):
     digest = hashlib.sha256(canonical(payload).encode()).hexdigest()
     path = 'pricing_runs/' + payload['idempotencyKey']
     ledger_lock()
+    revalidate_actor(user, {'owner'}, 'Недостатньо прав. Зміна цін доступна лише власнику.')
     previous = Document.objects.filter(pk=path).first()
     if previous:
         if previous.data.get('owner') != user.pk or previous.data.get('payloadHash') != digest:

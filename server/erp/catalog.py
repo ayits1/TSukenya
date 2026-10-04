@@ -1,4 +1,5 @@
 """Versioned catalogue boundary over existing documents; posting remains in ERP services."""
+from .catalog_access import revalidate_actor
 from .business_audit import snapshot as audit_snapshot, change as audit_change
 import hashlib
 import hmac
@@ -222,6 +223,7 @@ def save_product(request, user, identifier=None):
     from .views import body, response
     require(user.profile.role in EDIT_ROLES, 'Недостатньо прав для редагування товарів.')
     ledger_lock()  # Same serialization boundary as legacy import and ERP posting.
+    revalidate_actor(user, EDIT_ROLES, 'Недостатньо прав для редагування товарів.')
     value = body(request)
     config = defaults()
     if 'pricingRevision' in value and (not isinstance(value['pricingRevision'], str) or value['pricingRevision'] != pricing_revision(config)):
