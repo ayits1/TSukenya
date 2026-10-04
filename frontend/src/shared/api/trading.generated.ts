@@ -169,6 +169,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/trading/work-shifts/recovery-context': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Fresh actor, scope and REPEATABLE READ READ ONLY. No business write. Identity is creator-bound; ID never supplies the current revision. */
+    get: operations['workShiftRecoveryContext'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/work-shifts/current': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Fresh actor, scope and REPEATABLE READ READ ONLY. No business write. Identity is creator-bound; ID never supplies the current revision. */
+    get: operations['workShiftCurrent'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/work-shifts/identity': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Fresh actor, scope and REPEATABLE READ READ ONLY. No business write. Identity is creator-bound; ID never supplies the current revision. */
+    post: operations['workShiftIdentity'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -411,6 +462,83 @@ export interface components {
       networkOwner: boolean;
       canCreate: boolean;
       exists: boolean | null;
+    };
+    WorkShiftCreateRequest: {
+      employee: string;
+      date: string;
+      cash_shift: string;
+      units: string;
+      shift_rate: string;
+      bonus_percent: string;
+      bonus_basis: string;
+      note: string;
+      /** Format: uuid */
+      idempotency_key: string;
+    };
+    WorkShiftCreateAcknowledgement: {
+      id: number;
+      /** @constant */
+      type: 'work_shift';
+      /** Format: uuid */
+      request_key: string;
+      request: components['schemas']['WorkShiftCreateRequest'];
+    };
+    WorkShiftCreateIdentity:
+      | {
+          /** @constant */
+          confirmed: false;
+          /** @constant */
+          type: 'work_shift';
+          /** Format: uuid */
+          request_key: string;
+        }
+      | {
+          /** @constant */
+          confirmed: true;
+          id: number;
+          /** @constant */
+          type: 'work_shift';
+          /** Format: uuid */
+          request_key: string;
+          request: components['schemas']['WorkShiftCreateRequest'];
+        };
+    WorkShiftRecoveryContext: {
+      /** @constant */
+      type: 'work_shift';
+      id: number | null;
+      store: number | null;
+      employee: number | null;
+      /** @enum {unknown} */
+      role: 'owner' | 'accountant';
+      storeId: number | null;
+      networkOwner: boolean;
+      exists: boolean | null;
+      canEdit: boolean;
+    };
+    WorkShiftRead: {
+      date: string;
+      units: string;
+      shift_rate: string;
+      bonus_percent: string;
+      bonus_basis: string;
+      accrued: string;
+      basis_amount: string;
+      note: string;
+      revision: string;
+      id: number;
+      employee_id: number;
+      store_id: number;
+      cash_shift_id: number | null;
+      payroll_id: number | null;
+    };
+    WorkShiftExactPage: {
+      items: components['schemas']['WorkShiftRead'][];
+      /** @constant */
+      total: 1;
+      /** @constant */
+      page: 1;
+      /** @constant */
+      pages: 1;
     };
   };
   responses: never;
@@ -898,6 +1026,162 @@ export interface operations {
       };
       /** @description Resource scope unavailable */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  workShiftRecoveryContext: {
+    parameters: {
+      query?: {
+        id?: number;
+        store?: number;
+        employee?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized read */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkShiftRecoveryContext'];
+        };
+      };
+      /** @description Read denied or malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Read denied or malformed */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Read denied or malformed */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Read denied or malformed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  workShiftCurrent: {
+    parameters: {
+      query: {
+        id: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized read */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkShiftExactPage'];
+        };
+      };
+      /** @description Read denied or malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Read denied or malformed */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Read denied or malformed */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Read denied or malformed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  workShiftIdentity: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          request: components['schemas']['WorkShiftCreateRequest'];
+        };
+      };
+    };
+    responses: {
+      /** @description Authorized read */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkShiftCreateIdentity'];
+        };
+      };
+      /** @description Read denied or malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Read denied or malformed */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Read denied or malformed */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Read denied or malformed */
+      409: {
         headers: {
           [name: string]: unknown;
         };
