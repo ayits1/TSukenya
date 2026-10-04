@@ -1,0 +1,349 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya CRM reads",
+    "version": "1.0.0",
+    "description": "Shared contact directory; current posted sales and store-scoped analytics. Read-only; no loyalty or campaign messaging."
+  },
+  "paths": {
+    "/api/v1/crm/customers": {
+      "get": {
+        "operationId": "listCustomers",
+        "parameters": [
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "",
+                "yes",
+                "no"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current role-scoped data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters"
+          },
+          "403": {
+            "description": "Session or role unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/crm/customers/{id}": {
+      "get": {
+        "operationId": "customerProfile",
+        "parameters": [
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current role-scoped data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters"
+          },
+          "403": {
+            "description": "Session or role unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Customer": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "phone",
+          "email",
+          "notes",
+          "active"
+        ]
+      },
+      "CustomerPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/Customer"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "canEdit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "canEdit"
+        ]
+      },
+      "CustomerPurchases": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "gross": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "returned": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "net": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "averageCheck": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "first": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "last": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "segment": {
+            "enum": [
+              "none",
+              "single",
+              "repeat"
+            ]
+          }
+        },
+        "required": [
+          "checks",
+          "gross",
+          "returned",
+          "net",
+          "averageCheck",
+          "first",
+          "last",
+          "segment"
+        ]
+      },
+      "CustomerDebt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "outstanding": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "overdue": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$"
+          },
+          "documents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "overdueDocuments": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unknownDueDocuments": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "outstanding",
+          "overdue",
+          "documents",
+          "overdueDocuments",
+          "unknownDueDocuments"
+        ]
+      },
+      "CustomerProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/Customer"
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "store": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "today": {
+                "type": "string",
+                "format": "date"
+              },
+              "basis": {
+                "const": "current"
+              }
+            },
+            "required": [
+              "store",
+              "today",
+              "basis"
+            ]
+          },
+          "purchases": {
+            "$ref": "#/components/schemas/CustomerPurchases"
+          },
+          "debt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomerDebt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canEdit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer",
+          "scope",
+          "purchases",
+          "debt",
+          "canEdit"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    }
+  }
+}

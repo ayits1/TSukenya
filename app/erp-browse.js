@@ -5,13 +5,13 @@
   const close = () => active?.close();
 
   function create({api, esc, amount, name, table, kinds}) {
-    function browse({purpose, store, party, selected, history = false}) {
+    function browse({purpose, store, party, selected, partyName, history = false}) {
       close();
       const opener = document.activeElement;
       const d = document.createElement('dialog');
       d.className = 'trade-dialog trade-document-browser';
       d.setAttribute('aria-labelledby', 'tradeBrowseTitle');
-      d.innerHTML = `<div class="trade-dialog-head"><h2 id="tradeBrowseTitle">${history ? 'Історія: ' + esc(name('parties', party)) : 'Вибрати вихідний документ'}</h2><button class="btn soft" type="button" data-browse="close">Закрити</button></div>
+      d.innerHTML = `<div class="trade-dialog-head"><h2 id="tradeBrowseTitle">${history ? 'Історія: ' + esc(partyName ?? name('parties', party)) : 'Вибрати вихідний документ'}</h2><button class="btn soft" type="button" data-browse="close">Закрити</button></div>
         <div class="trade-dialog-body"><form class="trade-browse-filters">
           <label class="trade-browse-search">Пошук за номером або контрагентом<input type="search" name="q" maxlength="250" autocomplete="off" placeholder="Наприклад, 000001"></label>
           <label>З дати<input type="date" name="from"></label><label>По дату<input type="date" name="to"></label>
@@ -84,7 +84,7 @@
       d.showModal(); form.elements.q.focus(); void load();
       return promise;
     }
-    return {pick:options => browse(options), history:party => browse({party, history:true})};
+    return {pick:options => browse(options), history:(party, options={}) => browse({...options, party, history:true})};
   }
   window.TradeBrowse = {create, close};
 })();

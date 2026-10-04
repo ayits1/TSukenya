@@ -41,11 +41,11 @@ Store.objects.filter(pk=Store.objects.first().pk).update(name='Магазин '+
    let release,finished,waiting=false;const gate=new Promise(resolve=>release=resolve),complete=new Promise(resolve=>finished=resolve);
    await page.route('**/api/erp/users',async route=>{waiting=true;const real=status===200?await route.fetch():null;await gate;await route.fulfill({status,contentType:'application/json',body:status===200?await real.text():JSON.stringify({error:'Стара помилка users'})}).catch(()=>{});finished();});
    await page.locator('[data-trade=users]').click();await wait(async()=>waiting,'held users');assert.match(await dialog().innerText(),/Завантажуємо користувачів/);
-   const aborted=page.waitForEvent('requestfailed',{predicate:request=>request.url().endsWith('/api/erp/users')});await page.keyboard.press('Escape');await aborted;await page.evaluate(()=>{location.hash='#trade/customers';});await page.locator('[name=partySearch]').waitFor();
+   const aborted=page.waitForEvent('requestfailed',{predicate:request=>request.url().endsWith('/api/erp/users')});await page.keyboard.press('Escape');await aborted;await page.evaluate(()=>{location.hash='#trade/customers';});await page.getByRole('searchbox',{name:'Пошук клієнта',exact:true}).waitFor();
    // Also protect a newer dialog from the old GET.
-   await page.locator('[data-trade=entity][data-party-kind=customer]').click();await dialog().locator('[name=name]').fill('Нова чернетка');
+   await page.getByRole('button',{name:'Додати клієнта',exact:true}).click();await dialog().locator('[name=name]').fill('Нова чернетка');
    release();await complete;await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-   assert.equal(await dialog().locator('[name=name]').inputValue(),'Нова чернетка');assert.equal(await dialog().locator('#tradeFormError').innerText(),'');assert.equal(await page.locator('[name=partySearch]').count(),1);
+   assert.equal(await dialog().locator('[name=name]').inputValue(),'Нова чернетка');assert.equal(await dialog().locator('#tradeFormError').innerText(),'');assert.equal(await page.getByRole('searchbox',{name:'Пошук клієнта',exact:true}).count(),1);
    await page.unroute('**/api/erp/users');page.once('dialog',native=>native.accept());await page.keyboard.press('Escape');await go('setup');
   }
   results.push('users GET error/retry, loading, all stores, late success/error after cancel and route/new dialog: PASS');
@@ -54,9 +54,10 @@ Store.objects.filter(pk=Store.objects.first().pk).update(name='Магазин '+
   for(const action of ['entity','fiscal']){
    await go(action==='entity'?'customers':'setup');const endpoint=action==='entity'?'entities/parties':'fiscal';let posts=0,reads=0;
    await page.route('**/api/erp/'+endpoint,route=>{assert.equal(route.request().method(),'POST');posts++;return response(route,action==='entity'?{id:999}:{ok:true});});
-   await page.route('**/api/erp/state',route=>{reads++;return reads===1?response(route,{error:'Не вдалося оновити після успішного запису'},503):route.continue();});
-   await page.locator(action==='entity'?'[data-trade=entity][data-party-kind=customer]':'[data-trade=fiscal]').click();
+   await page.locator(action==='entity'?'.customer-toolbar .tk-button--primary':'[data-trade=fiscal]').click();
    if(action==='entity')await dialog().locator('[name=name]').fill('Вже збережений клієнт');else await dialog().locator('[name=mode]').selectOption('required');
+   // The customer editor refreshes its snapshot before opening. Fail only the read after confirmed save.
+   await page.route('**/api/erp/state',route=>{reads++;return reads===1?response(route,{error:'Не вдалося оновити після успішного запису'},503):route.continue();});
    await dialog().locator('[type=submit]').click();await page.locator('[data-saved-refresh] [role=alert]').waitFor();
    assert.equal(await dialog().count(),0);assert.match(await page.locator('[data-saved-refresh]').innerText(),/збережено, але список/);assert.equal(await page.locator('[data-saved-refresh] [role=alert]').evaluate(e=>e===document.activeElement),true);
    if(action==='entity')assert.equal(await page.locator('[data-saved-refresh]').getAttribute('data-saved-id'),'999');
@@ -116,9 +117,9 @@ print(json.dumps([v.pk for v in rows]))`).toString());
   results.push('recipe first selection, dirty cancel/accept/add row, self excluded, POST error draft/focus/submit/long token 320px: PASS');
  }
  if(['all','tail','customers'].includes(from)){
-  await go('customers');await page.locator('[name=partySearch]').fill('Немає такого клієнта');await page.locator('.trade-empty').filter({hasText:'Клієнтів за цим пошуком не знайдено'}).waitFor();
-  await page.locator('[data-trade=clear-customer-search]').focus();await page.keyboard.press('Enter');await page.locator('.trade-table tbody tr').waitFor();assert.equal(await page.locator('[name=partySearch]').inputValue(),'');assert.equal(await page.locator('[name=partySearch]').evaluate(e=>e===document.activeElement),true);
-  fixture(`from server.erp.models import Counterparty\nCounterparty.objects.filter(kind='customer').delete()`);await go('customers');await page.locator('.trade-empty').filter({hasText:'Клієнтів ще немає'}).waitFor();
+  await go('customers');await page.getByRole('searchbox',{name:'Пошук клієнта',exact:true}).fill('Немає такого клієнта');await page.getByText('Клієнтів за цим пошуком не знайдено. Очистіть або змініть пошук.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Очистити пошук',exact:true}).focus();await page.keyboard.press('Enter');await page.locator('.customer-list li').first().waitFor();assert.equal(await page.getByRole('searchbox',{name:'Пошук клієнта',exact:true}).inputValue(),'');assert.equal(await page.getByRole('searchbox',{name:'Пошук клієнта',exact:true}).evaluate(e=>e===document.activeElement),true);
+  fixture(`from server.erp.models import Counterparty\nCounterparty.objects.filter(kind='customer').delete()`);await go('customers');await page.getByText('Клієнтів ще немає.',{exact:true}).waitFor();
   results.push('customer no results vs empty directory, keyboard clear restores list/focus: PASS');
  }
  assert.deepEqual(errors,[]);console.log(results.join('\n'));

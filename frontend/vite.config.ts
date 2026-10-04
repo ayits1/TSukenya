@@ -18,6 +18,7 @@ export default defineConfig({
         lab: resolve(import.meta.dirname, 'index.html'),
         catalog: resolve(import.meta.dirname, 'src/catalog-entry.tsx'),
         labels: resolve(import.meta.dirname, 'src/labels-entry.tsx'),
+        customers: resolve(import.meta.dirname, 'src/customers-entry.tsx'),
       },
     },
     target: ['chrome111', 'safari16.4', 'firefox114'],
