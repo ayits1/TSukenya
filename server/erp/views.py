@@ -12,7 +12,7 @@ from pathlib import Path
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.db import transaction, IntegrityError
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Q
 from django.utils import timezone
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -454,7 +454,7 @@ def handle(request):
                 entry=manifest.get(key,{})
                 styles.update(entry.get('css',[]))
                 for chunk in entry.get('imports',[]): collect_styles(chunk)
-            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx']:
+            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx']:
                 collect_styles(key)
                 if manifest.get(key,{}).get('file'): scripts.append('<script type="module" src="/frontend/'+manifest[key]['file']+'"></script>')
             html=html.replace('</head>',''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in sorted(styles))+'</head>').replace('</body>',''.join(scripts)+'</body>')
@@ -463,6 +463,9 @@ def handle(request):
         result=HttpResponse(status=302);result['Location']='/';return result
     user=auth(request)
     if path.startswith('/api/v1/'):
+        if path.startswith('/api/v1/crm/'):
+            from .customers import handle_customers
+            return handle_customers(request,user)
         if path.startswith('/api/v1/promotions/'):
             from .promotions import handle_promotions
             return handle_promotions(request,user)
@@ -643,7 +646,9 @@ def handle(request):
         qs=qs.filter(kind__in=ROLE_KINDS[user.profile.role])
         if request.GET.get('kind'):qs=qs.filter(kind__in=request.GET['kind'].split(','))
         if request.GET.get('status'):qs=qs.filter(status=request.GET['status'])
-        if request.GET.get('party'):qs=qs.filter(party_id=positive_integer(request.GET['party'],'ID контрагента'))
+        if request.GET.get('party'):
+            party_id=positive_integer(request.GET['party'],'ID контрагента')
+            qs=qs.filter(Q(party_id=party_id) | Q(kind='customer_return',reference__kind='sale',reference__party_id=party_id,reference__store_id=F('store_id')))
         if request.GET.get('store'):qs=qs.filter(store_id=positive_integer(request.GET['store'],'ID магазину'))
         qs=filter_search(qs,request.GET)
         total=qs.count();page,pages,offset=page_bounds(total,page_number(request.GET))

@@ -2,6 +2,11 @@
   "name": "@tsukenya/api-contracts",
   "version": "0.1.0",
   "private": true,
-  "scripts": {"generate": "openapi-typescript ../../contracts/catalog.openapi.json -o ../../frontend/src/shared/api/generated.ts"},
-  "devDependencies": {"openapi-typescript": "7.13.0", "typescript": "6.0.3"}
+  "scripts": {
+    "generate": "openapi-typescript ../../contracts/catalog.openapi.json -o ../../frontend/src/shared/api/generated.ts && openapi-typescript ../../contracts/crm.openapi.json -o ../../frontend/src/shared/api/crm.generated.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "6.0.3"
+  }
 }
