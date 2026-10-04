@@ -109,6 +109,9 @@ def cash_balance(account):
     return money(CashEntry.objects.filter(account=account).aggregate(n=Sum('amount'))['n'] or ZERO)
 
 def movement(v, lot, qty, value, line=None):
+    if qty < 0:
+        from .reservations import guard_movement
+        guard_movement(lot,lot.quantity+qty)
     lot.quantity += qty
     lot.value += value
     require(lot.quantity <= Decimal('999999999999999') and lot.value <= Decimal('9999999999999999.99'), 'Перевищено максимальний обсяг облікового залишку.')
@@ -149,19 +152,20 @@ def outgoing(v, line, quantity, *, allow_expired=False):
     if line.lot:
         lots = lots.filter(code=line.lot)
     lots = lots.order_by(F('expiry').asc(nulls_last=True), 'pk')
-    remaining, total, consumed = quantity, ZERO, []
-    for lot in lots:
-        if not allow_expired and lot.expiry and lot.expiry < v.date:
-            continue
-        take = min(remaining, lot.quantity)
+    from .reservations import outgoing_plan,consume
+    eligible=[lot for lot in lots if allow_expired or not lot.expiry or lot.expiry>=v.date]
+    plan=outgoing_plan(v,line,quantity,eligible)
+    combined={}
+    for lot,take,reservation in plan:
+        consume(reservation,line,take)
+        if lot.pk not in combined:combined[lot.pk]=[lot,ZERO]
+        combined[lot.pk][1]+=take
+    total,consumed=ZERO,[]
+    for lot,take in combined.values():
         value = lot.value if take == lot.quantity else money(lot.value * take / lot.quantity)
         movement(v, lot, -take, -value, line)
         total += value
         consumed.append((lot, take, value))
-        remaining -= take
-        if not remaining:
-            break
-    require(remaining == 0, f'{line.name}: недостатньо придатного залишку (не вистачає {remaining} {line.unit}).')
     return total, consumed
 
 def cash(v, account, amount, cross_store=False):
@@ -382,6 +386,8 @@ def save_voucher(user, body, pk=None):
     if kind=='expense':
         from .monthly_budgets import bind_expense
         v.payload.update(bind_expense(payload,previous_payload))
+    from .orders import normalise_terms,validate_source
+    v.payload.update(normalise_terms(v,payload));validate_source(v)
     if v.payload['due_date']:
         day(v.payload['due_date'])
     require(isinstance(v.payload['payments'], list) and len(v.payload['payments']) <= 10, 'Некоректні способи оплати.')
@@ -559,6 +565,8 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     require_active_participants(v)
     require(not v.reference or v.reference.status == 'posted', 'Вихідний документ скасований.')
     validate_reference_quantities(v)
+    from .orders import validate_source,approve
+    validate_source(v);approve(v)
     from .settlements import validate_post
     validate_post(v)
     if v.kind == 'customer_order':
@@ -713,6 +721,8 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
     v.cost = costs
     v.status, v.posted_at = 'posted', timezone.now()
     v.save()
+    from .orders import changed_source
+    changed_source(v)
     audit(user,'posted',f'voucher/{v.pk}',{**audit_change(before, audit_snapshot('voucher', v), observed=expected_revision), 'total':str(v.total),'cost':str(v.cost),'kind':v.kind})
     return v
 
@@ -744,6 +754,9 @@ def reverse_voucher(user, pk, reason):
         for e in entries:
             lot = get(StockLot,e.lot_id,'Партія')
             require(lot.quantity-e.quantity>=0 and lot.value-e.value>=0,'Скасування призведе до від’ємного залишку.')
+            if e.quantity > 0:
+                from .reservations import guard_movement
+                guard_movement(lot,lot.quantity-e.quantity)
             lot.quantity -= e.quantity
             lot.value -= e.value
             lot.save(update_fields=['quantity','value'])
@@ -756,5 +769,8 @@ def reverse_voucher(user, pk, reason):
         WorkShift.objects.filter(payroll=v).update(payroll=None,accrued=0,basis_amount=0)
     v.status,v.reversed_at='reversed',timezone.now()
     v.save(update_fields=['status','reversed_at'])
+    from .reservations import reverse_uses
+    from .orders import changed_source,cancel_order
+    reverse_uses(v);changed_source(v);cancel_order(v)
     audit(user,'reversed',f'voucher/{v.pk}',audit_change(before, audit_snapshot('voucher', v), reason=reason))
     return v

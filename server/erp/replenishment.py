@@ -12,7 +12,7 @@ QTY = Decimal('.001')
 
 def on_order(warehouse_id, product_path):
     """Posted purchase order quantity not yet received by posted receipts."""
-    ordered = VoucherLine.objects.filter(product_id=product_path, voucher__kind='purchase_order', voucher__status='posted', voucher__warehouse_id=warehouse_id)
+    ordered = VoucherLine.objects.filter(product_id=product_path, voucher__kind='purchase_order', voucher__status='posted', voucher__warehouse_id=warehouse_id,voucher__order_control__closed_at__isnull=True)
     total = ordered.aggregate(n=Sum('quantity'))['n'] or ZERO
     received = VoucherLine.objects.filter(reference_line__in=ordered, voucher__kind='receipt', voucher__status='posted').aggregate(n=Sum('quantity'))['n'] or ZERO
     return max(ZERO, total - received)

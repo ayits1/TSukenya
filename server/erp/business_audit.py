@@ -14,10 +14,11 @@ FIELDS = {
     'product': ('name', 'type', 'category', 'pack', 'size', 'unit', 'barcode', 'cost', 'markup', 'price', 'manualPrice', 'promotion', 'promotionPrice', 'priceAt', 'minStock', 'hidden'),
     'settings': ('defaultMarkup', 'rounding', 'budgetStores', 'stores', 'storeNames', 'staleDays'),
     'budget': ('name', 'group', 'amount', 'category'),
+    'order': ('state', 'revision', 'expected_date', 'minimum_order_amount'),
 }
-NUMBERS = {'total', 'cost', 'quantity', 'price', 'amount', 'shift_rate', 'bonus_percent', 'units', 'basis_amount', 'accrued', 'markup', 'promotionPrice', 'minStock', 'defaultMarkup', 'rounding', 'additional_cost', 'difference', 'value', 'rate', 'percent'}
+NUMBERS = {'total', 'cost', 'quantity', 'price', 'amount', 'shift_rate', 'bonus_percent', 'units', 'basis_amount', 'accrued', 'markup', 'promotionPrice', 'minStock', 'defaultMarkup', 'rounding', 'additional_cost', 'difference', 'value', 'rate', 'percent', 'fulfilled', 'remaining', 'reserved', 'used', 'released', 'minimum_order_amount'}
 LINE_FIELDS = ('id', 'line_key', 'product_id', 'name', 'unit', 'quantity', 'price', 'amount', 'cost', 'lot', 'expiry', 'reference_line_id')
-PAYLOAD_FIELDS = ('category', 'expense_scope', 'due_date', 'discount_reason', 'additional_cost', 'difference', 'fiscal_ref')
+PAYLOAD_FIELDS = ('category', 'expense_scope', 'due_date', 'discount_reason', 'additional_cost', 'difference', 'fiscal_ref', 'expected_date', 'minimum_order_amount', 'order_revision')
 
 
 def scalar(value, field):
@@ -41,6 +42,10 @@ def select(value, fields):
 def snapshot(kind, value):
     if value is None: return None
     result = select(value, FIELDS[kind])
+    if kind == 'order':
+        result['order_lines'] = [select(row, ('line', 'name', 'unit', 'quantity', 'fulfilled', 'remaining', 'reserved')) for row in value.get('lines', []) if isinstance(row, dict)]
+        if isinstance(value.get('reservation'), dict):
+            result['reservation'] = select(value['reservation'], ('id', 'line', 'code', 'name', 'unit', 'expires_on', 'quantity', 'used', 'released', 'owner'))
     if kind == 'settings':
         for key in ('stores', 'storeNames'):
             source = value.get(key) if isinstance(value, dict) else None

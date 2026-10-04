@@ -1,0 +1,57 @@
+/* Physical holds belong to an approved source order. Financial writes stay on Django. */
+(()=>{'use strict';
+const states={draft:'Чернетка',approved:'Погоджено',partial:'Частково виконано',fulfilled:'Виконано',closed:'Закрито',cancelled:'Скасовано'};
+const decimal=v=>typeof v==='string'&&/^\d+(?:\.\d{1,3})?$/.test(v);
+const unused=r=>{const scaled=v=>BigInt(v.split('.')[0])*1000n+BigInt((v.split('.')[1]||'').padEnd(3,'0'));const n=scaled(r.quantity)-scaled(r.used)-scaled(r.released);return `${n/1000n}.${String(n%1000n).padStart(3,'0')}`;};
+const id=v=>Number.isSafeInteger(v)&&v>0;
+function decode(value){
+ const o=value?.order;
+ if(!o||!id(value.id)||!id(o.revision)||typeof o.canManage!=='boolean'||typeof o.state!=='string'||!Object.hasOwn(states,o.state)||!Array.isArray(o.lines)||!Array.isArray(o.reservations)||!o.history||!id(o.history.page)||!id(o.history.pages)||!Number.isSafeInteger(o.history.total)||o.history.total<0||o.lines.some(l=>!id(l.line)||typeof l.name!=='string'||typeof l.unit!=='string'||!['quantity','fulfilled','remaining','reserved'].every(k=>decimal(l[k])))||o.reservations.some(r=>!id(r.id)||!id(r.line)||typeof r.code!=='string'||typeof r.owner!=='string'||typeof r.active!=='boolean'||!['quantity','used','released','available'].every(k=>decimal(r[k]))||typeof r.expires_on!=='string'))throw Error('Сервер повернув некоректний стан замовлення. Оновіть дані.');
+ return o;
+}
+function create({api,esc,quantity,amount,table,field,input,num,button,modal,date,busyDialog,formError,getDialog,afterWrite,onView,canClose}){
+ const attrs=(v,extra='')=>`data-id="${v.id}" data-order-revision="${v.order.revision}" ${extra}`;
+ function panel(v){
+  const o=decode(v),open=v.status==='posted'&&!['closed','cancelled'].includes(o.state),manage=o.canManage&&open;
+  let html=`<section data-order-panel><h3 class="trade-section-title">Виконання замовлення</h3><p><strong>${esc(states[o.state])}</strong>${o.expected_date?' · очікувана поставка '+esc(o.expected_date):''}${o.minimum_order_amount?' · мінімум постачальника '+amount(o.minimum_order_amount)+' грн':''}</p>${table(['Товар','Замовлено','Виконано','Залишилось','Зарезервовано'],o.lines.map(l=>[esc(l.name),quantity(l.quantity)+' '+esc(l.unit),quantity(l.fulfilled),quantity(l.remaining),quantity(l.reserved)]))}`;
+  if(manage)html+=`<div class="row trade-order-actions">${v.kind==='customer_order'&&o.lines.some(l=>Number(l.remaining)>Number(l.reserved))?button('Резервувати товар','order-reserve',attrs(v),true):''}${v.kind==='purchase_order'?button('Очікувана дата','order-date',attrs(v)):''}${button('Звільнити прострочені резерви','order-expire',attrs(v))}${button('Закрити замовлення','order-close',attrs(v))}</div>`;
+  if(v.kind==='customer_order')html+=`<h3 class="trade-section-title">Історія резервів</h3><p class="trade-caption">Строк включає вибраний день за Києвом. Резерв не створює складського чи грошового проведення; звільняється тільки невикористана частина.</p>${table(['Товар / партія','Строк','Кількість','Використано','Звільнено','Стан / дія'],o.reservations.map(r=>[esc(o.lines.find(l=>l.line===r.line)?.name||'—')+'<br>'+esc(r.code||'Без коду')+(r.lot_expiry?'<span class="muted">Придатний до '+esc(r.lot_expiry)+'</span>':''),esc(r.expires_on)+'<span class="muted">Створив: '+esc(r.owner)+'</span>',quantity(r.quantity),quantity(r.used),quantity(r.released),(r.active?'Чинний':Number(r.quantity)===Number(r.used)+Number(r.released)?'Використано / звільнено':'Строк минув')+(manage&&Number(r.quantity)>Number(r.used)+Number(r.released)?'<div class="trade-order-actions">'+button('Звільнити','order-release',attrs(v,`data-reservation="${r.id}"`))+'</div>':'')]))}${o.history.pages>1?`<div class="trade-pagination trade-order-actions">${button('Назад','order-history',attrs(v,`data-page="${o.history.page-1}" ${o.history.page===1?'disabled':''}`))}<span role="status">${o.history.page} / ${o.history.pages} · записів ${o.history.total}</span>${button('Далі','order-history',attrs(v,`data-page="${o.history.page+1}" ${o.history.page===o.history.pages?'disabled':''}`))}</div>`:''}`;
+  return html+'</section>';
+ }
+ async function action(el,stillCurrent){
+  const source=getDialog(),kind=el.dataset.trade,identifier=Number(el.dataset.id),observed=Number(el.dataset.orderRevision),page=el.dataset.page;
+  if(kind==='order-refresh'){if(canClose(source))await onView(identifier);return;}
+  const finish=busyDialog(source,'Завантаження стану замовлення…');if(!finish)return;let response;
+  try{response=await api(`orders/${identifier}?${new URLSearchParams(kind==='order-history'?{page}:kind==='order-reserve'?{purpose:'reserve'}:{})}`);if(!stillCurrent())return;decode(response);if(kind!=='order-history'&&response.order.revision!==observed)throw Error('Замовлення вже змінено. Оновіть його й перевірте залишок перед новою дією.');}
+  catch(error){if(stillCurrent())formError(error,source);return;}finally{finish();}
+  if(!stillCurrent())return;
+  if(kind==='order-history'){const host=source.querySelector('[data-order-panel]');host.outerHTML=panel({id:identifier,kind:'customer_order',status:'posted',order:response.order});source.querySelector(`[data-trade="order-history"][data-page="${Number(page)+1}"]`)?.focus();return;}
+  const o=response.order,key=crypto.randomUUID(),action={ 'order-reserve':'reserve','order-release':'release','order-expire':'expire','order-close':'close','order-date':'expected_date'}[kind];if(!action)return;
+  let html='',title='';
+  if(action==='reserve'){
+   if(!Array.isArray(response.limits)||response.limits.some(l=>!id(l.line)||!decimal(l.needed)||!decimal(l.available)||typeof l.canReserveFull!=='boolean'||!(l.max_date===null||typeof l.max_date==='string')))throw Error('Некоректні дані вільних партій. Повторіть читання.');
+   title='Резерв товару';html='<p class="trade-caption wide">Партії добираються сервером за найближчим строком придатності (FEFO). Резерв діє до кінця вибраного дня за Києвом. Строк не скорочується автоматично.</p>'+field('Резерв діє включно до',input('expires_on',date(),'date',`required min="${date()}"`));
+   for(const l of response.limits.filter(l=>Number(l.needed)>0))html+=field(`${esc(l.name)} · ${esc(l.unit)}`,num('line_'+l.line,'','0.001',`min="0.001" max="${esc(l.needed)}" data-order-line="${l.line}"`)+`<span class="trade-caption">Без резерву в замовленні: ${quantity(l.needed)}; вільного товару: ${quantity(l.available)}.${l.canReserveFull?l.max_date?' Для всього залишку максимальний строк: '+esc(l.max_date)+'. Меншу кількість можна резервувати довше, якщо є придатні партії.':' Для всього залишку є партії без строку придатності.':' Для всього залишку товару недостатньо — вкажіть меншу кількість.'}</span>`,'wide');
+  }else if(action==='release'){
+   const r=o.reservations.find(r=>r.id===Number(el.dataset.reservation));if(!r)throw Error('Резерв більше недоступний на цій сторінці. Оновіть історію.');title='Звільнення невикористаного резерву';html=field('Кількість · '+esc(r.code),num('quantity','','0.001',`required min="0.001" max="${unused(r)}"`));
+  }else if(action==='close'){title='Закриття замовлення';html='<p class="trade-caption wide">Нові резерви та виконання стануть недоступні. Невикористаний резерв буде звільнено; виконані документи й історія збережуться.</p>';}
+  else if(action==='expire'){title='Звільнення прострочених резервів';html='<p class="trade-caption wide">Буде звільнено лише невикористану частину резервів, строк яких завершився до поточного дня за Києвом.</p>';}
+  else{title='Очікувана дата поставки';html=field('Очікувана поставка',input('expected_date',o.expected_date||'','date'));}
+  if(['release','close'].includes(action))html+=field('Причина',`<textarea name="reason" rows="3" maxlength="4000" required></textarea>`,'wide');
+  const d=modal(title,`<form id="tradeOrderForm"><div class="trade-form-grid">${html}</div><div class="row trade-order-actions"><button class="btn" type="submit">Підтвердити</button>${button('Оновити замовлення','order-refresh',`data-id="${identifier}"`)}</div></form>`,'',true),form=d.querySelector('form');
+  form.onsubmit=async event=>{
+   event.preventDefault();if(d.dataset.busy==='1'||!d.open)return;const values=Object.fromEntries(new FormData(form)),body={action,revision:o.revision,idempotencyKey:key};
+   if(action==='reserve'){body.expires_on=values.expires_on;body.lines=[...form.querySelectorAll('[data-order-line]')].filter(i=>i.value).map(i=>({line:Number(i.dataset.orderLine),quantity:i.value}));}
+   if(action==='release'){body.reservation=Number(el.dataset.reservation);body.quantity=values.quantity;}
+   if(action==='expected_date')body.expected_date=values.expected_date;
+   if(values.reason!==undefined)body.reason=values.reason;
+   const done=busyDialog(d,'Оновлення замовлення…');if(!done)return;let saved;
+   try{saved=await api(`orders/${identifier}`,'POST',body);decode(saved);}catch(error){formError(error,d);done();return;}
+   d.dataset.dirty='';d.close();done();await afterWrite(identifier,d);
+  };
+  form.querySelector('input,textarea,[type=submit]')?.focus();
+ }
+ return {panel,action};
+}
+window.TradeOrders={create,decode};
+})();

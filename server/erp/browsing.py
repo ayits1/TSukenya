@@ -72,6 +72,7 @@ def references(user, params):
         value = params.get(parameter, '')
         if value:
             query = query.filter(**{field: positive_integer(value, 'ID документа' if parameter == 'id' else 'ID довідника')})
+    if purpose in {'sale','receipt'}:query=query.filter(order_control__closed_at__isnull=True)
     query = filter_search(query, params)
     query = with_settlements(query.select_related('party')).order_by('-pk')
     if purpose == 'payment':
