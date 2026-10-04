@@ -1,0 +1,100 @@
+{
+  "baseline": "145057a",
+  "method": "Synthetic isolated PostgreSQL ORM service reads, one sample each; no auth/network/browser/capacity claims",
+  "hashes": {
+    "server/erp/reporting.py": "25203df28f844045e5421e0d0f95c434dd147f6432c2c27e8578b85788520e8e",
+    "server/erp/stock_browsing.py": "85c565d010f9d27dbab9123ec7bedf93a96c0ac68566526b36ab7b50fc37f6fb",
+    "server/erp/assortment.py": "8e957e8165c39f71dc7003d4ae75bc58148f99888423381ec6e026c7fa18c7ca",
+    "app/erp.js": "922c9a00a4a86088d257b1c3b6044801d2e7d3075b48ab93d5823b2ec10314e6"
+  },
+  "results": [
+    {
+      "resource": "state",
+      "sku": 100,
+      "contacts": 100,
+      "employees_accounts": 10,
+      "queries": 46,
+      "raw_bytes": 26752,
+      "elapsed_ms_one_sample": 25.5,
+      "counts": {
+        "stores": 1,
+        "warehouses": 1,
+        "parties": 100,
+        "accounts": 10,
+        "employees": 10,
+        "shifts": 0,
+        "active_shifts": 0,
+        "work_shifts": 0,
+        "payroll_debts": 10
+      }
+    },
+    {
+      "resource": "stock_page",
+      "sku": 100,
+      "contacts": 100,
+      "employees_accounts": 10,
+      "queries": 5,
+      "raw_bytes": 6977,
+      "elapsed_ms_one_sample": 5.01,
+      "counts": {
+        "items": 30
+      }
+    },
+    {
+      "resource": "assortment",
+      "sku": 100,
+      "contacts": 100,
+      "employees_accounts": 10,
+      "queries": 8,
+      "raw_bytes": 5386,
+      "elapsed_ms_one_sample": 3.33,
+      "counts": {
+        "rows": 30
+      }
+    },
+    {
+      "resource": "state",
+      "sku": 1000,
+      "contacts": 1000,
+      "employees_accounts": 100,
+      "queries": 316,
+      "raw_bytes": 263366,
+      "elapsed_ms_one_sample": 217.53,
+      "counts": {
+        "stores": 1,
+        "warehouses": 1,
+        "parties": 1000,
+        "accounts": 100,
+        "employees": 100,
+        "shifts": 0,
+        "active_shifts": 0,
+        "work_shifts": 0,
+        "payroll_debts": 100
+      }
+    },
+    {
+      "resource": "stock_page",
+      "sku": 1000,
+      "contacts": 1000,
+      "employees_accounts": 100,
+      "queries": 5,
+      "raw_bytes": 6983,
+      "elapsed_ms_one_sample": 11.26,
+      "counts": {
+        "items": 30
+      }
+    },
+    {
+      "resource": "assortment",
+      "sku": 1000,
+      "contacts": 1000,
+      "employees_accounts": 100,
+      "queries": 8,
+      "raw_bytes": 5388,
+      "elapsed_ms_one_sample": 5.58,
+      "counts": {
+        "rows": 30
+      }
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "baseline": "145057a",
+  "method": "Synthetic isolated PostgreSQL ORM service reads, one sample each; no auth/network/browser/capacity claims",
+  "hashes": {
+    "server/erp/reporting.py": "25203df28f844045e5421e0d0f95c434dd147f6432c2c27e8578b85788520e8e",
+    "server/erp/assortment.py": "abcdd21942094ad438d8025a50a32324efebe706d4e3a0fe7eb7cbaeafa3510b",
+    "app/erp.js": "944e5abf331d419f0fce1d3ee1723eec9444b5a2d14bb9870c927b9a015d13a0"
+  },
+  "results": [
+    {
+      "resource": "state",
+      "sku": 100,
+      "contacts": 100,
+      "employees_accounts": 10,
+      "queries": 46,
+      "raw_bytes": 26752,
+      "elapsed_ms_one_sample": 29.13,
+      "counts": {
+        "stores": 1,
+        "warehouses": 1,
+        "parties": 100,
+        "accounts": 10,
+        "employees": 10,
+        "shifts": 0,
+        "active_shifts": 0,
+        "work_shifts": 0,
+        "payroll_debts": 10
+      }
+    },
+    {
+      "resource": "stock",
+      "sku": 100,
+      "contacts": 100,
+      "employees_accounts": 10,
+      "queries": 5,
+      "raw_bytes": 46004,
+      "elapsed_ms_one_sample": 7.47,
+      "counts": {
+        "lots": 100,
+        "totals": 100
+      }
+    },
+    {
+      "resource": "assortment",
+      "sku": 100,
+      "contacts": 100,
+      "employees_accounts": 10,
+      "queries": 4,
+      "raw_bytes": 17726,
+      "elapsed_ms_one_sample": 2.27,
+      "counts": {
+        "rows": 100
+      }
+    },
+    {
+      "resource": "state",
+      "sku": 1000,
+      "contacts": 1000,
+      "employees_accounts": 100,
+      "queries": 316,
+      "raw_bytes": 263366,
+      "elapsed_ms_one_sample": 208.84,
+      "counts": {
+        "stores": 1,
+        "warehouses": 1,
+        "parties": 1000,
+        "accounts": 100,
+        "employees": 100,
+        "shifts": 0,
+        "active_shifts": 0,
+        "work_shifts": 0,
+        "payroll_debts": 100
+      }
+    },
+    {
+      "resource": "stock",
+      "sku": 1000,
+      "contacts": 1000,
+      "employees_accounts": 100,
+      "queries": 5,
+      "raw_bytes": 461805,
+      "elapsed_ms_one_sample": 25.38,
+      "counts": {
+        "lots": 1000,
+        "totals": 1000
+      }
+    },
+    {
+      "resource": "assortment",
+      "sku": 1000,
+      "contacts": 1000,
+      "employees_accounts": 100,
+      "queries": 4,
+      "raw_bytes": 177026,
+      "elapsed_ms_one_sample": 7.7,
+      "counts": {
+        "rows": 1000
+      }
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 """B13 warehouse assortment: sold-here flag and per-warehouse minimum drive stock totals, alerts and replenishment. Isolated data only."""
 from django.contrib.auth.models import User
+from django.test import TransactionTestCase
+from tests.test_erp import AccountingFixture
 from server.erp.alerts import sync_alerts
 from server.erp.models import *
 from server.erp.replenishment import replenishment
@@ -7,9 +9,18 @@ from server.erp.reporting import stock
 from tests.test_unit_and_drafts import ApiFixture
 
 
-class AssortmentTests(ApiFixture):
+class AssortmentTests(TransactionTestCase):
+    v = AccountingFixture.v
+    sale = AccountingFixture.sale
+    call = ApiFixture.call
+
     def setUp(self):
-        super().setUp()
+        import hashlib, time
+        AccountingFixture.setUp(self)
+        PortalSession.objects.create(token_hash=hashlib.sha256(b'isolated-b03-b06-token').hexdigest(), user=self.u, csrf='b-csrf', expires=int(time.time())+3600)
+        self.client.cookies['ts_session']='isolated-b03-b06-token'
+        self.headers={'HTTP_ORIGIN':'http://testserver','HTTP_X_CSRF_TOKEN':'b-csrf'}
+        Document.objects.create(path='settings/main',data={'defaultMarkup':30,'rounding':.5})
         self.p.data['minStock'] = 2
         self.p.save()
 
