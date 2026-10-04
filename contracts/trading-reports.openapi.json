@@ -1,0 +1,1572 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya bounded trading reports",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/reports/summary": {
+      "get": {
+        "operationId": "reportSummary",
+        "description": "Current READ ONLY REPEATABLE READ; independent reads may differ. Full-filter totals. Owner/manager/accountant scoped; payroll rows and bonus excluded for manager.",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "period",
+                "balances"
+              ]
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current accounting-date read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filters"
+          },
+          "403": {
+            "description": "Role/section forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/trading/reports/rows": {
+      "get": {
+        "operationId": "reportRows",
+        "description": "Current READ ONLY REPEATABLE READ; independent reads may differ. Full-filter totals. Owner/manager/accountant scoped; payroll rows and bonus excluded for manager.",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "period",
+                "balances"
+              ]
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "section",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "products",
+                "by_store",
+                "expenses_by_category",
+                "cashiers",
+                "stock",
+                "cash",
+                "debts",
+                "advances",
+                "payroll_debts"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current accounting-date read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filters"
+          },
+          "403": {
+            "description": "Role/section forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/trading/reports/export.csv": {
+      "get": {
+        "operationId": "reportCsv",
+        "description": "Current READ ONLY REPEATABLE READ; independent reads may differ. Full-filter totals. Owner/manager/accountant scoped; payroll rows and bonus excluded for manager.",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "period",
+                "balances"
+              ]
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "section",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "products",
+                "by_store",
+                "expenses_by_category",
+                "cashiers",
+                "stock",
+                "cash",
+                "debts",
+                "advances",
+                "payroll_debts",
+                "summary",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current accounting-date read",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filters"
+          },
+          "403": {
+            "description": "Role/section forbidden"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Summary": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "mode": {
+                "const": "period"
+              },
+              "store": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "scope_name": {
+                "type": "string"
+              },
+              "generated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "basis": {
+                "const": "accounting_dates"
+              },
+              "reversal_policy": {
+                "const": "kyiv_reversed_at"
+              },
+              "snapshot": {
+                "const": "current"
+              },
+              "snapshot_notice": {
+                "type": "string"
+              },
+              "can_view_payroll": {
+                "type": "boolean"
+              },
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "format": "date"
+              },
+              "revenue": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "cogs": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "expenses": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "payroll": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "writeoffs": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "inventory_adjustment": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "supplier_return_variance": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "cash_difference": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "cash_net": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "gross_profit": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "profit": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "unallocated_expenses": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "cashiers_basis": {
+                "const": "current_posted_closed_shifts"
+              },
+              "debts_basis": {
+                "const": "current"
+              },
+              "counts": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "products": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "by_store": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "expenses_by_category": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "cashiers": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "products",
+                  "by_store",
+                  "expenses_by_category",
+                  "cashiers"
+                ]
+              }
+            },
+            "required": [
+              "contract",
+              "mode",
+              "store",
+              "scope_name",
+              "generated_at",
+              "basis",
+              "reversal_policy",
+              "snapshot",
+              "snapshot_notice",
+              "can_view_payroll",
+              "from",
+              "to",
+              "revenue",
+              "cogs",
+              "expenses",
+              "payroll",
+              "writeoffs",
+              "inventory_adjustment",
+              "supplier_return_variance",
+              "cash_difference",
+              "cash_net",
+              "gross_profit",
+              "profit",
+              "unallocated_expenses",
+              "cashiers_basis",
+              "debts_basis",
+              "counts"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "mode": {
+                "const": "balances"
+              },
+              "store": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "scope_name": {
+                "type": "string"
+              },
+              "generated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "basis": {
+                "const": "accounting_dates"
+              },
+              "reversal_policy": {
+                "const": "kyiv_reversed_at"
+              },
+              "snapshot": {
+                "const": "current"
+              },
+              "snapshot_notice": {
+                "type": "string"
+              },
+              "can_view_payroll": {
+                "type": "boolean"
+              },
+              "as_of": {
+                "type": "string",
+                "format": "date"
+              },
+              "stock_value": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "cash_total": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "debt_totals": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "owed_to_us": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+                  },
+                  "owed_by_us": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+                  }
+                },
+                "required": [
+                  "owed_to_us",
+                  "owed_by_us"
+                ]
+              },
+              "advance_totals": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "customer": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+                  },
+                  "supplier": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+                  }
+                },
+                "required": [
+                  "customer",
+                  "supplier"
+                ]
+              },
+              "counts": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "stock": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "cash": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "debts": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "advances": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "payroll_debts": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "stock",
+                  "cash",
+                  "debts",
+                  "advances"
+                ]
+              }
+            },
+            "required": [
+              "contract",
+              "mode",
+              "store",
+              "scope_name",
+              "generated_at",
+              "basis",
+              "reversal_policy",
+              "snapshot",
+              "snapshot_notice",
+              "can_view_payroll",
+              "as_of",
+              "stock_value",
+              "cash_total",
+              "debt_totals",
+              "advance_totals",
+              "counts"
+            ]
+          }
+        ]
+      },
+      "Page": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "section": {
+                "const": "products"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/Row_products"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "const": 30
+              },
+              "q": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "summary": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            },
+            "required": [
+              "contract",
+              "section",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "limit",
+              "q",
+              "summary"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "section": {
+                "const": "by_store"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/Row_by_store"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "const": 30
+              },
+              "q": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "summary": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            },
+            "required": [
+              "contract",
+              "section",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "limit",
+              "q",
+              "summary"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "section": {
+                "const": "expenses_by_category"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/Row_expenses_by_category"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "const": 30
+              },
+              "q": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "summary": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            },
+            "required": [
+              "contract",
+              "section",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "limit",
+              "q",
+              "summary"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "section": {
+                "const": "cashiers"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/Row_cashiers"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "const": 30
+              },
+              "q": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "summary": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            },
+            "required": [
+              "contract",
+              "section",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "limit",
+              "q",
+              "summary"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "section": {
+                "const": "stock"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/Row_stock"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "const": 30
+              },
+              "q": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "summary": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            },
+            "required": [
+              "contract",
+              "section",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "limit",
+              "q",
+              "summary"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "section": {
+                "const": "cash"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/Row_cash"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "const": 30
+              },
+              "q": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "summary": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            },
+            "required": [
+              "contract",
+              "section",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "limit",
+              "q",
+              "summary"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "section": {
+                "const": "debts"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/Row_debts"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "const": 30
+              },
+              "q": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "summary": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            },
+            "required": [
+              "contract",
+              "section",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "limit",
+              "q",
+              "summary"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "section": {
+                "const": "advances"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/Row_advances"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "const": 30
+              },
+              "q": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "summary": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            },
+            "required": [
+              "contract",
+              "section",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "limit",
+              "q",
+              "summary"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-reports-v1"
+              },
+              "section": {
+                "const": "payroll_debts"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/Row_payroll_debts"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "const": 30
+              },
+              "q": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "summary": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            },
+            "required": [
+              "contract",
+              "section",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "limit",
+              "q",
+              "summary"
+            ]
+          }
+        ]
+      },
+      "Row_products": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "revenue": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "cogs": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "gross_profit": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "writeoff": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "inventory": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "result": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{3}$"
+          },
+          "writeoff_quantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{3}$"
+          },
+          "margin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "product",
+          "name",
+          "unit",
+          "revenue",
+          "cogs",
+          "gross_profit",
+          "writeoff",
+          "inventory",
+          "result",
+          "quantity",
+          "writeoff_quantity",
+          "margin"
+        ]
+      },
+      "Row_by_store": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "revenue": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "cogs": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "expenses": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "payroll": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "writeoffs": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "inventory_adjustment": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "supplier_return_variance": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "cash_difference": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "cash_net": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "gross_profit": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "profit": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          }
+        },
+        "required": [
+          "store",
+          "name",
+          "revenue",
+          "cogs",
+          "expenses",
+          "payroll",
+          "writeoffs",
+          "inventory_adjustment",
+          "supplier_return_variance",
+          "cash_difference",
+          "cash_net",
+          "gross_profit",
+          "profit"
+        ]
+      },
+      "Row_expenses_by_category": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "store": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "enum": [
+              "network",
+              "store"
+            ]
+          },
+          "store_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          }
+        },
+        "required": [
+          "store",
+          "scope",
+          "store_name",
+          "category",
+          "amount"
+        ]
+      },
+      "Row_cashiers": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "employee": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "shifts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "with_difference": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "shortage": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "surplus": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "net": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "revenue": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "late_return_bonus": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "hours": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]$"
+          },
+          "revenue_per_hour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "employee",
+          "name",
+          "shifts",
+          "with_difference",
+          "shortage",
+          "surplus",
+          "net",
+          "revenue",
+          "hours",
+          "revenue_per_hour"
+        ]
+      },
+      "Row_stock": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "lot": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "code": {
+            "type": "string"
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "warehouse_name": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "expiry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{3}$"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "expired": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "lot",
+          "code",
+          "warehouse",
+          "warehouse_name",
+          "store",
+          "product",
+          "name",
+          "unit",
+          "expiry",
+          "quantity",
+          "value",
+          "expired"
+        ]
+      },
+      "Row_cash": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "kind": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          }
+        },
+        "required": [
+          "account",
+          "name",
+          "store",
+          "kind",
+          "amount"
+        ]
+      },
+      "Row_debts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "voucher": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "sale",
+              "receipt"
+            ]
+          },
+          "original_kind": {
+            "enum": [
+              "sale",
+              "receipt",
+              "debt_opening"
+            ]
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "party": {
+            "type": "string"
+          },
+          "party_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "due_date": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "voucher",
+          "number",
+          "kind",
+          "original_kind",
+          "store",
+          "date",
+          "party",
+          "party_id",
+          "total",
+          "amount",
+          "due_date",
+          "overdue"
+        ]
+      },
+      "Row_advances": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "payment": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "party_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "party": {
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "customer",
+              "supplier"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          }
+        },
+        "required": [
+          "payment",
+          "number",
+          "store",
+          "party_id",
+          "party",
+          "direction",
+          "date",
+          "amount"
+        ]
+      },
+      "Row_payroll_debts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "employee": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          }
+        },
+        "required": [
+          "employee",
+          "name",
+          "store",
+          "amount"
+        ]
+      }
+    }
+  }
+}

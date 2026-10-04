@@ -87,3 +87,15 @@
 .trade-production-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 .trade-production details{margin-top:16px}
 @media(max-width:600px){.trade-production-component{grid-template-columns:minmax(0,1fr)}.trade-production label,.trade-production-component label{min-width:0}.trade-production-component button{max-width:100%;overflow-wrap:anywhere}}
+
+@layer legacy {
+/* Direct form fields avoid applying native toolbar label flex to React Aria labels. */
+.trade-report-form{margin-bottom:20px}
+.trade-report-fields{border:0;padding:0;margin:0;min-width:0;display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-bottom:20px}
+.trade-report-fields>label,.trade-report-fields>.trade-report-store{flex:1 1 180px;min-width:0}
+.trade-report-fields>label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500}
+.trade-report-form .trade-directory-host{width:100%}
+.trade-report-fields>label>input{width:100%;min-width:0}
+.trade-report-fields>.btn{min-height:44px}
+@media(max-width:480px){.trade-report-fields>label,.trade-report-fields>.trade-report-store{flex-basis:100%}}
+}
