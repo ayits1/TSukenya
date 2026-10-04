@@ -1,5 +1,6 @@
 """Explicit order controls and retry receipts, independent of financial postings."""
 import hashlib,json,uuid,re
+from datetime import date
 from decimal import Decimal
 from django.db import transaction
 from django.db.models import F,Sum,Q,OuterRef,Subquery,DecimalField,Value
@@ -130,7 +131,7 @@ def mutate(user,order_id,value):
     before=order_json(order,user);reservation_before=None;reservation_after=None;reason=value.get('reason','');require(isinstance(reason,str) and len(reason)<=4000,'Некоректна причина.')
     state=state or OrderControl.objects.create(order=order)
     if action=='reserve':
-        require(order.kind=='customer_order','Резерв доступний тільки замовленню покупця.');require(order.store.active and order.warehouse is not None and order.party and order.party.active,'Потрібні активні магазин і покупець та склад замовлення.');expires=day(value.get('expires_on'));require(expires>=kyiv_day(),'Строк резерву вже минув.')
+        require(order.kind=='customer_order','Резерв доступний тільки замовленню покупця.');require(order.store.active and order.warehouse is not None and order.party and order.party.active,'Потрібні активні магазин і покупець та склад замовлення.');expires=day(value.get('expires_on'));require(expires>=kyiv_day(),'Строк резерву вже минув.');require(expires<date.max,'Строк резерву має дозволяти обчислити початок наступного дня.')
         raw=value.get('lines');require(isinstance(raw,list) and 1<=len(raw)<=200,'Вкажіть товарні рядки резерву.');require(all(isinstance(row,dict) and set(row)=={'line','quantity'} for row in raw),'Некоректні рядки резерву.')
         remaining={line.pk:(line,left) for line,_,left in remaining_lines(order)};seen=set();currently={line['line']:Decimal(line['reserved']) for line in before['lines']}
         for item in raw:

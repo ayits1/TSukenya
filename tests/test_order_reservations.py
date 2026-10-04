@@ -162,3 +162,9 @@ class OrderReservationTests(TransactionTestCase):
         safe=snapshot('order',value);self.assertNotIn('password',safe);self.assertNotIn('reservations',safe);self.assertNotIn('canManage',safe);self.assertNotIn('session',safe['order_lines'][0]);self.assertEqual(safe['order_lines'][0]['unit'],'шт')
         self.reserve('1');event=AuditEvent.objects.filter(action='order_reserve').latest('pk');self.assertEqual(event.user,self.u);self.assertEqual(event.detail['before']['order_lines'][0]['reserved'],'0');self.assertEqual(event.detail['after']['order_lines'][0]['reserved'],'1.000');uuid.UUID(event.detail['request_id']);self.assertEqual(event.detail['expires_on'],str(self.d+timedelta(days=2)))
         row=StockReservation.objects.first();self.act('release',reservation=row.pk,quantity='0.500',reason='Попит змінився');event=AuditEvent.objects.filter(action='order_release').latest('pk');self.assertEqual(event.detail['before']['reservation']['released'],'0.000');self.assertEqual(event.detail['after']['reservation']['released'],'0.500');self.assertEqual(event.detail['after']['reservation']['unit'],'шт');self.assertEqual(event.detail['reason'],'Попит змінився')
+
+    def test_maximum_date_rejected_before_reservation_or_audit(self):
+        before=(StockReservation.objects.count(),OrderOperation.objects.count(),AuditEvent.objects.count())
+        with self.assertRaisesMessage(BusinessError,'початок наступного дня'):
+            self.act('reserve',expires_on='9999-12-31',lines=[{'line':self.order.lines.get().pk,'quantity':'1'}])
+        self.assertEqual((StockReservation.objects.count(),OrderOperation.objects.count(),AuditEvent.objects.count()),before)
