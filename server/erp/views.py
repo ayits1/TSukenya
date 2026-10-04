@@ -176,6 +176,9 @@ def legacy_mutation(request,user,path,create_key=None):
         if col=='products':
             from .models import PromotionPrice
             require(not PromotionPrice.objects.filter(product=d).exists(),'Товар використовується в історії акцій. Приховайте його замість видалення.')
+            from .models import RecipeVersion, RecipeComponent, ProductionInput
+            require(not ProductionInput.objects.filter(product_id=path).exists(),'Товар збережено як інгредієнт виробничого документа.')
+            require(not RecipeVersion.objects.filter(product_id=path).exists() and not RecipeComponent.objects.filter(product_id=path).exists(),'Товар використовується в затверджених рецептурах.')
             require(not any(any(str(r.get('product'))==id for r in p.data.get('recipe',[])) for p in Document.objects.filter(path__startswith='products/')),'Товар використовується у рецептурі.')
         LegacyCreateReceipt.objects.filter(document_path=path,deleted_at__isnull=True).update(deleted_at=timezone.now())
         d.delete()
@@ -408,7 +411,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -441,7 +444,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -489,6 +492,9 @@ def handle(request):
             require(len(rows)<=200,'В одному документі може бути не більше 200 товарів.')
         require(rows,'У CSV немає товарних рядків.')
         return response({'lines':rows})
+    if path.startswith('/api/erp/recipes/versions'):
+        from .recipes_versions import handle_versions
+        return handle_versions(request,user)
     if path=='/api/erp/recipes' and request.method in {'GET','POST'}:
         require(user.profile.role in {'owner','manager','warehouse'},'Недостатньо прав для рецептур.')
         from .catalog import revision

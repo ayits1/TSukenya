@@ -94,6 +94,7 @@ class Voucher(models.Model):
     account = models.ForeignKey(CashAccount, null=True, blank=True, on_delete=models.PROTECT)
     shift = models.ForeignKey(CashShift, null=True, blank=True, on_delete=models.PROTECT)
     reference = models.ForeignKey('self', null=True, blank=True, on_delete=models.PROTECT)
+    recipe_version = models.ForeignKey('erp.RecipeVersion', null=True, blank=True, on_delete=models.PROTECT)
     payload = models.JSONField(default=dict)
     total = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     cost = models.DecimalField(max_digits=18, decimal_places=2, default=0)
@@ -198,3 +199,4 @@ class Assortment(models.Model):
 from .promotion_models import PromotionCampaign, PromotionPrice, PriceObservation, PriceChange
 from .budget_models import ExpenseCategory, ExpenseCategoryAlias, MonthlyBudget, BudgetLine
 from .order_models import OrderControl, StockReservation, ReservationUse, OrderOperation
+from .production_models import RecipeVersion, RecipeComponent, ProductionInput
