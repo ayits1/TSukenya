@@ -156,3 +156,9 @@ class OrderReservationTests(TransactionTestCase):
         with patch('server.erp.reservations.kyiv_day',return_value=self.d+timedelta(days=3)):
             self.v('writeoff',5,lines=[{'product':'p','quantity':'5','lot':'EARLY'}])
         self.assertEqual(StockLot.objects.get(code='EARLY').quantity,0);self.assertEqual(StockReservation.objects.get(lot__code='EARLY').used,0)
+    def test_whitelisted_order_audit_has_quantities_units_actor_request_and_no_ui_history(self):
+        from server.erp.business_audit import snapshot
+        value={'state':'approved','revision':1,'password':'secret','lines':[{'line':1,'name':'Кава','unit':'шт','quantity':'1','fulfilled':'0','remaining':'1','reserved':'0','session':'secret'}],'reservations':[{'password':'secret'}],'canManage':True}
+        safe=snapshot('order',value);self.assertNotIn('password',safe);self.assertNotIn('reservations',safe);self.assertNotIn('canManage',safe);self.assertNotIn('session',safe['order_lines'][0]);self.assertEqual(safe['order_lines'][0]['unit'],'шт')
+        self.reserve('1');event=AuditEvent.objects.filter(action='order_reserve').latest('pk');self.assertEqual(event.user,self.u);self.assertEqual(event.detail['before']['order_lines'][0]['reserved'],'0');self.assertEqual(event.detail['after']['order_lines'][0]['reserved'],'1.000');uuid.UUID(event.detail['request_id']);self.assertEqual(event.detail['expires_on'],str(self.d+timedelta(days=2)))
+        row=StockReservation.objects.first();self.act('release',reservation=row.pk,quantity='0.500',reason='Попит змінився');event=AuditEvent.objects.filter(action='order_release').latest('pk');self.assertEqual(event.detail['before']['reservation']['released'],'0.000');self.assertEqual(event.detail['after']['reservation']['released'],'0.500');self.assertEqual(event.detail['after']['reservation']['unit'],'шт');self.assertEqual(event.detail['reason'],'Попит змінився')

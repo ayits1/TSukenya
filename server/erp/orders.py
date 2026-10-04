@@ -100,6 +100,10 @@ def cancel_order(order):
     release_unused(order);row,_=OrderControl.objects.get_or_create(order=order);row.revision+=1;row.save(update_fields=['revision'])
 
 
+def reservation_audit(row):
+    return {'id':row.pk,'line':row.order_line_id,'code':row.lot.code,'name':row.order_line.name,'unit':row.order_line.unit,'expires_on':row.expires_on,'quantity':row.quantity,'used':row.used,'released':row.released,'owner':row.owner.username}
+
+
 @transaction.atomic
 def mutate(user,order_id,value):
     ledger_lock();order=get(Voucher,order_id,'Замовлення');scope(user,order.store);permission(user,order.kind);require(order.kind in ORDER_KINDS,'Це не замовлення.');require(editable(user,order),'Змінювати резерви касир може лише для власного замовлення.')
@@ -123,7 +127,7 @@ def mutate(user,order_id,value):
     if value['revision']!=revision:raise Conflict('Замовлення або резерви вже змінено. Оновіть дані.','order_revision_conflict',revision=revision)
     require(order.status=='posted','Спочатку погодьте замовлення.')
     require(not state or state.closed_at is None,'Замовлення вже закрито.')
-    before=order_json(order,user);reason=value.get('reason','');require(isinstance(reason,str) and len(reason)<=4000,'Некоректна причина.')
+    before=order_json(order,user);reservation_before=None;reservation_after=None;reason=value.get('reason','');require(isinstance(reason,str) and len(reason)<=4000,'Некоректна причина.')
     state=state or OrderControl.objects.create(order=order)
     if action=='reserve':
         require(order.kind=='customer_order','Резерв доступний тільки замовленню покупця.');require(order.store.active and order.warehouse is not None and order.party and order.party.active,'Потрібні активні магазин і покупець та склад замовлення.');expires=day(value.get('expires_on'));require(expires>=kyiv_day(),'Строк резерву вже минув.')
@@ -140,7 +144,7 @@ def mutate(user,order_id,value):
                 if not needed:break
             require(not needed,'Недостатньо вільних партій, придатних до вибраного строку. Скоротіть строк явно або змініть кількість.')
     elif action=='release':
-        require(reason.strip(),'Вкажіть причину звільнення.');identifier=identifier_value(value.get('reservation'),'ID резерву');row=get(StockReservation,identifier,'Резерв');require(row.order_line.voucher_id==order.pk,'Резерв належить іншому замовленню.');require(isinstance(value.get('quantity'),str) and re.fullmatch(r'[0-9]+(?:\.[0-9]{1,3})?',value['quantity']),'Кількість звільнення має бути десятковим рядком до 3 знаків.');quantity=dec(value['quantity'],'Звільнення',QTY,minimum=QTY);require(quantity<=unused(row),'Звільняти можна лише невикористану частину.');row.released+=quantity;row.save(update_fields=['released'])
+        require(reason.strip(),'Вкажіть причину звільнення.');identifier=identifier_value(value.get('reservation'),'ID резерву');row=get(StockReservation,identifier,'Резерв');require(row.order_line.voucher_id==order.pk,'Резерв належить іншому замовленню.');require(isinstance(value.get('quantity'),str) and re.fullmatch(r'[0-9]+(?:\.[0-9]{1,3})?',value['quantity']),'Кількість звільнення має бути десятковим рядком до 3 знаків.');quantity=dec(value['quantity'],'Звільнення',QTY,minimum=QTY);reservation_before=reservation_audit(row);require(quantity<=unused(row),'Звільняти можна лише невикористану частину.');row.released+=quantity;row.save(update_fields=['released']);reservation_after=reservation_audit(row)
     elif action=='expire':release_unused(order,expired_only=True)
     elif action=='close':
         require(reason.strip(),'Вкажіть причину закриття.');release_unused(order);state.closed_at=timezone.now();state.closed_by=user;state.reason=reason.strip()
@@ -148,5 +152,8 @@ def mutate(user,order_id,value):
         require(order.kind=='purchase_order','Очікувана поставка доступна тільки закупівлі.');expected=day(value['expected_date']) if value.get('expected_date') else None;require(expected is None or expected>=order.date,'Очікувана дата не може передувати замовленню.');state.expected_date=expected
     state.revision+=1;state.save();after=order_json(order,user);result={'ok':True,'id':order.pk,'order':after}
     OrderOperation.objects.create(key=key,order=order,actor=user,payload_hash=digest,result=result)
-    audit(user,'order_'+action,f'voucher/{order.pk}',{'before':before,'after':after,'observed_revision':value['revision'],'reason':reason.strip(),'idempotencyKey':raw_key})
+    from .business_audit import snapshot,change
+    detail=change(snapshot('order',{**before,**({'reservation':reservation_before} if reservation_before else {})}),snapshot('order',{**after,**({'reservation':reservation_after} if reservation_after else {})}),observed=value['revision'],reason=reason)
+    if action=='reserve':detail['expires_on']=expires.isoformat()
+    audit(user,'order_'+action,f'voucher/{order.pk}',{**detail,'idempotencyKey':raw_key})
     return result
