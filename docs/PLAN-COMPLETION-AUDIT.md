@@ -158,3 +158,11 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B24 portal metadata:** #57 MERGED, exact head330f7b5 frontend/server/PostgreSQL CI успішні. Summary/filter/cleanup/export і actual compact shell consumers прийняті в коді; [PORTAL-METADATA.md](PORTAL-METADATA.md) зберігає ресурсні межі.
 - **B06 initiative plan/result:** shared React three-way comparison інтегровано для PR/CI. KPI tuple узгоджується атомарно; Apply лише змінює чернетку, Save є окремою дією. Root integration build і actual GET-ready/layout320/1440 PASS; initial native conflict/race/privacy matrix підтверджена. [NATIVE-CONFLICT-RECOVERY.md](NATIVE-CONFLICT-RECOVERY.md). Решта entity/work-shift/document/recipe/legacy recovery відкрита.
 - B24 directory й report packages тривають. Deployment, full regression, external services і backup0.1 не виконані.
+
+
+## Після прийняття #58 · mainf2fc44f · 04.10.2026
+
+- **B06 initiative plan/result:** #58 MERGED, exact head22a08cd frontend/server/PostgreSQL CI успішні; actual root integration proof320/1440 переглянуто. Решта B06 не зараховується до цього пакета.
+- **B24 directories:** full native consumer пакет, strict page/details, scope guard та delayed opening/overlay fixes інтегровано для PR/CI поверх metadata/shared conflict entries. Root actual layout320/200% PASS; bounded metadata не є totals/повним catalogue cache. [B24-BOUNDED-DIRECTORIES.md](B24-BOUNDED-DIRECTORIES.md).
+- **B24 reports:** read-only мапа підтвердила full arrays у legacy report та browser CSV; наступний цілісний пакет summary/pages/server export розпочато. Authoritative accounting і current debts/drilldown helpers зберігаються.
+- VPS, повний regression, зовнішні сервіси й виключений0.1 не виконані.

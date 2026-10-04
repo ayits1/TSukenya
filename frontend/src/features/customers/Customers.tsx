@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../shared/ui/Button';
 import { TextField } from '../../shared/ui/TextField';
 import { Select } from '../../shared/ui/Select';
+import { DirectoryComboBox } from '../trading/DirectoryComboBox';
+import type { TradingApi, DirectoryItem } from '../trading/api';
 import { CustomerProfile } from './CustomerProfile';
 import { emptyCustomerFilters, type CustomerApi, type CustomerFilters } from './api';
 import './customers.css';
@@ -13,6 +15,8 @@ export type CustomerOptions = {
   onEdit: (id?: number) => Promise<void>;
   onHistory: (id: number, store: number | null, name: string) => Promise<void>;
   onStore?: (store: number | null) => void;
+  directoryApi?: TradingApi;
+  selectedStore?: DirectoryItem | null;
 };
 export function Customers({
   api,
@@ -21,6 +25,8 @@ export function Customers({
   onEdit,
   onHistory,
   onStore,
+  directoryApi,
+  selectedStore,
   initialFilters = emptyCustomerFilters,
   onFilters = () => {},
   initialCustomer = null,
@@ -42,6 +48,22 @@ export function Customers({
   const [query, setQuery] = useState(filters.q);
   const [actionError, setActionError] = useState('');
   const [historyBusy, setHistoryBusy] = useState(false);
+  const [storeChoice, setStoreChoice] = useState(selectedStore || null);
+  useEffect(() => {
+    if (!directoryApi || filters.store === null) return;
+    const controller = new AbortController();
+    void directoryApi
+      .details(
+        [{ type: 'stores', id: String(filters.store) }],
+        { purpose: 'filter' },
+        controller.signal,
+      )
+      .then((result) => {
+        if (!controller.signal.aborted) setStoreChoice(result.items[0] || null);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [directoryApi, filters.store]);
   const searchPending = query !== filters.q;
   useEffect(() => {
     if (actionError) {
@@ -123,7 +145,9 @@ export function Customers({
   const storeName =
     filters.store === null
       ? 'Усі доступні магазини'
-      : stores.find((s) => s.id === filters.store)?.name || 'Магазин';
+      : storeChoice?.id === String(filters.store)
+        ? storeChoice.name
+        : stores.find((s) => s.id === filters.store)?.name || 'Магазин';
   return (
     <div className="panel tk-root customers-workspace" ref={host}>
       <div className="customer-toolbar">
@@ -180,15 +204,30 @@ export function Customers({
             { id: 'no', label: 'Неактивні' },
           ]}
         />
-        <Select
-          label="Магазин для аналітики"
-          selectedKey={filters.store === null ? 'all' : String(filters.store)}
-          onSelectionChange={(key) => change({ store: key === 'all' ? null : Number(key) })}
-          options={[
-            { id: 'all', label: 'Усі доступні магазини' },
-            ...stores.map((s) => ({ id: String(s.id), label: s.name })),
-          ]}
-        />
+        {directoryApi ? (
+          <DirectoryComboBox
+            api={directoryApi}
+            type="stores"
+            query={{ purpose: 'filter' }}
+            label="Магазин для аналітики"
+            value={filters.store === null ? '' : String(filters.store)}
+            selected={storeChoice?.id === String(filters.store) ? storeChoice : null}
+            onCommit={(item) => {
+              setStoreChoice(item);
+              change({ store: item ? Number(item.id) : null });
+            }}
+          />
+        ) : (
+          <Select
+            label="Магазин для аналітики"
+            selectedKey={filters.store === null ? 'all' : String(filters.store)}
+            onSelectionChange={(key) => change({ store: key === 'all' ? null : Number(key) })}
+            options={[
+              { id: 'all', label: 'Усі доступні магазини' },
+              ...stores.map((s) => ({ id: String(s.id), label: s.name })),
+            ]}
+          />
+        )}
       </div>
       <p className="tk-help">
         Контакти — спільний довідник. Аналітика враховує лише документи доступних магазинів.

@@ -296,12 +296,20 @@ def entity_save(user,name,value):
     else:require(user.profile.role in {'owner','manager','accountant'},'Недостатньо прав.')
     model=allowed[name]
     obj=get(model,value['id'],'Запис') if value.get('id') else model()
+    # Read-directory scope also governs writes, using the actor refreshed after the ledger lock.
+    # Shared counterparties have no store identity and retain their existing global contract.
+    if name=='stores':
+        if obj.pk:scope(user,obj)
+        else:require(user.profile.store_id is None,'Нові магазини може створювати лише власник мережі.')
+    elif name in {'warehouses','accounts','employees'} and obj.pk:
+        scope(user,obj.store)
     if obj.pk:require_revision(obj,value.get('revision'))
     before = audit_snapshot('entity', obj) if obj.pk else None
     obj.name=str(value.get('name','')).strip()
     require(0<len(obj.name)<=160,'Вкажіть назву (до 160 символів).')
     if name in {'warehouses','accounts','employees'}:
         obj.store=get(Store,value.get('store'),'Магазин')
+        scope(user,obj.store)
         if obj.pk:
             require(obj.store_id==model.objects.get(pk=obj.pk).store_id,'Магазин існуючого запису змінити не можна.')
     if name in {'parties','accounts'}:
@@ -469,7 +477,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -479,7 +487,7 @@ def handle(request):
                 entry=manifest.get(key,{})
                 styles.update(entry.get('css',[]))
                 for chunk in entry.get('imports',[]): collect_styles(chunk)
-            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx','src/native-conflict-entry.tsx']:
+            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx','src/native-conflict-entry.tsx','src/trading-entry.tsx']:
                 collect_styles(key)
                 if manifest.get(key,{}).get('file'): scripts.append('<script type="module" src="/frontend/'+manifest[key]['file']+'" onerror="window.dispatchEvent(new CustomEvent(\'tsukenya:module-unavailable\',{detail:\''+key.split('/')[1].split('-')[0]+'\'}))"></script>')
             html=html.replace('</head>',''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in sorted(styles))+'</head>').replace('</body>',''.join(scripts)+'</body>')
@@ -491,6 +499,9 @@ def handle(request):
         from .portal_api import handle_portal
         return handle_portal(request,user)
     if path.startswith('/api/v1/'):
+        if path.startswith('/api/v1/trading/'):
+            from .directories import handle as handle_directories
+            return handle_directories(request,user)
         if path.startswith('/api/v1/crm/'):
             from .customers import handle_customers
             return handle_customers(request,user)
@@ -508,7 +519,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/portal-api.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/reconciliation.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/portal-api.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':

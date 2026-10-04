@@ -1,0 +1,24 @@
+.tk-directory-control {
+  min-width: 0;
+}
+.tk-directory-paging {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid var(--tk-input-line);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.tk-directory-paging > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tk-directory-paging .tk-button {
+  flex: 1;
+  min-width: 80px;
+  overflow-wrap: normal;
+}
+.tk-directory-paging small {
+  color: var(--tk-muted);
+}

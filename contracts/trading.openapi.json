@@ -1,0 +1,782 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya bounded trading reads",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/bootstrap": {
+      "get": {
+        "operationId": "tradingBootstrap",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradingBootstrap"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, store scope or CSRF denies this read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/directories/{type}": {
+      "get": {
+        "operationId": "tradingDirectory",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/DirectoryType"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "exclude",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, store scope or CSRF denies this read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/products/lookup": {
+      "get": {
+        "operationId": "tradingProductLookup",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "exclude",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, store scope or CSRF denies this read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/directories/details": {
+      "post": {
+        "operationId": "tradingSelectedDetails",
+        "description": "Read-only selection hydration; CSRF required. No business state, revision, receipt or audit is changed. Read-only repeatable-read snapshot.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectoryDetailsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Read-only authenticated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, store scope or CSRF denies this read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/products/template.csv": {
+      "get": {
+        "operationId": "tradingProductTemplate",
+        "parameters": [
+          {
+            "name": "purpose",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "opening",
+                "receipt",
+                "inventory"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full eligible product template; versioned formula-safe streaming CSV",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, store scope or CSRF denies this read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DirectoryItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "store_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "supplier",
+              "customer",
+              "cash",
+              "bank",
+              "terminal"
+            ]
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "barcode": {
+            "type": "string"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "promotion": {
+            "type": "boolean"
+          },
+          "cost": {
+            "type": "string",
+            "pattern": "^[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "regularPrice": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "salePrice": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "shift_rate": {
+            "type": "string"
+          },
+          "bonus_percent": {
+            "type": "string"
+          },
+          "bonus_basis": {
+            "type": "string",
+            "enum": [
+              "store",
+              "personal",
+              "profit"
+            ]
+          },
+          "balance": {
+            "type": "string"
+          },
+          "payroll_debt": {
+            "type": "string"
+          },
+          "semantic_key": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "DirectoryType": {
+        "type": "string",
+        "enum": [
+          "stores",
+          "warehouses",
+          "accounts",
+          "employees",
+          "parties",
+          "products",
+          "expense_categories",
+          "cash_shifts"
+        ]
+      },
+      "DirectoryPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/DirectoryItem"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "const": 30
+          }
+        }
+      },
+      "DirectoryRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "id"
+        ],
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/DirectoryType"
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "DirectoryDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "id",
+          "name"
+        ],
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/DirectoryType"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "store_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "supplier",
+              "customer",
+              "cash",
+              "bank",
+              "terminal"
+            ]
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "barcode": {
+            "type": "string"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "promotion": {
+            "type": "boolean"
+          },
+          "cost": {
+            "type": "string",
+            "pattern": "^[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "regularPrice": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "salePrice": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "shift_rate": {
+            "type": "string"
+          },
+          "bonus_percent": {
+            "type": "string"
+          },
+          "bonus_basis": {
+            "type": "string",
+            "enum": [
+              "store",
+              "personal",
+              "profit"
+            ]
+          },
+          "balance": {
+            "type": "string"
+          },
+          "payroll_debt": {
+            "type": "string"
+          },
+          "semantic_key": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "DirectoryDetailsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ids"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/DirectoryRef"
+            }
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "purpose": {
+            "type": "string"
+          }
+        }
+      },
+      "DirectoryDetails": {
+        "type": "object",
+        "required": [
+          "items",
+          "unavailable"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/DirectoryDetail"
+            }
+          },
+          "unavailable": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/DirectoryRef"
+            }
+          }
+        }
+      },
+      "TradingBootstrap": {
+        "type": "object",
+        "required": [
+          "csrf",
+          "role",
+          "username",
+          "storeId",
+          "defaultStoreId",
+          "canViewAudit",
+          "closed_through",
+          "fiscal_required",
+          "max_discount",
+          "defaultCategoryId"
+        ],
+        "properties": {
+          "csrf": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "manager",
+              "warehouse",
+              "cashier",
+              "accountant"
+            ]
+          },
+          "username": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "defaultStoreId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "canViewAudit": {
+            "type": "boolean"
+          },
+          "closed_through": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "fiscal_required": {
+            "type": "boolean"
+          },
+          "max_discount": {
+            "type": "string"
+          },
+          "alerts_status": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "defaultCategoryId": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

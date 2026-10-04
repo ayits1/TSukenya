@@ -331,6 +331,19 @@ input {
   box-shadow: 0 8px 24px #20272c14;
   padding: 4px;
 }
+.tk-popover--paged {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.tk-popover--paged .tk-listbox {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.tk-paging-footer {
+  flex: 0 0 auto;
+}
 .tk-listbox {
   outline: none;
   max-height: min(300px, 50vh);

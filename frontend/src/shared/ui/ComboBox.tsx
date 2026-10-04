@@ -10,8 +10,10 @@ import {
   Text,
   FieldError,
   useFilter,
+  ComboBoxStateContext,
 } from 'react-aria-components';
 import type { ComboBoxProps } from 'react-aria-components';
+import { useContext, useRef, type ReactNode, type RefObject } from 'react';
 import type { Choice } from './Select';
 import { Chevron } from './Chevron';
 
@@ -42,7 +44,47 @@ type Props = Omit<
   description?: string;
   error?: string;
   placeholder?: string;
+  /** Composed navigation for a server page; stays inside the same Aria popover. */
+  popoverFooter?: ReactNode;
+  /** Native dialog forms must keep their overlay in the dialog's top layer. */
+  portalContainer?: Element;
 } & Search;
+
+function PagingFooter({
+  children,
+  input,
+  host,
+}: {
+  children: ReactNode;
+  input: RefObject<HTMLInputElement | null>;
+  host: RefObject<HTMLDivElement | null>;
+}) {
+  const state = useContext(ComboBoxStateContext);
+  return (
+    <div
+      ref={host}
+      className="tk-paging-footer"
+      onKeyDownCapture={(event) => {
+        const buttons = Array.from(
+          host.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') || [],
+        );
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          state?.revert();
+          input.current?.focus();
+        }
+        if (event.key === 'Tab' && event.shiftKey && event.target === buttons[0]) {
+          event.preventDefault();
+          event.stopPropagation();
+          input.current?.focus();
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function ComboBox({
   label,
@@ -50,11 +92,15 @@ export function ComboBox({
   description,
   error,
   placeholder,
+  popoverFooter,
+  portalContainer,
   search = 'local',
   selectedOption = null,
   isLoading = false,
   ...props
 }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null),
+    footerRef = useRef<HTMLDivElement>(null);
   const server = search === 'server';
   const { contains } = useFilter({ sensitivity: 'base' });
   const items =
@@ -85,7 +131,25 @@ export function ComboBox({
     >
       <Label className="tk-label">{label}</Label>
       <Group className="tk-combo-group">
-        <Input className="tk-combo-input" {...(placeholder === undefined ? {} : { placeholder })} />
+        <Input
+          ref={inputRef}
+          className="tk-combo-input"
+          {...(placeholder === undefined ? {} : { placeholder })}
+          onKeyDownCapture={(event) => {
+            // A native dialog must keep Escape within its currently open menu.
+            if (event.key === 'Escape' && popoverFooter && footerRef.current)
+              event.preventDefault();
+            if (event.key === 'Tab' && !event.shiftKey && popoverFooter && footerRef.current) {
+              const button =
+                footerRef.current.querySelector<HTMLButtonElement>('button:not(:disabled)');
+              if (button) {
+                event.preventDefault();
+                event.stopPropagation();
+                button.focus();
+              }
+            }
+          }}
+        />
         <Button className="tk-combo-toggle" aria-label={`Відкрити список: ${label}`}>
           <Chevron />
         </Button>
@@ -96,7 +160,16 @@ export function ComboBox({
         </Text>
       ) : null}
       <FieldError className="tk-error">{error}</FieldError>
-      <Popover className="tk-popover" placement="bottom start">
+      <Popover
+        className={'tk-popover' + (popoverFooter ? ' tk-popover--paged' : '')}
+        placement="bottom start"
+        // The native dialog is itself scrollable. Keep Aria's viewport boundary rather than
+        // using that same scrolled containing block as its boundary. Native dialogs are inset
+        // at most 24px vertically; 8px more keeps the menu/focus border within that visible area.
+        {...(portalContainer
+          ? { UNSTABLE_portalContainer: portalContainer, containerPadding: 32 }
+          : {})}
+      >
         <ListBox
           className="tk-listbox"
           renderEmptyState={() => (
@@ -109,6 +182,11 @@ export function ComboBox({
             </ListBoxItem>
           )}
         </ListBox>
+        {popoverFooter ? (
+          <PagingFooter input={inputRef} host={footerRef}>
+            {popoverFooter}
+          </PagingFooter>
+        ) : null}
       </Popover>
     </AriaComboBox>
   );
