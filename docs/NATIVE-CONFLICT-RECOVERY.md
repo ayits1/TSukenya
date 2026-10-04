@@ -194,3 +194,23 @@ fresh delete review. PG concurrency перевіряє два PATCH із одн�
 runtime recovery VM PASS. Native main/inline/input/ACK targets PASS; ACK JSON null та revision array
 не приймаються як success. Окреме видалення expense має одне initial confirmation. Actual PNG1440/320
 переглянуті. Повтору всіх успішних перевірок після локальних boundary виправлень не було.
+
+### Незалежне legacy інтеграційне рев’ю
+
+Пакет інтегровано поверх прийнятого #61 b49212a; entry/stories/doc sections злиті аддитивно,
+Entity і WorkShift exports збережено. Root unit3/combined TypeScript/Vite build/affected lint-format PASS.
+Isolated root PostgreSQL2 (0.385 s): required/stale revision/whitelist і preservation unknown metadata
+в усіх трьох ресурсах; чинний scope перед token та no-audit/read-only відмова.
+Root ACK-only actual native PASS: JSON null/revision array не є success і не викликають автоматичний повтор;
+expense delete має одне початкове підтвердження. Доказ `/tmp/tsukenya-root-legacy-ack/ack-report.json`.
+Author actual comparison1440/320 PNG переглянуто; знайдені та виправлені відступи й redundant read CTA
+під час порівняння. Root changed layout/invalidApply target PASS: visible refusal до baseline/mutation,
+потім valid Apply/окремий Save; 1440/320 geometry і44px. `/tmp/tsukenya-root-legacy-layout/layout-report.json`
+та `layout-review-{1440,320}.png` переглянуті. Pristine close не просить підтвердження відкидання; dirty draft guard лишається.
+
+Default `legacy-records-ui.cjs` оркеструє п’ять окремих disposable stages: main/inline/input/ACK/layout.
+Для старого одного main сценарію — `QA_LEGACY_MAIN_ONLY=1`; для narrow changed state — `QA_LEGACY_LAYOUT_ONLY=1`.
+Full registry має один default entry та очищає всі partial flags; у цій задачі його не запускали.
+Harness прибирає inherited DB/PG/URL/require змінні, фіксує test Django settings/secret і безпечно завершує
+вже закритий server process. `test:full -- --plan` тільки dry-run. Business create receipts/managed lifecycle
+та MonthlyBudget залишають свої наявні контракти, private production/Sheet/VPS не використовуються.
