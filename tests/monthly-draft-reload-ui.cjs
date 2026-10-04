@@ -1,7 +1,7 @@
-/* Isolated actual category consumer. Monthly plan draft is an independent context. */
+/* Isolated actual monthly budget consumer. Monthly plan draft is an independent context. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
-const stage=process.env.QA_MONTHLY_DRAFT_FROM;if(stage!==undefined&&!['update','privacy','validation','policy','session','existing','preflight','send','response','write403'].includes(stage))throw Error('Unknown category stage');
+const stage=process.env.QA_MONTHLY_DRAFT_FROM;if(stage!==undefined&&!['update','privacy','validation','policy','session','existing','preflight','send','response','write403'].includes(stage))throw Error('Unknown monthly stage');
 const root=path.resolve(__dirname,'..'),python=process.env.PYTHON_BIN||'python3',data=fs.mkdtempSync(path.join(os.tmpdir(),'monthly-draft-')),port=Number(process.env.QA_PORT||18282),base='http://localhost:'+port,password='isolated-monthly-draft-password',output=process.env.QA_OUTPUT_DIR||'/tmp/tsukenya-monthly-reload-proof';fs.mkdirSync(output,{recursive:true});
 const env={...process.env,HOST:'127.0.0.1',PORT:String(port),DATA_DIR:data,ERP_DB_PATH:path.join(data,'test.sqlite3'),OWNER_USERNAME:'tester',DJANGO_SETTINGS_MODULE:'server.settings',DJANGO_SECRET_KEY:'isolated-monthly-draft-secret-not-production-at-least-fifty-characters'};for(const k of Object.keys(env))if(/^DB_|^PG/.test(k)||['TSUKENYA_REQUIRE_POSTGRES','DATABASE_URL','POSTGRES_URL','OWNER_PASSWORD','OWNER_PASSWORD_HASH'].includes(k))delete env[k];
 const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("'+password+'"))'],{cwd:root,env,encoding:'utf8'}).trim();env.OWNER_PASSWORD_HASH=hash;

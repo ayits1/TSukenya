@@ -445,3 +445,12 @@ PlanningCategory/monthlyBudget/budgetTemplate, P2/P3, інші торговел�
 
 - **Категорії:** #104 MERGED, final35f9f8a frontend33s/server2m28/PostgreSQL5m38 PASS; обидві canonical копії синхронізовано. VPS ще2adc49f, цей пакет не оголошено deployed.
 - **React закупівлі:** actual journal/replenishment bounded30 і explicit200+5 інтегровані для PR. Independent review handoff/enum defects виправлено; root12unit/build та actual native callbacks PASS. Native editors/posting лишаються authoritative чинними callbacks; details у REACT-PURCHASES.md. React sales та bounded financial settlement reads розпочато, monthly/template recovery ще відкриті. Повний план не завершено,0.1 не виконували.
+
+### Monthly draft integration follow-up
+
+Після прийнятого PR105 окремо інтегровано P1 monthly raw reload recovery та
+незалежні response lifetime/current403 fixes. Targeted integrated preflight
+PASS; matching build/static/plan PASS. Інші source proofs reused, без full
+regression. Template count/expense enrollment та інші родини B06 залишаються
+окремою роботою. PR105 accepted та розгорнуто: public health/source/assets
+підтверджують release; read-only probes до/після однакові.

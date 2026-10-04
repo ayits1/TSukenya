@@ -83,3 +83,17 @@ localhost. Інші author unit/PG/layout/merge proofs вище використ
 без запуску: server, codec, shared controls і geometry не змінено. No full,
 production/VPS/Sheet, push/deploy або нові міграції. Category baseline із
 авторської гілки не є частиною цього follow-up; root інтегрує її окремі виправлення.
+
+## Інтеграція після закупівель
+
+Own monthly source та незалежні response fixes інтегровано поверх accepted main
+із React-закупівлями. Конфлікти loader/import вирішено додаванням monthly
+bridge: збережено category, recipe та work-shift recovery.
+Matching TypeScript/Vite build, syntax/py_compile, diff whitespace і static
+browser policy PASS. Один actual integrated preflight stage PASS: positive
+CREATE identity durable до наступного facts503, reload зберігає newer invalid
+raw та confirmed ID без прийняття revision чи повторного POST.
+Попередні unit4, PG3 та targeted raw/privacy/response proofs використано
+повторно за незмінних inputs. Full runner лише перевірено з --plan; додано
+primary і10 окремих monthly scopes та scrub QA_MONTHLY_DRAFT_FROM.
+Цей пакет не переносить шаблон бюджету й не означає завершення B06.
