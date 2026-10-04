@@ -167,13 +167,16 @@ module.exports = async function tradeDialogUX(page, base, wait) {
   await close();
 
   const mockStock={totals:[{warehouse,name:'Видимий складський товар',product:'visible',quantity:'1',available:'1',value:'10',unit:'шт',minimum:'2',low:true},{warehouse:secondWarehouse,name:'Інший складський товар',product:'other',quantity:'2',available:'2',value:'20',unit:'шт',minimum:'3',low:true}],lots:[{id:1,warehouse,name:'Видимий складський товар',product:'visible',quantity:'1',value:'10',unit:'шт',lot:'VISIBLE',expiry:today,expired:false},{id:2,warehouse:secondWarehouse,name:'Інший складський товар',product:'other',quantity:'2',value:'20',unit:'шт',lot:'OTHER',expiry:today,expired:false}]};
-  const stockURL='**/api/erp/stock', stockHandler=route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(mockStock)});
+  const filteredStock=query=>{const visible=x=>!query.get('store')||(x.warehouse===warehouse?store:secondStore)===Number(query.get('store'));return {totals:mockStock.totals.filter(visible),lots:mockStock.lots.filter(visible)};};
+  const stockURL='**/api/erp/stock?*', stockHandler=route=>{const query=new URL(route.request().url()).searchParams,filtered=filteredStock(query),items=query.get('view')==='lots'?filtered.lots:filtered.totals;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items,total:items.length,page:1,pages:1,limit:30,summary:{value:String(filtered.totals.reduce((sum,x)=>sum+Number(x.value),0)),low:filtered.totals.length,expiry:filtered.lots.length,lots:filtered.lots.length,products:filtered.totals.length}})});};
+  const stockCsvURL='**/api/erp/stock.csv?*', stockCsvHandler=route=>{const filtered=filteredStock(new URL(route.request().url()).searchParams),csv=require('../app/csv.js');return route.fulfill({status:200,headers:{'Content-Disposition':'attachment; filename="stock.csv"'},contentType:'text/csv',body:csv.serialize(['Товар','Склад','Кількість','Доступно','Од.','Вартість'].map((label,index)=>({label,kind:[2,3,5].includes(index)?'number':'text'})),filtered.totals.map(x=>[x.name,String(x.warehouse),x.quantity,x.available,x.unit,x.value]),{reversible:true})});};
+  await page.route(stockCsvURL,stockCsvHandler);
   await page.route(stockURL,stockHandler);
   await go('stock');
   await page.locator('[name=filterStore]').selectOption(String(store));
   await wait(async()=>!(await page.locator('#main').innerText()).includes('Інший складський товар'));
   await page.locator('[data-disclosure=stock-lots]').evaluate(el=>el.open=true);
-  assert((await page.locator('#main').innerText()).includes('VISIBLE'));
+  await wait(async()=>(await page.locator('#main').innerText()).includes('VISIBLE'));
   assert.equal((await page.locator('#main').innerText()).includes('OTHER'),false,'Lot detail respects store filter');
   const downloadPromise=page.waitForEvent('download');
   await page.locator('[data-trade=stock-csv]').click();
@@ -181,7 +184,7 @@ module.exports = async function tradeDialogUX(page, base, wait) {
   const csv=await new Promise((resolve,reject)=>{let content='';stream.on('data',chunk=>content+=chunk.toString());stream.on('end',()=>resolve(content));stream.on('error',reject);});
   assert(csv.includes('Видимий складський товар'));
   assert.equal(csv.includes('Інший складський товар'),false,'CSV matches filtered rows');
-  await page.unroute(stockURL,stockHandler);
+  await page.unroute(stockURL,stockHandler);await page.unroute(stockCsvURL,stockCsvHandler);
 
   await priceAndCashier();
   async function priceAndCashier(){

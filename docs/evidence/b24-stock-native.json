@@ -1,0 +1,232 @@
+{
+  "pass": true,
+  "geometry": [
+    {
+      "width": 1440,
+      "documentWidth": 1440
+    },
+    {
+      "width": 320,
+      "documentWidth": 320
+    }
+  ],
+  "requests": [
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=&store=&warehouse=&page=1",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=2",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=3",
+      "count": 7,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1&view=lots",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=3",
+      "count": 7,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1&view=lots",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=3",
+      "count": 7,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=2&q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1&view=lots",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=3",
+      "count": 7,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=&product=b24_000",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1&view=lots",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=3",
+      "count": 7,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=&product=b24_000",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1&view=lots",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=3",
+      "count": 7,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&product=b24_000",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=&product=b24_000",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1&view=lots",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=3",
+      "count": 7,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&product=b24_000",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1&view=lots",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=3",
+      "count": 7,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066&store=&warehouse=1&page=1&view=lots",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066&store=&warehouse=1&page=1&view=lots",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066&store=&warehouse=1&page=1",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+00",
+      "count": 10,
+      "total": 10
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066&store=&warehouse=1&page=1&view=lots",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066&store=&warehouse=1&page=1",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=&product=b24_000",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066&store=&warehouse=1&page=1&view=lots",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80+066&store=&warehouse=1&page=1",
+      "count": 1,
+      "total": 1
+    },
+    {
+      "url": "http://localhost:18485/api/erp/assortment?warehouse=1&page=1&q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1&view=lots",
+      "count": 30,
+      "total": 67
+    },
+    {
+      "url": "http://localhost:18485/api/erp/stock?q=B24+%D0%A2%D0%BE%D0%B2%D0%B0%D1%80&store=&warehouse=1&page=1",
+      "count": 30,
+      "total": 67
+    }
+  ],
+  "checks": [
+    "actual SQL-backed totals/lots/assortment page30",
+    "whole filtered670.00summary",
+    "last row reachable",
+    "keyboard pagination and focus",
+    "selected-ID draft hydration",
+    "fresh row conflict keeps draft",
+    "503retry keeps draft",
+    "abort/newestsearch caret",
+    "320/1440 no overflow",
+    "all67 CSV export"
+  ]
+}

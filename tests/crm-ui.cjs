@@ -38,7 +38,7 @@ await ok('shifts','POST',{id:shift,action:'close',counted:900});const shortage=(
 const ws=(await ok('work-shifts','POST',{employee,date,cash_shift:shift,units:1})).id;
 await go('staff');await page.locator('[data-trade=new-voucher][data-kind=payroll]').click();f=page.locator('#tradeVoucherForm');await f.locator('[name=employee]').selectOption(String(employee));await f.locator('[name=shift_ids]').check();await page.locator('[type=submit][form=tradeVoucherForm][value=post]').click();await page.locator('.trade-dialog-head h2').filter({hasText:'Нарахування зарплати ·'}).waitFor();const wages=(await ok('vouchers?kind=payroll')).items[0];assert.equal(wages.total,'401.00');
 await voucher({kind:'payroll_payment',employee,account:cash,amount:100});const rep=await ok('report');assert.equal(Number(rep.profit),-411);assert.equal(rep.cash_difference,'-10.00');assert.deepEqual(rep.cashiers.map(x=>[x.shifts,x.shortage,x.net,x.revenue]),[[1,'10.00','-10.00','20.00']]);assert.equal(rep.cashiers[0].late_return_bonus,'0.00');assert.equal(Number(rep.revenue),20);assert.equal(Number(rep.cogs),10);assert.equal(Number((await ok('state')).payroll_debts[0].amount),301);
-const stock=await ok('stock');assert.equal(Number(stock.totals[0].quantity),9);assert.equal(Number(stock.totals[0].value),90);
+const stock=await ok('stock');assert.equal(Number(stock.items[0].quantity),9);assert.equal(Number(stock.items[0].value),90);
 // Check forbidden writes and role data filtering.
 const csrfStatus=await page.evaluate(async()=> (await fetch('/api/erp/entities/parties',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'bad',kind:'customer'})})).status);assert.equal(csrfStatus,403);
 await ok('users','POST',{username:'cashier',password:'isolated-cashier-password',role:'cashier',store});
@@ -59,9 +59,9 @@ assert.equal(await f.locator('[data-line=price]').inputValue(),'0.30');await f.l
 await page.locator('[type=submit][form=tradeVoucherForm][value=draft]').click();await page.locator('.trade-dialog-head h2').filter({hasText:'Продаж ·'}).waitFor();const draft=(await ok('vouchers?kind=sale')).items[0];assert.equal(draft.status,'draft');assert.equal(draft.total,'0.30');
 await page.locator('.trade-dialog [data-trade=close]').click();
 // Slow stock searches: a superseded draw never moves the caret; the rendering draw keeps the live text and caret.
-await go('stock');await page.route('**/api/erp/stock',async route=>{await new Promise(r=>setTimeout(r,700));await route.continue();});const search=page.locator('[name=stockSearch]');await search.click();
+await go('stock');await page.route('**/api/erp/stock?*',async route=>{await new Promise(r=>setTimeout(r,700));await route.continue();});const search=page.locator('[name=stockSearch]');await search.click();
 await page.keyboard.type('abc');await page.waitForTimeout(300);await page.keyboard.type('de');await page.waitForTimeout(700);await page.keyboard.type('XY');await page.waitForTimeout(2500);
-assert.equal(await search.inputValue(),'abcdeXY');assert(await search.evaluate(el=>document.activeElement===el&&el.selectionStart===7));await page.unroute('**/api/erp/stock');
+assert.equal(await search.inputValue(),'abcdeXY');assert(await search.evaluate(el=>document.activeElement===el&&el.selectionStart===7));await page.unroute('**/api/erp/stock?*');
 await page.setViewportSize({width:390,height:844});await go('staff');await page.screenshot({path:path.join(os.tmpdir(),'tsukenya-crm-staff-mobile.png')});assert.deepEqual(errors,[]);
 console.log('PASS: receipt/sale/payroll forms; actual stock, COGS, cash and debts; supplier payments/customer refund; shift-rate + percent payroll; CSRF/roles; 8 screens and sale editor at 5 widths; exact server sale price and stock search caret under slow responses.');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill('SIGTERM');await new Promise(r=>server.once('exit',r));fs.rmSync(data,{recursive:true,force:true});});

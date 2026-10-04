@@ -1,6 +1,10 @@
 """Warehouse assortment (B13): whether a product is sold in a warehouse and its minimum there. Rows are edited one at a time, revision-protected."""
 from decimal import Decimal
 from django.db import transaction
+from django.db.models.functions import Lower
+from django.db.models.fields.json import KeyTextTransform
+from .browsing import PAGE_SIZE, page_number, page_bounds
+from .historical_reports import read_snapshot
 from .models import Assortment, Document, Warehouse
 from .services import Conflict, STALE_FORM, audit, dec, get, ledger_lock, record_revision, require, require_revision, scope, current_actor
 
@@ -18,10 +22,22 @@ def row_json(p, row):
             'minimum': str(row.min_stock if row and row.min_stock is not None else default), 'revision': record_revision(row) if row else None}
 
 def assortment(user, query):
-    w = warehouse_for(user, query.get('warehouse'))
-    rows = {a.product_id: a for a in Assortment.objects.filter(warehouse=w)}
-    products = sorted(Document.objects.filter(path__startswith='products/'), key=lambda p: (str(p.data.get('name', '')).casefold(), p.pk))
-    return {'warehouse': w.pk, 'rows': [row_json(p, rows.get(p.pk)) for p in products]}
+    search = query.get('q', '').strip()
+    require(len(search) <= 250, 'Пошуковий запит задовгий.')
+    require(not query.get('sort') or query['sort'] == 'name', 'Невідоме сортування асортименту.')
+    selected = query.get('product', '')
+    require(isinstance(selected, str) and len(selected) <= 120 and '/' not in selected, 'Некоректний ID товару.')
+    requested = page_number(query)
+    with read_snapshot():
+        w = warehouse_for(user, query.get('warehouse'))
+        products = Document.objects.filter(path__startswith='products/')
+        if search: products = products.filter(data__name__icontains=search)
+        if selected: products = products.filter(pk='products/' + selected)
+        total = products.count(); page, pages, offset = page_bounds(total, requested)
+        products = list(products.annotate(sort_name=Lower(KeyTextTransform('name', 'data'))).order_by('sort_name', 'pk')[offset:offset + PAGE_SIZE])
+        rows = {a.product_id: a for a in Assortment.objects.filter(warehouse=w, product_id__in=[p.pk for p in products])}
+        return {'warehouse': w.pk, 'rows': [row_json(p, rows.get(p.pk)) for p in products],
+                'total': total, 'page': page, 'pages': pages, 'limit': PAGE_SIZE}
 
 @transaction.atomic
 def save_assortment(user, value):

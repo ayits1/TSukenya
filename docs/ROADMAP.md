@@ -116,4 +116,8 @@ B26: перший CRM етап реалізовано — React клієнтсь
 
 ## Продовження рев’ю торговельних прав
 
-Відтворено й виправлено cached actor після ledger wait у core accounting/shift/admin/budget/assortment mutation boundaries. Поточний principal оновлюється також для HTTP redaction. Цільові докази — [TRADING-ACTOR-REVALIDATION.md](TRADING-ACTOR-REVALIDATION.md); пакет очікує незалежного рев’ю й PR/CI. Локальний /Users/pavlogrecka/Documents/Projects/TSukenya fast-forward до main8664a76; VPS не змінено.
+Відтворено й виправлено cached actor після ledger wait у core accounting/shift/admin/budget/assortment mutation boundaries. Поточний principal оновлюється також для HTTP redaction. Пакет прийнято в [#51](https://github.com/ayits1/TSukenya/pull/51) після незалежного рев’ю та успішних exact-head server/PostgreSQL CI. Цільові докази — [TRADING-ACTOR-REVALIDATION.md](TRADING-ACTOR-REVALIDATION.md). Локальний /Users/pavlogrecka/Documents/Projects/TSukenya fast-forward до mainbe48a4a; VPS не змінено.
+
+## B24: залишки та асортимент
+
+Інтегровано наступний пакет для рев’ю: реальні stock/assortment GET і UI читають сторінки до30, підсумки охоплюють весь фільтр, CSV потоком містить увесь результат, чернетки повертаються за selected ID. Контракти, синтетичні before/after та PostgreSQL/native докази — [B24-BOUNDED-STOCK.md](B24-BOUNDED-STOCK.md). Повні довідники E/P у bootstrap, detail/POST capacity і versioned CRM migration залишаються незавершеними. Реєстрація нового браузерного сценарію в test:full не означає запуск повної регресії.

@@ -576,13 +576,9 @@ def handle(request):
     if path=='/api/erp/assortment' and request.method in {'GET','POST'}:
         from .assortment import assortment, save_assortment
         return response(assortment(user,request.GET) if request.method=='GET' else save_assortment(user,body(request)))
-    if path=='/api/erp/stock' and request.method=='GET':
-        require(user.profile.role in {'owner','manager','warehouse','accountant','cashier'},'Недостатньо прав.')
-        result=stock(user)
-        if user.profile.role=='cashier':
-            for rows in result.values():
-                for row in rows:row.pop('value',None)
-        return response(result)
+    if path in {'/api/erp/stock','/api/erp/stock.csv'} and request.method=='GET':
+        from .stock_browsing import stock_page, stock_csv
+        return stock_csv(user,request.GET) if path.endswith('.csv') else response(stock_page(user,request.GET))
     if path=='/api/erp/report/drilldown' and request.method=='GET':
         from .report_drilldown import drilldown
         return response(drilldown(user,request.GET))

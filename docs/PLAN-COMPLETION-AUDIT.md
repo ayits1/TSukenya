@@ -28,6 +28,13 @@
 
 B21 jobs/history та versioned CRM/trading migration не завершені. Deployment, full regression та0.1 залишаються окремими gates.
 
+## Продовження після mainbe48a4a · 04.10.2026
+
+- **#51 / торговельні права:** current actor після ledger lock, HTTP redaction, expense retry/list/detail scope та missing-profile work-shift guard перевірено відповідними PostgreSQL сценаріями й незалежним рев’ю; exact-head server/PostgreSQL CI успішні. [TRADING-ACTOR-REVALIDATION.md](TRADING-ACTOR-REVALIDATION.md).
+- **B24 / stock та assortment:** новий пакет інтегрований для PR/CI; bounded30 SQL/UI, full-filter summary/stream CSV, selected-ID drafts, final PostgreSQL5/native keyboard1440/320 докази. [B24-BOUNDED-STOCK.md](B24-BOUNDED-STOCK.md). Повний E/P bootstrap й локальні concurrent detail/posting виміри ще відкриті; весь B24 не зараховано завершеним.
+
+Історичні рядки матриці нижче описують попередній зріз; ці оновлення не підтверджують VPS deployment, production SLA або повну регресію.
+
 ## Позначення
 
 - **C — завершено узгоджену реалізацію:** правило є в authoritative source, matching цільове покриття й опис результату існують. Явні implementation defaults не є новими рішеннями власника.
