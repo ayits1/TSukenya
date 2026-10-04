@@ -647,7 +647,9 @@ def handle(request):
         if request.GET.get('store'):qs=qs.filter(store_id=positive_integer(request.GET['store'],'ID магазину'))
         qs=filter_search(qs,request.GET)
         total=qs.count();page,pages,offset=page_bounds(total,page_number(request.GET))
-        return response({'items':[voucher_json(v,user=user) for v in qs.order_by('-pk')[offset:offset+PAGE_SIZE]],'total':total,'page':page,'pages':pages})
+        from .browsing import with_settlements
+        rows=with_settlements(qs.order_by('-pk')[offset:offset+PAGE_SIZE])
+        return response({'items':[voucher_json(v,user=user,settlements=v.browse_settlements,allocations=v.browse_allocations) for v in rows],'total':total,'page':page,'pages':pages})
     match=re.fullmatch(r'/api/erp/vouchers/(\d+)(?:/(post|reverse))?',path)
     if match:
         pk,action=match.groups();v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind)
