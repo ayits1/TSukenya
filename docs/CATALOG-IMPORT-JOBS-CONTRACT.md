@@ -39,7 +39,7 @@
   "planRevision":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   "status":"ready", "phase":"validating", "progress":{"done":1200,"total":1200},
   "counts":{"created":0,"updated":0,"skipped":0,"conflicted":0,"failed":0,"invalid":0,"pending":1200},
-  "planned":{"create":1100,"update":90,"skip":10},
+  "planned":{"create":1100,"update":90,"skip":10}, "indexedPaths":2000,
   "canApply":true,"canResume":false,"canCancel":true,
   "createdAt":"2026-10-04T10:00:00+00:00","updatedAt":"2026-10-04T10:02:00+00:00",
   "startedAt":"2026-10-04T10:01:00+00:00","finishedAt":null, "error":null,
@@ -63,7 +63,7 @@ Counts показують фактичний результат, planned — о�
 ## Незмінність і відновлення
 
 - Run UUID та ACK create/chunks/seal/apply зберігаються. Старий ACK не означає поточний стан — після нього клієнт читає Run через GET. Заборонено автоматично створювати новий запуск після втрати відповіді.
-- Worker читає персистентний курсор, забирає lease із UUID/expiry та перевіряє його після LedgerLock і перед commit. Старий працівник після перехоплення lease не може записати пакет. Завершені рядки не застосовуються повторно.
+- Worker читає персистентний курсор, забирає lease із UUID/expiry та перевіряє його після LedgerLock і блокування run. Run row lock утримується до commit, тому claim(skip_locked) не може перехопити навіть expired lease активної транзакції. Token fencing лишається до commit; timeout не відкидає вже виконаний рядок. Старий працівник після перехоплення незаблокованого lease не може записати пакет. Завершені рядки не застосовуються повторно.
 - Усі повторені номери/нормалізовані назви/штрихкоди перевіряються SQL-запитами для всього run, а не лише поточного chunk. Індекс каталогу будується частинами200; неоднозначні або змінені під час планування збіги відхиляються.
 - Shared normalise_product, unit guard, barcode/name guard, авторитетні Decimal/ціни та аудит чинні перед кожним записом. Новий product ID = UUID5(runID,line), як у малому імпорті. Рецептури/hidden/залишки/кошти/Sheet не змінюються неявно.
 - EffectivePriceRevision включає Київську дату і контекст. Перехід дати/акції/магазину, який змінює цей відбиток, дає явний conflict; worker не переузгоджує план сам. Зміна конфігурації при плануванні потребує нового run, а не перегляду старого входу.
@@ -71,11 +71,11 @@ Counts показують фактичний результат, planned — о�
 
 ## Ресурси та запуск
 
-До100000 рядків; upload200; validation/apply100; catalog index200; raw entry16КіБ; chunkJSON1МіБ; сумарний канонічний вхід50МіБ. Перевищення явно відхиляється, без обрізання. Вибір довідників для рядка використовує relevant legacy values і всі explicit записи до5000/2МіБ; перевищення — явна помилка. Читання старих каталожних документів для перевірки назв/одиниць потокове, без Python-масиву всього каталогу. PriceResolver спостереження обмежено поточними product paths; це зберігає цінові правила та audit.
+До100000 рядків; upload200; validation/apply100; catalog index200; raw entry16КіБ; chunkJSON1МіБ; сумарний канонічний вхід50МіБ. Перевищення явно відхиляється, без обрізання. Explicit довідники до5000/2МіБ читаються й індексуються один раз на locked validation/apply step. Кожен рядок додає лише relevant old/new legacy choices; lookup canonical/alias/merged/pinned зберігає shared правила. Імпорт не записує explicit довідники, тому власних прихованих cache mutations немає. Перевищення дає failed/reference_limit; виправлення джерела дозволяє resume. Назви й legacy recipe references перевіряються через свіжі технічні індекси; повного читання каталогу для кожного рядка немає. SQL triggers атомарно додають product paths у durable dirty queue для insert/update/delete/bulk/bootstrap. Під LedgerLock worker дочитується до порожньої черги кроками200; поки вона не спорожніла, planned/apply рядки не рухаються. `indexedPaths` показує технічний прогрес очищення черги, окремо від import progress. Точний Python clean/casefold і фінальна перевірка ключа з normalise_product зберігають чинну Unicode/whitespace семантику. Legacy accounting/model guards одиниць не змінені. PriceResolver спостереження обмежено поточними product paths; це зберігає цінові правила та audit.
 
 ```sh
 python manage.py process_catalog_imports --once
 python manage.py process_catalog_imports --run UUID --max-steps 100
 ```
 
-Одна команда без параметрів виконує один обмежений крок; `--once` теж один. Планування scheduler/VPS — окрема робота, її тут не запускали. Алгоритмічне обмеження пам’яті не є заміром production capacity: послідовний Unicode name/unit scan і кількість магазинних price observations можуть впливати на час. Тест1001 SKU підтверджує цей сценарій, не гарантує SLA для100000 товарів чи VPS.
+Одна команда без параметрів виконує один обмежений крок; `--once` теж один. Планування scheduler/VPS — окрема робота, її тут не запускали. Алгоритмічне обмеження пам’яті не є заміром production capacity: кількість магазинних price observations, warm-up technical index та розмір конкретних записів можуть впливати на час. Validation/apply завершують крок після приблизно5сек між рядками, мінімум один і максимум100; це не обіцянка часу окремої бізнес-перевірки. Oversized source (>1МіБ канонічного JSON або legacy recipe>100) дає явний failed/catalog_index_limit із path; після виправлення джерела можливий resume. Примусового відкату всього кроку через elapsed lease немає. Тест1001 SKU підтверджує цей сценарій, не гарантує SLA для100000 товарів чи VPS.

@@ -206,7 +206,7 @@ class CatalogImportJobsTests(ImportJobsFixture,TestCase):
     def test_explicit_reference_resource_limit_fails_plan_without_mutating_catalogue(self):
         key=self.create([self.row(1,cost='10')]);self.post('runs/'+key+'/seal',{})
         Document.objects.create(path='catalog_refs/huge',data={'field':'type','value':'Історична','aliases':[{'value':'x'*2100000}]})
-        self.drain(key);detail=self.get('runs/'+key).json();self.assertEqual(detail['status'],'invalid');self.assertEqual(detail['counts']['invalid'],1)
+        self.drain(key);detail=self.get('runs/'+key).json();self.assertEqual(detail['status'],'failed');self.assertEqual(detail['error']['code'],'reference_limit')
         self.assertFalse(Document.objects.filter(path__startswith='products/').exists());self.assertFalse(AuditEvent.objects.exists())
 
 
@@ -268,6 +268,29 @@ class CatalogImportJobsPostgresTests(ImportJobsFixture,TransactionTestCase):
         self.assertEqual(AuditEvent.objects.filter(action='catalog_changed').count(),1)
 
 
+    def test_expired_active_worker_is_fenced_by_real_run_row_lock_and_commits_progress(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event
+        from time import sleep
+        from django.db import close_old_connections,connections
+        import server.erp.import_jobs as jobs
+        key=self.create([self.row(1,cost='10')]);self.ready(key);self.approve(key)
+        identifier,token=claim(uuid.UUID(key));CatalogImportRun.objects.filter(pk=key).update(lease_until=timezone.now()+timedelta(seconds=1))
+        entered=Event();release=Event();original=jobs.apply_row
+        def waiting(*args,**kwargs):
+            entered.set();self.assertTrue(release.wait(5));return original(*args,**kwargs)
+        def worker():
+            close_old_connections()
+            try:
+                with patch.object(jobs,'apply_row',waiting):return step(identifier,token)
+            finally:connections['default'].close()
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future=pool.submit(worker);self.assertTrue(entered.wait(5));sleep(1.05)
+            self.assertIsNone(claim(identifier));release.set();self.assertTrue(future.result(10))
+        run=CatalogImportRun.objects.get(pk=key);self.assertEqual(run.status,'completed');self.assertEqual(run.counts['created'],1)
+        self.assertEqual(AuditEvent.objects.filter(action='catalog_changed').count(),1)
+
+
 class CatalogImportJobsMigrationTests(TransactionTestCase):
     def test_backfill_atomic_receipts_bounded_valid_only_and_reverse_forward(self):
         from django.db import connection
@@ -280,9 +303,18 @@ class CatalogImportJobsMigrationTests(TransactionTestCase):
             OldDocument.objects.create(path='import_runs/'+key,data=data)
             OldDocument.objects.create(path='import_runs/'+str(uuid.uuid4()),data={'owner':owner.pk,'payloadHash':'x','result':{}})
             OldDocument.objects.create(path='import_runs/not-uuid',data=data)
+            OldDocument.objects.create(path='products/migration-name',data={'name':'Straße','recipe':[]})
             executor=MigrationExecutor(connection);executor.migrate([('erp','0017_catalog_import_jobs')])
             apps=executor.loader.project_state([('erp','0017_catalog_import_jobs')]).apps;Run=apps.get_model('erp','CatalogImportRun');Row=apps.get_model('erp','CatalogImportRow')
             run=Run.objects.get(pk=key);self.assertEqual(run.owner_id,owner.pk);self.assertEqual(run.mode,'atomic');self.assertEqual(run.counts['created'],1)
             self.assertEqual(Run.objects.count(),1);self.assertEqual(Row.objects.get(run=run).product_path,'products/old')
-            executor.migrate([('erp','0016_multiple_daily_work_shifts')]);executor=MigrationExecutor(connection);executor.migrate([('erp','0017_catalog_import_jobs')]);self.assertEqual(Run.objects.count(),1)
+            from server.erp.import_index import drain,indexed_duplicate
+            from django.db import transaction
+            with transaction.atomic():drain()
+            self.assertTrue(indexed_duplicate({'name':'STRASSE'},{},'products/other'))
+            executor.migrate([('erp','0016_multiple_daily_work_shifts')])
+            OldDocument.objects.create(path='products/without-index-trigger',data={'name':'Reverse check'})
+            executor=MigrationExecutor(connection);executor.migrate([('erp','0017_catalog_import_jobs')]);self.assertEqual(Run.objects.count(),1)
+            with transaction.atomic():drain()
+            self.assertTrue(indexed_duplicate({'name':'REVERSE CHECK'},{},'products/other'))
         finally:MigrationExecutor(connection).migrate(leaves)

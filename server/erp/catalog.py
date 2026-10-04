@@ -262,7 +262,7 @@ def save_product(request, user, identifier=None):
     return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')), product_paths=[document.path])), 200 if old.get('name') else 201)
 
 
-def unit_in_use(path, data):
+def unit_in_use(path, data, *, legacy_recipe_lookup=None):
     """Why the base unit is fixed: stock quantities and recipes are counted in it. None when it is still free."""
     from .models import VoucherLine, StockLot, RecipeVersion, RecipeComponent, ProductionInput
     if VoucherLine.objects.filter(product_id=path).exists() or StockLot.objects.filter(product_id=path).exists():
@@ -274,13 +274,15 @@ def unit_in_use(path, data):
     if data.get('recipe'):
         return 'для товару задано рецептуру'
     identifier = path.split('/', 1)[1]
+    if legacy_recipe_lookup is not None:
+        return 'товар використовується як інгредієнт у рецептурі' if legacy_recipe_lookup(identifier,path) else None
     recipes = Document.objects.filter(path__startswith='products/').exclude(pk=path).values_list('data', flat=True)
     if any(isinstance(item, dict) and isinstance(item.get('recipe'), list) and any(isinstance(row, dict) and str(row.get('product')) == identifier for row in item['recipe']) for item in recipes.iterator(chunk_size=200)):
         return 'товар використовується як інгредієнт у рецептурі'
     return None
 
 
-def normalise_product(value, old, path, *, validate_references=True, config=None, old_config=None, references=None, bind_references=True):
+def normalise_product(value, old, path, *, validate_references=True, config=None, old_config=None, references=None, bind_references=True, legacy_recipe_lookup=None):
     """One strict write validator shared by the editor and atomic legacy imports."""
     from .views import validate_product
     require(isinstance(value, dict) and not (set(value) - PRODUCT_FIELDS), 'Запит містить невідомі поля товару.')
@@ -292,7 +294,7 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
     def guard_unit():
         # Give the accounting constraint before an unrelated picker error, and recheck canonical aliases.
         if old.get('name') and (data.get('unit') or 'шт') != (old.get('unit') or 'шт'):
-            reason = unit_in_use(path, old)
+            reason = unit_in_use(path, old, legacy_recipe_lookup=legacy_recipe_lookup)
             require(reason is None, f'Одиницю обліку «{old.get("unit") or "шт"}» змінити не можна: {reason}. Для іншої фасовки створіть окремий товар.')
     guard_unit()
     from .catalog_references import reference_records

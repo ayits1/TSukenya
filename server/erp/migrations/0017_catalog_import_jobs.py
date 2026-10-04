@@ -29,6 +29,24 @@ def backfill_atomic(apps, schema_editor):
         except (ValueError,KeyError,TypeError,AttributeError):continue
 
 
+def install_index(apps,schema_editor):
+    from server.erp.import_index_sql import install
+    install(schema_editor.connection)
+    Document=apps.get_model('erp','Document');Dirty=apps.get_model('erp','CatalogIndexDirty')
+    paths=Document.objects.using(schema_editor.connection.alias).filter(path__startswith='products/').values_list('path',flat=True)
+    batch=[]
+    for path in paths.iterator(chunk_size=200):
+        batch.append(Dirty(path=path))
+        if len(batch)==200:
+            Dirty.objects.using(schema_editor.connection.alias).bulk_create(batch,batch_size=200,ignore_conflicts=True);batch=[]
+    if batch:Dirty.objects.using(schema_editor.connection.alias).bulk_create(batch,batch_size=200,ignore_conflicts=True)
+
+
+def uninstall_index(apps,schema_editor):
+    from server.erp.import_index_sql import uninstall
+    uninstall(schema_editor.connection)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -159,5 +177,37 @@ class Migration(migrations.Migration):
             model_name='catalogimportchunk',
             constraint=models.UniqueConstraint(fields=('run', 'offset'), name='import_chunk_offset'),
         ),
+        migrations.CreateModel(
+            name='CatalogIndexDirty',
+            fields=[
+                ('path', models.CharField(max_length=160, primary_key=True, serialize=False)),
+                ('revision', models.PositiveBigIntegerField(default=1)),
+            ],
+        ),
+        migrations.CreateModel(
+            name='CatalogNameIndex',
+            fields=[
+                ('product', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, serialize=False, to='erp.document')),
+                ('name_hash', models.CharField(blank=True, db_index=True, max_length=64)),
+                ('normalized_name', models.TextField(blank=True)),
+            ],
+        ),
+        migrations.AddField(
+            model_name='catalogimportrun',
+            name='indexed_paths',
+            field=models.PositiveIntegerField(default=0),
+        ),
+        migrations.CreateModel(
+            name='CatalogRecipeIndex',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('component', models.CharField(db_index=True, max_length=151)),
+                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='erp.document')),
+            ],
+            options={
+                'constraints': [models.UniqueConstraint(fields=('product', 'component'), name='import_recipe_component')],
+            },
+        ),
+        migrations.RunPython(install_index,uninstall_index),
         migrations.RunPython(backfill_atomic,migrations.RunPython.noop),
     ]

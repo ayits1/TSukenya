@@ -3,20 +3,22 @@ import hashlib
 import hmac
 import re
 import uuid
+from time import monotonic
 from datetime import timedelta
 from decimal import Decimal
-from types import SimpleNamespace
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
-from .catalog import (EDIT_ROLES, TEXT_FIELDS, defaults, duplicate_name, name_key,
+from .catalog import (EDIT_ROLES, TEXT_FIELDS, defaults, name_key,
                       new_product_data, normalise_product, plain, pricing_revision, revision, serialize)
 from .catalog_access import revalidate_actor
 from .catalog_import import canonical, UUID_PATTERN
 from .import_models import CatalogImportRun, CatalogImportRow, CatalogImportChunk, CatalogImportIndex, counts, planned
 from .models import Document
+from .import_index import drain, indexed_duplicate, legacy_recipe_lookup, IndexLimit
+from .import_references import ReferenceCache, ReferenceLimit
 from .services import BusinessError, dec, ledger_lock, require
 
 LIMITS={'maxRows':100000,'uploadRows':200,'workerRows':100,'maxEntryBytes':16384,
@@ -57,7 +59,7 @@ def public(run):
     return {'id':str(run.pk),'mode':run.mode,'fileName':run.file_name,'expectedRows':run.expected_rows,
             'uploadedRows':run.uploaded_rows,'inputBytes':run.input_bytes,'inputHash':run.input_hash or None,
             'planRevision':run.plan_revision or None,'sourceHash':run.source_hash or None,'defaultMarkup':run.default_markup or None,'genericAs':run.generic_as or None,'status':run.status,'phase':run.phase,
-            'progress':{'done':run.phase_done,'total':run.phase_total},'counts':run.counts,'planned':run.planned,
+            'progress':{'done':run.phase_done,'total':run.phase_total},'counts':run.counts,'planned':run.planned,'indexedPaths':run.indexed_paths,
             'canApply':run.mode=='chunked' and run.status=='ready','canResume':run.mode=='chunked' and run.status in {'failed','blocked'},
             'canCancel':run.mode=='chunked' and run.status in {'uploading','queued','running','ready','failed','blocked'},
             'createdAt':iso(run.created_at),'updatedAt':iso(run.updated_at),'startedAt':iso(run.started_at),
@@ -216,13 +218,6 @@ def handle(request,user):
     except RecursionError:return response({'error':'JSON містить надто глибоку вкладеність.','code':'invalid_import'},400)
 
 
-def bounded_references(old,values):
-    from .catalog_references import reference_records
-    explicit=[];size=0
-    for item in Document.objects.filter(path__startswith='catalog_refs/').order_by('path').iterator(chunk_size=100):
-        size+=len(canonical(item.data).encode());explicit.append(item)
-        check(len(explicit)<=5000 and size<=2097152,'Довідники перевищують ліміт великого імпорту.','reference_limit')
-    return reference_records(explicit_records=explicit,legacy_values=[SimpleNamespace(data=old),SimpleNamespace(data={**old,**values})])
 
 
 def config_for(run):return {key:Decimal(value) for key,value in run.pricing_config.items()}
@@ -233,7 +228,7 @@ def effective(doc,user,config):
     return PriceResolver(config,context_store(user),product_paths=[doc.path]).resolve(doc)['effectivePriceRevision']
 
 
-def prepare(run,row,user):
+def prepare(run,row,user,*,references=None):
     value=row.input;fields(value,{'line','id','revision','values'})
     check(row.line is not None,'Некоректний номер рядка.')
     for field,value_key in [('line',row.line),('name_hash',row.name_hash),('barcode',row.barcode)]:
@@ -260,8 +255,9 @@ def prepare(run,row,user):
         check(not Document.objects.filter(pk=path).exists(),'ID нового товару вже використовується.')
     for field in ('cost','markup','price','promotionPrice','minStock'):
         if field in values:check(isinstance(values[field],str) or field in {'price','promotionPrice'} and values[field] is None,f'{field}: очікується десятковий рядок.')
-    data=normalise_product(values,old,path,validate_references=False,config=config,references=bounded_references(old,values))
-    check(not duplicate_name(data,old,path),'Товар із такою назвою вже існує.')
+    data=normalise_product(values,old,path,validate_references=False,config=config,references=(references or ReferenceCache()).scope(old,values),legacy_recipe_lookup=legacy_recipe_lookup)
+    check(name_hash(data.get('name'))==row.name_hash,'Нормалізація назви змінила відповідність рядка.')
+    check(not indexed_duplicate(data,old,path),'Товар із такою назвою вже існує.')
     doc=Document(path=path,data=data);product=serialize(doc,user,config)
     action='skip' if existing and canonical(data)==canonical(old) else ('update' if existing else 'create')
     return path,captured,data,action,{'values':{key:product[key] for key in (*TEXT_FIELDS,'cost','markup','price','manualPrice','promotion','promotionPrice','priceAt','minStock')},'regularPrice':product['regularPrice'],'salePrice':product['salePrice']},effective(doc,user,config)
@@ -303,6 +299,10 @@ def step(identifier,token):
     except BusinessError:
         run.status='blocked';run.error={'code':'access_revoked','message':'Доступ автора змінено. Відновлення потребує чинних прав.'};run.lease_token=None;run.lease_until=None;run.save();return False
     config=config_for(run)
+    drained,dirty=drain();run.indexed_paths+=drained
+    if dirty:
+        run.status='queued';run.lease_token=None;run.lease_until=None;run.save();return True
+    started=monotonic()
     if run.phase in {'indexing','validating'} and pricing_revision()!=run.pricing_revision:
         run.status='failed';run.error={'code':'pricing_revision_conflict','message':'Налаштування ціни змінено. Створіть новий імпорт.'};run.lease_token=None;run.lease_until=None;run.save();return False
     if run.phase=='indexing':
@@ -312,30 +312,35 @@ def step(identifier,token):
         if len(docs)<200:run.phase='validating';run.phase_done=0;run.phase_total=run.expected_rows;run.row_cursor=0
     elif run.phase=='validating':
         rows=list(run.rows.filter(ordinal__gt=run.row_cursor).order_by('ordinal')[:LIMITS['workerRows']])
+        references=ReferenceCache()
         for row in rows:
             try:
-                path,captured,data,action,preview,price_version=prepare(run,row,user)
+                path,captured,data,action,preview,price_version=prepare(run,row,user,references=references)
                 row.product_path=path;row.revision=captured;row.data=data;row.action=action;row.preview=preview;row.effective_revision=price_version;row.status='planned'
             except BusinessError as exc:row.status='invalid';row.error={'code':'invalid_import_row','message':str(exc)}
             row.save();run.plan_material=digest([run.plan_material,row_material(row)]);run.row_cursor=row.ordinal;run.phase_done+=1
+            if monotonic()-started>=5:break
         update_counts(run)
         if run.row_cursor>=run.expected_rows:
             run.plan_revision=plan_hash(run);run.status='invalid' if run.counts['invalid'] else 'ready';run.finished_at=timezone.now() if run.status=='invalid' else None
     elif run.phase=='applying':
         rows=list(run.rows.filter(status='planned',ordinal__gt=run.row_cursor).order_by('ordinal')[:LIMITS['workerRows']])
+        references=ReferenceCache()
         for row in rows:
-            apply_row(run,row,user,config);run.row_cursor=row.ordinal;run.phase_done+=1
+            apply_row(run,row,user,config,references=references);run.row_cursor=row.ordinal;run.phase_done+=1
+            if monotonic()-started>=5:break
         update_counts(run)
         if not run.counts['pending']:
             run.status='completed_with_issues' if run.counts['conflicted'] or run.counts['failed'] else 'completed';run.phase='finished';run.finished_at=timezone.now()
     else:raise JobError('Некоректна фаза імпорту.')
-    # Expiry during expensive validation cannot let an old worker commit after reclaim.
-    check(run.lease_token==token and run.lease_until>timezone.now(),'Час виконання пакета вичерпано.','lease_expired',409)
+    # The run row remains locked throughout this transaction: a competing claim
+    # skips it. Expiry fences entry to the step, not a completed unit's commit.
+    check(run.lease_token==token,'Час виконання пакета вичерпано.','lease_expired',409)
     if run.status=='running':run.status='queued'
     run.lease_token=None;run.lease_until=None;run.save();return True
 
 
-def apply_row(run,row,user,config):
+def apply_row(run,row,user,config,*,references=None):
     existing=Document.objects.filter(pk=row.product_path).first();row.current_revision=revision(existing,config) if existing else ''
     if pricing_revision()!=run.pricing_revision or (row.action=='create' and existing is not None) or (row.action!='create' and (existing is None or row.current_revision!=row.revision)):
         row.status='conflicted';row.error={'code':'revision_conflict','message':'Товар або налаштування ціни змінено після перевірки.'};row.save();return
@@ -343,9 +348,10 @@ def apply_row(run,row,user,config):
         with transaction.atomic():
             old=existing.data if existing else new_product_data(config)
             if existing is None and run.default_markup:old['markup']=float(Decimal(run.default_markup))
-            data=normalise_product(row.input['values'],old,row.product_path,validate_references=False,config=config,references=bounded_references(old,row.input['values']))
+            data=normalise_product(row.input['values'],old,row.product_path,validate_references=False,config=config,references=(references or ReferenceCache()).scope(old,row.input['values']),legacy_recipe_lookup=legacy_recipe_lookup)
             check(canonical(data)==canonical(row.data) and effective(Document(path=row.product_path,data=data),user,config)==row.effective_revision,'Розрахована ціна або план уже змінені.','revision_conflict',409)
-            check(not duplicate_name(data,old,row.product_path),'Товар із такою назвою вже існує.','revision_conflict',409)
+            check(name_hash(data.get('name'))==row.name_hash,'Нормалізація назви змінила відповідність рядка.','revision_conflict',409)
+            check(not indexed_duplicate(data,old,row.product_path),'Товар із такою назвою вже існує.','revision_conflict',409)
             if row.action!='skip':
                 from .promotion_history import observe_prices
                 from .business_audit import snapshot,change
@@ -367,12 +373,12 @@ def process_one(identifier=None):
     if not claimed:return False
     identifier,token=claimed
     try:step(identifier,token)
-    except Exception:
+    except Exception as exc:
         # The failed step already rolled back. Only the technical error state is committed.
         with transaction.atomic():
             run=CatalogImportRun.objects.select_for_update().get(pk=identifier)
             if run.lease_token==token:
-                run.status='failed';run.lease_token=None;run.lease_until=None;run.error={'code':'worker_failed','message':'Пакет не записано. Повторіть виконання з журналу.'};run.save()
+                run.status='failed';run.lease_token=None;run.lease_until=None;run.error={'code':'catalog_index_limit' if isinstance(exc,IndexLimit) else 'reference_limit' if isinstance(exc,ReferenceLimit) else 'worker_failed','message':str(exc) if isinstance(exc,(IndexLimit,ReferenceLimit)) else 'Пакет не записано. Повторіть виконання з журналу.'};run.save()
     return True
 
 

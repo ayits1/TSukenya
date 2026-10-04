@@ -97,6 +97,7 @@ def follow(item, records):
 
 
 def find_reference(records, field, text, parent=''):
+    if hasattr(records,'lookup'):return records.lookup(field,text,parent)
     key = identity(field, text, parent)
     ordered = sorted(records.values(), key=lambda item: item['state'] != 'active')
     match = next((item for item in ordered if identity(item['field'], item['value'], item['parentType']) == key), None)

@@ -20,6 +20,7 @@ class CatalogImportRun(models.Model):
     input_hash=models.CharField(max_length=64,blank=True)
     upload_hash=models.CharField(max_length=64,blank=True)
     plan_material=models.CharField(max_length=64,blank=True)
+    indexed_paths=models.PositiveIntegerField(default=0)
     default_markup=models.CharField(max_length=32,blank=True)
     source_hash=models.CharField(max_length=64,blank=True)
     generic_as=models.CharField(max_length=8,blank=True)
@@ -87,3 +88,22 @@ class CatalogImportIndex(models.Model):
     class Meta:
         constraints=[models.UniqueConstraint(fields=['run','product_path'],name='import_catalog_path')]
         indexes=[models.Index(fields=['run','name_hash'],name='import_catalog_name')]
+
+
+class CatalogNameIndex(models.Model):
+    product=models.OneToOneField('erp.Document',on_delete=models.CASCADE,primary_key=True)
+    name_hash=models.CharField(max_length=64,db_index=True,blank=True)
+    normalized_name=models.TextField(blank=True)
+
+
+class CatalogRecipeIndex(models.Model):
+    product=models.ForeignKey('erp.Document',on_delete=models.CASCADE)
+    component=models.CharField(max_length=151,db_index=True)
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=['product','component'],name='import_recipe_component')]
+
+
+class CatalogIndexDirty(models.Model):
+    # No FK: deleting a source must retain a tombstone until the index is drained.
+    path=models.CharField(max_length=160,primary_key=True)
+    revision=models.PositiveBigIntegerField(default=1)
