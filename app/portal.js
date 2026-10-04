@@ -361,17 +361,26 @@
   /* ---------- header + path ---------- */
   function renderPath(){
     $("#chainName").textContent = S.settings.chainName || "Мережа солодощів";
-    const cur = S.project.stage || 1;
-    const html = STAGES.map(st=>{
-      const ts = developmentTasks().filter(t=>t.stage===st.n), d = ts.filter(t=>t.status==="done").length;
-      const cls = st.n<cur ? "done" : st.n===cur ? "now" : "";
-      const meta = ts.length ? `${d} з ${ts.length} задач` : "ще не почато";
-      return `<li class="stage ${cls}"><span class="stage-num" aria-hidden="true">${st.n<cur?"✓":st.n}</span>
-        <div><div class="stage-name">${esc(st.name)}</div><div class="stage-meta">${st.n===cur?"зараз тут · ":""}${meta}</div></div></li>`;
-    }).join("");
-    $("#stages").innerHTML = html;
-    const all = developmentTasks().length, done = developmentTasks().filter(t=>t.status==="done").length;
-    $("#overall").textContent = all ? `Виконано ${done} з ${all} задач` : "";
+    let summaryRead=null,pathNotice=$('#developmentSummaryNotice');
+    if(window.TSUKENYA_SERVER){
+      if(!pathNotice){pathNotice=document.createElement('div');pathNotice.id='developmentSummaryNotice';$('#stages').before(pathNotice);}
+      if(window.TSUKENYA_ROLE!=='owner'||workspace!=='development'||tab==='ideas'){
+        pathNotice.innerHTML='';$('#stages').innerHTML='';$('#overall').textContent='';$('#next').hidden=true;$('#updated').textContent='';return;
+      }
+      summaryRead=collectionSummary('development');pathNotice.innerHTML=collectionSummaryNotice(summaryRead);
+    }
+    const summary=summaryRead?.value,cur=S.project.stage||1;
+    const html=STAGES.map(st=>{
+      const ts=window.TSUKENYA_SERVER?null:developmentTasks().filter(t=>t.stage===st.n);
+      const total=window.TSUKENYA_SERVER?summary?.stages[String(st.n)]:ts.length;
+      const done=window.TSUKENYA_SERVER?summary?.stageDone[String(st.n)]:ts.filter(t=>t.status==='done').length;
+      const cls=st.n<cur?'done':st.n===cur?'now':'';
+      const meta=total===undefined?'Підсумок ще не підтверджено':total?`${done} з ${total} задач`:'ще не почато';
+      return `<li class="stage ${cls}" data-development-stage="${st.n}"><span class="stage-num" aria-hidden="true">${st.n<cur?'✓':st.n}</span><div><div class="stage-name">${esc(st.name)}</div><div class="stage-meta">${st.n===cur?'зараз тут · ':''}${meta}</div></div></li>`;
+    }).join('');
+    $('#stages').innerHTML=html;
+    const all=window.TSUKENYA_SERVER?summary?.total:developmentTasks().length,done=window.TSUKENYA_SERVER?summary?.statuses.done:developmentTasks().filter(t=>t.status==='done').length;
+    $('#overall').textContent=all===undefined?'Підсумок ще не підтверджено':all?`Виконано ${done} з ${all} задач${summary?.stages.unknown?' · '+summary.stages.unknown+' без визначеного етапу':''}`:'';
     const nt = S.project.nextStep;
     $("#next").hidden = !nt; $("#nextText").textContent = nt || "";
     const u = S.project.updatedAt;

@@ -148,20 +148,22 @@ def summary(user,params):
                 data=doc.data;amount=legacy_number(data.get('amount'));group='fixed' if data.get('group')=='fixed' else 'variable';by_category[category(data)]+=amount
                 if group in totals:totals[group]+=amount;counts[group]+=1
             return {**result,'plannedTotal':format(sum(totals.values(),Decimal(0)),'f'),'totals':{k:format(v,'f') for k,v in totals.items()},'byCategory':{k:format(v,'f') for k,v in by_category.items()},'counts':counts}
-        statuses={'todo':0,'doing':0,'done':0};stages={str(i):0 for i in range(1,5)}|{'unknown':0};active=0;nearest=[];total=0;unfinished=0;unknown_status=0
+        statuses={'todo':0,'doing':0,'done':0};stages={str(i):0 for i in range(1,5)}|{'unknown':0};stage_done={key:0 for key in stages};active=0;nearest=[];total=0;unfinished=0;unknown_status=0
         ctx=context(user,'tasks',{'space':section})
         for doc in documents('tasks').iterator(chunk_size=200):
             data=doc.data
             if not visible(user,'tasks',data) or not matches(data,ctx):continue
             status=data.get('status') or 'todo';total+=1;unfinished+=status!='done';unknown_status+=status not in statuses
             if status in statuses:statuses[status]+=1
-            stage=data.get('stage');stages[str(stage) if type(stage) is int and 1<=stage<=4 else 'unknown']+=1
+            stage=data.get('stage');stage_key=str(stage) if type(stage) is int and 1<=stage<=4 else 'unknown';stages[stage_key]+=1
+            if status=='done':stage_done[stage_key]+=1
             active+=bool(data.get('_alertActive'))
             if section=='operations' and status!='done' or section=='development' and status=='doing':
                 nearest.append(doc)
                 nearest.sort(key=lambda d:(str(d.data.get('dueDate') or '9999') if section=='operations' else '',d.portal_order,d.path));nearest=nearest[:5]
         result.update(total=total,unfinished=unfinished,unknownStatus=unknown_status,statuses=statuses,stages=stages,activeConditions=active,nearest=items(user,'tasks',nearest))
         if section=='development':
+            result['stageDone']=stage_done
             reactions={'awaiting':0,'yes':0,'no':0}
             for doc in documents('ideas').iterator(chunk_size=200):
                 if visible(user,'ideas',doc.data):

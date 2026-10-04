@@ -1845,6 +1845,40 @@
           "plannedTotal": {
             "type": "string",
             "pattern": "^-?\\d+(?:\\.\\d+)?$"
+          },
+          "stageDone": {
+            "type": "object",
+            "description": "Обов’язковий для section=development. Кількість done у всьому доступному наборі за ключами 1,2,3,4,unknown; кожна не більша за stages, сума дорівнює statuses.done.",
+            "required": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "unknown"
+            ],
+            "properties": {
+              "1": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "2": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "3": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "4": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unknown": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
           }
         }
       }

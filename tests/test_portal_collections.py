@@ -58,6 +58,17 @@ class PortalCollectionsTests(TransactionTestCase):
         self.assertEqual(self.get('expenses',group='variable').json()['total'],1)
         data=self.get('summary',section='budget').json();self.assertEqual(data['totals']['variable'],'2.25');self.assertEqual(data['byCategory']['Обслуговування'],'2.25')
 
+    def test_development_stage_completion_uses_whole_scope(self):
+        for i in range(65):
+            Document.objects.create(path=f'tasks/dev{i:03}',data={'title':f'Розвиток {i}','scope':'development','stage':1 if i<40 else 2,'status':'done' if i%2==0 else 'doing','order':i})
+        Document.objects.create(path='tasks/dev_unknown',data={'title':'Невідомий етап','scope':'development','stage':True,'status':'done'})
+        self.assertEqual(len(self.get('tasks',space='development',page='2').json()['items']),30)
+        data=self.get('summary',section='development').json()
+        self.assertEqual((data['total'],data['statuses']['done']),(66,34))
+        self.assertEqual(data['stages'],{'1':40,'2':25,'3':0,'4':0,'unknown':1})
+        self.assertEqual(data['stageDone'],{'1':20,'2':13,'3':0,'4':0,'unknown':1})
+        self.role('manager',self.a);self.assertEqual(self.get('summary',section='development').status_code,403)
+
     def test_postgresql_page_snapshot_and_current_actor(self):
         if connection.vendor!='postgresql':self.skipTest('PostgreSQL RR proof')
         import threading
