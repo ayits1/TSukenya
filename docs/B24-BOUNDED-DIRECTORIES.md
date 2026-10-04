@@ -61,3 +61,5 @@ Root незалежно відтворив unauthorized entity edit для чу�
 Native directory script додано в явний full entrypoint; цього прогону не запускали. Адитивні manifest/script конфлікти узгоджено зі збереженням metadata PortalApi, trading та native conflict entries.
 
 Root integrated TypeScript/Vite build і layout-only native320/200% PASS після узгодження entries; `/tmp/tsukenya-root-directory-integration/report-layout.json` та actual PNG перевірені. Primary/tail business сценарії з незмінними inputs повторно не запускали. Final popup footer/hint містяться у видимому intersection(dialog, viewport).
+
+CI першого head20bd5e: frontend і PostgreSQL PASS; SQLite Django stage також PASS, але Node promotion-legacy fixture очікувала колишній browser retailPrice fallback. Fixture адаптовано до authoritative scoped salePrice string; legacy portal/sync/import/label coverage збережено, missing/malformed server price explicitly rejected. Лише цей Node сценарій повторено локально — PASS; фінальний CI перевіряє новий head.
