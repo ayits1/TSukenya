@@ -73,10 +73,12 @@ const wait = async predicate => {
       assert(bounds.x>=0&&bounds.x+bounds.width<=320,'Work-shift form fits 320px.');
       assert((await form().locator('[type=submit]').boundingBox()).height>=44);
     }
-    const keys=[];
+    const keys=[],intents=[];
     if(lostAck) await page.route('**/api/erp/work-shifts',async route=>{
       if(route.request().method()!=='POST') return route.continue();
-      keys.push(route.request().postDataJSON().idempotency_key);
+      const body=route.request().postDataJSON();
+      if(!body.idempotency_key) return route.continue();
+      keys.push(body.idempotency_key);intents.push(body);
       if(keys.length===1) {const response=await route.fetch();assert.equal(response.status(),200);return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Втрачена відповідь після запису. Повторіть збереження.'})});}
       return route.continue();
     });
@@ -84,6 +86,59 @@ const wait = async predicate => {
     if(lostAck) {
       await page.locator('#tradeFormError').filter({hasText:'Втрачена відповідь'}).waitFor();
       assert.equal(await form().locator('[name=shift_rate]').inputValue(),'100');
+      assert(await form().locator('[type=submit]').isDisabled());
+      // A different device changed the confirmed row; a retry cannot silently adopt its revision.
+      const row=(await ok('work-shifts?employee='+employee)).items[0];
+      await ok('work-shifts','POST',{id:row.id,revision:row.revision,employee,date,cash_shift:tills[0],
+        units:'1',shift_rate:'150',bonus_percent:'10',bonus_basis:'store',note:'Умови іншої вкладки'});
+      // Newer draft is intentionally invalid and selects another till. Exact retry must ignore its validity.
+      await form().locator('[name=shift_rate]').fill('');
+      await select.selectOption(String(tills[1]));
+      await form().locator('[name=note]').fill('Новіші поля після втраченої відповіді');
+      let failRead=true;
+      await page.route('**/api/erp/work-shifts?*',async route=>{
+        if(failRead&&new URL(route.request().url()).searchParams.get('id')===String(row.id)){
+          failRead=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Актуальні умови тимчасово недоступні.'})});
+        }
+        return route.continue();
+      });
+      await page.locator('[data-work-exact-retry]').focus();await page.keyboard.press('Enter');
+      await page.locator('[data-work-read-retry]').waitFor({state:'visible'});
+      assert.equal(await form().locator('[name=shift_rate]').inputValue(),'');
+      assert.equal(await select.inputValue(),String(tills[1]));
+      assert.equal(await form().locator('[name=note]').inputValue(),'Новіші поля після втраченої відповіді');
+      assert(await form().locator('[type=submit]').isDisabled());
+      assert.deepEqual(intents[1],intents[0],'Exact retry freezes the whole original request, not just its UUID.');
+      assert.equal((await ok('work-shifts?employee='+employee)).items.length,1);
+      assert.equal((await ok('work-shifts?employee='+employee)).items[0].shift_rate,'150.00','Receipt does not overwrite another editor.');
+      await page.locator('[data-work-read-retry]').focus();await page.keyboard.press('Enter');
+      await page.locator('[data-work-comparison] table').waitFor();
+      assert((await page.locator('[data-work-comparison]').innerText()).includes('150,00'));
+      assert.equal(await form().locator('[name=shift_rate]').inputValue(),'');
+      await page.setViewportSize({width:320,height:900});
+      await page.locator('[data-work-confirmation]').scrollIntoViewIfNeeded();
+      await page.screenshot({path:path.join(proof,'recovery-comparison-320.png')});
+      assert(await page.locator('[data-work-confirmation]').evaluate(element=>document.activeElement===element));
+      await page.keyboard.press('Tab');
+      assert(await form().locator('[type=submit]').evaluate(element=>document.activeElement===element));
+      await page.screenshot({path:path.join(proof,'recovery-apply-320.png')});
+      assert((await page.evaluate(()=>document.documentElement.scrollWidth))<=320);
+      await page.unroute('**/api/erp/work-shifts?*');
+      // The user explicitly applies a valid newer draft to the displayed fresh baseline.
+      await form().locator('[name=shift_rate]').fill('175');
+      await select.selectOption(String(tills[0]));
+      const concurrent=(await ok('work-shifts?employee='+employee)).items[0];
+      await ok('work-shifts','POST',{id:concurrent.id,revision:concurrent.revision,employee,date,cash_shift:tills[0],
+        units:'1',shift_rate:'160',bonus_percent:'10',bonus_basis:'store',note:'Ще новіші умови іншої вкладки'});
+      await form().locator('[type=submit]').focus();await page.keyboard.press('Enter');
+      await page.locator('[data-work-read-retry]').waitFor({state:'visible'});
+      assert(await form().locator('[type=submit]').isDisabled());
+      assert.equal(await form().locator('[name=shift_rate]').inputValue(),'175');
+      assert.equal((await ok('work-shifts?employee='+employee)).items[0].shift_rate,'160.00');
+      await page.locator('[data-work-read-retry]').focus();await page.keyboard.press('Enter');
+      await page.locator('[data-work-comparison] table').waitFor();
+      assert((await page.locator('[data-work-comparison]').innerText()).includes('160,00'));
+      assert.equal(await form().locator('[name=shift_rate]').inputValue(),'175');
       await form().locator('[type=submit]').focus();await page.keyboard.press('Enter');
     }
     await page.locator('.trade-dialog[open]').waitFor({state:'hidden'});
@@ -93,7 +148,7 @@ const wait = async predicate => {
   await go();await create(0,true);await page.setViewportSize({width:320,height:900});await create(1);
   const rows=(await ok('work-shifts?employee='+employee)).items;
   assert.equal(rows.length,2);assert.equal(new Set(rows.map(row=>row.date)).size,1);
-  for(const till of tills) assert((await page.locator('[data-shift-history=work]').innerText()).includes('Касова зміна № '+till));
+  await wait(async()=>{const visible=await page.locator('[data-shift-history=work]').innerText();return tills.every(till=>visible.includes('Касова зміна № '+till));});
   const geometry=[];
   for(const width of [1440,320]) {
     await page.setViewportSize({width,height:900});
@@ -114,12 +169,12 @@ const wait = async predicate => {
   const total=page.locator('#tradeDraftTotal');assert.equal(await total.innerText(),'Нарахування — після проведення');
   await page.locator('[form=tradeVoucherForm][value=post]').focus();await page.keyboard.press('Enter');
   await page.locator('.trade-dialog-head h2').filter({hasText:'Нарахування зарплати ·'}).waitFor();
-  const wages=(await ok('vouchers?kind=payroll')).items[0];assert.equal(wages.total,'525.00');
+  const wages=(await ok('vouchers?kind=payroll')).items[0];assert.equal(wages.total,'600.00');
   for(const till of tills) assert((await page.locator('.trade-dialog[open]').innerText()).includes('Касова зміна № '+till));
   await page.screenshot({path:path.join(proof,'payroll-result-320.png')});
   assert.deepEqual(errors,[]);
-  fs.writeFileSync(path.join(proof,'report.json'),JSON.stringify({pass:true,tills,rows:rows.map(row=>({id:row.id,date:row.date,cash_shift:row.cash_shift_id})),payroll:wages.total,geometry,checks:['native select and keyboard Tab/submit/checkbox','lost ACK stable UUID','two same-day rows','distinct payroll sources','525.00 actual posting','1440/320 no document overflow']},null,2));
-  console.log('PASS: B04 two same-day tills, exact lost-ACK retry, keyboard and 320px, payroll 525.00. Proof '+proof);
+  fs.writeFileSync(path.join(proof,'report.json'),JSON.stringify({pass:true,tills,rows:rows.map(row=>({id:row.id,date:row.date,cash_shift:row.cash_shift_id})),payroll:wages.total,geometry,checks:['native select and keyboard Tab/submit/checkbox','lost ACK frozen whole intent','invalid newer draft survives exact retry','GET-only recovery after confirmed receipt','current server comparison before explicit update','two same-day rows','distinct payroll sources','600.00 actual posting','1440/320 no document overflow']},null,2));
+  console.log('PASS: B04 two same-day tills, immutable lost-ACK retry with newer draft and current-server comparison, keyboard and 320px, payroll 600.00. Proof '+proof);
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser) await browser.close();server.kill('SIGTERM');
   await new Promise(resolve=>server.once('exit',resolve));fs.closeSync(log);fs.rmSync(data,{recursive:true,force:true});

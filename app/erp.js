@@ -220,6 +220,7 @@ async function submit(form,fn){
  const values=Object.fromEntries(new FormData(form)),finish=busyDialog(d);if(!finish)return;d.querySelector('#tradeFormError').textContent='';
  let saved;
  try{saved=await fn(values);}catch(error){formError(error,d);finish();return;}
+ if(saved?.keepFormOpen){finish();return;}
  d.dataset.dirty='';d.close();finish();
  // The write has succeeded. A failed read must never invite another POST.
  const tab=current;let token=generation;
@@ -286,10 +287,70 @@ async function workShiftForm(id){
  if(id&&!result.items.length)throw Error('Цей табель недоступний. Оновіть список.');
  const s=result?.items[0]||{},initialEmployee=E.employees.find(e=>e.id===s.employee_id)||E.employees.find(e=>e.active),employees=E.employees.filter(e=>e.active||e.id===s.employee_id);
  const html=field('Працівник',(s.id?lockedSelect:select)('employee',employees,s.employee_id||initialEmployee?.id,true))+field('Дата',input('date',s.date||date(),'date',`required max="${date()}" ${s.id?'readonly':''} ${E.closed_through?`min="${dayOffset(E.closed_through,1)}"`:''}`))+`<div class="wide"><input type="hidden" name="cash_shift" value="${s.cash_shift_id||''}"><div id="tradeWorkCashChoice"></div></div>`+field('Кількість змін',num('units',s.units||1,'0.01','required min="0.01" max="10"'))+field('Ставка за зміну, грн',num('shift_rate',s.shift_rate??initialEmployee?.shift_rate??0,'0.01','required'))+field('Відсоток від виторгу, %',num('bonus_percent',s.bonus_percent??initialEmployee?.bonus_percent??0,'0.001','required max="100"'))+field('База відсотка',select('bonus_basis',[{id:'store',name:'Виторг магазину за касову зміну'},{id:'personal',name:'Особисті продажі'},{id:'profit',name:'Валовий прибуток'}],s.bonus_basis||initialEmployee?.bonus_basis||'store',true))+field('Примітка',input('note',s.note||'','text','maxlength="2000"'))+'<p class="trade-caption wide">Для кожної касової зміни цього дня створіть окремий запис. «Кількість змін» множить лише ставку; відсоток нараховується один раз від виторгу вибраної касової зміни. Без касової зміни дозволений один запис дня зі ставкою та відсотком 0. Працівник і дата збереженого табеля незмінні.</p>';
- const createKey=s.id?undefined:crypto.randomUUID();
+ let createKey=s.id?undefined:crypto.randomUUID(),pendingIntent=null,originalIntent=null,confirmedId=null,latest=null,comparisonFocus=false;
  let choice,hintToken=0;
- simpleForm('Відпрацьована зміна',html,value=>{if(!choice?.ready)throw Error('Дочекайтеся завантаження касових змін або повторіть запит.');if(Number(value.bonus_percent)>0&&!value.cash_shift)throw Error('Для відсотка виберіть касову зміну.');return api('work-shifts','POST',{...value,id:s.id,revision:s.revision,...(createKey?{idempotency_key:createKey}:{})});});
- const d=dialog,form=d.querySelector('form'),cashShift=form.elements.cash_shift;
+ const d=modal('Відпрацьована зміна',`<form id="tradeSimpleForm"><div class="trade-form-grid">${html}</div><div class="row trade-section-title"><button class="btn" type="submit">Зберегти</button></div></form>`,'',true);
+ const form=d.querySelector('form'),cashShift=form.elements.cash_shift,saveButton=form.querySelector('[type=submit]');
+ const recovery=document.createElement('section');recovery.className='trade-section-title';recovery.hidden=true;
+ recovery.innerHTML='<h3 tabindex="-1" data-work-confirmation>Підтвердження збереження</h3><p class="trade-caption" role="status" data-work-recovery-status></p><p class="trade-caption" data-work-baseline></p><div data-work-comparison></div><button class="btn soft" type="button" data-work-exact-retry>Повторити початкове збереження</button><button class="btn soft" type="button" data-work-read-retry>Завантажити актуальні умови</button>';
+ saveButton.parentElement.before(recovery);
+ const readValues=()=>Object.fromEntries([...form.elements].filter(element=>element.name).map(element=>[element.name,element.value]));
+ function renderRecovery(){
+  if(!d.open)return;
+  const unresolved=pendingIntent&&!confirmedId,unread=confirmedId&&!latest;
+  recovery.hidden=!unresolved&&!confirmedId;saveButton.disabled=Boolean(unresolved||unread||latest?.payroll_id);
+  saveButton.textContent=latest?`Зберегти поточні поля в табелі № ${confirmedId}`:'Зберегти';
+  recovery.querySelector('[data-work-exact-retry]').hidden=!unresolved;
+  recovery.querySelector('[data-work-read-retry]').hidden=!unread;
+  recovery.querySelector('[data-work-recovery-status]').textContent=unresolved?'Результат початкового запиту не підтверджено. Повторіть саме його; новіші поля залишаться у формі.':unread?`Табель № ${confirmedId} збережено. Завантажте актуальні умови для порівняння; новіші поля залишаються у формі.`:`Табель № ${confirmedId} підтверджено. Новіші поля залишилися у формі. Порівняйте умови й окремо збережіть поточні поля, якщо хочете змінити цей запис.`;
+  if(latest){
+   const fields=[['employee','Працівник'],['date','Дата'],['cash_shift','Касова зміна'],['units','Кількість змін'],['shift_rate','Ставка, грн'],['bonus_percent','Відсоток'],['bonus_basis','База відсотка'],['note','Примітка']],mine=readValues();
+   const server={employee:latest.employee_id,date:latest.date,cash_shift:latest.cash_shift_id,units:latest.units,shift_rate:latest.shift_rate,bonus_percent:latest.bonus_percent,bonus_basis:latest.bonus_basis,note:latest.note};
+   const display=(key,value)=>value===undefined||value===null||value===''?'—':key==='shift_rate'?amount(value):['units','bonus_percent'].includes(key)?quantity(value):key==='employee'?name('employees',Number(value)):key==='cash_shift'?(value?'№ '+value:'Без касової зміни'):key==='bonus_basis'?({store:'Виторг магазину',personal:'Особисті продажі',profit:'Валовий прибуток'}[value]||value):value||'—';
+   recovery.querySelector('[data-work-baseline]').textContent=`Актуальні умови: ${name('employees',latest.employee_id)} · ${latest.date} · касова зміна ${latest.cash_shift_id?'№ '+latest.cash_shift_id:'відсутня'}.${latest.payroll_id?' Цей табель уже нараховано й редагувати його не можна.':''}`;
+   const comparable=(key,value)=>['units','shift_rate','bonus_percent'].includes(key)?display(key,value):String(value??'');
+   const differences=fields.filter(([key])=>new Set([originalIntent,server,mine].map(values=>comparable(key,values[key]))).size>1);
+   recovery.querySelector('[data-work-comparison]').innerHTML=differences.length?table(['Поле','Початковий запит','На сервері','У формі'],differences.map(([key,label])=>[label,...[originalIntent,server,mine].map(values=>esc(display(key,values[key])))])):'<p class="trade-caption">Поточні поля збігаються з підтвердженими умовами.</p>';
+  }else{recovery.querySelector('[data-work-baseline]').textContent='';recovery.querySelector('[data-work-comparison]').textContent='';}
+  if(comparisonFocus){comparisonFocus=false;recovery.querySelector('h3').focus({preventScroll:true});recovery.scrollIntoView({block:'nearest'});}
+ }
+ async function readConfirmed(){
+  const result=await api('work-shifts?'+new URLSearchParams({id:String(confirmedId)})),row=result.items?.find(item=>item.id===confirmedId);
+  if(!row)throw Error('Підтверджений табель недоступний. Оновіть актуальні умови перед збереженням новіших полів.');
+  latest=row;Object.assign(s,{id:row.id,revision:row.revision,employee_id:row.employee_id,date:row.date});pendingIntent=null;comparisonFocus=true;
+ }
+ async function saveWork(value,exact=false){
+  if(!exact){
+   if(pendingIntent&&!confirmedId)throw Error('Спочатку повторіть початкове збереження, щоб перевірити його результат.');
+   if(confirmedId&&!latest)throw Error('Спочатку завантажте актуальні умови підтвердженого табеля.');
+   if(!choice?.ready)throw Error('Дочекайтеся завантаження касових змін або повторіть запит.');
+   if(Number(value.bonus_percent)>0&&!value.cash_shift)throw Error('Для відсотка виберіть касову зміну.');
+   if(s.id&&(String(value.employee)!==String(s.employee_id)||value.date!==s.date))throw Error('Працівник і дата підтвердженого табеля незмінні. Новіші поля залишаються у формі; для збереження цього запису поверніть початкового працівника й дату.');
+  }
+  if(!s.id&&!pendingIntent){originalIntent=Object.freeze({...value});pendingIntent=Object.freeze({...value,idempotency_key:createKey});}
+  const body=exact?pendingIntent:s.id?{...value,id:s.id,revision:s.revision}:pendingIntent;
+  try{
+   const saved=await api('work-shifts','POST',body);
+   if(!Number.isInteger(saved.id)||saved.id<=0)throw Error('Відповідь не підтверджує збережений табель. Повторіть початковий запит.');
+   if(!s.id){
+    confirmedId=saved.id;
+    if(JSON.stringify(readValues())!==JSON.stringify(originalIntent)){
+     try{await readConfirmed();}catch(error){formError(error,d);}
+     return{id:saved.id,keepFormOpen:true};
+    }
+    pendingIntent=null;
+   }
+   return saved;
+  }catch(error){
+   if(confirmedId&&error.code==='revision_conflict')latest=null;
+   if(!exact&&!s.id&&!confirmedId&&error.status>=400&&error.status<500&&error.status!==408){pendingIntent=null;originalIntent=null;createKey=crypto.randomUUID();}
+   throw error;
+  }
+ }
+ form.onsubmit=event=>{event.preventDefault();void submit(form,value=>saveWork(value)).finally(renderRecovery);};
+ recovery.querySelector('[data-work-exact-retry]').onclick=()=>{if(!pendingIntent)return;void submit(form,()=>saveWork(null,true)).finally(renderRecovery);};
+ recovery.querySelector('[data-work-read-retry]').onclick=async()=>{const finish=busyDialog(d,'Завантаження актуальних умов…');if(!finish)return;try{await readConfirmed();d.querySelector('#tradeFormError').textContent='';}catch(error){formError(error,d);}finally{finish();renderRecovery();}};
+ form.addEventListener('input',()=>{if(latest)renderRecovery();});form.addEventListener('change',()=>{if(latest)renderRecovery();});
  const hint=document.createElement('p');hint.className='trade-caption wide';hint.setAttribute('role','status');hint.dataset.percentHint='';d.querySelector('#tradeWorkCashChoice').parentElement.after(hint);
  async function showHint(){const mine=++hintToken,cash=cashShift.value,employee=form.elements.employee.value;hint.textContent='';if(!cash||!(Number(form.elements.bonus_percent.value)>0))return;try{const data=await api('work-shifts?'+new URLSearchParams({cash_shift:cash,percent:'1',exclude_employee:employee}));if(mine!==hintToken||!d.isConnected)return;if(data.total)hint.textContent=`На цій касовій зміні вже є відсоток від виторгу в табелі: ${[...new Map(data.items.map(x=>[x.employee_id,name('employees',x.employee_id)+' — '+quantity(x.bonus_percent)+' %'])).values()].slice(0,3).join(', ')}${new Set(data.items.map(x=>x.employee_id)).size>3||data.total>data.items.length?' та інші':''}. Кожен працівник отримує власний відсоток від усього виторгу зміни, тож цей запис додає ще один відсоток від того самого виторгу. Власник може зменшити відсоток у цьому записі.`;}catch(e){if(mine===hintToken)hint.textContent='';}}
  const values=()=>({store:E.employees.find(e=>String(e.id)===form.elements.employee.value)?.store_id,day:form.elements.date.value,selected:cashShift.value});
