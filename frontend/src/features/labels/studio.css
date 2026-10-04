@@ -55,9 +55,11 @@
   gap: 4px;
 }
 .tk-studio-history .tk-button {
-  width: 44px;
-  padding: 8px;
-  font-size: 20px;
+  width: auto;
+  min-width: 44px;
+  padding: 8px 10px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 .tk-studio-tabs {
   display: flex;
@@ -69,7 +71,8 @@
   display: grid;
   place-items: center;
   text-align: center;
-  min-width: 0;
+  min-width: min-content;
+  overflow-wrap: normal;
   min-height: 44px;
   padding: 8px 12px;
   font: inherit;
