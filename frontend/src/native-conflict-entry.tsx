@@ -5,6 +5,7 @@ import { nativeFields } from './shared/native/fields';
 import {
   captureWorkShiftDraft,
   decodeWorkShift,
+  employeeWorkTerms,
   workShiftFields,
   workShiftIdentityMatches,
   workShiftProjection,
@@ -18,6 +19,7 @@ declare global {
     NativeWorkShiftEditor?: {
       captureWorkShiftDraft: typeof captureWorkShiftDraft;
       decodeWorkShift: typeof decodeWorkShift;
+      employeeWorkTerms: typeof employeeWorkTerms;
       workShiftFields: typeof workShiftFields;
       workShiftIdentityMatches: typeof workShiftIdentityMatches;
       workShiftProjection: typeof workShiftProjection;
@@ -31,6 +33,7 @@ window.NativeEntityEditor = entityEditor;
 window.NativeWorkShiftEditor = {
   captureWorkShiftDraft,
   decodeWorkShift,
+  employeeWorkTerms,
   workShiftFields,
   workShiftIdentityMatches,
   workShiftProjection,

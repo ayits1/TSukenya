@@ -371,12 +371,13 @@ async function workShiftForm(id){
   if(s.employee_id){initialEmployee=(await window.TradeDirectories.hydrate([{type:'employees',id:String(s.employee_id)}],{purpose:'work_shift'})).items[0];if(!initialEmployee||initialEmployee.store_id!==s.store_id)throw Error('Не вдалося перевірити працівника табеля в межах магазину.');}
   else{initialEmployee=(await window.TradeDirectories.api.list('employees',{purpose:'work_shift',page:1})).items[0];if(initialEmployee)window.TradeDirectories.remember('employees',[initialEmployee]);}
   if(source!==dialog||token!==generation||tab!==current)return;
+  if(!s.id&&initialEmployee){try{editor.employeeWorkTerms(initialEmployee);}catch{throw Error('Умови працівника неповні або некоректні. Значення не підмінено нулями; повторно відкрийте форму після оновлення довідника.');}}
  }catch(error){if(source===dialog&&token===generation&&tab===current)errorPanel(error);return;}
  const employees=initialEmployee?[initialEmployee]:[];
  const html=field('Працівник',(s.id?lockedSelect:select)('employee',employees,s.employee_id||initialEmployee?.id,true))+field('Дата',input('date',s.date||date(),'date',`required max="${date()}" ${s.id?'readonly':''} ${E.closed_through?`min="${dayOffset(E.closed_through,1)}"`:''}`))+`<div class="wide"><input type="hidden" name="cash_shift" value="${s.cash_shift_id||''}"><div id="tradeWorkCashChoice"></div></div>`+field('Кількість змін',num('units',s.units||1,'0.01','required min="0.01" max="10"'))+field('Ставка за зміну, грн',num('shift_rate',s.shift_rate??initialEmployee?.shift_rate??0,'0.01','required'))+field('Відсоток від виторгу, %',num('bonus_percent',s.bonus_percent??initialEmployee?.bonus_percent??0,'0.001','required max="100"'))+field('База відсотка',select('bonus_basis',[{id:'store',name:'Виторг магазину за касову зміну'},{id:'personal',name:'Особисті продажі'},{id:'profit',name:'Валовий прибуток'}],s.bonus_basis||initialEmployee?.bonus_basis||'store',true))+field('Примітка',input('note',s.note||'','text','maxlength="2000"'))+'<p class="trade-caption wide">Для кожної касової зміни цього дня створіть окремий запис. «Кількість змін» множить лише ставку; відсоток нараховується один раз від виторгу вибраної касової зміни. Без касової зміни дозволений один запис дня зі ставкою та відсотком 0. Працівник і дата збереженого табеля незмінні.</p>';
  let createKey=s.id?undefined:crypto.randomUUID(),pendingIntent=null,originalIntent=null,confirmedId=null,latest=null,needsReview=false,originalIdentity=null;
  let baseline=s.id?editor.workShiftProjection(s):null,reading=false,readToken=0,readController,comparisonHandle;
- let choice,hintToken=0;
+ let choice,hintToken=0,employeeTermsValid=Boolean(s.id||initialEmployee);
  const d=modal('Відпрацьована зміна',`<form id="tradeSimpleForm"><fieldset data-work-editor><div class="trade-form-grid">${html}</div><div class="row trade-section-title"><button class="btn" type="submit">Зберегти</button></div></fieldset></form>`,'',true);
  const form=d.querySelector('form');form.dataset.directoryPurpose='work_shift';const cashShift=form.elements.cash_shift,saveButton=form.querySelector('[type=submit]'),editable=form.querySelector('[data-work-editor]');
  const recovery=document.createElement('section');recovery.className='trade-section-title';recovery.hidden=true;
@@ -391,7 +392,7 @@ async function workShiftForm(id){
   const unresolved=pendingIntent&&!confirmedId;
   recovery.hidden=!unresolved&&!needsReview&&!confirmedId;
   editable.disabled=reading||Boolean(comparisonHandle);
-  saveButton.disabled=Boolean(unresolved||needsReview||reading||comparisonHandle||latest?.payroll_id);
+  saveButton.disabled=Boolean(unresolved||needsReview||reading||comparisonHandle||latest?.payroll_id||!employeeTermsValid);
   saveButton.textContent=confirmedId?`Зберегти поточні поля в табелі № ${confirmedId}`:'Зберегти';
   recovery.querySelector('[data-work-exact-retry]').hidden=!unresolved;
   recovery.querySelector('[data-work-read-retry]').hidden=unresolved||(!needsReview&&!confirmedId)||reading||Boolean(comparisonHandle);
@@ -430,8 +431,9 @@ async function workShiftForm(id){
     onCancel:()=>{if(!active())return;stopComparison();renderRecovery();recovery.querySelector('[data-work-read-retry]').focus();},
     onApply:merged=>{
      if(!active())return;
-     stopComparison();Object.assign(s,row);baseline=editor.workShiftProjection(row);latest=null;needsReview=false;
-     for(const [key,value] of Object.entries(merged))if(form.elements[key])form.elements[key].value=String(value??'');
+     let verified;try{verified=editor.captureWorkShiftDraft(merged);}catch{formError(Error('Узгоджені умови табеля некоректні. Ваші поля й початкова ревізія збережені; поверніться до чернетки та повторіть порівняння.'),d);return;}
+     stopComparison();Object.assign(s,row);baseline=editor.workShiftProjection(row);latest=null;needsReview=false;employeeTermsValid=true;
+     for(const [key,value] of Object.entries(verified))if(form.elements[key])form.elements[key].value=String(value??'');
      recovery.querySelector('[data-work-baseline]').textContent='';recovery.querySelector('[data-work-recovery-status]').textContent='Узгоджені зміни застосовано до чернетки. Натисніть «Зберегти» окремо.';
      markDirty(d);renderRecovery();void choice.update({store:s.store_id,day:s.date,selected:cashShift.value});saveButton.focus();
     }
@@ -441,6 +443,7 @@ async function workShiftForm(id){
  }
  async function saveWork(value,exact=false){
   if(!exact){
+   if(!employeeTermsValid)throw Error('Умови вибраного працівника не перевірені. Виберіть працівника з повними умовами або повторно відкрийте форму; ваші поля збережено.');
    if(pendingIntent&&!confirmedId)throw Error('Спочатку повторіть початкове збереження, щоб перевірити його результат.');
    if(needsReview)throw Error('Спочатку узгодьте поточну версію табеля. Ваші поля збережено.');
    if(!choice?.ready)throw Error('Дочекайтеся завантаження касових змін або повторіть запит.');
@@ -455,7 +458,7 @@ async function workShiftForm(id){
    if(!s.id){
     confirmedId=saved.id;pendingIntent=null;
     if(JSON.stringify(readValues())!==JSON.stringify(originalIntent)){
-     Object.assign(s,{id:confirmedId,...originalIdentity});needsReview=true;
+     Object.assign(s,{id:confirmedId,...originalIdentity});employeeTermsValid=true;needsReview=true;
      await readCurrent();return{id:saved.id,keepFormOpen:true};
     }
    }
@@ -477,7 +480,7 @@ async function workShiftForm(id){
  choice=shiftUI.cashChoice(d.querySelector('#tradeWorkCashChoice'),{...values(),required:()=>Number(form.elements.bonus_percent.value)>0,changed:value=>{if(cashShift.value!==value){cashShift.value=value;markDirty(d);void showHint();}}});
  d.addEventListener('close',()=>choice.cancel(),{once:true});void showHint();
  form.elements.bonus_percent.addEventListener('input',()=>{choice.updateRequired();void showHint();});
- form.addEventListener('change',event=>{if(event.target.name==='employee'&&!s.id){const employee=window.TradeDirectories.get('employees',event.target.value);if(employee){form.elements.shift_rate.value=employee.shift_rate;form.elements.bonus_percent.value=employee.bonus_percent;form.elements.bonus_basis.value=employee.bonus_basis;}}if(event.target.name==='employee')void showHint();if(['employee','date'].includes(event.target.name))void choice.update(values());});
+ form.addEventListener('change',event=>{if(event.target.name==='employee'&&!s.id){const employee=window.TradeDirectories.get('employees',event.target.value);try{const terms=editor.employeeWorkTerms(employee);employeeTermsValid=true;form.elements.shift_rate.value=terms.shift_rate;form.elements.bonus_percent.value=terms.bonus_percent;form.elements.bonus_basis.value=terms.bonus_basis;}catch{employeeTermsValid=false;formError(Error('Не вдалося перевірити повні умови працівника. Значення не підмінено нулями; виберіть іншого працівника або повторно відкрийте форму.'),d);}renderRecovery();}if(event.target.name==='employee')void showHint();if(['employee','date'].includes(event.target.name))void choice.update(values());});
 }
 async function userList(){
  const token=generation,tab=current;

@@ -6,8 +6,8 @@ const path = require('node:path');
 const {spawn, execFileSync} = require('node:child_process');
 const {chromium} = require('playwright');
 const root = path.resolve(__dirname, '..');
-if(!process.env.WORK_CONFLICT_FROM){for(const stage of ['primary','existing'])execFileSync(process.execPath,[__filename],{cwd:root,env:{...process.env,WORK_CONFLICT_FROM:stage},stdio:'inherit'});process.exit(0);}
-assert(['primary','existing'].includes(process.env.WORK_CONFLICT_FROM),'Unknown workshift QA stage.');
+if(!process.env.WORK_CONFLICT_FROM){for(const stage of ['primary','existing','semantic'])execFileSync(process.execPath,[__filename],{cwd:root,env:{...process.env,WORK_CONFLICT_FROM:stage},stdio:'inherit'});process.exit(0);}
+assert(['primary','existing','semantic'].includes(process.env.WORK_CONFLICT_FROM),'Unknown workshift QA stage.');
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'tsukenya-two-tills-'));
 const proof = process.env.WORK_SHIFTS_PROOF_DIR || '/tmp/tsukenya-work-shift-conflict-proof';
 fs.mkdirSync(proof, {recursive:true});
@@ -151,7 +151,7 @@ const wait = async predicate => {
     if(lostAck) {assert.equal(keys.length,2);assert.equal(keys[0],keys[1]);assert.match(keys[0],/^[0-9a-f-]{36}$/);await page.unroute('**/api/erp/work-shifts');}
     await page.locator(`[data-shift-history=work] button[data-trade=work-shift]`).first().waitFor();
   };
-  if(process.env.WORK_CONFLICT_FROM==='existing'){
+  if(['existing','semantic'].includes(process.env.WORK_CONFLICT_FROM)){
     const extraEmployee=(await ok('entities/employees','POST',{name:'Історичний працівник для узгодження',store,shift_rate:'10',bonus_percent:'0',bonus_basis:'store'})).id;
     const saved=(await ok('work-shifts','POST',{employee:extraEmployee,date,cash_shift:tills[0],units:'1',shift_rate:'10',bonus_percent:'0',bonus_basis:'store',note:'Початок'})).id;
     const employeeMeta=(await page.evaluate(async id=>{const session=await(await fetch('/api/v1/trading/bootstrap')).json();return(await(await fetch('/api/v1/trading/directories/details',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify({ids:[{type:'employees',id:String(id)}],purpose:'manage'})})).json()).items[0];},extraEmployee));
@@ -162,6 +162,20 @@ const wait = async predicate => {
     const update=async changes=>{const before=await row();return ok('work-shifts','POST',{id:saved,revision:before.revision,employee:extraEmployee,date,cash_shift:before.cash_shift_id,units:before.units,shift_rate:before.shift_rate,bonus_percent:before.bonus_percent,bonus_basis:before.bonus_basis,note:before.note,...changes});};
     const review=async()=>{await page.locator('[data-work-read-retry]').click();await apply().waitFor();};
     const close=async()=>{page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Закрити вікно'}).click();await page.locator('dialog[open]').waitFor({state:'hidden'});};
+    if(process.env.WORK_CONFLICT_FROM==='semantic'){
+      await open();await form().locator('[name=note]').fill('Збережена новіша примітка');await update({shift_rate:'15'});await form().locator('[type=submit]').click();await page.locator('[data-work-read-retry]').waitFor({state:'visible'});
+      const malformed={...await row(),units:'0.00'};await page.route('**/api/erp/work-shifts?*',route=>new URL(route.request().url()).searchParams.get('id')===String(saved)?route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({total:1,page:1,pages:1,items:[malformed]})}):route.continue());
+      const before=writes;await page.locator('[data-work-read-retry]').click();await wait(async()=>!(await page.locator('[data-work-read-cancel]').isVisible()));
+      assert.equal(await form().locator('[name=note]').inputValue(),'Збережена новіша примітка');assert.equal(await form().locator('[name=units]').inputValue(),'1.00');assert(await form().locator('[type=submit]').isDisabled());assert.equal(await apply().count(),0);assert((await page.locator('#tradeFormError').innerText()).length>0);assert.equal(writes,before);
+      await page.unroute('**/api/erp/work-shifts?*');
+      await page.evaluate(()=>{const mount=window.NativeConflictComparison.mount;window.NativeConflictComparison.mount=(host,props)=>{window.qaWorkComparison=props;return mount(host,props);};});
+      await review();await page.evaluate(()=>window.qaWorkComparison.onApply({...window.qaWorkComparison.mine,units:'0'}));
+      assert.equal(await form().locator('[name=units]').inputValue(),'1.00');assert(await form().locator('[type=submit]').isDisabled());assert.equal(writes,before);assert(await apply().isVisible());
+      await apply().click();await apply().waitFor({state:'hidden'});assert.equal(writes,before);await wait(async()=>await form().locator('[data-cash-choice]').isEnabled());await form().locator('[type=submit]').click();await page.locator('dialog[open]').waitFor({state:'hidden'});assert.equal((await row()).note,'Збережена новіша примітка');assert.deepEqual(errors,[]);
+      await page.route('**/api/v1/trading/directories/employees?*',async route=>{const response=await route.fetch();const data=await response.json();for(const item of data.items){delete item.shift_rate;delete item.bonus_percent;delete item.bonus_basis;}return route.fulfill({response,json:data});});
+      const beforeOpening=writes;await page.locator('[data-trade=work-shift]').first().click();await page.getByRole('alert').filter({hasText:'Умови працівника неповні'}).waitFor();assert.equal(await page.locator('dialog[open] #tradeSimpleForm').count(),0);assert.equal(writes,beforeOpening);await page.unroute('**/api/v1/trading/directories/employees?*');
+      fs.writeFileSync(path.join(proof,'semantic-report.json'),JSON.stringify({pass:true,checks:['malformed server units0 and invalid merge refused without draft/revision adoption or POST','fresh valid comparison and separate Save after refusal','new employee missing private terms refuses opening instead of inventing zeros']},null,2));console.log('PASS: B06 malformed semantic terms refusal.');return;
+    }
     await open();assert((await form().getByRole('combobox',{name:'Працівник',exact:true}).inputValue()).includes('неактивний'));
     assert.equal(await form().locator('[name=shift_rate]').inputValue(),'10.00','Historical terms do not adopt current employee rate999.');
     await form().locator('[name=note]').fill('Моя незалежна примітка');await update({shift_rate:'15'});
@@ -181,10 +195,10 @@ const wait = async predicate => {
     const current=await row();let fault='resource';
     const reader=async route=>{if(new URL(route.request().url()).searchParams.get('id')!==String(saved))return route.continue();
       if(fault==='503'||fault==='403')return route.fulfill({status:Number(fault),contentType:'application/json',body:JSON.stringify({error:'Перевірка '+fault})});
-      const bad=fault==='resource'?{id:saved,name:'Це довідник'}:fault==='other-id'?{...current,id:saved+100}:fault==='store'?{...current,store_id:store+100}:{...current,date:'2024-01-01'};
+      const bad=fault==='resource'?{id:saved,name:'Це довідник'}:fault==='other-id'?{...current,id:saved+100}:fault==='store'?{...current,store_id:store+100}:fault==='semantic'?{...current,units:'0.00'}:{...current,date:'2024-01-01'};
       return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({total:1,page:1,pages:1,items:[bad]})});};
     await page.route('**/api/erp/work-shifts?*',reader);before=writes;
-    for(const issue of ['resource','other-id','store','date','503','403']){fault=issue;await page.locator('[data-work-read-retry]').click();await wait(async()=>!(await page.locator('[data-work-read-cancel]').isVisible()));assert.equal(await form().locator('[name=shift_rate]').inputValue(),'25');assert(await form().locator('[type=submit]').isDisabled());assert.equal(await apply().count(),0);assert((await page.locator('#tradeFormError').innerText()).length>0);}
+    for(const issue of ['resource','other-id','store','date','semantic','503','403']){fault=issue;await page.locator('[data-work-read-retry]').click();await wait(async()=>!(await page.locator('[data-work-read-cancel]').isVisible()));assert.equal(await form().locator('[name=shift_rate]').inputValue(),'25');assert(await form().locator('[type=submit]').isDisabled());assert.equal(await apply().count(),0);assert((await page.locator('#tradeFormError').innerText()).length>0);}
     assert.equal(writes,before);await page.unroute('**/api/erp/work-shifts?*',reader);existingChecks.push('strict wrong resource/ID/immutable scope/date + GET503/403 preserve draft');
     await review();await page.getByRole('button',{name:'Повернутися до чернетки'}).click();await apply().waitFor({state:'hidden'});assert(await form().locator('[type=submit]').isDisabled());assert.equal(await form().locator('[name=shift_rate]').inputValue(),'25');
     let release,started=false;const delayed=async route=>{if(new URL(route.request().url()).searchParams.get('id')!==String(saved))return route.continue();const response=await route.fetch();started=true;await new Promise(resolve=>release=resolve);try{await route.fulfill({response});}catch{}};

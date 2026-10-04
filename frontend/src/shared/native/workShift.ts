@@ -66,7 +66,7 @@ export function decodeWorkShift(value: unknown, expectedId: number): WorkShift {
     typeof row.bonus_basis !== 'string'
   )
     return fail();
-  return {
+  const decoded: WorkShift = {
     id: expectedId,
     employee_id: id(row.employee_id),
     store_id: id(row.store_id),
@@ -82,6 +82,8 @@ export function decodeWorkShift(value: unknown, expectedId: number): WorkShift {
     note: row.note,
     revision: row.revision,
   };
+  captureWorkShiftDraft(workShiftProjection(decoded));
+  return decoded;
 }
 export function workShiftIdentityMatches(
   before: Pick<WorkShift, 'id' | 'employee_id' | 'store_id' | 'date'>,
@@ -105,39 +107,46 @@ export function workShiftProjection(row: WorkShift): NativeDraft {
     note: row.note,
   };
 }
+function formDecimal(text: unknown, scale: number, max?: bigint, min = 0n): string {
+  if (typeof text !== 'string' || !/^\d{1,16}(?:\.\d{1,4})?$/.test(text)) return fail();
+  const normalized = String(decimalKey(text)),
+    [whole = '0', fraction = ''] = normalized.split('.');
+  if (fraction.length > scale) return fail();
+  const units = BigInt(whole) * 10n ** BigInt(scale) + BigInt(fraction.padEnd(scale, '0'));
+  if (units < min || (max !== undefined && units > max)) return fail();
+  return text;
+}
+/** Salary roles require explicit private terms before using a selected employee's defaults. */
+export function employeeWorkTerms(
+  value: unknown,
+): Pick<WorkShift, 'shift_rate' | 'bonus_percent' | 'bonus_basis'> {
+  const row = object(value);
+  if (
+    typeof row.bonus_basis !== 'string' ||
+    !['store', 'personal', 'profit'].includes(row.bonus_basis)
+  )
+    return fail();
+  return {
+    shift_rate: formDecimal(row.shift_rate, 2),
+    bonus_percent: formDecimal(row.bonus_percent, 3, 100000n),
+    bonus_basis: row.bonus_basis as WorkShift['bonus_basis'],
+  };
+}
 /** Form validation only; Django still calculates and stores amounts and payroll. */
 export function captureWorkShiftDraft(value: Record<string, unknown>): NativeDraft {
-  const amount = (key: string, scale: number, max?: bigint) => {
-    const text = value[key];
-    if (typeof text !== 'string' || !/^\d{1,16}(?:\.\d{1,4})?$/.test(text)) return fail();
-    const normalized = String(decimalKey(text)),
-      [whole = '0', fraction = ''] = normalized.split('.');
-    if (fraction.length > scale) return fail();
-    const units = BigInt(whole) * 10n ** BigInt(scale) + BigInt(fraction.padEnd(scale, '0'));
-    if ((key === 'units' && units < 1n) || (max !== undefined && units > max)) return fail();
-    return text;
-  };
-  const cash = value.cash_shift;
+  const cash = value.cash_shift,
+    terms = employeeWorkTerms(value);
   if (
     typeof cash !== 'string' ||
     (cash !== '' && (!/^[1-9]\d*$/.test(cash) || !Number.isSafeInteger(Number(cash))))
   )
     return fail();
-  const percent = amount('bonus_percent', 3, 100000n);
-  if (cash === '' && decimalKey(percent) !== '0') return fail();
-  if (
-    typeof value.note !== 'string' ||
-    value.note.length > 2000 ||
-    !['store', 'personal', 'profit'].includes(String(value.bonus_basis)) ||
-    typeof value.bonus_basis !== 'string'
-  )
-    return fail();
+  if (cash === '' && decimalKey(terms.bonus_percent) !== '0') return fail();
+  if (typeof value.note !== 'string' || value.note.length > 2000) return fail();
   return {
     cash_shift: cash,
-    units: amount('units', 2, 1000n),
-    shift_rate: amount('shift_rate', 2),
-    bonus_percent: percent,
-    bonus_basis: value.bonus_basis,
+    units: formDecimal(value.units, 2, 1000n, 1n),
+    ...terms,
     note: value.note,
   };
 }

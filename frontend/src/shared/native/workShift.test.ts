@@ -4,6 +4,7 @@ import { nativeFields } from './fields';
 import {
   captureWorkShiftDraft,
   decodeWorkShift,
+  employeeWorkTerms,
   workShiftFields,
   workShiftIdentityMatches,
   workShiftProjection,
@@ -27,6 +28,18 @@ const row = {
 };
 const page = (value: unknown = row) => ({ total: 1, page: 1, pages: 1, items: [value] });
 describe('work shift conflict contract', () => {
+  it('requires complete selected employee private terms instead of zero defaults', () => {
+    expect(
+      employeeWorkTerms({ shift_rate: '100.00', bonus_percent: '10.000', bonus_basis: 'store' }),
+    ).toMatchObject({ shift_rate: '100.00' });
+    for (const value of [
+      null,
+      { id: '1', name: 'Без приватних умов' },
+      { shift_rate: '100', bonus_basis: 'store' },
+      { shift_rate: '1.2345', bonus_percent: '0', bonus_basis: 'store' },
+    ])
+      expect(() => employeeWorkTerms(value)).toThrow();
+  });
   it('requires complete exact-resource DTO and immutable identity', () => {
     const decoded = decodeWorkShift(page(), 1);
     expect(workShiftIdentityMatches(decoded, { ...decoded, note: 'Нова примітка' })).toBe(true);
@@ -45,6 +58,24 @@ describe('work shift conflict contract', () => {
     ])
       expect(() => decodeWorkShift(page(bad), 1)).toThrow();
     expect(() => decodeWorkShift({ ...page(), total: 2 }, 1)).toThrow();
+  });
+  it('refuses impossible server payment terms before baseline adoption', () => {
+    for (const change of [
+      { units: '0.00' },
+      { units: '10.01' },
+      { units: '1.001' },
+      { shift_rate: '1.2345' },
+      { bonus_percent: '100.001' },
+      { bonus_percent: '1.0001' },
+      { cash_shift_id: null },
+    ])
+      expect(() => decodeWorkShift(page({ ...row, ...change }), 1)).toThrow();
+    expect(
+      decodeWorkShift(
+        page({ ...row, cash_shift_id: null, bonus_percent: '0.000', basis_amount: '-10.00' }),
+        1,
+      ).basis_amount,
+    ).toBe('-10.00');
   });
   it('preserves independent server payment terms and local note using existing three-way', () => {
     const base = workShiftProjection(decodeWorkShift(page(), 1)),
