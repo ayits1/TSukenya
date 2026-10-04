@@ -63,6 +63,7 @@ function PagingFooter({
   return (
     <div
       ref={host}
+      className="tk-paging-footer"
       onKeyDownCapture={(event) => {
         const buttons = Array.from(
           host.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') || [],
@@ -136,7 +137,8 @@ export function ComboBox({
           {...(placeholder === undefined ? {} : { placeholder })}
           onKeyDownCapture={(event) => {
             // A native dialog must keep Escape within its currently open menu.
-            if (event.key === 'Escape' && popoverFooter && footerRef.current) event.preventDefault();
+            if (event.key === 'Escape' && popoverFooter && footerRef.current)
+              event.preventDefault();
             if (event.key === 'Tab' && !event.shiftKey && popoverFooter && footerRef.current) {
               const button =
                 footerRef.current.querySelector<HTMLButtonElement>('button:not(:disabled)');
@@ -159,9 +161,14 @@ export function ComboBox({
       ) : null}
       <FieldError className="tk-error">{error}</FieldError>
       <Popover
-        className="tk-popover"
+        className={'tk-popover' + (popoverFooter ? ' tk-popover--paged' : '')}
         placement="bottom start"
-        {...(portalContainer ? { UNSTABLE_portalContainer: portalContainer } : {})}
+        // The native dialog is itself scrollable. Keep Aria's viewport boundary rather than
+        // using that same scrolled containing block as its boundary. Native dialogs are inset
+        // at most 24px vertically; 8px more keeps the menu/focus border within that visible area.
+        {...(portalContainer
+          ? { UNSTABLE_portalContainer: portalContainer, containerPadding: 32 }
+          : {})}
       >
         <ListBox
           className="tk-listbox"

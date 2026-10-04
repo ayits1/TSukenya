@@ -222,6 +222,18 @@ function mount(select: HTMLSelectElement, type: DirectoryType) {
     parent.replaceWith(field);
   }
   select.after(host);
+  host.addEventListener('focusin', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.getAttribute('role') !== 'combobox') return;
+    const dialog = host.closest('dialog'),
+      footer = dialog?.querySelector('.trade-dialog-foot');
+    if (!dialog || !footer) return;
+    const rect = target.getBoundingClientRect(),
+      bottom = footer.getBoundingClientRect().top;
+    // Native sticky actions must not cover the input when keyboard/programmatic focus opens a menu.
+    if (rect.bottom + 8 > bottom || rect.top < dialog.getBoundingClientRect().top + 8)
+      target.scrollIntoView({ block: 'center' });
+  });
   const root = createRoot(host);
   let externalSearch: { id: number; text: string } | undefined;
   let selected: DirectoryItem | null = null,
@@ -299,7 +311,7 @@ function mount(select: HTMLSelectElement, type: DirectoryType) {
             label={label}
             value={input.value}
             selected={pinned}
-            disabled={input.matches(':disabled')}
+            disabled={input.matches(':disabled') || (!!input.value && !selected && !failed)}
             required={input.dataset.directoryRequired === 'true'}
             onItems={(items) => remember(type, items, query.store)}
             onCommit={(item) => {

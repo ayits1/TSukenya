@@ -118,7 +118,7 @@ def item(user, resource, obj, additional=None, resolver=None):
         resolved=resolver.resolve(obj)
         return {'id':obj.pk.split('/',1)[1],'name':str(obj.data.get('name') or ''),'unit':str(obj.data.get('unit') or 'шт'),'barcode':str(obj.data.get('barcode') or ''),
                 'hidden':bool(obj.data.get('hidden')),'promotion':bool(resolved['effectivePromotion']),'regularPrice':resolved['regularPrice'],'salePrice':resolved['salePrice'],
-                'revision':revision(obj),
+                'revision':revision(obj,resolver.config),
                 **({'cost':format(decimal(obj.data.get('cost')), 'f')} if user.profile.role!='cashier' else {})}
     result={'id':str(obj.pk),'name':obj.name}
     if resource in {'warehouses','accounts','employees'}: result['store_id']=obj.store_id
@@ -215,11 +215,11 @@ def template(user, params):
     def generate():
         buffer=io.StringIO(newline='');writer=csv.writer(buffer,delimiter=';',quoting=csv.QUOTE_ALL,lineterminator='\r\n')
         def record(values):
-            buffer.seek(0);buffer.truncate(0);writer.writerow(values);return buffer.getvalue()
+            buffer.seek(0);buffer.truncate(0);writer.writerow(['\t'+value if guarded(value) else value for value in values]);return buffer.getvalue()
         yield '\ufeff'+record(['ID'+MARKER,'Кількість','Ціна','Партія','Придатний до'])
         with read_snapshot():
             for obj in Document.objects.filter(path__startswith='products/').only('path','data').order_by('path').iterator(chunk_size=100):
-                raw=obj.pk.split('/',1)[1];raw='\t'+raw if guarded(raw) else raw
+                raw=obj.pk.split('/',1)[1]
                 yield record([raw,'',str(obj.data.get('cost') or 0),'',''])
     result=StreamingHttpResponse(generate(),content_type='text/csv; charset=utf-8');result['Content-Disposition']='attachment; filename="opening-template.csv"';result['Cache-Control']='private, no-store';return result
 

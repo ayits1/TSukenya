@@ -75,9 +75,11 @@ class TradingDirectoryTests(TransactionTestCase):
         self.details({'ids':[{'type':'products','id':'p'},{'type':'products','id':'missing'}]})
         self.assertEqual((AuditEvent.objects.count(),Document.objects.count()),before)
         for i in range(67):Document.objects.create(path=f'products/qa_{i:03}',data={'name':'QA','cost':'1.2345'})
+        legacy=Document.objects.get(pk='products/p');legacy.data['cost']='=1+1';legacy.save()
         response=self.get('products/template.csv?purpose=opening');self.assertTrue(response.streaming)
         from server.erp.csv_format import read_rows
-        _,rows=read_rows(b''.join(response.streaming_content).decode())
+        exported=b''.join(response.streaming_content).decode();self.assertIn('\t=1+1',exported)
+        _,rows=read_rows(exported);self.assertEqual(rows[0][1]['Ціна'],'=1+1')
         self.assertEqual(len(rows),68);self.assertEqual(rows[-1][1]['Ціна'],'1.2345')
 
     def test_page_money_is_authoritative_and_query_count_independent_of_page_size(self):
@@ -101,6 +103,15 @@ class TradingDirectoryTests(TransactionTestCase):
         exact=self.get(f'products/lookup?mode=barcode&q=QA-1&store={self.store.pk}').json()
         self.assertEqual(exact['total'],1);self.assertEqual(exact['items'][0]['salePrice'],'13.00')
         self.assertEqual(self.get('products/lookup?mode=fuzzy&q=QA').status_code,400)
+
+    def test_product_page_reuses_one_pricing_configuration(self):
+        for i in range(35):
+            Document.objects.create(path=f'products/bounded_{i}',data={'name':f'QA bounded {i:03}','unit':'шт','cost':'1.2345'})
+        with CaptureQueriesContext(connection) as queries:
+            result=self.get('directories/products?q=QA%20bounded').json()
+        self.assertEqual(len(result['items']),30);self.assertEqual(result['total'],35)
+        self.assertEqual(sum('settings/main' in row['sql'] for row in queries),1)
+        self.assertTrue(all(row['cost']=='1.2345' for row in result['items']))
 
     def test_archived_store_historical_selection_and_stock_labels_remain_readable(self):
         self.store.active=False;self.store.save()
