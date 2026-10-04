@@ -498,6 +498,11 @@ def handle(request):
     if path.startswith('/api/v1/portal/'):
         from .portal_api import handle_portal
         return handle_portal(request,user)
+    if path in {'/api/v1/trading/reports/summary','/api/v1/trading/reports/rows','/api/v1/trading/reports/export.csv'} and request.method=='GET':
+        from . import bounded_reports
+        require(user.profile.role in bounded_reports.ROLES,'Недостатньо прав для фінансових звітів.')
+        if path.endswith('/export.csv'): return bounded_reports.export_csv(user,request.GET)
+        return response(bounded_reports.rows(user,request.GET) if path.endswith('/rows') else bounded_reports.summary(user,request.GET))
     if path.startswith('/api/v1/'):
         if path.startswith('/api/v1/trading/'):
             from .directories import handle as handle_directories
