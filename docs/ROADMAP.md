@@ -121,3 +121,9 @@ B26: перший CRM етап реалізовано — React клієнтсь
 ## B24: залишки та асортимент
 
 Інтегровано наступний пакет для рев’ю: реальні stock/assortment GET і UI читають сторінки до30, підсумки охоплюють весь фільтр, CSV потоком містить увесь результат, чернетки повертаються за selected ID. Контракти, синтетичні before/after та PostgreSQL/native докази — [B24-BOUNDED-STOCK.md](B24-BOUNDED-STOCK.md). Повні довідники E/P у bootstrap, detail/POST capacity і versioned CRM migration залишаються незавершеними. Реєстрація нового браузерного сценарію в test:full не означає запуск повної регресії.
+
+Пакет B24 прийнято в [#52](https://github.com/ayits1/TSukenya/pull/52), exact-head server/PostgreSQL CI успішні. Локальний репозиторій fast-forward до main432e2c2, VPS не змінено.
+
+## B21: великий імпорт та журнал
+
+Інтегровано для PR/CI durable creator-owned run/chunks/plan/outcomes/history і native журнал; малий atomic endpoint збережено. Індекс назв/legacy recipe та cache довідників усувають повторні повні scans; lease-safe bounded steps зберігають поступ. Lost ACK, sourceHash/receipt-prefix reload, explicit apply та cancel із committed rows перевірено. [Контракт](CATALOG-IMPORT-JOBS-CONTRACT.md), [INDEX proof](CATALOG-IMPORT-INDEX.md), [UI proof](CATALOG-IMPORT-UI.md). Worker CLI працює в ізольованих перевірках; scheduler/service для робочого запуску та production capacity ще потребують окремого пакета й release. Не прирівнювати API limit100000 до виміряного SLA.0.1 не виконано.

@@ -49,3 +49,9 @@ QA_IMPORT_FROM=read-recovery PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python nod
 Артефакти цієї сесії: `/tmp/tsukenya-import-jobs-native/{wide,narrow,zoom200}.png`, `/tmp/tsukenya-import-jobs-native-partial/report.json`, `/tmp/tsukenya-import-jobs-native-read/report.json`. Основний report містить останній QA partial timeout, а не помилку завершеного імпорту; наведені вище assertions і незалежний partial report явно розділені.
 
 Це не production capacity/SLA100000, не native-phone memory і не screen-reader proof. CSV/XLSX поки читаються в пам’ять браузера; bounded API uploads не означають streaming parser. Shared controls не змінювалися, Storybook не дублює native DOM. Worker не запускався на VPS, застосунок не публікувався; запуск scheduler та фінальні серверні performance boundaries належать окремому серверному пакету B21.
+
+## Root інтеграція поверх main432e2c2
+
+Перенесено own backend e3c8402 +1efac7c та UI88df72f; первинний серверний пакет без performance followup окремо не приймався. Root source review fresh index/trigger/cache/lease та controlACK UUID/confirmed-ID guards проведено. Fresh PostgreSQL3 PASS:1001 рядок/restart/no duplicate audit, many-reference cache1/1,0017 migration forward/backfill/reverse/forward. VM/parser, generated contract unchanged після regeneration, tsc/eslint/Prettier для generated.ts, schema no changes та diff-check PASS. Незмінені решта proof використані повторно.
+
+На фінальному сервері focused native partial PASS:100 committed/101 pending після cancel. Додано viewport artifacts замість непридатного для огляду full-page PNG висотою25тис.px; changed artifact/isolation harness partial retry PASS, `/tmp/tsukenya-import-root-partial/partial-viewport-{1440,320}.png`, root переглянув320px. QA прибирає також TSUKENYA_REQUIRE_POSTGRES, щоб не успадковувати виробничі вимоги для ізольованої SQLite. VM/native/default+read-recovery зареєстровано в explicit full registry; повну регресію не запускали.

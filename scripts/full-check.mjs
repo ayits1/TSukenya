@@ -159,6 +159,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/monthly-budget-decimal.cjs']);
     await run('node', ['tests/financial-scope-ui.cjs']);
     await run('node', ['tests/catalog-import-parser.cjs']);
+    await run('node', ['tests/catalog-import-jobs.cjs']);
     await run('node', ['tests/csv-format.cjs']);
     await run('node', ['tests/csv-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-pricing-contract.cjs']);
@@ -176,6 +177,8 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/catalog-import-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-import-ui.cjs'], { env: { ...browserEnv, QA_IMPORT_FROM: 'cancel' } });
     await run('node', ['tests/catalog-import-ui.cjs'], { env: { ...browserEnv, QA_IMPORT_FROM: 'contract' } });
+    await run('node', ['tests/catalog-import-jobs-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/catalog-import-jobs-ui.cjs'], { env: { ...browserEnv, QA_IMPORT_FROM: 'read-recovery' } });
     await run('node', ['tests/catalog-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-ui.cjs'], { env: { ...browserEnv, QA_EDITOR_NEXT_ONLY: '1' } });
     await run('node', ['tests/catalog-ui.cjs'], { env: { ...browserEnv, QA_REFERENCE_MANAGEMENT_ONLY: '1' } });
