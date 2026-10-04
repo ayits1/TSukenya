@@ -1,0 +1,58 @@
+# B06 P1 · reload редакторів довідників
+
+## Межа
+
+Пакет від accepted `020a0d60d3c19726072830a22fec18250caaade3`. Реальні `entityForm` stores/warehouses/accounts/employees/parties enrolled у P0 `NativeDraftRecovery` як `native-entity-v1`. Відновлення підтримує ту саму вкладку й той самий чинний серверний сеанс. P1 загалом, інші native сім’ї та P2/P3 не завершено.
+
+Немає нової бізнес-моделі/міграції, зміни ролей, posting, зарплатних формул або історії. Existing `EntityCreateReceipt` лишається авторитетним immutable CREATE receipt. Shared directory counterparties залишаються спільними; неактивні records не одержали нової загальної заборони.
+
+## Контракт і capture
+
+`GET /api/v1/trading/entities/{type}/recovery-context?store=&id=` виконує fresh current_actor у реальному RR/READ ONLY. DTO містить тільки type/id/store/role/storeId/networkOwner/canCreate/exists; SELECT record бере pk/store, без contact/payroll payload. Store/kind permissions відповідають чинному write contract. Новіші invalid raw поля не використовуються як authorization identity. `canCreate:false` не відхиляє читання original/confirmed draft.
+
+Змінні opening source/dialog/tab/generation/store фіксуються перед першим await. Existing запис сам визначає store у fresh контексті: глобальний defaultStore не звужує network-owner доступ до іншого existing store.
+
+Окремі `baseline` (original id/store/kind/revision), explicit raw `draft`, immutable `firstIntent` (POST endpoint/key/body/revision/possiblySent) і strict `confirmation`. Entity codec дозволяє тільки власні поля. Баланси, payroll debt, arrays/cache, CSRF/cookies/credentials/permissions не persist. Raw capture — explicit field getter/input/change/custom event; не FormData autosave. Ставки працівника — text input з inputmode decimal, щоб `1e-`, `-`, зайва точність або порожнє поле зберігались; Save validation лишається окремим Decimal contract.
+
+Capture та durable first request завершуються **до fetch**. Quota/corruption fail closed, показують error, не надсилають POST. Error не стирає prior stored record. Foundation authorize/check/verify охоплюють warm re-show; немає другого session request із мовчазним catch.
+
+## Recovery
+
+- Unsent CREATE: explicit Restore повертає raw input, не пише бізнес-дані.
+- Unknown CREATE: frozen first UUID/body окремі від newer invalid draft. Exact type=button не залежить від validity newer fields. Після reload unknown завжди ambiguous; наступні400/403/409 не звільняють first intent. Identity confirmed=false не доводить відсутність.
+- Confirmed CREATE: ID/original receipt приймаються до current GET; current503 лишає GET-only barrier. Receipt revision не є fresh baseline; лише explicit comparison/Apply приймає latest baseline, Save окремий. Deleted original — readonly tombstone, без resurrection.
+- Existing/unknown UPDATE: POST з id/revision не має CREATE receipt. Після reload потрібні fresh current GET, explicit comparison/Apply, окремий Save. Blind UPDATE replay відсутній. First unresolved body знімається тільки через strict same-ID ACK або actual fresh Apply; невдалий UPDATE після sent intent веде до review, включно400.
+- First live CREATE validation400 може звільнити intent лише за type+UUID-bound `write_rejected:true`. Catch всередині outer atomic оточує inner `entity_save` savepoint: caught validation уже rolled back. Outer commit/on_commit callbacks відбуваються поза proof catch. Conflict та permission403 не отримують proof; post-commit serialization не входить у catch. Proof не доводить глобальної відсутності ключа й не застосовується після reload/unknown.
+- ACK та confirmed read очищають локальний record лише коли newest normalized draft збігається з фактичним current record. Новіші поля/GET failure зберігаються. GET/identity/Apply не викликають business write.
+
+## Cold/warm privacy
+
+Cold Restore чекає actual allowlisted trading route mount із failed/abort/hash/timeout fences. Після mount виконується додатковий fresh context read до вставлення private DOM; observed bootstrap role/store мусять відповідати authorized session. Scoped manager/accountant parties відновлюються через дозволений customers route, не owner-only setup. Mount/cancel не активує Save.
+
+Pagehide/hidden/session error приховують private body/heading/comparison і directory popovers. Public retry/Close лишаються доступними. Fresh warm verify повертає ту саму локальну форму без повторного Restore; 503 лишає її прихованою, GET retry не пише. Session401/epoch/role/store change використовують P0 global revoke; same-session resource403 — P0 denied-record policy. Close recovery dialog не очищає вже restored editor. Сховище не є шифруванням чи XSS захистом, не гарантує browser restart/crossdevice або виключне володіння request у duplicated tabs.
+
+## Цільові докази
+
+Нові перевірки запускались тільки на isolated даних. Shared PostgreSQL container localhost61144 не перезапускався/не видалявся; власна `DB_NAME=tsukenya_entity_reload`, test DB видалена Django.
+
+- `tests.test_entity_draft_context.EntityDraftContextTests`: чотири нові PG scenarios PASS — fresh cached actor role/inactive, own/foreign scope, actual RR/READ ONLY/no DML/no private salary SELECT; усі5 resources + manager/accountant shared parties/network-store CREATE; actual first validation400 rollback/proof→correctedSave та409 без proof; synthetic on_commit validation після committed write не отримує no-write proof. Після minimal-column change повторено тільки scope target PASS. Перший HTTP fixture був403 через missing Origin; виправлено тільки fixture й повторено один target.
+- `entityPersistence.test.ts`: 6 unit PASS — all5 raw whitelists, invalid strings, wrong resource/path/key, original receipt/tombstone/current barrier, UPDATE acknowledgment/explicit Apply, current policy match та bound rejection proof. Повторено після relevant decoder edit.
+- `RecoveryPanel.stories.tsx:EntityFrozenCreate`: 1 Storybook keyboard PASS, решта144 skipped; bundled headless Chromium. Перший запуск заблокував sandbox local listener EPERM; повтор цільового story з дозволеним local listener PASS.
+- Build/TypeScript, changed ESLint/Prettier, JS syntax, Python compile і diff check PASS.
+- Actual `tests/entity-draft-reload-ui.cjs`, bundled headless Chromium, власна disposable SQLite/port18277:
+  - **primary partial**: усі5 forms raw dirty hardreload→keyboard explicit Restore→Close/editable, 0 POST. Primary зупинився пізніше на CREATE barrier, тому не заявляється whole primary PASS.
+  - **create terminal PASS**: actual committed CREATE/lostACK, newer invalid required name/rate, reload, exact sameUUID/body, later400 unresolved, one entity, confirmedID+current503→reload→GET-only; atomic payroll Apply/noPOST→separate Decimal UPDATE.
+  - **update terminal PASS**: committed UPDATE/lostACK→newer raw→external rename→reload→current GET→explicit keyboard choice/Apply→fresh revision Save; no blind replay, immutable store/kind.
+  - **validation terminal PASS**: actual duplicate warehouse atomic400 with proof→corrected explicit Save; raw incomplete rate не нормалізується, correction valid save.
+  - **privacy terminal PASS**: quota before-fetch0POST/prior draft; warm focus same draft; resource503 private body/heading hide +public GET retry; actual session deletion→401 clears records; 1440/320 restored editor no horizontal overflow; обидва PNG переглянуто.
+  - **cold**: initial success from overview PASS; final fresh-before-DOM/cancel continuation terminal PASS (`cold-report.json`). Старий closed dialog у hash-only navigation не є late mount; assertion відрізняє existing closed DOM від newly open private form.
+
+Artifacts: `/tmp/tsukenya-entity-reload-proof/{primary-partial,create-report,update-report,validation-report,privacy-report,cold-report}.json`, `entity-restored-320.png`, `entity-restored-1440.png`, `server.log`. Failure diagnostics збережені окремо, не позначені успішними.
+
+Відтворення: `PYTHON_BIN=/path/to/isolated/python node tests/entity-draft-reload-ui.cjs`. Вузький retry `QA_ENTITY_DRAFT_FROM=create|update|validation|privacy|cold`; unknown flag rejected. Script scrub DB/PG/production settings, pins isolated settings/secret, checks early server exit, awaits server/browser teardown. Full integration registry/env scrub належить root integration. Full suite, production/VPS/Sheet/backup0.1/PR/push не виконувались.
+
+Existing receipt7PG/unit6/comparison keyboard-layout/P0 privacy/storage/late proofs reuse при незмінних inputs; цією доставкою не заявляються повторними full runs. Новий пакет не є completion решти B06.
+
+## Сумісність старих native fixtures
+
+`entity-create-recovery-ui.cjs` primary мав old in-memory сценарій owner→accountant→owner з доступними старими payroll полями між змінами ролі. P0 тепер при role/session identity change приховує private editor і очищає локальні записи до повторної авторизації, а pre-fetch verify може зупинити exact POST до сервера. Тому цей старий primary сценарій потребує вузького retarget до нового privacy/pre-fetch contract; не заявляється його повторний PASS або сумісність його старих DOM assertions. Server receipt/current-role/concurrency coverage лишається чинною; нові actual entity targets доводять readonly auth/hide/unknown/current barrier. Решта unchanged old evidence використана лише для відповідних незмінених серверних/comparison правил.

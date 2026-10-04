@@ -119,3 +119,32 @@ def identity(user, resource, value):
         # Never disclose a moved row or permit mutation using the original scope.
         require(obj is None or resource not in CHILDREN or obj.store_id == receipt.store_id_snapshot, 'Магазин запису змінився; доступ відкликано.')
         return {'confirmed': True, **acknowledgement(receipt), 'exists': obj is not None}
+
+
+def recovery_context(user, resource, params):
+    """Authorize a local raw draft without validating its newer form fields."""
+    from .services import get, scope
+    from .browsing import positive_integer
+    require(set(params) <= {'id', 'store'}, 'Некоректний контекст довідника.')
+    with read_snapshot():
+        user = current_actor(user)
+        authorize(user, resource)
+        original_id = positive_integer(params['id'], 'ID запису') if params.get('id') else None
+        store_id = positive_integer(params['store'], 'ID магазину') if params.get('store') else None
+        obj = MODELS[resource].objects.filter(pk=original_id).only('pk', *(['store'] if resource in CHILDREN else [])).first() if original_id else None
+        if resource == 'stores' and original_id:
+            require(user.profile.store_id is None or original_id == user.profile.store_id, 'Немає доступу до цього магазину.')
+        if resource in CHILDREN:
+            if obj is not None:
+                require(store_id is None or obj.store_id == store_id, 'Магазин запису змінився; доступ відкликано.')
+                store_id = obj.store_id
+            if store_id:
+                scope(user, get(Store, store_id, 'Магазин'))
+            elif user.profile.store_id is not None:
+                store_id = user.profile.store_id
+        return {'type': resource, 'id': str(original_id) if original_id else None,
+                'store': store_id if resource in CHILDREN else None,
+                'role': user.profile.role, 'storeId': user.profile.store_id,
+                'networkOwner': user.profile.role == 'owner' and user.profile.store_id is None,
+                'canCreate': resource != 'stores' or user.profile.store_id is None,
+                'exists': obj is not None if original_id else None}

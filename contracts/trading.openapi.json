@@ -654,6 +654,59 @@
           }
         }
       }
+    },
+    "/api/v1/trading/entities/{type}/recovery-context": {
+      "get": {
+        "operationId": "entityRecoveryContext",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stores",
+                "warehouses",
+                "accounts",
+                "employees",
+                "parties"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh read-only resource authorization, without validating newer raw fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityRecoveryContext"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Resource scope unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1532,6 +1585,74 @@
           },
           "kind": {
             "type": "string"
+          }
+        }
+      },
+      "EntityRecoveryContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "id",
+          "store",
+          "role",
+          "storeId",
+          "networkOwner",
+          "canCreate",
+          "exists"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "stores",
+              "warehouses",
+              "accounts",
+              "employees",
+              "parties"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "manager",
+              "accountant",
+              "warehouse",
+              "cashier"
+            ]
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "canCreate": {
+            "type": "boolean"
+          },
+          "exists": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         }
       }

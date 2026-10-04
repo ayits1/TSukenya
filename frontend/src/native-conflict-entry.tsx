@@ -1,3 +1,4 @@
+import * as entityPersistence from './shared/native/entityPersistence';
 import * as voucherPersistence from './shared/native/voucherPersistence';
 import { createDraftRecovery } from './shared/recovery/bridge';
 import * as monthlyBudgetEditor from './shared/native/monthlyBudget';
@@ -25,6 +26,7 @@ import * as recipeEditor from './shared/native/recipe';
 declare global {
   interface Window {
     NativeVoucherPersistence?: typeof voucherPersistence;
+    NativeEntityPersistence?: typeof entityPersistence;
     NativeDraftRecovery?: ReturnType<typeof createDraftRecovery>;
     NativePlanningCategoryEditor?: typeof planningCategoryEditor;
     NativeMonthlyBudgetEditor?: typeof monthlyBudgetEditor;
@@ -53,6 +55,7 @@ window.NativePlanningCategoryEditor = planningCategoryEditor;
 window.NativeMonthlyBudgetEditor = monthlyBudgetEditor;
 window.NativeBudgetPeriodControls = { mount: mountBudgetPeriod };
 window.NativeEntityEditor = entityEditor;
+window.NativeEntityPersistence = entityPersistence;
 window.NativeLegacyEditor = legacyEditor;
 window.NativeRecipeEditor = recipeEditor;
 window.NativeVoucherEditor = voucherEditor;
