@@ -70,18 +70,6 @@
       signal,
     );
     codec().decodeCategoryContext(raw, s, session);
-    if (p.firstIntent?.method === "POST" && session.role === "owner") {
-      const receipt = await options.api(
-        "budget-categories/identity",
-        "POST",
-        { request: p.firstIntent.body },
-        signal,
-      );
-      window.NativePlanningCategoryEditor.decodeCategoryIdentity(
-        receipt,
-        p.firstIntent.body,
-      );
-    }
     if (signal.aborted) throw new DOMException("Скасовано", "AbortError");
     authorizedSession = { recordId: s.recordId, session };
     return true;
@@ -173,7 +161,7 @@
     codec().decodeCategoryContext(raw, s, session);
     return session;
   }
-  function enroll({ d, form, initial, restored, captureRaw, cancel }) {
+  function enroll({ d, form, initial, restored, captureRaw, cancel, onIdentity }) {
     register();
     let p = restored
       ? codec().decodeCategoryPayload(restored)
@@ -239,6 +227,9 @@
       capture,
       get payload() {
         return p;
+      },
+      get hidden() {
+        return a.hidden;
       },
       async read(read, signal) {
         if (active !== a || !d.open)
@@ -344,6 +335,31 @@
           .querySelectorAll(".tk-popover")
           .forEach((el) => (el.hidden = false));
         a.d.querySelector("[data-category-access]")?.remove();
+        if (method === "POST") {
+          // Do not mutate storage inside codec.authorize: DraftStore fences
+          // that read against concurrent payload changes. Confirm separately
+          // after the guarded identity read, before any independent current GET.
+          const receipt = await this.read(async (signal) => {
+            const value = await options.api(
+              "budget-categories/identity",
+              "POST",
+              { request: frozen.body },
+              signal,
+            );
+            window.NativePlanningCategoryEditor.decodeCategoryIdentity(
+              value,
+              frozen.body,
+            );
+            return value;
+          });
+          if (receipt.confirmed) {
+            this.confirm("identity", receipt);
+            onIdentity(receipt, p);
+            throw Error(
+              "Первісний ID підтверджено. Повторне створення заблоковано; прочитайте поточний запис без збереження.",
+            );
+          }
+        }
         return frozen.body;
       },
       confirm(type, raw) {
