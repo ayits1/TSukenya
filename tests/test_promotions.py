@@ -97,12 +97,13 @@ class CampaignTests(ApiFixture):
         loss=save_voucher(cashier,data)
         with self.assertRaisesMessage(BusinessError,'нижче собівартості'):post_voucher(cashier,loss.pk)
     def test_price_task_identity_is_protected_but_completion_is_stable(self):
+        from server.erp.managed_alerts import task_revision
         self.create();task=Document.objects.filter(path__startswith='tasks/reprint_').first()
-        response=self.call('patch','/api/docs/'+task.path,{'status':'done'});self.assertEqual(response.status_code,200,response.content)
+        response=self.call('patch','/api/docs/'+task.path,{'status':'done'},HTTP_IF_MATCH=task_revision(task));self.assertEqual(response.status_code,200,response.content)
         with transaction.atomic():ledger_lock();scan_prices(self.u)
         task.refresh_from_db();self.assertEqual(task.data['status'],'done')
-        self.assertEqual(self.call('patch','/api/docs/'+task.path,{'title':'Неправильне завдання'}).status_code,400)
-        self.assertEqual(self.call('delete','/api/docs/'+task.path).status_code,400)
+        self.assertEqual(self.call('patch','/api/docs/'+task.path,{'title':'Неправильне завдання'},HTTP_IF_MATCH=task_revision(task)).status_code,400)
+        self.assertEqual(self.call('delete','/api/docs/'+task.path,HTTP_IF_MATCH=task_revision(task)).status_code,400)
         self.assertEqual(self.call('put','/api/docs/tasks/forged',{'scope':'operations','_priceTask':True,'title':'Підробка'}).status_code,400)
     def test_campaign_change_invalidates_open_bulk_price_preview(self):
         payload={'kind':'rounding','rounding':'1'}

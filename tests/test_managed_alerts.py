@@ -80,9 +80,9 @@ class ManagedAlertTests(ApiFixture):
         for extra in [{'until':self.today,'reason':'today'},{'until':'not-date','reason':'bad'},{'until':(date.fromisoformat(self.today)+timedelta(days=1)).isoformat(),'reason':''}]:
             response,_=self.action('defer',**extra);self.assertEqual(response.status_code,400)
         response,_=self.action('defer',until=(date.fromisoformat(self.today)+timedelta(days=1)).isoformat(),reason='Сировина');self.assertEqual(response.status_code,200)
-        self.assertEqual(self.call('patch','/api/docs/'+self.task.path,{'status':'doing'}).status_code,200)
+        self.assertEqual(self.call('patch','/api/docs/'+self.task.path,{'status':'doing'},HTTP_IF_MATCH=record_revision(Document.objects.get(pk=self.task.path))).status_code,200)
         self.task.refresh_from_db();self.assertEqual(self.task.data['_alertWorkState'],'accepted');self.assertNotIn('_alertDeferredUntil',self.task.data)
-        self.assertEqual(self.call('patch','/api/docs/'+self.task.path,{'_alertAcceptedBy':'forged'}).status_code,400)
+        self.assertEqual(self.call('patch','/api/docs/'+self.task.path,{'_alertAcceptedBy':'forged'},HTTP_IF_MATCH=record_revision(Document.objects.get(pk=self.task.path))).status_code,400)
     def test_threshold_defaults_zero_expired_and_validation(self):
         from server.erp.models import StockLot
         from decimal import Decimal

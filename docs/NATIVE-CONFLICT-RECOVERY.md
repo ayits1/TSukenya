@@ -219,3 +219,9 @@ Harness прибирає inherited DB/PG/URL/require змінні, фіксує 
 `/tmp/tsukenya-root-legacy-integrated/layout-report.json` (2 writes; refusal до mutation, окремий Save,
 1440/320 geometry). Злитий static loader зберігає report module й підключає legacy editor.
 Незмінні API/ACK/story proofs повторно не запускалися.
+
+Перший exact-head CI PR63 виявив чотири старі compatibility fixtures без If-Match (budget2,
+managed-alert1, price-task1), що отримали428 перед своєю бізнес-перевіркою. Fixtures передають fresh
+revision без послаблення server guard; status/source/owner/maximum-cent assertions збережені.
+Expense numeric adapter збережено; додано valid decimal-string12.10, invalid string12.091 лишається400.
+Повторено лише ці чотири affected scenarios на isolated PostgreSQL: PASS0.432 s.
