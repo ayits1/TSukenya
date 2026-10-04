@@ -64,6 +64,8 @@ Runtime decoder перевіряє UUID/revision, десяткові рядки,
 
 Перед initialGET використано validated `GET /api/v1/promotions/context`. Scoped owner відкриває свій магазин, не бачить network option/чужі stores або мережеву каталогну вкладку; пояснення scope не редагується. Це вузька UIboundary: старий server legacy globalOwnerDTO не переписано, його фінансовий scope є окремою B02 перевіркою.
 
+Наступний B02 пакет закриває підтверджений server legacy фінансовий витік для scoped owner, зберігаючи власний місячний бюджет і спільний каталог/друк. Контракт і перевірки — [LEGACY-FINANCIAL-SCOPE.md](LEGACY-FINANCIAL-SCOPE.md). Це серверні guards, не лише приховування вкладки.
+
 Новий targeted `tests/monthly-budget-recovery-ui.cjs` перевірив commit→lostACK→спробу змінити заблоковану форму→exact retry для бюджету, committed malformed200 для budget/category, один запис/audit, відкидання wrong-context/missing-fields/NaN/missing-categoryID на GET. Scoped owner tail пройшов окремо (`--scope-only`): initial ownstore,320px, прихована мережева вкладка, сервер403 для мережі й реального чужого магазину. Старі успішні UIсценарії без змінених inputs не проганялись повторно; основний budgetUIhelper адаптовано до explicitretrybutton.
 
 ### Точні копійки у великих підсумках

@@ -157,6 +157,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
   await stage(2, async () => {
     await run('node', ['tests/promotion-legacy.cjs']);
     await run('node', ['tests/monthly-budget-decimal.cjs']);
+    await run('node', ['tests/financial-scope-ui.cjs']);
     await run('node', ['tests/catalog-import-parser.cjs']);
     await run('node', ['tests/csv-format.cjs']);
     await run('node', ['tests/csv-ui.cjs'], { env: browserEnv });

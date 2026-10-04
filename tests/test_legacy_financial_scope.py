@@ -11,6 +11,23 @@ from server.erp.models import AuditEvent, Document, LedgerLock, PortalSession, P
 
 
 class LegacyFinancialScopeTests(TestCase):
+    def test_network_scope_rechecked_after_ledger_wait(self):
+        from unittest.mock import patch
+        from server.erp import views
+        self.user.profile.store=None;self.user.profile.save()
+        original=views.ledger_lock
+        before=AuditEvent.objects.count()
+        def revoked_scope():
+            lock=original()
+            Profile.objects.filter(user=self.user).update(store=self.b)
+            return lock
+        with patch('server.erp.views.ledger_lock',side_effect=revoked_scope):
+            response=self.write('patch','/api/docs/expenses/network-rent',{'amount':1})
+        self.assertEqual(response.status_code,403,response.content)
+        self.expense.refresh_from_db()
+        self.assertEqual(self.expense.data['amount'],15000)
+        self.assertEqual(AuditEvent.objects.count(),before)
+
     def setUp(self):
         LedgerLock.objects.create(pk=1)
         self.a = Store.objects.create(name='Власний магазин')
@@ -233,4 +250,3 @@ class ScopedMonthlyBudgetCompatibilityTests(TransactionTestCase):
         self.assertEqual(self.settings.data['budgetStores'], 4)
         self.assertEqual(self.settings.data['privateFuture'], self.original['privateFuture'])
         self.assertEqual(result.json()['revision'], revision(self.settings.data))
-

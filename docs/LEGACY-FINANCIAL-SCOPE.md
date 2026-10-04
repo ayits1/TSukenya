@@ -51,3 +51,5 @@ GET не змінює Documents, settings або audit. Загальний ка�
 - `node --check app/erp.js`, `git diff --check`: PASS.
 
 Повну регресію, production, VPS, резервні копії й спільну Google-таблицю не використовували.
+
+Root після інтеграції B10/B12/B16/B18 перевірив4 цільові PG сценарії: мережевий scope після ledger wait, приватні settings write/delete, скорочений PUT з HMAC, власний monthly budget і shared labels/pricing — PASS. Renderer proof повторно перевірено на інтегрованому app/erp.js, PASS. Mutation повторно читає активність і profile після ledger lock; зміна scope під час очікування не використовує застарілий owner bypass. Pure renderer зареєстровано у quick CI та явній test:full, без запуску повного набору.

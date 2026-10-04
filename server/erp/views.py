@@ -140,6 +140,9 @@ def legacy_create_fingerprint(value):
 @transaction.atomic
 def legacy_mutation(request,user,path,create_key=None):
     ledger_lock()
+    user.refresh_from_db(fields=['is_active'])
+    user.profile.refresh_from_db()
+    require(user.is_active,'Недостатньо прав. Обліковий запис вимкнено.')
     col,_,id=path.partition('/')
     require(col in COLLECTIONS or path in SINGLE_DOCS,'Невідомий тип документа.')
     require(re.fullmatch(r'[A-Za-z0-9_-]{1,120}',id or ''),'Некоректний ID.')
