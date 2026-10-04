@@ -156,6 +156,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
   await removePostgres();
   await stage(2, async () => {
     await run('node', ['tests/promotion-legacy.cjs']);
+    await run('node', ['tests/monthly-budget-decimal.cjs']);
     await run('node', ['tests/catalog-import-parser.cjs']);
     await run('node', ['tests/csv-format.cjs']);
     await run('node', ['tests/csv-ui.cjs'], { env: browserEnv });
@@ -176,6 +177,8 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/labels-output-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/portal-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/budget-break-even-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/monthly-budget-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/monthly-budget-recovery-ui.cjs'], { env: browserEnv });
   });
   await stage(3, async () => {
     await run('node', ['tests/crm-ui.cjs'], { env: browserEnv });
