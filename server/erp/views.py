@@ -522,7 +522,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/planning-category-editor.js"></script><script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/planning-category-editor.js"></script><script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-entity-persistence.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         if RELEASE!='unknown':
             html=html.replace('id="applicationVersion">Локальна версія','id="applicationVersion">Версія '+RELEASE[:7],1).replace('id="applicationCommit">Невідомий','id="applicationCommit">'+RELEASE,1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
@@ -557,6 +557,10 @@ def handle(request):
         require(user.profile.role in bounded_reports.ROLES,'Недостатньо прав для фінансових звітів.')
         if path.endswith('/export.csv'): return bounded_reports.export_csv(user,request.GET)
         return response(bounded_reports.rows(user,request.GET) if path.endswith('/rows') else bounded_reports.summary(user,request.GET))
+    match=re.fullmatch('/api/v1/trading/entities/(stores|warehouses|parties|accounts|employees)/recovery-context',path)
+    if match and request.method=='GET':
+        from .entity_receipts import recovery_context
+        return response(recovery_context(user,match[1],request.GET))
     match=re.fullmatch('/api/v1/trading/entities/(stores|warehouses|parties|accounts|employees)/identity',path)
     if match and request.method=='POST':
         from .entity_receipts import identity
@@ -585,7 +589,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-entity-persistence.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -836,7 +840,22 @@ def handle(request):
                 audit(user,'draft_deleted',f'voucher/{pk}',audit_change(audit_snapshot('voucher', v), None, observed=value.get('revision')));v.delete()
             return response({'ok':True})
     match=re.fullmatch('/api/erp/entities/(stores|warehouses|parties|accounts|employees)',path)
-    if match and request.method=='POST':return entity_save(user,match[1],body(request))
+    if match and request.method=='POST':
+        value=body(request)
+        with transaction.atomic():
+            try:
+                # Inner entity_save uses a savepoint: caught validation rolled back.
+                # Outer commit/on_commit errors occur OUTSIDE this proof catch.
+                result=entity_save(user,match[1],value)
+            except Conflict:
+                raise
+            except (BusinessError,ValidationError) as exc:
+                message=' '.join(exc.messages) if isinstance(exc,ValidationError) else str(exc)
+                if any(word in message for word in ('прав','роль','доступ','не підтверджений')):raise
+                key=value.get('idempotency_key')
+                proof={'write_rejected':True,'request_key':key,'type':match[1]} if isinstance(key,str) and re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',key) and not value.get('id') else {}
+                return response({'error':message,**proof},400)
+            return result
     if path=='/api/erp/shifts' and request.method=='POST':return shift_action(user,body(request))
     if path=='/api/erp/work-shifts' and request.method=='POST':return work_shift_save(user,body(request))
     if path=='/api/erp/shifts' and request.method=='GET':

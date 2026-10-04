@@ -346,4 +346,54 @@ describe('reload draft foundation', () => {
     expect(await changed.verify('draft1')).toBeNull();
     expect(storage.length).toBe(0);
   });
+  it('verified private read applies401/403/503 policy after authorization and preserves unrelated unknown intent', async () => {
+    for (const status of [401, 403, 503]) {
+      const { store, storage, restored } = setup();
+      store.save('record', 'synthetic', draft);
+      store.save('other', 'synthetic', intent);
+      const other = storage.getItem(PREFIX + 'other');
+      let reads = 0;
+      const controller = new RecoveryController(store, async () => session);
+      expect(
+        await controller.verifyRead('record', async () => {
+          reads++;
+          throw Object.assign(Error('read denied'), { status });
+        }),
+      ).toBeNull();
+      expect(reads).toBe(1);
+      expect(restored).toHaveLength(0);
+      if (status === 401) expect(storage.length).toBe(0);
+      else {
+        expect(storage.getItem(PREFIX + 'other')).toBe(other);
+        expect(storage.getItem(PREFIX + 'record') === null).toBe(status === 403);
+      }
+      expect(controller.snapshot().state).toBe('error');
+    }
+  });
+  it('verified private read fences late denial after dismiss and never adopts a read baseline', async () => {
+    const { store, storage, restored } = setup();
+    store.save('record', 'synthetic', intent);
+    const original = storage.getItem(PREFIX + 'record');
+    let reject: ((error: Error) => void) | undefined;
+    const controller = new RecoveryController(store, async () => session);
+    const pending = controller.verifyRead(
+      'record',
+      async () =>
+        new Promise((_resolve, fail) => {
+          reject = fail;
+        }),
+    );
+    for (let n = 0; n < 8; n++) await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(reject).toBeDefined();
+    controller.dismiss();
+    reject?.(Object.assign(Error('late403'), { status: 403 }));
+    expect(await pending).toBeNull();
+    expect(storage.getItem(PREFIX + 'record')).toBe(original);
+    expect(restored).toHaveLength(0);
+    expect(await controller.verifyRead('record', async () => ({ id: 'confirmed' }))).toEqual({
+      session,
+      value: { id: 'confirmed' },
+    });
+    expect(storage.getItem(PREFIX + 'record')).toBe(original);
+  });
 });

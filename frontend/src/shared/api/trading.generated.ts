@@ -153,6 +153,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/trading/entities/{type}/recovery-context': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['entityRecoveryContext'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -383,6 +399,18 @@ export interface components {
       /** Format: uuid */
       request_key: string;
       kind: string;
+    };
+    EntityRecoveryContext: {
+      /** @enum {string} */
+      type: 'stores' | 'warehouses' | 'accounts' | 'employees' | 'parties';
+      id: string | null;
+      store: number | null;
+      /** @enum {string} */
+      role: 'owner' | 'manager' | 'accountant' | 'warehouse' | 'cashier';
+      storeId: number | null;
+      networkOwner: boolean;
+      canCreate: boolean;
+      exists: boolean | null;
     };
   };
   responses: never;
@@ -838,6 +866,38 @@ export interface operations {
       };
       /** @description Conflict without no-write proof */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  entityRecoveryContext: {
+    parameters: {
+      query?: {
+        id?: string;
+        store?: number;
+      };
+      header?: never;
+      path: {
+        type: 'stores' | 'warehouses' | 'accounts' | 'employees' | 'parties';
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fresh read-only resource authorization, without validating newer raw fields */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EntityRecoveryContext'];
+        };
+      };
+      /** @description Resource scope unavailable */
+      403: {
         headers: {
           [name: string]: unknown;
         };

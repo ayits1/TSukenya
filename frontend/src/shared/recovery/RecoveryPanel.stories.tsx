@@ -82,3 +82,23 @@ export const Unreadable: Story = {
     ).toBeDisabled();
   },
 };
+
+export const EntityFrozenCreate: Story = {
+  args: {
+    view: {
+      state: 'ready',
+      entries: [
+        { id: 'entity_synthetic', label: 'Запис довідника', state: 'unknown', updatedAt: null },
+      ],
+      error: '',
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const c = within(canvasElement);
+    await expect(c.queryByText('Приватна ставка')).not.toBeInTheDocument();
+    await c.getByRole('button', { name: 'Відновити введення' }).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onRestore).toHaveBeenCalledWith('entity_synthetic');
+    await expect(args.onDiscard).not.toHaveBeenCalled();
+  },
+};
