@@ -1,4 +1,5 @@
 import * as workShiftPersistence from './shared/native/workShiftPersistence';
+import * as recipePersistence from './shared/native/recipePersistence';
 import * as entityPersistence from './shared/native/entityPersistence';
 import * as voucherPersistence from './shared/native/voucherPersistence';
 import { createDraftRecovery } from './shared/recovery/bridge';
@@ -29,6 +30,7 @@ declare global {
     NativeVoucherPersistence?: typeof voucherPersistence;
     NativeEntityPersistence?: typeof entityPersistence;
     NativeWorkShiftPersistence?: typeof workShiftPersistence;
+    NativeRecipePersistence?: typeof recipePersistence;
     NativeDraftRecovery?: ReturnType<typeof createDraftRecovery>;
     NativePlanningCategoryEditor?: typeof planningCategoryEditor;
     NativeMonthlyBudgetEditor?: typeof monthlyBudgetEditor;
@@ -59,6 +61,7 @@ window.NativeBudgetPeriodControls = { mount: mountBudgetPeriod };
 window.NativeEntityEditor = entityEditor;
 window.NativeEntityPersistence = entityPersistence;
 window.NativeWorkShiftPersistence = workShiftPersistence;
+window.NativeRecipePersistence = recipePersistence;
 window.NativeLegacyEditor = legacyEditor;
 window.NativeRecipeEditor = recipeEditor;
 window.NativeVoucherEditor = voucherEditor;
