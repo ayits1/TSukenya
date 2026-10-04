@@ -479,7 +479,7 @@ def handle(request):
                 entry=manifest.get(key,{})
                 styles.update(entry.get('css',[]))
                 for chunk in entry.get('imports',[]): collect_styles(chunk)
-            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx']:
+            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx','src/native-conflict-entry.tsx']:
                 collect_styles(key)
                 if manifest.get(key,{}).get('file'): scripts.append('<script type="module" src="/frontend/'+manifest[key]['file']+'" onerror="window.dispatchEvent(new CustomEvent(\'tsukenya:module-unavailable\',{detail:\''+key.split('/')[1].split('-')[0]+'\'}))"></script>')
             html=html.replace('</head>',''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in sorted(styles))+'</head>').replace('</body>',''.join(scripts)+'</body>')
