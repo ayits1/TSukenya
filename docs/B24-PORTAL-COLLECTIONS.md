@@ -30,3 +30,8 @@ Additive `portal-metadata-v2` (`/api/v1/portal/metadata`) містить тіл�
 Native artifacts залежали лише від незміненого shared native bridge root build (root source HEAD під час завершення `ca2bf01169377a4b8df7ea424cbca2fcbc457492`; parent підтвердив shared bridge unchanged, root build також мав pending hidden-catalog changes). Каталог/labels у цих сценаріях не монтувалися; чужі commits/assets/node_modules не входять у delivery. Для повтору встановити звичайні workspace dependencies та matching frontend build, як у project skill.
 
 Final adapter guard: document ID/revision/permissions завжди із authoritative envelope, legacy data.id не може перенаправити inline action на інший запис. Pure decoder/flatten probe PASS.
+
+
+Root review follow-up: summaries на «Справи магазину», огляді операцій/розвитку і плані поруч із фактом не приховують помилку, коли є старий confirmed value. Loading/error показуються незалежно від value; попередні підсумки мають час підтвердження, явний підпис і локальний GET retry. Coordinator зберігає value лише для того самого контексту, 401/403 та role/store change очищають приватні дані.
+
+`QA_COLLECTIONS_FROM=summary PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/portal-collections-ui.cjs`: один affected native tail PASS. 503 summary після успішного читання залишає65 незавершених із видимою помилкою й «Попередні підтверджені підсумки»; keyboard retry повертає fresh стан, кількість writes0. Artifacts `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-portal-collections-Fnh9Uy/`. Layout1440/320 і targets44px також перевірено в цьому tail; BASE/managed/backend families не повторювалися.
