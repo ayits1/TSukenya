@@ -1,3 +1,4 @@
+import * as voucherEditor from './shared/native/voucher';
 import { createRoot } from 'react-dom/client';
 import { I18nProvider } from 'react-aria-components';
 import { NativeConflict, type NativeConflictProps } from './shared/native/NativeConflict';
@@ -17,6 +18,7 @@ import * as recipeEditor from './shared/native/recipe';
 
 declare global {
   interface Window {
+    NativeVoucherEditor?: typeof voucherEditor;
     NativeEntityEditor?: typeof entityEditor;
     NativeLegacyEditor?: typeof legacyEditor;
     NativeRecipeEditor?: typeof recipeEditor;
@@ -36,6 +38,7 @@ declare global {
 window.NativeEntityEditor = entityEditor;
 window.NativeLegacyEditor = legacyEditor;
 window.NativeRecipeEditor = recipeEditor;
+window.NativeVoucherEditor = voucherEditor;
 window.NativeWorkShiftEditor = {
   captureWorkShiftDraft,
   decodeWorkShift,

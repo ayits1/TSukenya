@@ -266,3 +266,39 @@ Live readonly PASS: exact SHA256 compiled catalogue/labels/CSS/lazy output та 
 ## Керований worker імпорту (код, ще не розгорнуто)
 
 Opt-in profile `imports`, continuous runner, heartbeat та порядок окремого stop/update/restart worker описано в [CATALOG-IMPORT-WORKER.md](CATALOG-IMPORT-WORKER.md). `release.py` оновлює лише web; вже увімкнений worker слід окремо зупинити до релізу й перебудувати після migration/health. Цей запис не підтверджує запуск profile на VPS.
+
+
+## Прийнята версія main #65 · 04.10.2026
+
+Власник окремо доручив оновити сайт до актуального прийнятого стану. Розгорнуто лише
+`b7ee71d6b3beaa137fa817ea8bd962de31501a7b`; незавершені voucher/template/entity-create
+гілки до архіву не входили. Перед релізом сайт працював без SHA та з erp0001/0002.
+GitHub deploy secrets ще не налаштовані; використано штатний manual release.py того
+самого commit, immutable git archive, успішний `--check`, далі `--with-compose`.
+Core web/PostgreSQL isolation/limits не змінено; Compose додав accepted opt-in worker.
+
+Backup: `backups/tsukenya-crm-20261004T100647Z.dump`, checksum та `pg_restore --list` PASS.
+Попередній код: `releases/pre-20261004T100647Z.tar.gz`. Зібрано лише web; startup застосував
+erp0003–0019, bootstrap підтвердив чинний initialized стан. Внутрішній і публічний
+`/health.release` збігаються з commit. PostgreSQL контейнер не перезапускався, gateway,
+сусідній проєкт, env та приватні файли release script не замінював.
+
+Production read-only звірка: exit0/issues0. До/після 90 JSON документів, 0 vouchers,
+0 StockEntry/CashEntry, 28 AuditEvent. Digest JSON документів до/після однаковий:
+`a85eef4aa5063ec958c3a1e0b8e515ef595e4a09e2e9bd319d285e17a16573df`.
+Жодних production mutation-тестів або пробних торговельних документів не створювали.
+
+Активацію worker спочатку відхилив автоматичний approval review через невідому чергу.
+Після read-only доказу `importRuns=0`, `importStates=[]` повтор тієї самої scoped дії
+дозволено. Запущено `import-worker` profile; worker probe та web health `imports.available`
+успішні. Web, PostgreSQL, worker healthy; сайт та сусідній портал відповідають HTTPS200.
+Відтепер наступні релізи мають спочатку зупиняти active worker, виконувати backup/web
+migration/health, потім окремо оновлювати worker тієї самої версії за
+[CATALOG-IMPORT-WORKER.md](CATALOG-IMPORT-WORKER.md).
+
+Для негайного code rollback: спочатку scoped stop worker, потім release.py з попереднім
+архівом. БД не відновлювати поверх нових даних; старий код не забезпечує нових облікових
+функцій, тому після їх використання rollback потребує окремої перевірки сумісності.
+Повної регресії, offsite backup0.1, restore exercise чи reconcile scheduler цього разу не було.
+В IAB відкрито live login page; authenticated production UI потребує входу власника,
+тому його каталог/CRM екрани не названо перевіреними цим production smoke.

@@ -206,3 +206,39 @@ export const RecipeTerms: Story = {
     await expect(args.onApply).toHaveBeenCalledWith(recipeMine);
   },
 };
+
+export const VoucherTerms: Story = {
+  args: {
+    base: { note: 'Початкова примітка', terms: 'original' },
+    mine: { note: 'Моя незалежна примітка', terms: 'mine' },
+    server: { note: 'Початкова примітка', terms: 'server' },
+    fields: [
+      { id: 'note', label: 'Примітка', keys: ['note'] },
+      {
+        id: 'terms',
+        label: 'Умови документа: реквізити, товари, суми й розподіли',
+        keys: ['terms'],
+        valueLabels: {
+          original:
+            'Магазин на центральній площі · Борошно, партія А: 2 кг × 5 грн\nОплата: каса · 10 грн',
+          mine: 'Магазин на центральній площі · Борошно, партія А: 3 кг × 5 грн\nОплата: каса · 15 грн',
+          server:
+            'Магазин на центральній площі · Борошно, партія Б: 2 кг × 6 грн\nОплата: банківський рахунок · 12 грн',
+        },
+      },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' }),
+    ).toBeDisabled();
+    await canvas.getByRole('radio', { name: 'Залишити мої зміни' }).focus();
+    await userEvent.keyboard('{ArrowRight}');
+    await userEvent.click(canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' }));
+    await expect(args.onApply).toHaveBeenCalledWith({
+      note: 'Моя незалежна примітка',
+      terms: 'server',
+    });
+  },
+};

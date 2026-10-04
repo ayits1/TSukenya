@@ -15,9 +15,9 @@ await require('./browser-login.cjs')(page,base,password);
 const api=(endpoint,method='GET',body)=>page.evaluate(async({endpoint,method,body})=>{const s=await(await fetch('/api/state')).json(),r=await fetch('/api/erp/'+endpoint,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:body===undefined?undefined:JSON.stringify(body)});return {status:r.status,data:await r.json()};},{endpoint,method,body});
 const ok=async(...args)=>{const r=await api(...args);assert(r.status<300,JSON.stringify(r));return r.data;};
 const go=async tab=>{await page.evaluate(()=>document.querySelectorAll('dialog[open]').forEach(d=>{d.dataset.dirty='';d.close();}));await page.goto(base+'/#trade/'+tab);await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'));};
-const state=await ok('state'),store=state.stores[0].id,wh=state.warehouses[0].id;
+const state=await page.evaluate(async()=>(await(await fetch('/api/v1/trading/bootstrap')).json())),store=state.defaultStoreId,wh=(await page.evaluate(async store=>(await(await fetch('/api/v1/trading/directories/warehouses?purpose=purchase_order&store='+store)).json()).items[0].id,store));
 const supplier=(await ok('entities/parties','POST',{name:'Постачальник версії',kind:'supplier'})).id;
-const p=await page.evaluate(async()=>(await(await fetch('/api/state')).json()).data.products[0].id);
+const p=await page.evaluate(async()=>(await(await fetch('/api/v1/trading/directories/products?purpose=purchase_order')).json()).items[0].id);
 const date=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Kyiv',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
 const draft=await ok('vouchers','POST',{kind:'purchase_order',store,warehouse:wh,party:supplier,date,lines:[{product:p,quantity:'1',price:'5'}]});
 const openDraft=async()=>{await go('purchases');await page.locator(`[data-trade=view][data-id="${draft.id}"]`).first().click();await page.locator('[data-trade=edit-voucher]').click();await page.locator('#tradeVoucherForm').waitFor();};
@@ -49,9 +49,8 @@ await page.locator('dialog[open] button[type=submit]').click();assert.equal((awa
 assert.equal((await ok('vouchers/'+draft.id)).lines[0].quantity,'9.000');
 // A create committed but its reply was lost; another editor then updated it.
 await go('purchases');await page.locator('[data-trade=new-voucher][data-kind=purchase_order]').click();
-const newForm=page.locator('#tradeVoucherForm');
-await newForm.locator('[name=party]').selectOption(String(supplier));
-await newForm.locator('[data-line=product]').selectOption(p);
+const newForm=page.locator('#tradeVoucherForm');await newForm.waitFor();
+await page.evaluate(({supplier,p})=>{const f=document.querySelector('#tradeVoucherForm');window.TradeDirectories.setValue(f.elements.party,supplier);window.TradeDirectories.setValue(f.querySelector('[data-line=product]'),p);},{supplier,p});
 await newForm.locator('[data-line=quantity]').fill('1');await newForm.locator('[data-line=price]').fill('5');
 let lostId;
 await page.route('**/api/erp/vouchers',async route=>{
@@ -62,17 +61,18 @@ await page.route('**/api/erp/vouchers',async route=>{
 });
 await saveDraft();await wait(async()=>(await page.locator('#tradeFormError').innerText()).includes('відповідь втрачено'));
 await page.unroute('**/api/erp/vouchers');
-for(let retry=0;retry<2;retry++){
- const retried=page.waitForResponse(r=>r.url().endsWith('/api/erp/vouchers')&&r.request().method()==='POST');
- await saveDraft();assert.equal((await retried).status(),409);
- await wait(async()=>(await page.locator('#tradeFormError').innerText()).includes('актуальну чернетку'));
- assert.equal(await newForm.locator('[data-line=quantity]').inputValue(),'1');
- assert.equal((await ok('vouchers/'+lostId)).lines[0].quantity,'11.000');
-}
+const retried=page.waitForResponse(r=>r.url().endsWith('/api/erp/vouchers')&&r.request().method()==='POST');
+await page.locator('[data-voucher-exact]').click();assert.equal((await retried).status(),409);
+await wait(async()=>(await page.locator('#tradeFormError').innerText()).includes('Початкове створення підтверджено'));
+assert.equal(await newForm.locator('[data-line=quantity]').inputValue(),'1');
+assert.equal((await ok('vouchers/'+lostId)).lines[0].quantity,'11.000');
+assert.equal(await page.locator('[data-voucher-exact]').isVisible(),false,'Confirmed create must never repeat POST');
+await page.locator('[data-voucher-read]').click();await page.getByRole('heading',{name:'Порівняти зміни документа'}).waitFor();
+assert.equal(await newForm.locator('[data-line=quantity]').inputValue(),'1','GET must not adopt newer baseline');
 // 3. Directory form opened before another device renamed the customer: 409, the newer name stays.
 const customer=(await ok('entities/parties','POST',{name:'Клієнт версії',kind:'customer'})).id;
-const party=async()=>(await ok('state')).parties.find(x=>x.id===customer);
-await go('customers');await page.locator(`[data-trade=entity][data-entity=parties][data-id="${customer}"]`).first().click();await page.locator('#tradeEntityForm').waitFor();
+const party=async()=>page.evaluate(async id=>(await window.TradeDirectories.hydrate([{type:'parties',id:String(id)}],{purpose:'manage'})).items[0],customer);
+await go('setup');await page.locator(`[data-directory-table=parties] [data-trade=entity][data-id="${customer}"]`).first().click();await page.locator('#tradeEntityForm').waitFor();
 await page.locator('#tradeEntityForm [name=name]').fill('Стара форма');
 await ok('entities/parties','POST',{id:customer,name:'Змінено деінде',kind:'customer',revision:(await party()).revision});
 const entityPost=page.waitForResponse(r=>r.url().endsWith('/api/erp/entities/parties')&&r.request().method()==='POST');

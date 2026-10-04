@@ -164,10 +164,12 @@ class VoucherDetailBatchTests(AccountingFixture):
             self.assertIn(response.status_code,[200,201],response.content)
             return response.json()
         created=send('/api/erp/vouchers',body)
+        self.assertEqual(created['request_key'],body['idempotency_key'])
         posted=send(f"/api/erp/vouchers/{created['id']}/post",{'revision':created['revision']})
         created_retry=send('/api/erp/vouchers',body)
         posted_retry=send(f"/api/erp/vouchers/{created['id']}/post",{'revision':posted['revision']})
-        self.assertEqual(created_retry,posted)
+        # Create acknowledgements bind the original request; posting DTOs do not.
+        self.assertEqual(created_retry,{**posted,'request_key':body['idempotency_key']})
         self.assertEqual(posted_retry,posted)
         record=Voucher.objects.get(pk=posted['id']);self.read(record)
         self.assertEqual(record.lines.count(),1)
