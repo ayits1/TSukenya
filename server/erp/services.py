@@ -333,6 +333,7 @@ def save_voucher(user, body, pk=None):
         if previous:
             scope(user, previous.store)
             permission(user, previous.kind)
+            expense_permission(user, previous)
             require(previous.kind == kind, 'Ключ запиту вже використано для іншого документа.')
             # Documents saved before fingerprints keep the earlier kind-only retry rule.
             if previous.request_fingerprint and (previous.request_fingerprint != fingerprint or previous.revision != 1):

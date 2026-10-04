@@ -48,3 +48,16 @@ profile; дозволений sale після downgrade з прихованою 
 ролей, Origin/CSRF, версій та аудиту. Schema check — без змін; diff check PASS.
 Повну регресію, браузерну матрицю, VPS, production, Sheet і0.1 не запускали.
 Це доказ зазначених mutation boundaries, не аудит усіх майбутніх API.
+
+## Зауваження незалежного рев’ю
+
+Виявлено та відтворено мережеву expense ACK: owner→manager після створення
+досі отримував квитанцію, бо previous-key branch не перевіряв
+`expense_permission`. Перевірку додано до ACK, detail GET та списку документів:
+чинна межа owner/accountant збережена, manager не бачить мережевих expense
+рядків. Агреговані управлінські звіти не змінені. Matching PG сценарій PASS
+(спочатку очікуваний FAIL), accountant list зберігає доступ.
+
+Табель B04 використовує той самий current_actor після lock; видалений
+profile дає контрольовану відмову замість 500. Цільовий missing-profile
+сценарій PASS. Незмінні PG wait/redaction сценарії повторно не запускались.

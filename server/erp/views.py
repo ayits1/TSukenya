@@ -353,12 +353,9 @@ def shift_action(user,value):
 
 @transaction.atomic
 def work_shift_save(user,value):
-    owner_or_accountant=user.profile.role in {'owner','accountant'}
-    require(owner_or_accountant,'Недостатньо прав для зарплати.')
     lock=ledger_lock()
-    user.refresh_from_db(fields=['is_active'])
-    user.profile.refresh_from_db()
-    require(user.is_active and user.profile.role in {'owner','accountant'},'Недостатньо прав для зарплати.')
+    user=current_actor(user)
+    require(user.profile.role in {'owner','accountant'},'Недостатньо прав для зарплати.')
     e=get(Employee,value.get('employee'),'Працівник');scope(user,e.store)
     key=value.get('idempotency_key')
     fingerprint=None
@@ -664,6 +661,7 @@ def handle(request):
         from .browsing import page_number, page_bounds, filter_search, positive_integer, PAGE_SIZE
         qs=scoped(Voucher.objects.select_related('created_by'),user)
         qs=qs.filter(kind__in=ROLE_KINDS[user.profile.role])
+        if user.profile.role not in {'owner','accountant'}:qs=qs.exclude(kind='expense',payload__expense_scope='network')
         if request.GET.get('kind'):qs=qs.filter(kind__in=request.GET['kind'].split(','))
         if request.GET.get('status'):qs=qs.filter(status=request.GET['status'])
         if request.GET.get('party'):
@@ -683,7 +681,9 @@ def handle(request):
             observed={'expected_revision':value['revision']} if 'revision' in value else {}
             return response(voucher_json(post_voucher(user,pk,**observed),True,user=user))
         if action=='reverse' and request.method=='POST':return response(voucher_json(reverse_voucher(user,pk,body(request).get('reason','')),True,user=user))
-        if not action and request.method=='GET':return response(voucher_json(v,True,user=user))
+        if not action and request.method=='GET':
+            expense_permission(user,v)
+            return response(voucher_json(v,True,user=user))
         if not action and request.method=='PUT':return response(voucher_json(save_voucher(user,body(request),pk),True,user=user))
         if not action and request.method=='DELETE':
             with transaction.atomic():

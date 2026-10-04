@@ -110,12 +110,45 @@ class TradingActorRevalidationTests(AccountingFixture):
             self.assertNotIn('cost', row)
             self.assertNotIn('value', row)
 
+    def test_network_expense_retry_and_direct_read_obey_current_permission(self):
+        from types import SimpleNamespace
+        from django.test import RequestFactory
+        from server.erp.models import Profile
+        from server.erp.views import handle
+        payload = {'kind': 'expense', 'store': self.store.pk, 'date': self.today,
+                   'account': self.bank.pk, 'amount': '40', 'idempotency_key': 'network-expense-actor',
+                   'payload': {'expense_scope': 'network'}}
+        expense = save_voucher(self.u, payload)
+        actor = self.cached()
+        Profile.objects.filter(user=actor).update(role='manager')
+        before = self.snapshot()
+        with self.assertRaisesMessage(BusinessError, 'Мережеві витрати'):
+            save_voucher(actor, payload)
+        request = RequestFactory().get('/api/erp/vouchers/' + str(expense.pk))
+        request.portal_user = actor
+        request.portal_session = SimpleNamespace(csrf='isolated-csrf')
+        with self.assertRaisesMessage(BusinessError, 'Мережеві витрати'):
+            handle(request)
+        request = RequestFactory().get('/api/erp/vouchers?kind=expense')
+        request.portal_user = actor
+        request.portal_session = SimpleNamespace(csrf='isolated-csrf')
+        import json
+        self.assertEqual(json.loads(handle(request).content)['items'], [])
+        self.assertEqual(before, self.snapshot())
+        Profile.objects.filter(user=actor).update(role='accountant')
+        request.portal_user = self.cached()
+        allowed = json.loads(handle(request).content)
+        self.assertEqual([row['id'] for row in allowed['items']], [expense.pk])
+
     def test_missing_profile_is_refused_without_internal_attribute_error(self):
         from server.erp.models import Profile
         actor = self.cached()
         Profile.objects.filter(user=actor).delete()
         with self.assertRaisesMessage(BusinessError, 'доступ відкликано'):
             save_voucher(actor, self.payload)
+        from server.erp.views import work_shift_save
+        with self.assertRaisesMessage(BusinessError, 'доступ відкликано'):
+            work_shift_save(actor, {})
 
 
 from concurrent.futures import ThreadPoolExecutor
