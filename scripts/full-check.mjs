@@ -205,6 +205,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/catalog-hidden-ui.cjs'], { env: { ...browserEnv, QA_HIDDEN_STAGE: 'tail' } });
     await run('node', ['tests/catalog-hidden-ui.cjs'], { env: { ...browserEnv, QA_HIDDEN_STAGE: 'layout' } });
     await run('node', ['tests/labels-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/labels-ui.cjs'], { env: { ...browserEnv, QA_NAV_ONLY: '1' } });
     await run('node', ['tests/price-label-handoff-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/price-label-handoff-tail-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/price-label-context-race-ui.cjs'], { env: browserEnv });

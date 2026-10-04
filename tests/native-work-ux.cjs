@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict');
+const navigateSidebar=require('./browser-navigation.cjs');
 module.exports=async(page,base,wait)=>{
  const go=async route=>{await page.goto(base+'/#'+route,{waitUntil:'domcontentloaded'});await page.locator('#pageTitle').waitFor();};
  await go('operations/work');
@@ -10,7 +11,7 @@ module.exports=async(page,base,wait)=>{
  await page.locator('#pageTitle').focus();
  await wait(async()=>await input.inputValue()==='Незбережена робота для перевірки');
  const cancel=new Promise(resolve=>page.once('dialog',async d=>{assert.match(d.message(),/Відкинути/);await d.dismiss();resolve();}));
- await page.locator('.tab[data-tab=ideas]').click();await cancel;await wait(async()=>/#operations\/work$/.test(page.url()));
+ await navigateSidebar(page,'ideas');await cancel;await wait(async()=>/#operations\/work$/.test(page.url()));
  assert.match(page.url(),/#operations\/work$/);assert.equal(await input.inputValue(),'Незбережена робота для перевірки');
  let writes=0;
  await page.route('**/api/tasks',async r=>{if(r.request().method()==='POST'){writes++;await new Promise(resolve=>setTimeout(resolve,250));}await r.continue();});
@@ -23,7 +24,7 @@ module.exports=async(page,base,wait)=>{
  await page.route('**/api/tasks',r=>r.request().method()==='POST'?r.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Контрольна помилка'})}):r.continue());
  await input.press('Enter');await wait(async()=>!await page.getByRole('button',{name:'Додати задачу',exact:true}).isDisabled());
  assert.equal(await input.inputValue(),'Чернетка після помилки','failed write retains draft');await page.unroute('**/api/tasks');
- await input.fill('');await page.locator('.tab[data-tab=ideas]').click();
+ await input.fill('');await navigateSidebar(page,'ideas');
  await wait(async()=>await page.locator('#pageTitle').evaluate(el=>el===document.activeElement));
  assert.equal(await page.locator('#pageTitle').evaluate(el=>el===document.activeElement),true,'route change announces heading');
  await page.getByRole('textbox',{name:'Нова ідея'}).fill('Контрольна нова ідея');await page.getByRole('textbox',{name:'Нова ідея'}).press('Enter');

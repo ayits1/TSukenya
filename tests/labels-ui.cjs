@@ -12,9 +12,10 @@ const python = process.env.PYTHON_BIN || 'python3';
 const port = 18211;
 const base = `http://localhost:${port}`;
 const password = 'isolated-label-studio-password';
-const hash = execFileSync(python, ['-c', 'from server.auth import hash_password; print(hash_password("isolated-label-studio-password"))'], { cwd: root, encoding: 'utf8' }).trim();
-const env = { ...process.env, DATA_DIR: data, ERP_DB_PATH: path.join(data, 'crm.sqlite3'), PORT: String(port), HOST: '127.0.0.1', OWNER_USERNAME: 'tester', OWNER_PASSWORD_HASH: hash };
-for (const key of ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']) delete env[key];
+const env = { ...process.env };
+for (const key of Object.keys(env)) if (/^(?:DB_|PG|DATABASE_URL$|POSTGRES_URL$|OWNER_PASSWORD|TSUKENYA_REQUIRE_POSTGRES$|DJANGO_SETTINGS_MODULE$|DJANGO_SECRET_KEY$)/.test(key)) delete env[key];
+Object.assign(env, { DATA_DIR: data, ERP_DB_PATH: path.join(data, 'crm.sqlite3'), PORT: String(port), HOST: '127.0.0.1', OWNER_USERNAME: 'tester', DJANGO_SECRET_KEY: 'isolated-label-workspace-test-key-not-production-long-enough' });
+env.OWNER_PASSWORD_HASH = execFileSync(python, ['-c', 'from server.auth import hash_password; print(hash_password("isolated-label-studio-password"))'], { cwd: root, env, encoding: 'utf8' }).trim();
 const log = fs.openSync(path.join(data, 'server.log'), 'a');
 const server = spawn(python, ['-m', 'server.main'], { cwd: root, env, stdio: ['ignore', log, log] });
 const fixture = source => execFileSync(python, ['-c', `import os\nos.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings')\nimport django;django.setup()\n${source}`], { cwd: root, env, encoding: 'utf8' });
@@ -71,10 +72,37 @@ async function checkNavigation() {
   const design = page.getByRole('tab', { name: 'Макет', exact: true });
   const products = page.getByRole('tab', { name: /^Товари для друку/ });
   const review = page.getByRole('tab', { name: 'Перевірка перед друком', exact: true });
+  const sidebar = page.locator('#portalSidebar');
+  const group = key => page.locator(`[data-nav-toggle=${key}]`);
+  const geometryProof = [];
   const before = await request('GET', '/api/v1/labels/workspace');
+  await sidebar.locator('[data-native-drafts]').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('header.top').count(), 0, 'global desktop header removed');
+  assert(await sidebar.locator('#accountLink').isVisible(), 'account lives in sidebar');
+  assert(await sidebar.locator('[data-native-drafts]').isVisible(), 'draft launcher lives in sidebar');
+  assert.equal(await group('operations').getAttribute('aria-expanded'), 'true');
+  await group('trade').click();
+  assert.equal(await group('trade').getAttribute('aria-expanded'), 'true');
+  await page.reload();
+  await page.getByRole('button', { name: 'Зберегти макет', exact: true }).waitFor();
+  assert.equal(await group('trade').getAttribute('aria-expanded'), 'true', 'group preference survives reload');
+  await group('trade').click();
+  assert.equal(await group('trade').getAttribute('aria-expanded'), 'false');
+
+  const preview = page.getByRole('combobox', { name: 'Товар для перегляду', exact: true });
+  await preview.fill('Контрольна кава');
+  await page.getByRole('option', { name: 'Контрольна кава', exact: true }).click();
+  await until(async () => (await page.locator('.tk-studio-canvas [data-field=name]').innerText()) === 'Контрольна кава', 'preview product chosen');
   await page.locator('.tk-studio-layer[data-label-field=price]').click();
   await page.getByLabel('Розмір, pt', { exact: true }).fill('24');
   await page.getByLabel('Розмір, pt', { exact: true }).press('Tab');
+  const url = page.url();
+  await group('operations').focus();
+  await group('operations').press('Enter');
+  assert.equal(await group('operations').getAttribute('aria-expanded'), 'false');
+  assert.equal(page.url(), url, 'disclosure does not navigate');
+  assert.equal(await page.getByLabel('Розмір, pt', { exact: true }).inputValue(), '24', 'disclosure retains draft');
+  await group('operations').press('Space');
   await products.click();
   await page.getByRole('searchbox', { name: 'Пошук товарів' }).fill('Контрольна кава');
   const row = page.locator('.tk-studio-product-row').filter({ hasText: 'Контрольна кава' });
@@ -83,7 +111,6 @@ async function checkNavigation() {
   await page.getByLabel('Копій: Контрольна кава', { exact: true }).press('Tab');
   await design.click();
   assert.equal(Number(await page.getByLabel('Розмір, pt', { exact: true }).inputValue()), 24);
-  // Keyboard navigation shares the same controlled tabs and keeps the draft.
   await design.focus();
   await design.press('ArrowRight');
   await until(async () => await products.getAttribute('aria-selected') === 'true', 'keyboard product tab');
@@ -92,35 +119,91 @@ async function checkNavigation() {
   await page.getByRole('alert').filter({ hasText: /^Збережіть макет перед перевіркою друку\.$/ }).waitFor();
   assert.equal(await review.getAttribute('aria-selected'), 'true');
   await design.click();
-  for (const width of [1440, 390, 320]) {
-    await page.setViewportSize({ width, height: 900 });
+
+  for (const [width, height] of [[1440, 900], [1280, 720], [1440, 600], [320, 900]]) {
+    const desktop = width >= 1200 && height >= 720;
+    await page.setViewportSize({ width, height });
     await page.evaluate(() => window.scrollTo(0, 0));
-    const geometry = await tabs.evaluate(bar => ({
-      top: bar.getBoundingClientRect().top,
-      studioTop: bar.closest('.tk-studio').getBoundingClientRect().top,
-      items: [...bar.querySelectorAll('[role=tab]')].map(item => {
-        const r = item.getBoundingClientRect();
-        return { left: r.left, right: r.right, height: r.height };
-      }),
-      fits: document.documentElement.scrollWidth <= innerWidth,
-    }));
-    assert(Math.abs(geometry.top - geometry.studioTop) < 2, 'tabs begin directly below page heading');
-    assert(geometry.fits, `no horizontal overflow at ${width}`);
-    for (const item of geometry.items) assert(item.height >= 44 && item.left >= 0 && item.right <= width, `all tabs fit at ${width}`);
-    await page.evaluate(() => window.scrollTo(0, 700));
-    const pinned = await tabs.boundingBox();
-    assert(pinned.y >= -1 && pinned.y < 3, `sticky navigation at ${width}`);
+    const layout = await page.evaluate(() => {
+      const bounds = selector => { const el=document.querySelector(selector),r=el.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height,clientHeight:el.clientHeight,scrollHeight:el.scrollHeight,overflow:getComputedStyle(el).overflowY}; };
+      return {width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight,frame:bounds('.tk-studio'),command:bounds('.tk-studio-commandbar'),layers:bounds('.tk-studio-layers'),canvas:bounds('.tk-studio-stage'),inspector:bounds('.tk-studio-properties')};
+    });
+    assert(layout.scrollWidth <= width + 1, `no horizontal overflow ${width}x${height}`);
+    if (desktop) {
+      assert(layout.scrollHeight <= height + 1, `desktop workspace escapes viewport: ${JSON.stringify(layout)}`);
+      for (const key of ['frame','command','layers','canvas','inspector']) {
+        const box=layout[key];assert(box.x >= -1 && box.right <= width + 1 && box.y >= -1 && box.bottom <= height + 1, `${key} bounds ${JSON.stringify(layout)}`);
+      }
+      assert(layout.layers.right <= layout.canvas.x + 1 && layout.canvas.right <= layout.inspector.x + 1, 'three stable work zones');
+      const fixed = await page.locator('.tk-studio-commandbar').boundingBox();
+      await page.locator('.tk-studio-properties').evaluate(el => {el.scrollTop=el.scrollHeight;});
+      assert.deepEqual(await page.locator('.tk-studio-commandbar').boundingBox(), fixed, 'inspector scroll does not move commands');
+      await page.locator('.tk-studio-properties').evaluate(el => {el.scrollTop=0;});
+      assert(await sidebar.locator('#accountLink').isVisible());
+    } else {
+      assert(layout.scrollHeight > height, 'short/narrow windows keep natural page flow');
+      await tabs.scrollIntoViewIfNeeded();
+    }
     await products.click();
     assert.equal(await page.getByRole('searchbox', { name: 'Пошук товарів' }).inputValue(), 'Контрольна кава');
     assert.equal(await page.getByLabel('Копій: Контрольна кава', { exact: true }).inputValue(), '3');
-    const newTop = await tabs.boundingBox();
-    assert(newTop.y >= -1, 'switch opens the beginning of the new work area');
     await design.click();
     assert.equal(Number(await page.getByLabel('Розмір, pt', { exact: true }).inputValue()), 24);
-    await page.screenshot({ path: path.join(output, `tsukenya-label-tabs-${width}.png`) });
+    const focus = page.getByLabel('Розмір, pt', { exact: true });
+    await focus.focus();
+    await focus.evaluate(el => el.scrollIntoView({block:'nearest'}));
+    assert(await focus.evaluate(el => {const r=el.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return hit===el||el.contains(hit);}), 'inspector focus is not covered');
+    if (desktop) await page.evaluate(() => {document.querySelector('.tk-studio-properties').scrollTop=0;document.querySelector('.tk-studio-layers').scrollTop=0;});
+    else await page.evaluate(() => window.scrollTo(0,0));
+    await page.screenshot({ path: path.join(output, `tsukenya-workspace-${width}x${height}.png`), fullPage: false });
+    geometryProof.push(layout);
   }
-  assert.deepEqual((await request('GET', '/api/v1/labels/workspace')).config, before.config, 'tab switches never save a draft');
-  console.log('PASS: tabs placement, sticky scrolling, keyboard, draft/selection/filter preservation, 1440/390/320 layout.');
+  await page.locator('#navToggle').click();
+  assert.equal(await sidebar.getAttribute('role'),'dialog');
+  for (const key of ['operations', 'trade', 'development']) {
+    assert(await group(key).locator('span').first().isVisible(), 'mobile group caption is visible: ' + key);
+    assert(await group(key).locator('.portal-nav-chevron').isVisible(), 'mobile disclosure arrow is visible: ' + key);
+  }
+  assert(await page.locator('.wrap').evaluate(el=>el.inert), 'mobile drawer isolates content');
+  const firstDrawerTarget = sidebar.locator('.portal-brand');
+  const lastDrawerTarget = sidebar.locator('.portal-release summary');
+  await lastDrawerTarget.focus();
+  await page.keyboard.press('Tab');
+  assert(await firstDrawerTarget.evaluate(el=>el===document.activeElement), 'Tab wraps from last to first drawer control');
+  await page.keyboard.press('Shift+Tab');
+  assert(await lastDrawerTarget.evaluate(el=>el===document.activeElement), 'Shift+Tab wraps from first to last drawer control');
+  await page.screenshot({path:path.join(output,'tsukenya-sidebar-320.png'),fullPage:false});
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#navToggle').getAttribute('aria-expanded'),'false');
+  assert(await page.locator('#navToggle').evaluate(el=>el===document.activeElement));
+  assert.equal(await page.locator('.wrap').evaluate(el=>el.inert),false);
+  await page.locator('#navToggle').click();
+  await page.locator('#navClose').focus();
+  await page.setViewportSize({width:1440,height:900});
+  await until(async()=>await page.evaluate(()=>!!document.activeElement?.getClientRects().length),'resize moves focus out of hidden close button');
+  assert.equal(await page.locator('.wrap').evaluate(el=>el.inert),false);
+  await page.locator('.tab[data-tab=tags]').focus();
+  await page.setViewportSize({width:320,height:900});
+  await until(async()=>await page.locator('#navToggle').evaluate(el=>el===document.activeElement),'narrow resize moves focus out of hidden sidebar');
+  await page.setViewportSize({width:1440,height:900});
+  assert.deepEqual((await request('GET', '/api/v1/labels/workspace')).config, before.config, 'navigation never auto-saves a draft');
+  const response = page.waitForResponse(r=>r.url().endsWith('/api/v1/labels/workspace')&&r.request().method()==='PATCH');
+  await page.getByRole('button',{name:'Зберегти макет',exact:true}).click();
+  assert.equal((await response).status(),200);
+  await until(async()=>await page.getByRole('button',{name:'Зберегти макет',exact:true}).isDisabled(),'saved workspace');
+  await page.screenshot({path:path.join(output,'tsukenya-workspace-ready.png'),fullPage:false});
+  await review.click();
+  await until(async()=>await page.getByRole('button',{name:'Завантажити PDF',exact:true}).isEnabled(),'print proof ready');
+  const physical = await page.locator('.tk-studio-proof .tk-label-print-page').first().evaluate(el=>{const style=getComputedStyle(el),tag=getComputedStyle(el.querySelector('.tk-label[data-product]'));return {pageWidth:parseFloat(style.width),pageHeight:parseFloat(style.height),width:parseFloat(tag.width),height:parseFloat(tag.height)};});
+  for(const [key,mm] of [['pageWidth',210],['pageHeight',297],['width',58],['height',40]])assert(Math.abs(physical[key]-mm*96/25.4)<.25,'physical size unchanged '+key);
+  await page.screenshot({path:path.join(output,'tsukenya-workspace-review.png'),fullPage:false});
+  const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Завантажити PDF',exact:true}).click();
+  const pdf=path.join(output,'tsukenya-workspace-proof.pdf');await(await download).saveAs(pdf);
+  const info=execFileSync('pdfinfo',[pdf],{encoding:'utf8'});
+  assert.match(info,/Pages:\s+1/);assert.match(info,/Page size:\s+595\.\d+ x 841\.\d+ pts \(A4\)/);
+  fs.writeFileSync(path.join(output,'workspace-report.json'),JSON.stringify({pass:true,geometry:geometryProof,physical,pdf,limits:['Isolated fixtures. Bundled headless Chromium. No physical printer or screen reader.']},null,2));
+  console.log('PASS: desktop workspace, sidebar disclosures/account/mobile focus, draft/selection, physical A4 PDF.');
 }
 
 async function checkStudio() {
@@ -334,7 +417,7 @@ async function checkStudio() {
   await until(async () => { try { return (await fetch(base + '/health')).ok; } catch { return false; } }, 'isolated label server startup');
   const type = process.env.QA_BROWSER === 'webkit' ? webkit : chromium;
   browser = await type.launch({ headless: true });
-  page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: 'uk-UA' });
   page.setDefaultTimeout(12000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

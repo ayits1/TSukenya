@@ -10,6 +10,57 @@
 .tk-pricing-context .tk-field {
   max-width: 440px;
 }
+.tk-pricing-context--toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px 24px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+.tk-pricing-context--toolbar > .tk-field {
+  display: grid;
+  grid-template-columns: max-content minmax(180px, 1fr);
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 390px;
+  max-width: 500px;
+}
+.tk-pricing-context--toolbar > .tk-pricing-context-confirmed {
+  flex: 1 1 250px;
+  margin: 0;
+}
+.tk-pricing-context--toolbar > :is([role='alert'], [role='status']) {
+  flex-basis: 100%;
+  margin: 0;
+}
+.tk-pricing-context--toolbar > .tk-promotion-actions {
+  margin: 0;
+}
+@media (min-width: 1200px) and (min-height: 720px) {
+  body[data-layout='studio'] #react-labels > .tk-pricing-context {
+    flex: 0 0 auto;
+    max-height: 32dvh;
+    overflow: auto;
+    scroll-padding: 8px;
+  }
+  body[data-layout='studio'] #react-labels > .tk-pricing-workspace {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+  }
+}
+@media (max-width: 650px) {
+  .tk-pricing-context--toolbar > .tk-field {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    flex-basis: 100%;
+  }
+}
 .tk-promotion-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

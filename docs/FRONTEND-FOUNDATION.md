@@ -1,5 +1,7 @@
 # Основа нового інтерфейсу · 01.10.2026
 
+Новий контракт оболонки та desktop-компонування: [Desktop workspace](DESKTOP-WORKSPACE.md).
+
 ## Що вже додано
 
 `frontend/` — npm workspace із React 19, TypeScript, Vite та Storybook. Каталог і студію цінників інтегровано в чинну оболонку; деталі — [CATALOG-MIGRATION.md](CATALOG-MIGRATION.md) та [LABEL-STUDIO.md](LABEL-STUDIO.md). Лабораторія компонентів і Storybook використовують синтетичні дані; робочий каталог записує дані через Django. Облікові екрани залишаються в `app/`.

@@ -16,6 +16,88 @@
   let db = null, downloads = null, mcp = null, tab = "overview", workspace = "operations", pending = false;
   let databaseConnected=false;
   const $ = s => document.querySelector(s);
+  /* Sidebar disclosure preferences never change navigation or dirty route guards. */
+  const navigationKey='tsukenya-navigation-v1';
+  let navigationPreferences={};
+  try {
+    const saved=JSON.parse(localStorage.getItem(navigationKey)||'{}');
+    if(saved&&typeof saved==='object'&&!Array.isArray(saved))
+      for(const key of ['operations','trade','development'])if(typeof saved[key]==='boolean')navigationPreferences[key]=saved[key];
+  } catch (_) { /* Storage can be unavailable; in-memory disclosure state still works. */ }
+  let navigationRoute=null;
+  function setNavigationGroup(key,open){
+    const button=document.querySelector('[data-nav-toggle="'+key+'"]'),items=document.getElementById('nav-'+key);
+    if(!button||!items)return;
+    button.setAttribute('aria-expanded',String(open));items.hidden=!open;
+  }
+  document.querySelectorAll('[data-nav-toggle]').forEach(button=>{
+    const key=button.dataset.navToggle;
+    setNavigationGroup(key,navigationPreferences[key]??(key==='operations'));
+    button.addEventListener('click',()=>{
+      const open=button.getAttribute('aria-expanded')!=='true';
+      setNavigationGroup(key,open);navigationPreferences[key]=open;
+      try { localStorage.setItem(navigationKey,JSON.stringify(navigationPreferences)); } catch (_) {}
+    });
+  });
+  function revealNavigationRoute(){
+    const next=workspace+'/'+tab;
+    if(next===navigationRoute)return;
+    navigationRoute=next;setNavigationGroup(workspace,true);
+  }
+  function shellLayout(){
+    if(tab==='tags'&&window.ReactLabels)document.body.dataset.layout='studio';
+    else delete document.body.dataset.layout;
+  }
+  // ui.js owns the existing toggle. The shell adds drawer focus and background isolation.
+  const navigationMedia=window.matchMedia('(max-width:900px)'),sidebar=$('#portalSidebar'),navToggle=$('#navToggle'),backdrop=$('#navBackdrop');
+  let drawerOpen=false,navigationViewportMobile=navigationMedia.matches,lastNavigationFocus=null;
+  // A browser may blur a newly display:none control before matchMedia dispatches.
+  // Track only navigation focus; actual main/dialog focus or outside pointer input clears it.
+  window.addEventListener('focusin',event=>{
+    if(event.target===document.body)return;
+    lastNavigationFocus=sidebar.contains(event.target)||event.target===navToggle?event.target:null;
+  },true);
+  window.addEventListener('pointerdown',event=>{
+    if(!sidebar.contains(event.target)&&!navToggle.contains(event.target))lastNavigationFocus=null;
+  },true);
+  function syncNavigationDrawer(){
+    const breakpointChanged=navigationViewportMobile!==navigationMedia.matches;
+    const focused=document.activeElement===document.body&&breakpointChanged?lastNavigationFocus:document.activeElement;
+    const open=navigationMedia.matches&&document.body.classList.contains('nav-open');
+    if(!navigationMedia.matches){document.body.classList.remove('nav-open');navToggle.setAttribute('aria-expanded','false');}
+    backdrop.hidden=!open;$('.wrap').inert=open;
+    if(open){sidebar.setAttribute('role','dialog');sidebar.setAttribute('aria-modal','true');}
+    else{sidebar.removeAttribute('role');sidebar.removeAttribute('aria-modal');}
+    if(open&&!drawerOpen){
+      const target=[...sidebar.querySelectorAll('a[aria-current="page"]'),...sidebar.querySelectorAll('a,button')].find(el=>!el.closest('[hidden]')&&el.getClientRects().length);
+      target?.focus();
+    }
+    drawerOpen=open;navigationViewportMobile=navigationMedia.matches;
+    if(focused&&focused!==document.body&&!focused.getClientRects().length){
+      const target=navigationMedia.matches?navToggle:[...sidebar.querySelectorAll('a[aria-current="page"]'),$('.portal-brand'),$('#pageTitle')].find(el=>el&&!el.closest('[hidden]')&&el.getClientRects().length);
+      target?.focus({preventScroll:true});
+    }
+  }
+  function closeNavigationDrawer(){
+    document.body.classList.remove('nav-open');navToggle.setAttribute('aria-expanded','false');syncNavigationDrawer();navToggle.focus();
+  }
+  navToggle.addEventListener('click',syncNavigationDrawer);
+  $('#navClose').addEventListener('click',closeNavigationDrawer);
+  backdrop.addEventListener('click',closeNavigationDrawer);
+  sidebar.addEventListener('click',event=>{if(event.target.closest('a')){const wasOpen=drawerOpen;syncNavigationDrawer();if(wasOpen)navToggle.focus();}});
+  sidebar.addEventListener('click',event=>{if(drawerOpen&&event.target.closest('[data-native-drafts]'))closeNavigationDrawer();},{capture:true});
+  window.addEventListener('keydown',event=>{
+    // ui.js closes Escape before this listener; always release background isolation.
+    if(event.key==='Escape'){const wasOpen=drawerOpen;syncNavigationDrawer();if(wasOpen&&!drawerOpen)navToggle.focus();return;}
+    if(event.key!=='Tab'||!drawerOpen)return;
+    const targets=[...sidebar.querySelectorAll('a[href],button,summary')].filter(el=>!el.disabled&&!el.closest('[hidden]')&&el.getClientRects().length);
+    const first=targets[0],last=targets.at(-1);
+    if(!first)return;
+    if(event.shiftKey&&(document.activeElement===first||!sidebar.contains(document.activeElement))){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&(document.activeElement===last||!sidebar.contains(document.activeElement))){event.preventDefault();first.focus();}
+  });
+  navigationMedia.addEventListener('change',syncNavigationDrawer);
+  syncNavigationDrawer();
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const money = v => (Math.round(v*100)/100).toLocaleString("uk-UA",{minimumFractionDigits:2,maximumFractionDigits:2});
   const money0 = v => Math.round(v).toLocaleString("uk-UA");
@@ -395,6 +477,7 @@
   function moduleStatus(){const name=tab==='products'?'catalog':'labels',failed=failedModules.has(name);return `<section class="panel"><h2>${failed?'Не вдалося завантажити '+(tab==='products'?'каталог':'студію цінників'):'Завантажуємо '+(tab==='products'?'каталог':'студію цінників')+'…'}</h2><p role="${failed?'alert':'status'}">${failed?'Дані не прочитано. Оновіть сторінку, щоб повторити завантаження модуля.':'Готуємо модуль. Список товарів з’явиться після підтвердженого читання.'}</p>${failed?'<button class="btn soft" type="button" data-module-retry>Повторити завантаження</button>':''}</section>`;}
   document.addEventListener('click',event=>{if(event.target.closest('[data-module-retry]'))location.reload();});
   function render(force=false){
+    shellLayout();
     const a = document.activeElement;
     if(inlineSaves.size||budgetSaves.size){pending=true;return;}
     if (!force && a && $("#main").contains(a) && (a.tagName==="INPUT" || a.tagName==="SELECT") && a.type!=="checkbox") { pending = true; return; }
@@ -475,7 +558,7 @@
   const operationTasks = () => S.tasks.filter(t=>t.scope==='operations');
   function applyPortalRole(){
     const restricted=!!window.TSUKENYA_SERVER && window.TSUKENYA_ROLE!=="owner";
-    const nav=document.querySelector("[data-workspace=development]");if(nav)nav.hidden=restricted;
+    const nav=document.querySelector("[data-nav-group=development]");if(nav){const hadFocus=nav.contains(document.activeElement);nav.hidden=restricted;if(restricted&&hadFocus){if(drawerOpen)closeNavigationDrawer();$("#pageTitle").focus({preventScroll:true});}}
     document.querySelectorAll(".tab[data-tab=expenses],.tab[data-tab=tasks],.tab[data-tab=ideas],.tab[data-tab=devOverview]").forEach(el=>el.hidden=restricted);
     $("#developmentPath").hidden=restricted||workspace!=="development"||tab==="ideas";
   }
@@ -509,13 +592,14 @@
     document.querySelectorAll('[data-workspace]').forEach(x=>x.setAttribute('aria-current',x.dataset.workspace===workspace?'page':'false'));
     document.querySelectorAll('.tab').forEach(x=>{x.hidden=false;x.setAttribute('aria-current',x.dataset.tab===tab?'page':'false');});
     if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner'){
-      document.querySelector('[data-workspace=development]').hidden=true;
+      document.querySelector('[data-nav-group=development]').hidden=true;
       document.querySelectorAll('.tab[data-tab=expenses],.tab[data-tab=tasks],.tab[data-tab=ideas],.tab[data-tab=devOverview]').forEach(el=>el.hidden=true);
     }
     $('#workspaceLabel').textContent=workspace==='operations'?'Операційна робота':workspace==='trade'?'Облік торгівлі':'Розвиток бізнесу';
     $('#pageTitle').textContent=SECTIONS[tab][1]; $('#pageDescription').textContent=SECTIONS[tab][2];
     $('#developmentPath').hidden=workspace!=='development'||tab==='ideas';
     applyPortalRole();
+    revealNavigationRoute();shellLayout();
     document.title=SECTIONS[tab][1]+' · Цукерня'; render(true);
     if(changed){window.scrollTo({top:0,behavior:'instant'});$('#pageTitle').focus({preventScroll:true});}
   }
