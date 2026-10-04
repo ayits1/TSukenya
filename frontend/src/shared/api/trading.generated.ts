@@ -119,6 +119,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/erp/vouchers/recovery-context': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read-only fresh actor/scope authorization. Invalid raw date, closed period or inactive store return canEdit false without denying draft viewing. No write or revision adoption. */
+    get: operations['voucherDraftContext'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/erp/vouchers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Atomic voucher CREATE remains the legacy contract. A bound 400 proof means this HTTP attempt rolled back; it never proves absence of an earlier request with the same key. */
+    post: operations['createNativeVoucher'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -329,6 +363,27 @@ export interface components {
           request_key: string;
           original: components['schemas']['EntityOriginalRecord'];
         };
+    VoucherDraftContext: {
+      kind: string;
+      store: number;
+      editing: {
+        /** @enum {string} */
+        role: 'owner' | 'manager' | 'cashier' | 'warehouse' | 'accountant';
+        storeId: number | null;
+        /** Format: date */
+        closedThrough: string | null;
+        storeActive: boolean;
+        canEdit: boolean;
+      };
+    };
+    VoucherCreateRejected: {
+      error: string;
+      /** @constant */
+      write_rejected: true;
+      /** Format: uuid */
+      request_key: string;
+      kind: string;
+    };
   };
   responses: never;
   parameters: never;
@@ -706,6 +761,87 @@ export interface operations {
         content: {
           'application/json': components['schemas']['Error'];
         };
+      };
+    };
+  };
+  voucherDraftContext: {
+    parameters: {
+      query: {
+        kind: string;
+        store: string;
+        date?: string;
+        expense_scope?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized context */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoucherDraftContext'];
+        };
+      };
+      /** @description Invalid context */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Role/store access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  createNativeVoucher: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Legacy user-policy-redacted voucher ACK with request_key */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation error; optional bound no-write proof */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            components['schemas']['Error'] | components['schemas']['VoucherCreateRejected'];
+        };
+      };
+      /** @description Authorization failure without no-write proof */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Conflict without no-write proof */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

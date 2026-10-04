@@ -28,7 +28,7 @@ export type Codec = {
   label: string;
   decode: (value: unknown) => Payload;
   authorize: (payload: Payload, session: DraftSession, signal: AbortSignal) => Promise<boolean>;
-  restore: (payload: Payload) => void;
+  restore: (payload: Payload, signal: AbortSignal) => void | Promise<void>;
   suspend: () => void;
   confirm?: (payload: Payload, acknowledgement: unknown) => Payload | null;
 };
@@ -273,7 +273,7 @@ export class DraftStore {
     if (next === null) this.discard(id);
     else this.write(id, old.codec, payload(codec.decode(payload(next))));
   }
-  async restore(id: string, session: DraftSession, signal: AbortSignal) {
+  private async authorized(id: string, session: DraftSession, signal: AbortSignal) {
     if (!this.session || !sameSession(this.session, session))
       throw Error('Сеанс чернетки змінився.');
     const row = this.read(id),
@@ -288,7 +288,16 @@ export class DraftStore {
       this.storage.getItem(PREFIX + id) !== original
     )
       throw Error('Відновлення скасовано.');
-    codec.restore(structuredClone(row.payload));
+    return { row, codec };
+  }
+  async verify(id: string, session: DraftSession, signal: AbortSignal) {
+    await this.authorized(id, session, signal);
+  }
+  async restore(id: string, session: DraftSession, signal: AbortSignal) {
+    const { row, codec } = await this.authorized(id, session, signal);
+    await codec.restore(structuredClone(row.payload), signal);
+    if (signal.aborted || !this.session || !sameSession(this.session, session))
+      throw Error('Відновлення скасовано.');
   }
   discard(id: string) {
     if (!this.session || typeof id !== 'string' || id.length > 2048)

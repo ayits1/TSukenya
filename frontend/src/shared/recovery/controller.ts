@@ -77,16 +77,29 @@ export class RecoveryController {
       if (generation === this.generation) this.request = null;
     }
   }
-  async restore(id: string) {
-    const session = await this.check();
+  restore(id: string) {
+    return this.authorizeRecord(id, true);
+  }
+  verify(id: string) {
+    return this.authorizeRecord(id, false);
+  }
+  private async authorizeRecord(id: string, render: boolean): Promise<DraftSession | null> {
+    let session: DraftSession;
+    try {
+      session = await this.check(false);
+    } catch {
+      return null;
+    }
     const generation = this.generation,
       request = (this.request = new AbortController());
     try {
-      await this.store.restore(id, session, request.signal);
-      if (request.signal.aborted || generation !== this.generation) return;
+      if (render) await this.store.restore(id, session, request.signal);
+      else await this.store.verify(id, session, request.signal);
+      if (request.signal.aborted || generation !== this.generation) return null;
       this.refreshEntries();
+      return session;
     } catch (error) {
-      if (request.signal.aborted || generation !== this.generation) return;
+      if (request.signal.aborted || generation !== this.generation) return null;
       const status = error instanceof Error && 'status' in error ? error.status : null;
       if (status === 401) this.revoke();
       if (status === 403) {
@@ -96,9 +109,9 @@ export class RecoveryController {
         try {
           await this.check(false);
         } catch {
-          return; // Session failure already hides records; 401/403 revokes globally.
+          return null; // Session failure already hides records; 401/403 revokes globally.
         }
-        if (denialGeneration !== this.generation || !this.session) return;
+        if (denialGeneration !== this.generation || !this.session) return null;
         try {
           this.store.discard(id);
         } catch {
@@ -108,7 +121,7 @@ export class RecoveryController {
             error:
               'Доступ до цієї чернетки закрито. Не вдалося прибрати її локальний запис. Інші чернетки збережені.',
           });
-          return;
+          return null;
         }
       }
       this.show({
@@ -119,6 +132,7 @@ export class RecoveryController {
             ? 'Доступ до цієї чернетки закрито. Інші локальні чернетки збережені. Повторіть перевірку, щоб їх відкрити.'
             : 'Не вдалося відновити чернетку. Повторіть перевірку доступу.',
       });
+      return null;
     } finally {
       if (generation === this.generation) this.request = null;
     }
