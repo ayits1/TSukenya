@@ -19,7 +19,7 @@
 | Відмова запису 4xx з `error` | `error.serverMessage` містить українську причину сервера (права, штрихкод, 409); 5xx, не-JSON і transport помилки його не мають, UI показує власний текст |
 | `update/set/delete(value, {revision})` | `If-Match` дорівнює версії, з якої почалося редагування (редактор товару); без опції — останній отриманий revision для негайних дій. Snapshot товарів і `settings/main` має `revision` |
 
-Глобальний notice з кнопкою повтору міститься поза `#main`, щоб render сторінки його не видалив. Кнопка викликає тільки `TSUKENYA_REFRESH()`; вона не повторює POST/PATCH/PUT/DELETE. Відсутність банера була б неповним застосуванням цього контракту: користувач має знати, що показаний стан ще не оновлено.
+Глобальний notice з кнопкою повтору міститься поза `#main`, щоб render сторінки його не видалив. Кнопка повторює початкове підключення, якщо воно не завершилося; після підключення викликає `TSUKENYA_REFRESH()`. В обох випадках вона не повторює POST/PATCH/PUT/DELETE. Відсутність банера була б неповним застосуванням цього контракту: користувач має знати, що показаний стан ще не оновлено.
 
 Перед заміною cache адаптер перевіряє object `data`, string `csrf`, відому серверну `role`, а за наявності — string `labelRevision`. Некоректний payload не може автоматично надати роль owner чи стерти валідний cache. Це мінімальний decoder оболонки; поглиблена валідація окремих колекцій лишається окремим контрактом.
 
@@ -84,3 +84,32 @@ python manage.py test tests.test_legacy_create tests.test_legacy_create_concurre
 VM перевіряє стабільний key/immutable payload після втрати відповіді для трьох колекцій, явний human retry, некоректне підтвердження JSON та conflict codes. Browser працює зі справжнім isolated Django: поточні й розвиткові задачі, ідеї, статті бюджету, idea→task, автоматичний unavailable retry, відмова після нього та ручний повтор, нове введення після uncertainty, зміна/видалення збереженого запису іншим запитом. PostgreSQL тести підтверджують один документ і audit при чотирьох одночасних exact retries та відмову від заміни payload при двох різних одночасних create за одним ключем.
 
 Дія «ідея → задача» має окремий intent. Після підтвердженого видалення/зміни задача не відновлюється повтором; почати окреме нове створення можна лише після явного підтвердження. Поточний recovery не звільняє terminal intent лише через видимість у списку: потрібне guarded receipt identity й явне завершення. Окрема exact retry CTA працює з невалідним новішим введенням; lookup ID не стає Save baseline. Повний актуальний контракт і докази — у [LEGACY-CREATE-IDENTITY-RECOVERY.md](LEGACY-CREATE-IDENTITY-RECOVERY.md). Вихід із розділу з непідтвердженим intent попереджає про можливий запис і очищає його лише після згоди на вихід.
+
+
+## Початкове завантаження та стиснення відповіді · 04.10.2026
+
+Metadata200 перевіряється повним `PortalApi.decodeMetadata` до прийняття даних.
+Проксі Caddy з `encode zstd gzip` додає суфікс кодування до strong ETag, а
+bodyless304 може повернути початковий ETag. Адаптер зберігає wire tag для
+If-None-Match і порівнює scoped version без відомого суфікса gzip/zstd/br та
+weak prefix. Інший hash, namespace чи відсутній validator у304 відхиляється.
+Незнайомий ETag у валідному200 вимикає умовне читання: наступний GET читає
+повну metadata. Перевірки body/ролі/scope/domain versions залишаються обов’язковими.
+
+Невдалий bootstrap має одну кнопку повторного читання без твердження про
+«останній отриманий стан». Повтор підключає обидві subscriptions settings/project;
+часткова помилка прибирає вже встановлені subscriptions. Initial callback, що
+кинув помилку, не залишається слухачем у runtime. Паралельні спроби ділять один
+promise. Після підтвердженого запису зберігається окремий notice з GET-only retry.
+
+Цільові докази: `portal-validator.cjs` відтворив помилку compressed200 до правки,
+після неї PASS (gzip/zstd/br/weak, origin304, mismatch/invalid body, fallback,
+failed callback cleanup). `runtime-recovery`, `portal-metadata-contract`,
+`runtime-conditional`, `runtime-managed-refresh`, `runtime-create-key` — VM,
+без браузера. Стару v1 fixture runtime-conditional оновлено до чинної v2 metadata.
+`runtime-recovery-ui.cjs` у bundled headless Chromium з окремою SQLite: cold503,
+keyboard fail/retry, compressed200, rollback часткового bootstrap, дві subscriptions,
+нуль writes від recovery; confirmedPOST→GET503 не дублює задачу, невдалий запис
+зберігає чернетку. Геометрія notice1440/390/320 і focus PASS. Системний Chrome та
+повний локальний набір не запускали. Read-only production probe підтвердив200 і
+коректну структуру metadata; HTTP через авторизовану production-сесію не перевірявся.

@@ -14,6 +14,7 @@
   const sortByType = list => { const ranks=new Map(allTypes().map((t,i)=>[t,i])); return list.slice().sort((a,b)=> (ranks.get(typeOf(a))??999)-(ranks.get(typeOf(b))??999) || String(a.category||"").localeCompare(String(b.category||""),"uk") || String(a.name).localeCompare(String(b.name),"uk")); };
   const typeOpts = cur => { const l = allTypes(); if (cur && cur!==NOTYPE && !l.includes(cur)) l.push(cur); return (cur===NOTYPE?`<option value="" selected>${NOTYPE}</option>`:"") + l.map(t=>`<option ${t===cur?"selected":""}>${esc(t)}</option>`).join(""); };
   let db = null, downloads = null, mcp = null, tab = "overview", workspace = "operations", pending = false;
+  let databaseConnected=false;
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const money = v => (Math.round(v*100)/100).toLocaleString("uk-UA",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1648,16 +1649,20 @@
     return window.MonthlyBudgets?.shell(legacy)||legacy;
   }
 
-  window.addEventListener('tsukenya:refresh-failed',()=>{
+  function showRefreshFailure(){
+    $('#noDb').hidden=true;
     $('#refreshNotice').hidden=false;
-    $('#refreshError').textContent='Не вдалося оновити дані. Показано останній отриманий стан. Якщо запис уже підтверджено, повторюйте лише оновлення.';
-  });
+    $('#refreshError').textContent=databaseConnected
+      ? 'Не вдалося оновити дані. Показано останній отриманий стан. Якщо запис уже підтверджено, повторюйте лише оновлення.'
+      : 'Не вдалося завантажити дані. Перевірте з’єднання та повторіть завантаження.';
+  }
+  window.addEventListener('tsukenya:refresh-failed',showRefreshFailure);
   window.addEventListener('tsukenya:refresh-succeeded',()=>{
     $('#refreshNotice').hidden=true;$('#refreshError').textContent='';$('#noDb').hidden=true;
   });
   async function retryRefresh(button){
     if(button.disabled)return;button.disabled=true;$('#refreshStatus').textContent='Оновлюємо дані…';
-    try{await window.TSUKENYA_REFRESH();$('#pageTitle').focus({preventScroll:true});}
+    try{if(databaseConnected)await window.TSUKENYA_REFRESH();else await connectDatabase();$('#pageTitle').focus({preventScroll:true});}
     catch(_){$('#refreshError').focus({preventScroll:true});}
     finally{button.disabled=false;$('#refreshStatus').textContent='';}
   }
@@ -1815,27 +1820,39 @@
   if (window.TSUKENYA_SERVER) $("#accountLink").hidden = false;
   route();
   document.fonts.ready.then(()=>{if(tab==="tags")renderPreview();});
-  const noDbTimer = setTimeout(()=>{ if(!db) $("#noDb").hidden=false; }, 4000);
+  const noDbTimer = setTimeout(()=>{ if(!databaseConnected){if(window.TSUKENYA_SERVER)showRefreshFailure();else $("#noDb").hidden=false;} }, 4000);
   window.claude?.use?.("downloads").then(d=>{ downloads=d; if(tab==="tags") render(); }).catch(()=>{});
   window.claude?.use?.("mcp").then(m=>{ mcp=m; if(tab==="tags"||tab==="products") render(); syncSetup(); }).catch(()=>{});
   window.CatalogPricing?.configure(()=>({markup:defMarkup(),rounding:num(S.settings.rounding??0.5),categories:window.TSUKENYA_SERVER?[]:cats(),selection:scope=>window.TSUKENYA_SERVER&&scope==='__f'?window.ReactCatalog?.pricingFilter():null,selectIds:scope=>(scope==='__f'?(window.ReactCatalog?reactFilteredProducts():filtered(S.F.prod)):S.products.filter(p=>!p.hidden&&p.category===scope)).map(p=>p.id)}));
-  (window.claude?.use ? window.claude.use("db") : Promise.resolve(null)).then(d=>{
-    if(!d){ $("#noDb").hidden=false; clearTimeout(noDbTimer); return; }
+  let connectingDatabase=null;
+  function connectDatabase(){
+    if(databaseConnected)return Promise.resolve(db);
+    if(connectingDatabase)return connectingDatabase;
+    const subscriptions=[];
+    connectingDatabase=(window.claude?.use ? window.claude.use("db") : Promise.resolve(null)).then(d=>{
+    if(!d)throw new Error('Database unavailable');
     db = d; clearTimeout(noDbTimer);
     const byOrder = (a,b)=>(a.order??0)-(b.order??0);
-    const sub = (col, key, sort) => db.collection(col).onSnapshot(s=>{
+    const sub = (col, key, sort) => subscriptions.push(db.collection(col).onSnapshot(s=>{
       S[key] = s.docs.map(x=>({id:x.id, ...x.data(),...(['tasks','ideas','expenses'].includes(col)?{revision:x.revision,permissions:x.permissions?.(),initiative:x.initiative}: {})})).sort(sort); render();
-    }, ()=>{});
+    }, ()=>{}));
     if(!window.TSUKENYA_SERVER)sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
     if(!window.TSUKENYA_SERVER)sub("ideas","ideas",byOrder);
-    if(!window.TSUKENYA_SERVER)db.collection("products").onSnapshot(s=>{
+    if(!window.TSUKENYA_SERVER)subscriptions.push(db.collection("products").onSnapshot(s=>{
       const firstProducts = !S.productsLoaded;
       S.allProducts = s.docs.map(x=>({id:x.id, ...x.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name),"uk"));
       S.allProducts.forEach(p=>served.add(p)); S.productRevisions = new Map(s.docs.map(x=>[x.id,x.revision]));
       S.products = S.allProducts.filter(p=>!p.hidden); S.productsLoaded=true; render(); if(firstProducts) syncSetup();
-    }, ()=>{});
+    }, ()=>{}));
     if(!window.TSUKENYA_SERVER)sub("expenses","expenses",byOrder);
-    db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};if(!S.tagSaving)S.settingsRevision=s.revision;S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;S.settingsLoaded=true;render();syncSetup(); }, ()=>{});
-    db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{});
-  }).catch(()=>{ $("#noDb").hidden=false; });
+    subscriptions.push(db.doc("settings/main").onSnapshot(s=>{ const saved=s.exists?s.data():{};if(!S.tagSaving)S.settingsRevision=s.revision;S.settings=S.tagSaving?{...saved,tag:S.settings.tag}:saved;S.settingsLoaded=true;render();syncSetup(); }, ()=>{}));
+    subscriptions.push(db.doc("project/state").onSnapshot(s=>{ S.project = s.exists ? s.data() : {}; render(); }, ()=>{}));
+    databaseConnected=true;
+    $('#noDb').hidden=true;$('#refreshNotice').hidden=true;
+    return db;
+    }).catch(error=>{subscriptions.forEach(off=>off());db=null;S.settingsLoaded=false;clearTimeout(noDbTimer);if(window.TSUKENYA_SERVER)showRefreshFailure();else $('#noDb').hidden=false;throw error;})
+      .finally(()=>{connectingDatabase=null;});
+    return connectingDatabase;
+  }
+  void connectDatabase().catch(()=>{});
 })();
