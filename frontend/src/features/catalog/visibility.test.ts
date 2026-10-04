@@ -68,3 +68,32 @@ test('list binds hidden requested mode to decoded response', async () => {
     createCatalogApi().list({ ...emptyFilters, visibility: 'hidden' }),
   ).rejects.toThrow();
 });
+
+test('editable recovery refuses missing private terms while readonly cashier remains valid', () => {
+  for (const value of [
+    { ...product, cost: null },
+    { ...product, markup: null },
+    { ...product, cost: null, markup: null },
+  ])
+    expect(() => decodeProduct(value)).toThrow('Missing editable pricing terms');
+  expect(decodeProduct({ ...product, canEdit: false, cost: null, markup: null }).canEdit).toBe(
+    false,
+  );
+});
+
+test('metadata visibility ACK refuses changed reference binding without touching form terms', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      Response.json({
+        ...product,
+        hidden: true,
+        revision: 'new-revision',
+        referenceIds: { type: 'unrelated' },
+      }),
+    ),
+  );
+  await expect(createCatalogApi(undefined, 'isolated').visibility(product, true)).rejects.toThrow(
+    'Сервер повернув дані невідомого формату.',
+  );
+});

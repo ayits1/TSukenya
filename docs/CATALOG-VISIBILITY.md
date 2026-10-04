@@ -40,3 +40,24 @@ PYTHON_BIN=/path/to/isolated/python QA_HIDDEN_STAGE=layout node tests/catalog-hi
 ```
 
 Для сервера `manage.py test tests.test_catalog_visibility`; PostgreSQL-only concurrency пропускається у SQLite. Фізичний мобільний пристрій, screen reader і production capacity у цьому пакеті не перевірялися. Повний regression не запускався.
+
+## Незалежне рев’ю та інтеграція
+
+Виправлено blocker: DTO з `canEdit=true` потребує справжніх cost/markup. Відсутні
+приватні умови більше не стають вигаданим нулем у baseline; readonly cashier DTO
+з null лишається допустимим. Metadata ACK додатково звіряє reference IDs: інша
+прив’язка довідника не приймається навіть із незмінною назвою.
+
+List і обидва detail GET читають конфігурацію, facets, count/items та поточного
+actor в одному READ ONLY repeatable-read snapshot. Root PostgreSQL 2 PASS:
+відкликана кешована роль/приватні поля і справжнє конкурентне restore між count
+та page. Unit: п’ять успішних cases та окремий affected ACK case після уточнення
+очікуваного українського повідомлення; tsc/build/ESLint/Prettier PASS.
+Інтегрований actual редактор 320px: touch44/no overflow PASS,
+`/tmp/tsukenya-root-hidden-layout/report-layout.json`; actions-320.png переглянуто.
+Незмінні author API/Storybook/native proofs використано повторно. Незалежний
+повторний source review не виявив блокерів.
+
+Native harness ізолює owner/DB/settings env і чекає зупинки сервера перед
+видаленням тимчасової БД. У test:full зареєстровані main/tail/layout по одному;
+перевірено лише dry-run plan і syntax, повний набір не запускався.

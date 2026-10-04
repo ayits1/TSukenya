@@ -90,6 +90,8 @@ export function decodeProduct(value: unknown): Product {
     typeof item.canEdit !== 'boolean'
   )
     throw new Error('Invalid pricing');
+  if (item.canEdit && (item.cost === null || item.markup === null))
+    throw new Error('Missing editable pricing terms');
   if (
     item.expiryAlertDays !== undefined &&
     item.expiryAlertDays !== null &&
@@ -255,7 +257,13 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
             p.hidden !== hidden ||
             !p.canEdit ||
             (product.hidden !== hidden && p.revision === product.revision) ||
-            unchanged.some((key) => p[key] !== product[key])
+            unchanged.some((key) => p[key] !== product[key]) ||
+            Object.keys(p.referenceIds || {}).length !==
+              Object.keys(product.referenceIds || {}).length ||
+            Object.entries(product.referenceIds || {}).some(
+              ([key, id]) =>
+                p.referenceIds?.[key as keyof NonNullable<Product['referenceIds']>] !== id,
+            )
           )
             throw new Error('Invalid visibility acknowledgement');
           return p;

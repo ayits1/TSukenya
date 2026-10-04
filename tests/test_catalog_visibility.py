@@ -122,3 +122,53 @@ class CatalogVisibilityTests(TransactionTestCase):
         self.assertEqual(AuditEvent.objects.filter(action='catalog_changed').count(),1)
         self.assertTrue(Document.objects.get(pk='products/one').data['hidden'])
         self.assertEqual(Document.objects.get(pk='products/one').data['cost'],10)
+
+    def test_list_and_default_detail_refresh_cached_actor_before_private_projection(self):
+        from django.test import RequestFactory
+        from server.erp import catalog
+        from server.erp.models import Profile
+        from server.erp.services import BusinessError
+        self.assertEqual(self.user.profile.role,'owner')
+        Profile.objects.filter(user=self.user).update(role='cashier')
+        factory=RequestFactory()
+        listed=catalog.list_products(factory.get('/api/v1/catalog/products'),self.user)
+        import json
+        page=json.loads(listed.content)
+        self.assertFalse(page['canEdit'])
+        self.assertTrue(all(not item['canEdit'] and item['cost'] is None and item['markup'] is None for item in page['items']))
+        detail=json.loads(catalog.handle_catalog(factory.get('/api/v1/catalog/products/one'),self.user).content)
+        self.assertFalse(detail['canEdit']);self.assertIsNone(detail['cost']);self.assertIsNone(detail['markup'])
+        type(self.user).objects.filter(pk=self.user.pk).update(is_active=False)
+        with self.assertRaises(BusinessError):catalog.list_products(factory.get('/api/v1/catalog/products'),self.user)
+        with self.assertRaises(BusinessError):catalog.handle_catalog(factory.get('/api/v1/catalog/products/one'),self.user)
+
+    def test_postgres_hidden_count_and_items_share_readonly_snapshot_during_restore(self):
+        import json
+        from concurrent.futures import ThreadPoolExecutor
+        from django.db import connection,connections,close_old_connections
+        from django.db.models.query import QuerySet
+        if connection.vendor!='postgresql':self.skipTest('PostgreSQL RR snapshot only')
+        original=QuerySet.count;changed=False
+        data=dict(Document.objects.get(pk='products/hidden').data)
+        def restore():
+            close_old_connections()
+            try:Document.objects.filter(pk='products/hidden').update(data={**data,'hidden':False})
+            finally:connections.close_all()
+        def count(query):
+            nonlocal changed
+            value=original(query)
+            if query.model is Document and not changed:
+                changed=True
+                with connection.cursor() as cursor:
+                    cursor.execute('SHOW transaction_isolation');self.assertEqual(cursor.fetchone()[0],'repeatable read')
+                    cursor.execute('SHOW transaction_read_only');self.assertEqual(cursor.fetchone()[0],'on')
+                with ThreadPoolExecutor(max_workers=1) as pool:pool.submit(restore).result(timeout=5)
+            return value
+        with patch.object(QuerySet,'count',count):result=self.client.get('/api/v1/catalog/products?visibility=hidden')
+        self.assertEqual(result.status_code,200,result.content)
+        page=json.loads(result.content);self.assertEqual(page['total'],1)
+        self.assertEqual([item['id'] for item in page['items']],['hidden'])
+        self.assertTrue(page['items'][0]['hidden']);self.assertFalse(connection.in_atomic_block)
+        fresh=self.client.get('/api/v1/catalog/products?visibility=hidden').json()
+        self.assertEqual(fresh['total'],0);self.assertEqual(fresh['items'],[])
+        self.assertFalse(AuditEvent.objects.exists())

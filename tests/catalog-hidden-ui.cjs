@@ -1,15 +1,16 @@
 /* Isolated real Django + React catalogue. Synthetic product; no production/Sheet. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
+assert([undefined,'tail','layout'].includes(process.env.QA_HIDDEN_STAGE),'Unknown QA_HIDDEN_STAGE');
 const root=path.resolve(__dirname,'..'), data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-hidden-ui-'));
 const output=process.env.QA_OUTPUT||'/tmp/tsukenya-hidden-proof';fs.mkdirSync(output,{recursive:true});
 const python=process.env.PYTHON_BIN||'python3',base='http://localhost:18439',password='isolated-hidden-ui-password';
-const env={...process.env};for(const key of Object.keys(env))if(/^(?:DB_|PG|DATABASE_URL$|DJANGO_SETTINGS_MODULE$|DJANGO_SECRET_KEY$|TSUKENYA_REQUIRE_POSTGRES$)/.test(key))delete env[key];
-Object.assign(env,{DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),PORT:'18439',HOST:'127.0.0.1',OWNER_USERNAME:'tester',DJANGO_SECRET_KEY:'isolated-hidden-review-key-not-production-at-least-fifty-characters'});
+const env={...process.env};for(const key of Object.keys(env))if(/^(?:DB_|PG|DATABASE_URL$|POSTGRES_URL$|OWNER_PASSWORD|DJANGO_SETTINGS_MODULE$|DJANGO_SECRET_KEY$|TSUKENYA_REQUIRE_POSTGRES$)/.test(key))delete env[key];
+Object.assign(env,{DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),PORT:'18439',HOST:'127.0.0.1',OWNER_USERNAME:'tester',DJANGO_SETTINGS_MODULE:'server.settings',DJANGO_SECRET_KEY:'isolated-hidden-review-key-not-production-at-least-fifty-characters'});
 env.OWNER_PASSWORD_HASH=execFileSync(python,['-c',`from server.auth import hash_password;print(hash_password(${JSON.stringify(password)}))`],{cwd:root,env,encoding:'utf8'}).trim();
 const server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});let browser;
 const proof=[];const mark=x=>{proof.push(x);console.log(x);};
-async function until(fn,label){for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(label);}
+async function until(fn,label){for(let i=0;i<120;i++){if(server.exitCode!==null||server.signalCode!==null)throw Error('Isolated server exited before readiness');if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(label);}
 (async()=>{
  await until(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}},'startup');
  browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH||process.platform==='darwin'?{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
@@ -92,4 +93,4 @@ async function until(fn,label){for(let i=0;i<120;i++){if(await fn())return;await
  await page.getByRole('searchbox',{name:'Пошук товару'}).fill(current.name);await page.getByRole('button',{name:current.name,exact:true}).waitFor();
  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:path.join(output,'hidden-1440.png')});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));mark('keyboard mode pending/error/retry/empty and reload hidden read; old active rows absent while hidden mode loads');
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({status:'PASS',proof,viewports:[1440,320],productId:first.id,limitations:['synthetic isolated SQLite; no physical mobile/device claim']},null,2));
-})().catch(error=>{fs.writeFileSync(path.join(output,'failure.json'),JSON.stringify({error:error.stack,proof},null,2));console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.kill('SIGTERM');fs.rmSync(data,{recursive:true,force:true});});
+})().catch(error=>{fs.writeFileSync(path.join(output,'failure.json'),JSON.stringify({error:error.stack,proof},null,2));console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();if(server.exitCode===null&&server.signalCode===null){const done=new Promise(resolve=>server.once('exit',resolve));server.kill('SIGTERM');let timer;await Promise.race([done,new Promise(resolve=>{timer=setTimeout(resolve,5000);})]);clearTimeout(timer);if(server.exitCode===null&&server.signalCode===null){server.kill('SIGKILL');await done;}}fs.rmSync(data,{recursive:true,force:true});});

@@ -208,6 +208,13 @@ def filtered_products(user, params, *, with_facets=False, visibility='active'):
 
 
 def list_products(request, user):
+    from .services import current_actor
+    from .historical_reports import read_snapshot
+    with read_snapshot():
+        return _list_products(request, current_actor(user))
+
+
+def _list_products(request, user):
     from .views import response
     from .promotion_prices import PriceResolver
     try:
@@ -426,20 +433,15 @@ def handle_catalog(request, user):
         if request.method == 'GET':
             include_hidden = request.GET.get('includeHidden', '')
             require(include_hidden in {'','false','true'}, 'Некоректний дозвіл читання прихованого товару.')
-            if include_hidden == 'true':
-                from .services import current_actor
-                from .historical_reports import read_snapshot
-                with read_snapshot():
-                    user = current_actor(user)
-                    document = Document.objects.filter(pk='products/' + match[1]).first()
-                    if document is None: return response({'error':'Товар не знайдено.','code':'not_found'},404)
-                    from .promotion_prices import PriceResolver, context_store
-                    config = defaults()
-                    return response(serialize(document,user,config,resolver=PriceResolver(config,context_store(user,request.GET.get('store')),product_paths=[document.path])))
-            document = base_query().filter(pk='products/' + match[1]).first()
-            if not document: return response({'error': 'Товар не знайдено.', 'code': 'not_found'}, 404)
-            from .promotion_prices import PriceResolver, context_store
-            config=defaults()
-            return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')), product_paths=[document.path])))
+            from .services import current_actor
+            from .historical_reports import read_snapshot
+            with read_snapshot():
+                user = current_actor(user)
+                query = Document.objects.filter(path__startswith='products/') if include_hidden == 'true' else base_query()
+                document = query.filter(pk='products/' + match[1]).first()
+                if document is None: return response({'error':'Товар не знайдено.','code':'not_found'},404)
+                from .promotion_prices import PriceResolver, context_store
+                config = defaults()
+                return response(serialize(document,user,config,resolver=PriceResolver(config,context_store(user,request.GET.get('store')),product_paths=[document.path])))
         if request.method in {'PATCH', 'DELETE'}: return save_product(request, user, match[1])
     return response({'error': 'Метод або маршрут не підтримується.', 'code': 'unsupported_route'}, 405)
