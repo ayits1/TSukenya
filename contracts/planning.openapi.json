@@ -130,6 +130,33 @@
           }
         }
       }
+    },
+    "/api/erp/budget-categories/recovery-context": {
+      "get": {
+        "description": "Fresh current actor, READ ONLY REPEATABLE READ, shared category scope. Read authorization independent from canEdit; no captions/aliases/budget facts.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Context for explicit raw recovery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDraftContext"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -368,6 +395,57 @@
           }
         },
         "description": "Unconfirmed: legacy_unknown and no target ID/revision. Confirmed deleted: target ID but no revision/permissions. Present: ID/revision/permissions; identity revision is never editable baseline. Monthly confirmed also includes frozen month/store."
+      },
+      "CategoryDraftContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resource",
+          "id",
+          "role",
+          "storeId",
+          "networkOwner",
+          "exists",
+          "canEdit"
+        ],
+        "properties": {
+          "resource": {
+            "const": "category"
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "manager",
+              "accountant"
+            ]
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "exists": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "canEdit": {
+            "type": "boolean"
+          }
+        }
       }
     }
   }
