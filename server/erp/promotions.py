@@ -5,6 +5,7 @@ import re
 import uuid
 from decimal import Decimal
 from django.db import transaction
+from .catalog_access import revalidate_actor
 from .models import Document, PromotionCampaign, PromotionPrice, PriceChange, Store
 from .promotion_prices import context_store, kyiv_day
 from .promotion_history import observe_prices
@@ -63,6 +64,7 @@ def save_campaign(request, user, identifier=None):
     from .views import body, response
     require(user.profile.role == 'owner' and user.profile.store_id is None, 'Акціями мережі керує власник із мережевим доступом.')
     ledger_lock()
+    revalidate_actor(user, {'owner'}, 'Акціями мережі керує власник із мережевим доступом.', network_only=True)
     value = body(request)
     require(set(value) == FIELDS | ({'revision'} if identifier else {'idempotencyKey'}), 'Некоректні параметри акції.')
     if identifier is None:
@@ -106,7 +108,9 @@ def save_campaign(request, user, identifier=None):
 def archive_campaign(request, user, identifier):
     from .views import body, response
     require(user.profile.role == 'owner' and user.profile.store_id is None, 'Акціями мережі керує власник із мережевим доступом.')
-    ledger_lock(); value = body(request)
+    ledger_lock()
+    revalidate_actor(user, {'owner'}, 'Акціями мережі керує власник із мережевим доступом.', network_only=True)
+    value = body(request)
     require(set(value) == {'revision', 'reason'} and isinstance(value['reason'], str) and 0 < len(value['reason'].strip()) <= 500, 'Вкажіть причину архівування.')
     campaign = PromotionCampaign.objects.filter(pk=identifier).first()
     require(campaign is not None, 'Акцію не знайдено.')

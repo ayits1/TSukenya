@@ -6,6 +6,7 @@ import math
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from .catalog_access import revalidate_actor
 from .models import Document
 from .services import require, ledger_lock, audit
 from .catalog import base_query, defaults, serialize
@@ -68,6 +69,7 @@ def save_workspace(request, user):
     from .views import body, response
     require(user.profile.role == 'owner', 'Недостатньо прав. Макет може змінювати лише власник.')
     ledger_lock()
+    revalidate_actor(user, {'owner'}, 'Недостатньо прав. Макет може змінювати лише власник.')
     value = body(request)
     require(set(value) == {'revision', 'config', 'settings'}, 'Некоректні поля запиту макета.')
     document = Document.objects.filter(pk='settings/main').first()
