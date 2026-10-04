@@ -64,3 +64,15 @@ Strict runtime decoder перевіряє contract/context/dates/counts/точн
 - `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-bounded-reports-ui-RviHEh/period-rows-1440.png`
 
 Широкий сценарій **нового** `tests/bounded-reports-ui.cjs` до вузького busy follow-up пройшов командою `QA_REPORT_FROM=layout PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/bounded-reports-ui.cjs` (session67978). На тій ревізії `layout` ще не мав окремої гілки, тому команда виконала звичайний сценарій нового тесту: сторінки65/CSV/malformed recovery/mode keyboard/320+1440/no legacy reads. Це не full suite і не повний повтор дев’яти старих сімейств. Його знімки: `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-bounded-reports-ui-bah55L/{balances,period}-{320,1440}.png`. Нині `QA_REPORT_FROM=layout` означає лише цільову перевірку верстки. Тимчасова тека browser містить synthetic SQLite/server.log для діагностики; бізнесових даних немає. Deployment/physical accessibility screen reader/capacity stress не перевірялися.
+
+### Follow-up: завершення сеансу
+
+`request()` позначає401 як завершення сеансу; `load()` після перевірки live/token очищає confirmed/report/debt controls і переходить на `/`, як чинний ERP adapter.401 не використовує503 fallback. Скасований або вже замінений запит не викликає redirect.
+
+`QA_REPORT_FROM=expiry PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/bounded-reports-ui.cjs` — PASS, session19876, лише affected expiry сценарії:
+
+- Transport навмисно ігнорує AbortSignal; після cancel і переходу до overview запізніла401 не перенаправляє сторінку.
+- У disposable SQLite реальний PortalSession.expires змінено на минуле; Django summary справді повертає401. Synchronous beforeunload capture підтверджує порожні summary/debts і відсутні export/source actions **до** навігації; після неї показано реальний login.
+- Незалежний metadata poll на час другого сценарію відповідає раніше отриманим synthetic DTO, щоб довести саме report adapter redirect. Це не підміна401 report endpoint.
+
+Штатний new native сценарій містить expiry proof наприкінці; `QA_REPORT_FROM=expiry` — цільовий повтор. Попередні broad native/backend перевірки не повторювалися; під час налаштування harness виправлено двозначний overview `.stats` locator і замінено читання з уже знищеного навігацією DOM на beforeunload capture.

@@ -51,7 +51,7 @@ function create(options={}){
  let active=null,stored=null;
  async function request(endpoint,params,signal){
   const result=await fetch('/api/v1/trading/reports/'+endpoint+'?'+new URLSearchParams(params),{credentials:'same-origin',signal,headers:{Accept:'application/json'}});
-  if(!result.ok){const error=Error(result.status===403?'Звіт недоступний за чинними правами.':'Не вдалося прочитати звіт. Повторіть запит.');error.status=result.status;throw error;}
+  if(!result.ok){const error=Error(result.status===401?'Сеанс завершився.':result.status===403?'Звіт недоступний за чинними правами.':'Не вдалося прочитати звіт. Повторіть запит.');error.status=result.status;throw error;}
   try{const value=await result.json();return endpoint==='summary'?summary(value,params):page(value,params);}catch(error){error.protocol=true;throw error;}
  }
  function mount(host,initial={}){
@@ -108,7 +108,9 @@ function create(options={}){
     if(!latest){const value=await request('summary',contextRead,signal);if(!live()||token!==sequence)return;latest=value;show();}
     const value=await request('rows',{...contextRead,section,page:String(pageNumber),q},signal);if(!live()||token!==sequence)return;latest=value.summary;read=value;confirmed={summary:latest,read,context:{...contextRead}};stored={...context};const moveFocus=focus&&(document.activeElement===document.body||document.activeElement?.matches(focus));show();host.querySelector('[data-report-status]').textContent='Підсумки охоплюють увесь контекст; таблиця — одну сторінку.';
     if(moveFocus)host.querySelector(focus)?.focus();
-   }catch(error){if(error.name==='AbortError'||!live()||token!==sequence)return;const safe=error.status!==403&&!error.protocol&&confirmed&&confirmed.context.mode===contextRead.mode&&confirmed.context.store===contextRead.store;
+   }catch(error){if(error.name==='AbortError'||!live()||token!==sequence)return;
+    if(error.status===401){confirmed=latest=read=null;show();host.querySelector('[data-report-error]').textContent=error.message;host.querySelector('[data-report-retry]').hidden=true;location.href='/';return;}
+    const safe=error.status!==403&&!error.protocol&&confirmed&&confirmed.context.mode===contextRead.mode&&confirmed.context.store===contextRead.store;
     if(safe){latest=confirmed.summary;read=confirmed.read;section=read.section;}else{latest=read=null;confirmed=null;}
     show();host.querySelector('[data-report-error]').textContent=error.message;
     host.querySelector('[data-report-status]').textContent=safe?'Показано попередній підтверджений звіт за датами у підсумках. Нові умови не застосовано. CSV і джерела вимкнено до успішного читання.':'';
