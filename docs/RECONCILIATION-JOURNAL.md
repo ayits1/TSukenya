@@ -80,3 +80,7 @@ python manage.py reconcile --record --source scheduler --run-id 5e7f385a-b622-47
 - `makemigrations --check --dry-run`, diff/syntax — перевірені перед delivery. Повної регресії, production capacity, VPS та recovery/offsite test не було.
 
 Нова звірка виявляє доведені суперечності доступних регістрів/хронології. Вона не доводить незмінність усіх історичних фінансових полів, якщо незалежного минулого snapshot немає, і не замінює відновлення резервної копії.
+
+## Root інтеграція
+
+Root незалежно переглянув chronology/unknown coverage, конкурентний immutable receipt, розділення RR READ ONLY snapshot та technical write, network-owner API, stale-response/focus recovery. Переглянуто фактичний native320 PNG. На інтегрованому коді PostgreSQL **3 PASS** (real snapshot/technical write, concurrent UUID, pagination/HTTP role guards), VM DTO contract PASS. Чинні незмінені agent докази використано повторно. Додано journal contract/native сценарії в явний `test:full` entrypoint; перевірено лише синтаксис реєстрації, повний прогін не запускався. VPS scheduler, recovery/backup0.1 і deployment не виконані.
