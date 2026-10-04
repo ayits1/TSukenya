@@ -257,7 +257,7 @@ class RecipeConcurrencyTests(TransactionTestCase):
                 response = client.post(self.endpoint, {
                     'product': 'cake', 'recipe': recipe, 'revision': snapshots[0]['revision'],
                 }, content_type='application/json', **headers)
-                return {'user': user_id, 'recipe': recipe, 'status': response.status_code, 'body': response.json()}
+                return {'user': user_id, 'recipe': recipe, 'status': response.status_code, 'body': response.json(), 'request_id': response['X-Request-ID']}
             finally:
                 connections.close_all()
 
@@ -276,4 +276,6 @@ class RecipeConcurrencyTests(TransactionTestCase):
         event = AuditEvent.objects.get()
         self.assertEqual((event.user_id, event.action, event.subject),
                          (winner['user'], 'recipe_saved', self.product.pk))
-        self.assertEqual(event.detail, {'recipe': winner['recipe']})
+        self.assertEqual(event.detail, {'recipe': winner['recipe'], 'request_id': winner['request_id']})
+        self.assertEqual(str(uuid.UUID(event.detail['request_id'])), winner['request_id'])
+        self.assertNotEqual(winner['request_id'], loser['request_id'])
