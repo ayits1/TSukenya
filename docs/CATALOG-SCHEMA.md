@@ -48,3 +48,17 @@ Actual Django «Товари й ціни → Імпорт → Завантажи
 Server source baseline — accepted `0e30c6b` з own schema diff. Native harness використовував compiled `frontend/dist` через тимчасовий symlink на root build: останній вузький запуск — root `fb2ceae` (P0 boundary), ширша layout перевірка — той самий borrowed root dist до його фіксації. Це не повністю matching frontend build бази76; перевірені template/parser/native DOM/server шляхи, без твердження про весь React application. Symlink/dependencies/session artifacts не доставляються.
 
 Не перевірено native Excel/LibreOffice save/reopen, production deployment, live Sheet або повну регресію. XLSX numeric0.5 та external raw0.07 перевірені на фактичному застосунковому adapter; автоматичне визначення Excel percent-format у current workbook не додається. Ціноутворення й права не розширені. Generator/Node/native сценарії додані у майбутній явний full entrypoint; повний набір тут не запускали.
+
+### Перевірка інтеграції
+
+Root поєднав пакет із прийнятим P0 #79 та результатами цін #80. Конфлікт
+full-check registry розв’язано зі збереженням ABC, draft і schema сценаріїв та
+ізоляції їхніх параметрів. Синтаксис і `--plan` пройшли; повний набір не запускали.
+Generator drift і Node schema cases — PASS. Після спільної frontend-збірки вузький
+actual download→XLSX0.5→Django preview пройшов на відповідному server/frontend:
+`/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-catalog-schema-ui-4FENCG/report.json`,
+source `0c4d8c40b4dc1dd06c60d9fc911508ec69815840`, runtime errors відсутні.
+Один зачеплений PostgreSQL export→parser→commit/retry сценарій після поєднання
+price receipts і schema — PASS0.232с, `/tmp/tsukenya-schema-price-root-pg.log`.
+Root переглянув 320px download/preview PNG та workbook render; незмінені ширші
+докази автора використано повторно. Цей запис не підтверджує deployment.
