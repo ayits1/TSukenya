@@ -44,3 +44,18 @@ env -i PATH="$PATH" PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python QA_OUTPUT_DI
 ```
 
 Existing layout command: `TEMPLATE_STAGE=layout TEMPLATE_QA_PORT=18284 TEMPLATE_PROOF_DIR=/tmp/tsukenya-template-layout-final node tests/budget-template-ui.cjs` з тим самим isolated Python/env. Failed artifacts збережено: obsolete mobile launcher, accessible heading mistaken for modal close, initial hidden Save locator. Business assertions не видалено. Всі own browsers/servers завершено; no full/production/Sheet/VPS/push/deploy.
+
+## Незалежне рев’ю count: response fence, actor binding та Apply
+
+Рев’ю точного `2cdbdc409d38eb9ae5f6f60bb0f6e259a50ef5f6` охопило лише дев’ять файлів count-пакета. Виправлення зроблені окремо від замороженого checkout:
+
+- `request()` повторно перевіряє live/generation/signal після session, fetch і JSON, включно з помилками. Скасований session401 не починає нову P0-перевірку; запізнілий ACK/401 після suspend і повторної прив’язки не підтверджує запис та не змінює поточний контекст.
+- Authorize і незалежний current GET звіряють фінальний session з P0 binding. Зміна actor між читаннями залишає форму прихованою й не передає чужу revision у порівняння.
+- Чинний PATCH403 запускає P0-перевірку actor та ресурсу з прихованою формою: зміна role/session очищає відповідні приватні записи; окрема відмова ресурсу видаляє лише count-чернетку.
+- Apply зберігає обране raw-значення, поточну revision та звільнення попереднього intent одним записом storage, перш ніж змінювати in-memory baseline або поле. Другого запису, на якому quota могла втратити обраний варіант, більше немає. PATCH лишається окремою дією.
+
+Новий вузький сценарій `QA_TEMPLATE_DRAFT_FROM=review` перевіряє затриманий саме `Response.json()` ACK/401 після pagehide + same-session rebind, reload unknown intent без PATCH, запізнілий final-session401 без P0 recheck, зміну actor перед authorize/current GET, atomic Apply з відмовою другого storage-запису, actual owner→accountant PATCH403 та same-actor resource403 зі сторонньою чернеткою. Окремий `review-resource` запускає лише останній сценарій.
+
+Докази у `/tmp/tsukenya-template-count-review-proof/review-partial.json`: перші вісім перевірок успішні, потім тестовий helper припинився на `baseline:null` сторонньої synthetic-чернетки. Helper виправлено через optional chaining; лише фінальний сценарій повторено успішно: `/tmp/tsukenya-template-count-review-resource-proof/review-resource-report.json`. Це сукупність завершених вузьких перевірок, а не твердження про один повністю зелений запуск первісного harness. Логи: `/tmp/tsukenya-template-count-review-proof.log` та `/tmp/tsukenya-template-count-review-resource-proof.log`.
+
+Команди виконувалися з `env -i`, `PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python`, `QA_PORT=18286`, відповідними `QA_OUTPUT_DIR` та `node tests/template-draft-reload-ui.cjs`; локальна disposable SQLite, bundled headless Chromium. Незмінний frontend bundle повторно використано з авторського checkout. JS syntax, Prettier зміненого application-файлу та `git diff --check` успішні. Авторські codec, PostgreSQL, layout і решта попередніх proofs лишаються чинними для незмінених inputs; full regression, VPS і production-дані не використовувалися.

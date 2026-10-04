@@ -29,7 +29,8 @@
     try {
       session = await window.PortalApi.session(signal);
     } catch (error) {
-      if (!signal?.aborted && [401, 403].includes(error.status))
+      gate();
+      if ([401, 403].includes(error.status))
         await foundation()
           .controller.check(false)
           .catch(() => {});
@@ -58,6 +59,7 @@
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch (error) {
+      gate();
       if (error.name === "AbortError") throw error;
       throw Object.assign(
         Error(
@@ -66,18 +68,19 @@
         { uncertain: method !== "GET" },
       );
     }
+    gate();
     let value;
     try {
       value = await r.json();
     } catch {
+      gate();
       throw Object.assign(
         Error("Некоректна відповідь сервера. Повторіть читання."),
         { uncertain: method !== "GET" },
       );
     }
-    if (signal?.aborted) throw canceled();
+    gate();
     if (r.status === 401) {
-      if (guard && !guard()) throw canceled();
       window.dispatchEvent(new Event("tsukenya:session-invalidated"));
       location.href = "/";
     }
@@ -144,7 +147,7 @@
       session.storeId !== null
     )
       return false;
-    await request("GET", undefined, signal); // Current actor/RR scalar access; never adopts revision.
+    await request("GET", undefined, signal, undefined, session); // Current actor/RR scalar access; never adopts revision.
     if (signal.aborted) throw canceled();
     return true;
   }
@@ -307,8 +310,8 @@
       a.p = p;
       return p;
     }
-    function confirmed(type, value) {
-      const event = { type, raw: value, draft: raw() },
+    function confirmed(type, value, draft = raw()) {
+      const event = { type, raw: value, draft },
         next = codec().confirmTemplatePayload(p, event);
       foundation().store.confirmed(a.id, event);
       p = next;
@@ -438,7 +441,8 @@
       sync();
       try {
         const fresh = await protectedRead(
-          (signal) => request("GET", undefined, signal),
+          (signal, session) =>
+            request("GET", undefined, signal, undefined, session),
           controller.signal,
         );
         if (!live(a) || requestId !== sequence) return;
@@ -472,13 +476,16 @@
               return;
             }
             try {
-              confirmed("apply", fresh);
+              // Persist the selected raw value and current guard atomically before
+              // changing the visible input or releasing an unknown PATCH intent.
+              confirmed("apply", fresh, {
+                budgetStores: String(value.budgetStores),
+              });
               stop();
               baseline = fresh;
               input.value = String(value.budgetStores);
               review = false;
               dirty = true;
-              capture();
               status.textContent =
                 "Зміни узгоджено в чернетці. Натисніть «Зберегти кількість».";
               sync();
@@ -551,6 +558,7 @@
       sync();
       a.guarding = true;
       warm = true;
+      let writeGuard;
       try {
         const session = await foundation().controller.verify(a.id);
         if (!session || !live(a)) throw canceled();
@@ -558,12 +566,12 @@
         a.guarding = false;
         const generation = a.generation,
           route = location.hash,
-          guard = () =>
+          guard = (writeGuard = () =>
             live(a) &&
             !a.hidden &&
             generation === a.generation &&
             route === location.hash &&
-            document.visibilityState !== "hidden";
+            document.visibilityState !== "hidden");
         const saved = await request(
           "PATCH",
           foundation().store.beforeSend(a.id).body,
@@ -571,7 +579,7 @@
           guard,
           session,
         );
-        if (!live(a)) return;
+        if (!guard()) throw canceled();
         confirmed("saved", saved);
         review = true;
         dirty = false;
@@ -581,7 +589,8 @@
           "Кількість збережено. Підтверджуємо поточний стан окремим читанням.";
         controller = new AbortController();
         const current = await protectedRead(
-          (signal) => request("GET", undefined, signal),
+          (signal, session) =>
+            request("GET", undefined, signal, undefined, session),
           controller.signal,
         );
         if (!live(a)) return;
@@ -600,6 +609,12 @@
           sync();
         }
       } catch (e) {
+        if (e.status === 403 && writeGuard?.()) {
+          // Recheck both actor and this resource. P0 hides the private form,
+          // erases changed-session records or only the denied resource record.
+          a.guarding = true;
+          await foundation().controller.verify(a.id);
+        }
         if (live(a)) {
           review = true;
           dirty = true;
