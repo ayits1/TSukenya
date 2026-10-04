@@ -14,6 +14,7 @@ from django.utils import timezone
 from .catalog import (EDIT_ROLES, TEXT_FIELDS, defaults, name_key,
                       new_product_data, normalise_product, plain, pricing_revision, revision, serialize)
 from .catalog_access import revalidate_actor
+from . import catalog_price_results as price_results
 from .catalog_import import canonical, UUID_PATTERN
 from .import_models import CatalogImportRun, CatalogImportRow, CatalogImportChunk, CatalogImportIndex, counts, planned
 from .models import Document
@@ -52,13 +53,14 @@ def get_run(user,identifier,*,lock=False):
     query=CatalogImportRun.objects.select_for_update() if lock else CatalogImportRun.objects
     result=query.filter(pk=identifier,owner_id=user.pk).first()
     check(result is not None,'Імпорт не знайдено.','not_found',404)
+    if result.price_context is not None:price_results.scope_context(user,result.price_context)
     return result
 
 
 def public(run):
     return {'id':str(run.pk),'mode':run.mode,'fileName':run.file_name,'expectedRows':run.expected_rows,
             'uploadedRows':run.uploaded_rows,'inputBytes':run.input_bytes,'inputHash':run.input_hash or None,
-            'planRevision':run.plan_revision or None,'sourceHash':run.source_hash or None,'defaultMarkup':run.default_markup or None,'genericAs':run.generic_as or None,'status':run.status,'phase':run.phase,
+            'priceContext':run.price_context,'planRevision':run.plan_revision or None,'sourceHash':run.source_hash or None,'defaultMarkup':run.default_markup or None,'genericAs':run.generic_as or None,'status':run.status,'phase':run.phase,
             'progress':{'done':run.phase_done,'total':run.phase_total},'counts':run.counts,'planned':run.planned,'indexedPaths':run.indexed_paths,
             'canApply':run.mode=='chunked' and run.status=='ready','canResume':run.mode=='chunked' and run.status in {'failed','blocked'},
             'canCancel':run.mode=='chunked' and run.status in {'uploading','queued','running','ready','failed','blocked'},
@@ -70,7 +72,8 @@ def row_public(row):
     return {'ordinal':row.ordinal,'line':row.line,'status':row.status,'action':row.action or None,
             'id':row.product_path.split('/',1)[1] if row.product_path else None,'revision':row.revision or None,
             'currentRevision':row.current_revision or None,'values':row.preview.get('values',{}),
-            'regularPrice':row.preview.get('regularPrice'),'salePrice':row.preview.get('salePrice'),'error':row.error}
+            'regularPrice':row.preview.get('regularPrice'),'salePrice':row.preview.get('salePrice'),'error':row.error,
+            'priceResult':row.price_result,'priceComparison':row.preview.get('priceComparison')}
 
 
 def page(query,raw,size,serializer):
@@ -81,7 +84,7 @@ def page(query,raw,size,serializer):
 
 @transaction.atomic
 def create(user,payload):
-    fields(payload,{'idempotencyKey','fileName','expectedRows','defaultMarkup','sourceHash','genericAs'})
+    fields(payload,{'idempotencyKey','fileName','expectedRows','defaultMarkup','sourceHash','genericAs','priceContext'})
     identifier=uuid_value(payload.get('idempotencyKey'))
     check(isinstance(payload.get('fileName'),str) and len(payload['fileName'].strip())<=250,'Некоректна назва файлу.')
     check(type(payload.get('expectedRows')) is int and 0<payload['expectedRows']<=LIMITS['maxRows'],'Імпорт має містити 1–100000 рядків.')
@@ -90,16 +93,19 @@ def create(user,payload):
     if 'defaultMarkup' in payload:
         check(isinstance(payload['defaultMarkup'],str) and len(payload['defaultMarkup'])<=32,'Націнка має бути десятковим рядком.')
         require(dec(payload['defaultMarkup'],'Націнка',Decimal('.0001'))<=Decimal('99999999.99'),'Націнка завелика.')
+    if 'priceContext' in payload:price_results.validate_context(payload['priceContext'])
     ledger_lock();actor(user)
     old=CatalogImportRun.objects.filter(pk=identifier).first()
     if old:
         check(old.owner_id==user.pk,'Імпорт не знайдено.','not_found',404)
         check(old.mode=='chunked' and old.metadata_hash==digest(payload),'Ключ повтору вже використано.','idempotency_conflict',409)
+        if old.price_context is not None:price_results.scope_context(user,old.price_context)
         return old.create_receipt
     check(not Document.objects.filter(pk='import_runs/'+str(identifier)).exists(),'Ключ повтору вже використано.','idempotency_conflict',409)
-    receipt={'ok':True,'id':str(identifier),'status':'uploading','expectedRows':payload['expectedRows'],'sourceHash':payload.get('sourceHash'),'limits':LIMITS}
+    context=price_results.capture_context(price_results.resolve_context(user,payload))
+    receipt={'ok':True,'priceContext':context,'id':str(identifier),'status':'uploading','expectedRows':payload['expectedRows'],'sourceHash':payload.get('sourceHash'),'limits':LIMITS}
     CatalogImportRun.objects.create(id=identifier,owner=user,file_name=payload['fileName'].strip(),expected_rows=payload['expectedRows'],
-        metadata_hash=digest(payload),default_markup=payload.get('defaultMarkup',''),source_hash=payload.get('sourceHash',''),generic_as=payload.get('genericAs',''),create_receipt=receipt,
+        price_context=context,metadata_hash=digest(payload),default_markup=payload.get('defaultMarkup',''),source_hash=payload.get('sourceHash',''),generic_as=payload.get('genericAs',''),create_receipt=receipt,
         phase_total=payload['expectedRows'],counts={**counts(),'pending':payload['expectedRows']})
     return receipt
 
@@ -187,6 +193,8 @@ def handle(request,user):
         if path==prefix+'/history' and request.method=='GET':
             check(not(set(request.GET)-{'page','status','mode'}),'Невідомий фільтр журналу.')
             query=CatalogImportRun.objects.filter(owner=user).order_by('-created_at','-id')
+            if user.profile.store_id is not None:
+                query=query.filter(Q(price_context__isnull=True)|Q(price_context__storeId=user.profile.store_id))
             if 'mode' in request.GET:
                 check(request.GET['mode'] in {'atomic','chunked'},'Некоректний режим.');query=query.filter(mode=request.GET['mode'])
             if 'status' in request.GET:
@@ -227,11 +235,6 @@ def handle(request,user):
 def config_for(run):return {key:Decimal(value) for key,value in run.pricing_config.items()}
 
 
-def effective(doc,user,config):
-    from .promotion_prices import PriceResolver,context_store
-    return PriceResolver(config,context_store(user),product_paths=[doc.path]).resolve(doc)['effectivePriceRevision']
-
-
 def prepare(run,row,user,*,references=None):
     value=row.input;fields(value,{'line','id','revision','values'})
     check(row.line is not None,'Некоректний номер рядка.')
@@ -262,9 +265,12 @@ def prepare(run,row,user,*,references=None):
     data=normalise_product(values,old,path,validate_references=False,config=config,references=(references or ReferenceCache()).scope(old,values),legacy_recipe_lookup=legacy_recipe_lookup)
     check(name_hash(data.get('name'))==row.name_hash,'Нормалізація назви змінила відповідність рядка.')
     check(not indexed_duplicate(data,old,path),'Товар із такою назвою вже існує.')
-    doc=Document(path=path,data=data);product=serialize(doc,user,config)
+    from .promotion_prices import PriceResolver
+    resolver=PriceResolver(config,price_results.stored_store(user,run.price_context),product_paths=[path])
+    doc=Document(path=path,data=data);product=serialize(doc,user,config,resolver=resolver)
     action='skip' if existing and canonical(data)==canonical(old) else ('update' if existing else 'create')
-    return path,captured,data,action,{'values':{key:product[key] for key in (*TEXT_FIELDS,'cost','markup','price','manualPrice','promotion','promotionPrice','priceAt','minStock')},'regularPrice':product['regularPrice'],'salePrice':product['salePrice']},effective(doc,user,config)
+    return path,captured,data,action,{'values':{key:product[key] for key in (*TEXT_FIELDS,'cost','markup','price','manualPrice','promotion','promotionPrice','priceAt','minStock')},'regularPrice':product['regularPrice'],'salePrice':product['salePrice'],
+        'priceComparison':price_results.comparison(existing,doc,config,resolver) if run.price_context is not None else None},resolver.resolve(doc)['effectivePriceRevision']
 
 
 def update_counts(run):
@@ -278,7 +284,7 @@ def row_material(row):
 
 
 def plan_hash(run):
-    return hmac.new(settings.SECRET_KEY.encode(),canonical({'id':str(run.pk),'input':run.input_hash,'pricing':run.pricing_revision,'rows':run.plan_material}).encode(),hashlib.sha256).hexdigest()
+    return hmac.new(settings.SECRET_KEY.encode(),canonical({'id':str(run.pk),'input':run.input_hash,'pricing':run.pricing_revision,'context':run.price_context,'rows':run.plan_material}).encode(),hashlib.sha256).hexdigest()
 
 
 @transaction.atomic
@@ -299,7 +305,9 @@ def step(identifier,token):
     ledger_lock();run=CatalogImportRun.objects.select_for_update().get(pk=identifier)
     if not lease_valid(run,token):return False
     user=User.objects.get(pk=run.owner_id)
-    try:actor(user)
+    try:
+        actor(user)
+        price_results.stored_store(user,run.price_context)
     except BusinessError:
         run.status='blocked';run.error={'code':'access_revoked','message':'Доступ автора змінено. Відновлення потребує чинних прав.'};run.lease_token=None;run.lease_until=None;run.save();return False
     config=config_for(run)
@@ -353,9 +361,12 @@ def apply_row(run,row,user,config,*,references=None):
             old=existing.data if existing else new_product_data(config)
             if existing is None and run.default_markup:old['markup']=float(Decimal(run.default_markup))
             data=normalise_product(row.input['values'],old,row.product_path,validate_references=False,config=config,references=(references or ReferenceCache()).scope(old,row.input['values']),legacy_recipe_lookup=legacy_recipe_lookup)
-            check(canonical(data)==canonical(row.data) and effective(Document(path=row.product_path,data=data),user,config)==row.effective_revision,'Розрахована ціна або план уже змінені.','revision_conflict',409)
+            from .promotion_prices import PriceResolver
+            resolver=PriceResolver(config,price_results.stored_store(user,run.price_context),product_paths=[row.product_path])
+            check(canonical(data)==canonical(row.data) and resolver.resolve(Document(path=row.product_path,data=data))['effectivePriceRevision']==row.effective_revision,'Розрахована ціна або план уже змінені.','revision_conflict',409)
             check(name_hash(data.get('name'))==row.name_hash,'Нормалізація назви змінила відповідність рядка.','revision_conflict',409)
             check(not indexed_duplicate(data,old,row.product_path),'Товар із такою назвою вже існує.','revision_conflict',409)
+            before_price=price_results.terms(existing,config,resolver) if existing else None
             if row.action!='skip':
                 from .promotion_history import observe_prices
                 from .business_audit import snapshot,change
@@ -366,7 +377,11 @@ def apply_row(run,row,user,config,*,references=None):
                 observe_prices(user,[document],'import','Імпорт товарів',product_paths=[row.product_path])
                 audit(user,'catalog_changed',document.path,{'method':'IMPORT','contract':'v1','run':str(run.pk),'line':row.line,**change(before,snapshot('product',data),observed=run.plan_revision,reason='Імпорт товарів')})
                 row.current_revision=revision(document,config)
-            row.status={'create':'created','update':'updated','skip':'skipped'}[row.action];row.error=None;row.save()
+            row.status={'create':'created','update':'updated','skip':'skipped'}[row.action]
+            if run.price_context is not None:
+                after_price=price_results.terms(existing if row.action=='skip' else document,config,resolver)
+                row.price_result=price_results.result(row.product_path.split('/',1)[1],row.status,price_results.compare_terms(before_price,after_price),resolver,line=row.line,ordinal=row.ordinal)
+            row.error=None;row.save()
     except BusinessError as exc:
         row.status='conflicted' if isinstance(exc,JobError) and exc.code=='revision_conflict' else 'failed'
         row.error={'code':'revision_conflict' if row.status=='conflicted' else 'apply_validation_failed','message':str(exc)};row.save()
@@ -386,7 +401,7 @@ def process_one(identifier=None):
     return True
 
 
-def mirror_atomic(user,identifier,payload_hash,result):
+def mirror_atomic(user,identifier,payload_hash,result,*,price_context=None):
     """Called in the existing small commit transaction; does not add business audit events."""
     existing=CatalogImportRun.objects.filter(pk=identifier).first()
     check(existing is None or existing.mode=='atomic' and existing.owner_id==user.pk and existing.metadata_hash==payload_hash,
@@ -395,7 +410,7 @@ def mirror_atomic(user,identifier,payload_hash,result):
     entries=result['entries'];now=timezone.now()
     actual={**counts(),'created':result['counts']['created'],'updated':result['counts']['updated']}
     run=CatalogImportRun.objects.create(id=identifier,owner=user,mode='atomic',expected_rows=len(entries),uploaded_rows=len(entries),
-        metadata_hash=payload_hash,input_hash=payload_hash,status='completed',phase='finished',phase_done=len(entries),phase_total=len(entries),
+        price_context=price_context,metadata_hash=payload_hash,input_hash=payload_hash,status='completed',phase='finished',phase_done=len(entries),phase_total=len(entries),
         counts=actual,planned={'create':actual['created'],'update':actual['updated'],'skip':0},started_at=now,finished_at=now)
     CatalogImportRow.objects.bulk_create([CatalogImportRow(run=run,ordinal=index+1,line=item['line'],status='created' if item['action']=='create' else 'updated',
-        action=item['action'],product_path='products/'+item['id'],revision=item['revision'],current_revision=item['revision'],input_hash='') for index,item in enumerate(entries)],batch_size=200)
+        action=item['action'],product_path='products/'+item['id'],revision=item['revision'],current_revision=item['revision'],input_hash='',price_result=item.get('priceResult')) for index,item in enumerate(entries)],batch_size=200)

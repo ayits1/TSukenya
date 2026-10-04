@@ -2793,6 +2793,77 @@
           }
         }
       }
+    },
+    "/api/v1/catalog/price-results/{kind}/{id}": {
+      "get": {
+        "operationId": "catalogOperationPriceResult",
+        "description": "Read-only creator/current-role/context-scoped immutable operation evidence; not current prices. 100 successful outcomes per page; actual import status may be partial/cancelled. Legacy receipts comparisonUnavailable with no guessed backfill. retail=existing salePrice delta, display=display-only, new=before null. Current Studio print proof remains required.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pricing",
+                "import"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "retail",
+                "display",
+                "new"
+              ],
+              "default": "all"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable committed price outcomes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationPriceResultPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role/context access denied"
+          },
+          "404": {
+            "description": "No result owned by the current author"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3901,6 +3972,9 @@
             "type": "string",
             "pattern": "^[0-9]+(\\.[0-9]{1,4})?$",
             "description": "Initial markup for newly created products; omitted uses the server default. Does not replace an existing markup."
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/OperationPriceContextRequest"
           }
         }
       },
@@ -3992,6 +4066,9 @@
             "enum": [
               "invalid_import_row"
             ]
+          },
+          "priceComparison": {
+            "$ref": "#/components/schemas/OperationPriceComparison"
           }
         }
       },
@@ -4025,6 +4102,13 @@
           },
           "defaultMarkup": {
             "type": "string"
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext"
+          },
+          "effectiveDay": {
+            "type": "string",
+            "format": "date"
           }
         }
       },
@@ -4059,6 +4143,9 @@
             "format": "uuid",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
             "description": "Generate once per confirmed preview; reuse unchanged after an ambiguous network failure. Bound to the user and complete immutable payload."
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/OperationPriceContextRequest"
           }
         }
       },
@@ -4110,9 +4197,15 @@
                 },
                 "revision": {
                   "type": "string"
+                },
+                "priceResult": {
+                  "$ref": "#/components/schemas/OperationPriceResult"
                 }
               }
             }
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext"
           }
         }
       },
@@ -4160,6 +4253,9 @@
           "updateDefault": {
             "type": "boolean",
             "description": "Allowed only when ids is null. Existing excluded products lacking an explicit markup get their old fallback materialized, including hidden and skipped manual products."
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/OperationPriceContextRequest"
           }
         }
       },
@@ -4183,6 +4279,9 @@
               "0.5",
               "1"
             ]
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/OperationPriceContextRequest"
           }
         }
       },
@@ -4251,6 +4350,9 @@
             "type": "string",
             "format": "uuid",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/OperationPriceContextRequest"
           }
         }
       },
@@ -4285,6 +4387,9 @@
             "type": "string",
             "format": "uuid",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/OperationPriceContextRequest"
           }
         }
       },
@@ -4427,6 +4532,9 @@
           },
           "error": {
             "type": "string"
+          },
+          "priceComparison": {
+            "$ref": "#/components/schemas/OperationPriceComparison"
           }
         }
       },
@@ -4468,6 +4576,13 @@
           },
           "settings": {
             "$ref": "#/components/schemas/CatalogPricingSettings"
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext"
+          },
+          "effectiveDay": {
+            "type": "string",
+            "format": "date"
           }
         }
       },
@@ -4529,9 +4644,15 @@
                     "unchanged",
                     "skip"
                   ]
+                },
+                "priceResult": {
+                  "$ref": "#/components/schemas/OperationPriceResult"
                 }
               }
             }
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext"
           }
         }
       },
@@ -6061,6 +6182,16 @@
             "$ref": "#/components/schemas/CatalogImportWorker",
             "readOnly": true,
             "description": "Present in GET detail/history. One shared snapshot per history page; control receipts may omit it."
+          },
+          "priceContext": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PriceContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "description": "Creator-only durable job. Counts describe actual outcomes; planned is separate. No whole-file atomicity: worker commits batches separately. Old atomic receipts may have a technical journal creation time and null startedAt/finishedAt."
@@ -6159,6 +6290,26 @@
           },
           "error": {
             "$ref": "#/components/schemas/CatalogImportJobError"
+          },
+          "priceResult": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OperationPriceResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceComparison": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OperationPriceComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -6200,6 +6351,9 @@
               "cost",
               "price"
             ]
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/OperationPriceContextRequest"
           }
         },
         "description": "Immutable create body for exact retry. UI always supplies sourceHash and genericAs; uploads without sourceHash cannot safely recover a reselected file."
@@ -6243,6 +6397,9 @@
           },
           "limits": {
             "$ref": "#/components/schemas/CatalogImportJobLimits"
+          },
+          "priceContext": {
+            "$ref": "#/components/schemas/PriceContext"
           }
         }
       },
@@ -6533,6 +6690,334 @@
           "staleAfterSeconds": {
             "type": "integer",
             "const": 45
+          }
+        }
+      },
+      "OperationPriceContextRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "storeId"
+        ],
+        "properties": {
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "OperationPriceDisplay": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "promotion",
+          "oldPrice"
+        ],
+        "properties": {
+          "promotion": {
+            "type": "boolean"
+          },
+          "oldPrice": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "OperationPriceTerms": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productRevision",
+          "effectivePriceRevision",
+          "regularPrice",
+          "salePrice",
+          "effectivePromotion",
+          "display"
+        ],
+        "properties": {
+          "productRevision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "effectivePriceRevision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "regularPrice": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "salePrice": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "effectivePromotion": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EffectivePromotion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display": {
+            "$ref": "#/components/schemas/OperationPriceDisplay"
+          }
+        }
+      },
+      "OperationPriceComparison": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "before",
+          "after",
+          "retailChanged",
+          "displayChanged",
+          "created"
+        ],
+        "properties": {
+          "before": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OperationPriceTerms"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "$ref": "#/components/schemas/OperationPriceTerms"
+          },
+          "retailChanged": {
+            "type": "boolean"
+          },
+          "displayChanged": {
+            "type": "boolean"
+          },
+          "created": {
+            "type": "boolean"
+          }
+        }
+      },
+      "OperationPriceResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "before",
+          "after",
+          "retailChanged",
+          "displayChanged",
+          "created",
+          "id",
+          "line",
+          "ordinal",
+          "outcome",
+          "context",
+          "committedAt"
+        ],
+        "properties": {
+          "before": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OperationPriceTerms"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "$ref": "#/components/schemas/OperationPriceTerms"
+          },
+          "retailChanged": {
+            "type": "boolean"
+          },
+          "displayChanged": {
+            "type": "boolean"
+          },
+          "created": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "line": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "unchanged",
+              "skipped"
+            ]
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "storeId",
+              "storeName",
+              "effectiveDay"
+            ],
+            "properties": {
+              "storeId": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "storeName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "effectiveDay": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          },
+          "committedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OperationPriceResultPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "comparisonUnavailable",
+          "priceContext",
+          "status",
+          "group",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "items"
+        ],
+        "properties": {
+          "operation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "id"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "pricing",
+                  "import"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              }
+            }
+          },
+          "comparisonUnavailable": {
+            "type": "boolean"
+          },
+          "priceContext": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PriceContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "uploading",
+              "queued",
+              "running",
+              "ready",
+              "invalid",
+              "completed",
+              "completed_with_issues",
+              "blocked",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "all",
+              "retail",
+              "display",
+              "new"
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "const": 100
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/OperationPriceResult"
+            }
           }
         }
       }

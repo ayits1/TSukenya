@@ -54,7 +54,10 @@ export function validateEffectivePricing(v: Record<string, unknown>): void {
     (c.storeId === null) !== (c.storeName === null)
   )
     throw new Error('Invalid effective price context');
-  const p = v.effectivePromotion;
+  validateEffectivePromotion(v.effectivePromotion);
+}
+
+export function validateEffectivePromotion(p: unknown): asserts p is EffectivePromotion | null {
   if (p === null) return;
   if (!p || typeof p !== 'object' || Array.isArray(p))
     throw new Error('Invalid effective promotion');

@@ -5,12 +5,13 @@ import uuid
 from django.utils import timezone
 
 from django.contrib.auth.models import User
-from django.test import TestCase, TransactionTestCase
+from django.test import TransactionTestCase
 
 from server.erp.models import AuditEvent, Document, LedgerLock, PortalSession, Profile, Store, LegacyCreateReceipt, ExpenseCategory, MonthlyBudget, CashEntry, StockEntry
 
 
-class LegacyFinancialScopeTests(TestCase):
+class LegacyFinancialScopeTests(TransactionTestCase):
+    # Price preview establishes a real READ ONLY snapshot, outside TestCase's wrapper.
     def test_network_scope_rechecked_after_ledger_wait(self):
         from unittest.mock import patch
         from server.erp import views

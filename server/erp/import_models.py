@@ -24,6 +24,8 @@ class CatalogImportRun(models.Model):
     default_markup=models.CharField(max_length=32,blank=True)
     source_hash=models.CharField(max_length=64,blank=True)
     generic_as=models.CharField(max_length=8,blank=True)
+    # NULL explicitly marks legacy runs without a frozen price comparison context.
+    price_context=models.JSONField(null=True)
     pricing_config=models.JSONField(default=dict)
     pricing_revision=models.CharField(max_length=64,blank=True)
     plan_revision=models.CharField(max_length=64,blank=True)
@@ -64,6 +66,7 @@ class CatalogImportRow(models.Model):
     current_revision=models.CharField(max_length=64,blank=True)
     data=models.JSONField(default=dict)
     preview=models.JSONField(default=dict)
+    price_result=models.JSONField(null=True)
     effective_revision=models.CharField(max_length=64,blank=True)
     error=models.JSONField(null=True)
     class Meta:
