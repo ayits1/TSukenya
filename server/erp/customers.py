@@ -3,14 +3,15 @@ import re
 from datetime import date
 from decimal import Decimal
 
-from django.db.models import Count, Max, Min, Q, Sum
+from django.db.models import BooleanField, Case, Count, Max, Min, Q, Sum, Value, When
 from django.utils import timezone
 
-from .browsing import PAGE_SIZE, page_bounds, page_number, positive_integer, with_settlements
+from .browsing import PAGE_SIZE, page_bounds, page_number, positive_integer
 from .historical_reports import read_snapshot
 from .models import Counterparty, Store, Voucher
 from .reporting import scoped
-from .services import BusinessError, ZERO, money, obligation, require
+from .services import BusinessError, ZERO, current_actor, money, require
+from .settlements import current_source_obligations
 
 READ_ROLES = {'owner', 'manager', 'cashier', 'accountant'}
 FINANCE_ROLES = {'owner', 'manager', 'accountant'}
@@ -33,6 +34,7 @@ def contact(row):
 def list_customers(user, params):
     """Contacts are a shared directory, as in the existing ERP; metrics are store-scoped."""
     with read_snapshot():
+        user = current_actor(user)
         access(user, params)
         query = Counterparty.objects.filter(kind='customer')
         search = params.get('q', '').strip()
@@ -52,6 +54,7 @@ def list_customers(user, params):
 
 def profile(user, identifier, params):
     with read_snapshot():
+        user = current_actor(user)
         store = access(user, params)
         customer = Counterparty.objects.filter(pk=identifier, kind='customer').first()
         require(customer is not None, 'Клієнта не знайдено.')
@@ -72,15 +75,22 @@ def profile(user, identifier, params):
         debt = None
         if user.profile.role in FINANCE_ROLES:
             outstanding, overdue, debt_count, overdue_count, invalid_due = ZERO, ZERO, 0, 0, 0
-            invoices = with_settlements(sources.filter(kind__in=['sale', 'debt_opening']))
-            # Bound in-memory invoice/event batches; reuse the posting calculator, including advances.
-            for invoice in invoices.order_by('pk').iterator(chunk_size=200):
-                amount = obligation(invoice, settlements=invoice.browse_settlements, allocations=invoice.browse_allocations)
+            invoices = sources.filter(kind__in=['sale', 'debt_opening']).annotate(
+                # Preserve the old truthiness rule without decoding a structured due date.
+                crm_due_empty=Case(When(Q(payload__due_date={}) | Q(payload__due_date=[]),
+                                       then=Value(True)), default=Value(False), output_field=BooleanField()))
+            for invoice, amount in current_source_obligations(invoices.order_by('pk')):
                 if amount <= ZERO:
                     continue
                 outstanding += amount
                 debt_count += 1
-                raw = invoice.payload.get('due_date', '')
+                require(not invoice.report_payload_bad,
+                        f'Документ {invoice.pk} має некоректні реквізити показника; перевірте регістри.')
+                if invoice.report_due_bad:
+                    invalid_due += int(not invoice.crm_due_empty)
+                    continue
+                kind = invoice.report_due_kind
+                raw = (kind == 'true' if kind in {'true', 'false'} else invoice.report_due) if invoice.report_due_present else ''
                 if raw:
                     try:
                         require(isinstance(raw, str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', raw), 'Некоректна дата.')
