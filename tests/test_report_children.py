@@ -194,3 +194,35 @@ class ReportChildrenTests(TransactionTestCase):
         manager=User.objects.create(username='scoped-manager');Profile.objects.create(user=manager,role='manager',store=self.store)
         with self.materialization() as materialized:manager_page=reports.rows(manager,{'mode':'period','section':'cashiers'})
         self.assertEqual(materialized['workers'],0);self.assertTrue(all('late_return_bonus' not in row for row in manager_page['items']))
+
+    def test_zero_period_cancellation_skips_malformed_inventory_children(self):
+        from server.erp.historical_reports import period
+        invalid=self.voucher('inventory',payload={'differences':{'unneeded':[1]*501}})
+        Voucher.objects.filter(pk=invalid.pk).update(status='reversed',reversed_at=timezone.now())
+        valid=self.voucher('inventory',payload={'differences':[{'product':'products/p','value':'1.02'}]})
+        VoucherLine.objects.create(voucher=valid,product=self.p,name='Product',unit='шт',quantity=0,price=0,amount=0,cost=0)
+        old=period(self.u,{'from':self.today,'to':self.today})
+        with self.materialization() as materialized:
+            result=reports.rows(self.u,{'mode':'period','from':self.today,'to':self.today,'section':'products'})
+        self.assertEqual(result['summary']['inventory_adjustment'],old['inventory_adjustment'])
+        self.assertEqual(result['summary']['inventory_adjustment'],'1.02')
+        self.assertEqual(result['items'],old['products'])
+        self.assertEqual(materialized['payload_children'],0)
+        self.assertEqual(materialized['json_rows'],1)
+
+    def test_legacy_reference_and_cross_source_allocation_preserve_distinct_suppression(self):
+        first=self.voucher('sale',party=self.customer,total=10)
+        second=self.voucher('sale',party=self.customer,total=10)
+        payment=self.voucher('payment',party=self.customer,reference=first,total=5)
+        # Historical direct-reference payment plus allocation to another source:
+        # obligation mapping is per source, advance suppression is any mapping.
+        PaymentAllocation.objects.create(settlement=payment,payment=payment,source=second,amount=2)
+        related,allocated=context([first,second],timezone.localdate())
+        old={source.pk:obligation(source,settlements=related[source.pk],allocations=allocated[source.pk]) for source in (first,second)}
+        self.assertEqual(children.obligations([first,second],timezone.localdate()),old)
+        self.assertEqual(old,{first.pk:Decimal('5.00'),second.pk:Decimal('8.00')})
+        self.assertEqual(children.advances([payment],timezone.localdate()),advance_balances([payment],timezone.localdate()))
+        self.assertEqual(children.advances([payment],timezone.localdate())[payment.pk],Decimal('3.00'))
+        Voucher.objects.filter(pk=second.pk).update(status='reversed',reversed_at=timezone.now())
+        self.assertEqual(children.advances([payment],timezone.localdate()),advance_balances([payment],timezone.localdate()))
+        self.assertEqual(children.advances([payment],timezone.localdate())[payment.pk],Decimal('5.00'))

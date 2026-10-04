@@ -125,3 +125,21 @@ Source commit `103b036b8a98baca7ed3af4fd2cde1c0ae0c212c`; підсумок count
 Instrumentation: weakref живих VoucherLine/WorkShift, JSONField decode observer, заборона deferred payload fetch, wrapper actual chunked_cursor.fetchmany (кількість отриманих tuples і JSON rows). Optional `REPORT_CHILDREN_PROOF_DIR` пише лише synthetic test counters у `{sqlite,postgresql}.jsonl`; artifact цієї задачі `/tmp/tsukenya-report-children-proof/`. Старий prefetch counter має `legacy_prefetch:true` і є навмисним reproduction, не новим PASS bound.
 
 Новий UI/контракт не змінено, тому попередні native/decoder/layout/CSV докази reuse. Не перевірено production capacity, total DB-process memory, довільний розмір scalar value, timeout/disk budget або persistent cache; не запускались full suite чи deployment. Старий compatibility report/default mutation read fanout поза цим пакетом.
+
+
+### Root інтеграція child fanout
+
+Root переніс тільки own103b036/5c4b7fb поверх accepted main71. Report runtime
+source SHA256 збігається з delivery; його base94→main71 reporting/settlement
+inputs не змінені. Незмінені author7 PG/SQLite та4matching PG докази використані
+повторно. Source review підтвердило паритет rounding/legacy suppression,
+Kyiv reversal/nonzero-period, inventory duplicate multiplicity та payroll
+privacy; SQL fragments whitelist, request/ORM values параметризовані.
+
+Root додав2 окремі boundary кейси: zero-period cancellation не читає malformed
+inventory children; historical direct-reference payment + allocation іншому
+source зберігає різні obligation/per-source та advance/any-map suppression,
+у т.ч. після скасування другого source. Ізольована PostgreSQL2 PASS0.392s:
+DB tsukenya_root_report_children; materialization counters у
+`/tmp/tsukenya-root-report-children/postgresql.jsonl`. Business adapters не
+змінювалися. Повного локального прогону та deployment не було.
