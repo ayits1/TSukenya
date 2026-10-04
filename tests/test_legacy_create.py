@@ -84,7 +84,8 @@ class LegacyCreateTests(TestCase):
         value = {'title': 'Ідея', 'order': 123}
         identifier = self.create('ideas', value).json()['id']
         path = '/api/docs/ideas/' + identifier
-        deleted = self.client.delete(path, **self.headers)
+        from server.erp.managed_alerts import task_revision
+        deleted = self.client.delete(path, **self.headers,HTTP_IF_MATCH=task_revision(Document.objects.get(pk='ideas/'+identifier)))
         self.assertEqual(deleted.status_code, 200)
         self.assertIsNotNone(LegacyCreateReceipt.objects.get().deleted_at)
         restored = self.client.put(path, value, content_type='application/json', **self.headers)

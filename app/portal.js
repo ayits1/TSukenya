@@ -206,6 +206,7 @@
     finally{inlineSaves.delete(key);button.disabled=false;if(pending)render();}
   }
   const budgetDrafts = new Map(), budgetSaves = new Set();
+  window.addEventListener('tsukenya:legacy-pending',()=>budgetStatus());
   const budgetFields = '[data-exp],#stores';
   const budgetKey = el => el.dataset.exp ? `amount:${el.dataset.exp}` : 'stores';
   const validStoreCount = value => Number.isInteger(value) && value>=1 && value<=1000;
@@ -227,15 +228,16 @@
     document.querySelectorAll(budgetFields).forEach(el=>{
       const draft=budgetDrafts.get(budgetKey(el));
       if(draft?.error)el.setAttribute('aria-invalid','true');else el.removeAttribute('aria-invalid');
-      el.disabled=budgetSaves.has(budgetKey(el))||orphaned.some(([key])=>key===budgetKey(el));
+      el.disabled=budgetSaves.has(budgetKey(el))||!!el.dataset.exp&&window.LegacyEditors?.isPending('expenses',el.dataset.exp)||orphaned.some(([key])=>key===budgetKey(el));
     });
-    document.querySelectorAll('[data-del-exp]').forEach(el=>el.disabled=budgetSaves.has(`amount:${el.dataset.delExp}`)||!S.expenses.some(e=>e.id===el.dataset.delExp));
+    document.querySelectorAll('[data-del-exp]').forEach(el=>el.disabled=budgetSaves.has(`amount:${el.dataset.delExp}`)||window.LegacyEditors?.isPending('expenses',el.dataset.delExp)||!S.expenses.some(e=>e.id===el.dataset.delExp));
+    document.querySelectorAll('[data-exp-cat],[data-legacy-edit=expenses]').forEach(el=>el.disabled=budgetSaves.has(`amount:${el.dataset.expCat||el.dataset.id}`)||window.LegacyEditors?.isPending('expenses',el.dataset.expCat||el.dataset.id));
   }
   function trackBudget(el){
     const key=budgetKey(el),previous=budgetDrafts.get(key);
     const exists=!el.dataset.exp||S.expenses.some(e=>e.id===el.dataset.exp);
     if(exists && el.value!=='' && Number(el.value)===budgetSavedValue(el) && el.checkValidity())budgetDrafts.delete(key);
-    else budgetDrafts.set(key,{value:el.value,label:el.getAttribute('aria-label')||'Планова кількість магазинів',error:previous?.value===el.value?previous.error:''});
+    else budgetDrafts.set(key,{baseline:previous?.baseline||structuredClone(S.expenses.find(e=>e.id===el.dataset.exp)),value:el.value,label:el.getAttribute('aria-label')||'Планова кількість магазинів',error:previous?.value===el.value?previous.error:''});
     budgetStatus();
   }
   async function saveBudget(el){
@@ -250,7 +252,7 @@
     try{
       if(!db)throw Error('Зміни зараз не зберігаються.');
       const value=Number(draft.value);
-      if(el.dataset.exp)await db.collection('expenses').doc(el.dataset.exp).update({amount:value});
+      if(el.dataset.exp){const saved=await window.LegacyEditors.update('expenses',draft.baseline,{amount:window.NativeLegacyEditor.legacyMoney(draft.value)},()=>{if(budgetDrafts.get(key)===draft)budgetDrafts.delete(key);budgetStatus();});if(!saved){draft.error='Чернетка залишена в редакторі узгодження.';return;}}
       else {const ref=db.doc('settings/main'),snapshot=await ref.get();await (snapshot.exists?ref.update({budgetStores:value}):ref.set({budgetStores:value}));}
       if(budgetDrafts.get(key)===draft)budgetDrafts.delete(key);
     }catch(error){
@@ -262,7 +264,7 @@
   async function deleteBudget(id){
     const key=`amount:${id}`;if(budgetSaves.has(key))return;
     budgetSaves.add(key);budgetStatus();
-    try{if(await del('expenses',id))budgetDrafts.delete(key);}
+    try{const e=S.expenses.find(x=>x.id===id);if(await window.LegacyEditors.remove('expenses',e,()=>{budgetDrafts.delete(key);budgetStatus();}))budgetDrafts.delete(key);}
     finally{budgetSaves.delete(key);budgetStatus();if(pending)render();}
   }
   const inlineFields = '#newWork,#newWorkDue,#newTask,#newTaskStage,#newIdea,[data-newexp]';
@@ -424,6 +426,7 @@
     if(next!==tab && (window.CatalogImport?.pending()||window.CatalogPricing?.pending())){toast("Дочекайтеся завершення збереження.");history.replaceState(null,"","#"+SECTIONS[tab][0]+"/"+tab);return;}
     if(next!==tab && tab==='expenses' && window.MonthlyBudgets && !window.MonthlyBudgets.canLeave()){history.replaceState(null,'','#operations/expenses');return;}
     if(next!==tab && window.BusinessInitiatives && !window.BusinessInitiatives.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+    if(next!==tab && window.LegacyEditors&&!window.LegacyEditors.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && budgetSaves.size){toast('Дочекайтеся збереження бюджету.');history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     const draftKeys={work:['addWork'],tasks:['addTask'],ideas:['addIdea',...[...createPending.keys()].filter(key=>key.startsWith('ideaTask:'))],expenses:['addExp:fixed','addExp:variable']}[tab]||[];
     if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size)){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
@@ -585,7 +588,7 @@
     const canEdit=t.permissions?.canEdit??!window.TSUKENYA_SERVER,canDelete=t.permissions?.canDelete??!window.TSUKENYA_SERVER;
     const status=canEdit&&!window.ManagedAlerts?.system(t)?`<button class="chip ${s}" data-cycle="${esc(t.id)}" aria-label="${esc(t.title)}: ${ST_LABEL[s]}. Змінити на ${ST_LABEL[ST_NEXT[s]]}" title="Натисніть, щоб змінити статус">${ST_LABEL[s]}</button>`:`<span class="chip ${s}">${ST_LABEL[s]}</span>`;
     const context=t._alertKey?'Системне нагадування':t.scope==='operations'&&!t.store?'Задача мережі':'';
-    return `<div class="task ${s}" data-task-id="${esc(t.id)}" tabindex="-1">${status}<span class="t">${esc(t.title)}${context?`<small class="task-date">${context}${!canEdit?' · лише перегляд':''}</small>`:''}${t._alertNote?`<small class="task-date">${esc(t._alertNote)}${t._alertNoteAt?' · '+esc(new Date(t._alertNoteAt).toLocaleString('uk-UA')):''}${t._alertCycle>1?' · цикл '+esc(t._alertCycle):''}</small>`:''}${window.ManagedAlerts?.row(t)||''}${window.BusinessInitiatives?.taskLink(t.initiative)||''}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span>${canDelete?`<button class="x" data-del-task="${esc(t.id)}" aria-label="Видалити задачу: ${esc(t.title)}">×</button>`:''}</div>`;
+    return `<div class="task ${s}" data-task-id="${esc(t.id)}" tabindex="-1">${status}<span class="t">${esc(t.title)}${context?`<small class="task-date">${context}${!canEdit?' · лише перегляд':''}</small>`:''}${t._alertNote?`<small class="task-date">${esc(t._alertNote)}${t._alertNoteAt?' · '+esc(new Date(t._alertNoteAt).toLocaleString('uk-UA')):''}${t._alertCycle>1?' · цикл '+esc(t._alertCycle):''}</small>`:''}${window.ManagedAlerts?.row(t)||''}${window.BusinessInitiatives?.taskLink(t.initiative)||''}${t.dueDate?`<small class="task-date">До ${esc(new Date(t.dueDate+'T12:00:00').toLocaleDateString('uk-UA'))}</small>`:''}</span>${canEdit&&!window.ManagedAlerts?.system(t)?`<button class="btn soft" data-legacy-edit="tasks" data-id="${esc(t.id)}">Редагувати</button>`:''}${canDelete?`<button class="x" data-del-task="${esc(t.id)}" aria-label="Видалити задачу: ${esc(t.title)}">×</button>`:''}</div>`;
   }
   function tasks(){
     const opts = STAGES.map(s=>`<option value="${s.n}">${s.n}. ${esc(s.name)}</option>`).join("");
@@ -604,7 +607,7 @@
   function ideaCard(i){
     const r = i.reaction, linked=developmentTasks().find(t=>t.ideaId===i.id);
     return `<article class="idea ${r||""}"><h3>${esc(i.title)}</h3><p class="muted">${esc(i.text)}</p>
-      <div class="acts">${r ? `<span class="muted">${r==="yes"?"Обрано для реалізації":"Відкладено"}</span><button class="btn soft" data-react="${i.id}" data-v="">Змінити</button>`
+      <div class="acts">${i.permissions?.canEdit?`<button class="btn soft" data-legacy-edit="ideas" data-id="${esc(i.id)}">Редагувати</button>`:''}${r ? `<span class="muted">${r==="yes"?"Обрано для реалізації":"Відкладено"}</span><button class="btn soft" data-react="${i.id}" data-v="">Змінити</button>`
         : `<button class="btn rasp" data-react="${i.id}" data-v="yes">Обрати</button><button class="btn soft" data-react="${i.id}" data-v="no">Відкласти</button>`}${window.TSUKENYA_SERVER&&(i.initiative||r==='yes')?(i.initiative?window.BusinessInitiatives?.taskLink(i.initiative)||'':`<button class="btn rasp" data-initiative-create="${esc(i.id)}">Створити проєкт</button>`):''}${r==='yes'?(linked?'<a class="btn soft" href="#development/tasks">Перейти до плану</a>':`<button class="btn" data-idea-task="${esc(i.id)}">Створити задачу</button>`):''}</div></article>`;
   }
   function ideas(){
@@ -1498,7 +1501,7 @@
   }
   function expRow(e){
     const category=budgetCategory(e);
-    return `<div class="exp"><span class="n">${esc(e.name)}${window.TSUKENYA_SERVER?`<label class="exp-cat">Категорія обліку <select data-exp-cat="${esc(e.id)}" aria-label="Категорія обліку: ${esc(e.name)}">${BUDGET_CATEGORIES.map(c=>`<option ${c===category?'selected':''}>${c}</option>`).join('')}</select></label>`:''}</span><div class="expense-amount"><input type="number" inputmode="decimal" required min="0" max="99999999.99" step="0.01" value="${num(e.amount)}" data-exp="${esc(e.id)}" aria-label="${esc(e.name)}, грн на місяць" aria-describedby="budgetSaveError"><span class="muted">грн</span></div><button class="x" data-del-exp="${esc(e.id)}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div>`;
+    return `<div class="exp"><span class="n">${esc(e.name)}${window.TSUKENYA_SERVER?`<label class="exp-cat">Категорія обліку <select data-exp-cat="${esc(e.id)}" aria-label="Категорія обліку: ${esc(e.name)}">${BUDGET_CATEGORIES.map(c=>`<option ${c===category?'selected':''}>${c}</option>`).join('')}</select></label>`:''}</span><div class="expense-amount"><input type="number" inputmode="decimal" required min="0" max="99999999.99" step="0.01" value="${num(e.amount)}" data-exp="${esc(e.id)}" aria-label="${esc(e.name)}, грн на місяць" aria-describedby="budgetSaveError"><span class="muted">грн</span></div><button class="btn soft" data-legacy-edit="expenses" data-id="${esc(e.id)}">Редагувати</button><button class="x" data-del-exp="${esc(e.id)}" aria-label="Видалити статтю: ${esc(e.name)}">×</button></div>`;
   }
   function expenses(){
     if(window.TSUKENYA_ROLE && window.TSUKENYA_ROLE!=='owner')return '<section class="panel"><p role="status">Бюджет витрат доступний власнику мережі.</p><a class="btn soft" href="#operations/overview">До операційного огляду</a></section>';
@@ -1545,6 +1548,7 @@
   document.addEventListener("click", e=>{
     if(e.target.closest(".skip-link")){e.preventDefault();$("#main").focus();return;}
     if (S.openF && !e.target.closest(".dd")){ S.openF = null; refreshFilters(); }
+    const recordEdit=e.target.closest('[data-legacy-edit]');if(recordEdit){const collection=recordEdit.dataset.legacyEdit,id=recordEdit.dataset.id;window.LegacyEditors.edit(collection,S[collection].find(x=>x.id===id));return;}
     const field=e.target.closest('#individualPreview [data-field]');if(field){selectField(field.dataset.field);return;}
     const t = e.target.closest("button"); if(!t) return;
     if(t.id==='retryRefresh'){void retryRefresh(t);return;}
@@ -1557,11 +1561,11 @@
     if (t.dataset.ddtoggle!==undefined){ const k = t.dataset.ddtoggle; S.openF = S.openF===k ? null : k; refreshFilters({t:k}); return; }
     if (t.dataset.fclear!==undefined){ S.catalogPage=1;curF()[t.dataset.fclear].clear(); refreshFilters({t:t.dataset.fclear}); return; }
     if (t.dataset.alertAction){void window.ManagedAlerts?.handle(t);return;}
-    if (t.dataset.cycle){ const k=S.tasks.find(x=>x.id===t.dataset.cycle); upd("tasks",k.id,{status:ST_NEXT[k.status||"todo"]}); return; }
-    if (t.dataset.delTask){ if(confirm("Видалити задачу?")) del("tasks",t.dataset.delTask,"Задачу видалено"); return; }
-    if (t.dataset.react!==undefined && t.dataset.react){ upd("ideas",t.dataset.react,{reaction:t.dataset.v||null}, t.dataset.v==="yes"?"Ідею обрано":t.dataset.v==="no"?"Записав: відкладаємо":null); return; }
+    if (t.dataset.cycle){ const k=S.tasks.find(x=>x.id===t.dataset.cycle); void window.LegacyEditors.update('tasks',k,{status:ST_NEXT[k.status||'todo']}); return; }
+    if (t.dataset.delTask){const k=S.tasks.find(x=>x.id===t.dataset.delTask);void window.LegacyEditors.remove('tasks',k);return;}
+    if (t.dataset.react!==undefined && t.dataset.react){const i=S.ideas.find(x=>x.id===t.dataset.react);void window.LegacyEditors.update('ideas',i,{reaction:t.dataset.v||null});return;}
     if (t.dataset.delProd){ if(confirm("Видалити товар?")) del("products",t.dataset.delProd,"Товар видалено"); return; }
-    if (t.dataset.delExp){ if(confirm("Видалити статтю витрат?"))void deleteBudget(t.dataset.delExp); return; }
+    if (t.dataset.delExp){void deleteBudget(t.dataset.delExp);return;}
     if(t.dataset.budgetDiscard){budgetDrafts.delete(t.dataset.budgetDiscard);budgetStatus();return;}
     const a = t.dataset.act;
     if(a==='retry-budget'){document.querySelectorAll(budgetFields).forEach(el=>{if(budgetDrafts.has(budgetKey(el)))void saveBudget(el);});return;}
@@ -1644,7 +1648,7 @@
       else if (el.dataset.pf==="markup") upd("products",p.id,{markup:v,manualPrice:false,price:null,priceAt:today()});
       else upd("products",p.id,{cost:v,priceAt:today()}); return; }
     if (el.dataset.exp){ void saveBudget(el); return; }
-    if (el.dataset.expCat){ const e=S.expenses.find(x=>x.id===el.dataset.expCat); if(!e) return; e.category=el.value; render(); upd('expenses',e.id,{category:el.value},'Категорію статті збережено'); return; }
+    if (el.dataset.expCat){ const e=S.expenses.find(x=>x.id===el.dataset.expCat);if(!e)return;void window.LegacyEditors.update('expenses',e,{category:el.value}); return; }
     if (el.dataset.qty){ const id = el.dataset.qty, v = Math.round(num(el.value));
       if (v <= 0){ S.tagSel.delete(id); S.tagQty[id] = 1; } else { S.tagQty[id] = Math.min(500, v); S.tagSel.add(id); }
       syncChecks(); renderPreview(); return; }
@@ -1697,7 +1701,7 @@
     db = d; clearTimeout(noDbTimer);
     const byOrder = (a,b)=>(a.order??0)-(b.order??0);
     const sub = (col, key, sort) => db.collection(col).onSnapshot(s=>{
-      S[key] = s.docs.map(x=>({id:x.id, ...x.data(),...(['tasks','ideas'].includes(col)?{permissions:x.permissions?.(),initiative:x.initiative}: {}),...(col==='tasks'?{revision:x.revision}: {})})).sort(sort); render();
+      S[key] = s.docs.map(x=>({id:x.id, ...x.data(),...(['tasks','ideas','expenses'].includes(col)?{revision:x.revision,permissions:x.permissions?.(),initiative:x.initiative}: {})})).sort(sort); render();
     }, ()=>{});
     sub("tasks","tasks",(a,b)=>(a.stage-b.stage)||byOrder(a,b));
     sub("ideas","ideas",byOrder);

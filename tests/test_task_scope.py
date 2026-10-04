@@ -41,7 +41,10 @@ class TaskScopeTests(TestCase):
         self.user.profile.save(update_fields=['role', 'store'])
 
     def write(self, method, path, value=None):
-        return getattr(self.client, method)(path, value, content_type='application/json', **self.headers)
+        from server.erp.managed_alerts import task_revision
+        doc=Document.objects.filter(pk=path.removeprefix('/api/docs/')).first() if path.startswith(('/api/docs/tasks/','/api/docs/ideas/','/api/docs/expenses/')) else None
+        observed={'HTTP_IF_MATCH':task_revision(doc)} if doc else {}
+        return getattr(self.client, method)(path, value, content_type='application/json', **(self.headers | observed))
 
     def items(self):
         return {item['id']: item for item in self.client.get('/api/state').json()['data']['tasks']}

@@ -223,6 +223,10 @@ def handle_portal(request,user):
     from .views import response,legacy_state
     path=request.path
     if request.method=='GET':
+        record=re.fullmatch(r'/api/v1/portal/records/(tasks|ideas|expenses)/([A-Za-z0-9_-]{1,120})',path)
+        if record:
+            from .legacy_records import read_record
+            return response(read_record(user,*record.groups()))
         if path=='/api/v1/portal/state':
             from .state_polling import state_response
             return state_response(request,user,lambda actor,effective_day:legacy_state(actor,effective_day,include_products=False),metadata=True)

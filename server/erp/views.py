@@ -119,9 +119,9 @@ def legacy_state(user, effective_day=None, *, include_products=True):
                     product['price']=product['regularPrice']
                     product['manualPrice']=True
             data[col].append({'id':id,'data':product,
-                             **({'permissions':{'canEdit':False,'canDelete':False} if link else task_permissions(user,d.path,product)} if col=='tasks' else {}),
+                             **({'permissions':{'canEdit':False,'canDelete':False} if link else task_permissions(user,d.path,product)} if col=='tasks' else {'permissions':{'canEdit':user.profile.role=='owner','canDelete':user.profile.role=='owner' and not bool(link)}} if col in {'ideas','expenses'} else {}),
                              **({'initiative':initiative} if initiative else {}),
-                             **({'revision':revision(d,catalog_config)} if col=='products' else {'revision':task_revision(d)} if col=='tasks' else {})})
+                             **({'revision':revision(d,catalog_config)} if col=='products' else {'revision':task_revision(d)} if col in {'tasks','ideas','expenses'} else {})})
         elif d.path=='settings/main':data[d.path]=settings_for_role(d.data,user.profile.role,user.profile.store_id)
         elif d.path=='project/state' and user.profile.role=='owner':data[d.path]=d.data
     return data
@@ -186,6 +186,11 @@ def legacy_mutation(request,user,path,create_key=None):
     if col=='tasks' and d is not None:
         from .task_scope import authorize_task
         authorize_task(user,d.data)
+    if col in {'tasks','ideas','expenses'} and create_key is None and (d is not None or request.method in {'PATCH','DELETE'} or request.headers.get('If-Match')):
+        from .managed_alerts import task_revision
+        if d is None:return response({'error':'Запис більше недоступний. Чернетка збережена.','code':'record_missing'},409)
+        if not request.headers.get('If-Match'):return response({'error':'Передайте початкову версію запису.','code':'revision_required'},428)
+        if request.headers['If-Match']!=task_revision(d):return response({'error':'Запис уже змінено. Чернетка збережена: узгодьте зміни.','code':'revision_conflict'},409)
     if path=='settings/main' and request.headers.get('If-Match'):
         from .labels import revision as label_revision
         if request.headers['If-Match'] != label_revision(d.data if d else {}):
@@ -241,8 +246,20 @@ def legacy_mutation(request,user,path,create_key=None):
             return response({'ok':True,'id':id,'replayed':True})
         if create_key is not None and d is not None:
             return response({'error':'Запис уже існує. Створення не може його замінити.','code':'create_exists'},409)
+        if request.method=='PUT' and d is not None and create_key is None and col in {'tasks','ideas','expenses'}:
+            if col=='tasks':
+                from .task_scope import alert_task
+                require(not alert_task(path,d.data),'Системну задачу змінює лише її робочий процес.')
+            from .legacy_records import validate_patch
+            value=validate_patch(col,value,d.data)
         if request.method=='PATCH':
             require(d is not None,'Запис не знайдено.')
+            if col in {'tasks','ideas','expenses'}:
+                from .legacy_records import validate_patch
+                if col=='tasks' and set(value)&{'scope','store'}:
+                    from .task_scope import prepare_task
+                    prepare_task(user,path,{**d.data,**value},d.data)
+                value=validate_patch(col,value,d.data)
             prior=dict(d.data)
             if path=='settings/main' and 'storeNames' in value:
                 from .budget import freeze_budget
@@ -284,6 +301,10 @@ def legacy_mutation(request,user,path,create_key=None):
         from .labels import revision as label_revision
         saved=Document.objects.filter(pk=path).first()
         return response({'ok':True,'id':id,'revision':label_revision(saved.data if saved else {})})
+    if col in {'tasks','ideas','expenses'} and request.method!='DELETE':
+        from .managed_alerts import task_revision
+        saved=Document.objects.get(pk=path)
+        return response({'ok':True,'id':id,'revision':task_revision(saved)})
     return response({'ok':True,'id':id})
 
 @transaction.atomic
@@ -477,7 +498,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -524,7 +545,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/portal-api.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/legacy-record-editor.js','/portal-api.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':

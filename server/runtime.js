@@ -78,6 +78,7 @@
   async function mutate(method, path, value, options) {
     const productId=path.startsWith('/api/docs/products/')?path.slice('/api/docs/products/'.length):null;
     if(productId&&!options?.revision)throw new Error('Product revision required; read product detail before changing it');
+    if(/^\/api\/docs\/(tasks|ideas|expenses)\//.test(path)&&!options?.revision)throw new Error('Потрібна початкова версія запису.');
     const version=options?.revision||(path==='/api/docs/settings/main'?labelRevision:null);
     const response = await fetch(path, {
       method,

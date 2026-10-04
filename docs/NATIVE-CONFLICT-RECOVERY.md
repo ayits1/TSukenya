@@ -48,7 +48,7 @@ Create, старт/скасування, task/source attach/detach мають о
 | 3 | `app/erp.js` workShiftForm | Stable create UUID, frozen intent, GET-only retry, payroll lock. Зберегти підтверджений ID/receipt; замінити custom initial/server/form таблицю без автоматичного overwrite |
 | 4 | voucherForm / `app/erp-payments.js` | Draft revision та окремий post. Потрібні keyed B11 line/source/lot/суми й atomic allocations; posted лише readonly, не merge проведення |
 | 5 | recipeForm / `app/erp-production.js` | Immutable approved version, component/expiry policy, source revision. Рецептурна група atomic; зберегти B12/B10/B11 guards |
-| 6 | `app/portal.js` tasks/ideas/expenses | Create вже має exact immutable receipt. Для legacy edit немає record If-Match contract: спочатку серверна версія/read DTO, потім shared review |
+| 6 | `app/portal.js` tasks/ideas/expenses | Цей пакет: record If-Match + exact read DTO, shared local Apply / separate Save; create/managed/monthly окремо |
 
 Managed alerts мають окремий revision/action receipt та lifecycle. Поточні roles, money, stock, actualCOGS
 й audit authoritative на Django; зміна способу порівняння їх не змінює.
@@ -124,3 +124,73 @@ Native test створює власну SQLite та синтетичні зап�
 із повними умовами та актуальна відмова ролі. Повний набір не запускався.
 
 Root integration: TypeScript/Vite build PASS; `QA_ENTITY_OPEN_ONLY=1 QA_OUTPUT_DIR=/tmp/tsukenya-root-entity-open` native PASS підтверджує завантажений adapter, видиму відмову відкрити owner employee з неповними умовами без жодного POST. Авторський ширший workflow окремо підтвердив late read після закриття/навігації. Обидва author actual comparison PNG1440/320 переглянуті root. Ширші native докази повторно використовуються для незмінених inputs. Entity сценарій зареєстрований один раз у full entrypoint; partial flags entity/initiative/directories та їхні output paths очищаються перед явним full pass. Виконано лише `test:full -- --plan` для перевірки реєстру, без повної регресії.
+
+
+## Наявні задачі, ідеї та планові статті витрат
+
+`app/legacy-record-editor.js` використовує `NativeLegacyEditor` для строгих snapshot/DTO/whitelist
+і наявний `NativeConflictComparison` для порівняння. Другого merge-алгоритму немає.
+
+`GET /api/v1/portal/records/{tasks|ideas|expenses}/{id}` — read-only RR snapshot із точними
+`collection`, `id`, `revision`, `data`, `permissions`, `managed`, `initiative`. Він повторно перевіряє
+поточну роль/store/source. Дані іншого ID, відсутня revision/permissions, malformed money або джерело
+не приймаються. GET не створює audit чи нові записи.
+
+Для **наявного** legacy PUT/PATCH/DELETE `/api/docs/{collection}/{id}` потрібен If-Match,
+отриманий на відкритті або після явного Apply. Server під ledger lock спочатку оновлює active/profile,
+перевіряє original resource scope/source, потім token: 428 відсутній, 409 застарілий/видалений запис.
+PATCH/DELETE та PUT із observed revision не відновлюють видалений запис. Exact POST create receipts
+не змінені; нове створення без observed revision лишається окремим контрактом.
+
+Editable whitelist:
+
+| Запис | Поля | Межа |
+| --- | --- | --- |
+| manual task | title, status, dueDate; stage лише development | scope/store/source immutable; managed alerts не generic edit |
+| idea | title, text, reaction | project/source guard збережений; linked idea delete лишається забороненим |
+| legacy expense | name; atomic amount/group/category | лише network owner; окремо від MonthlyBudget і проведених витрат |
+
+Legacy необов’язкові поля можуть бути відсутні/null у read projection; незмінені відсутні поля не
+додаються PATCH-ом. Невідомі старі metadata залишаються на сервері й не реконструюються клієнтом.
+Existing PUT приймає той самий whitelist і зливає його з prior data, не стираючи metadata.
+Для expenses read amount — decimal string. Редактор нормалізує введення з комою в dot decimal string;
+сервер валідовує Decimal із точністю до копійок і записує в чинну legacy JSON numeric convention.
+Цей пакет не мігрує старе float storage і не змінює authoritative MonthlyBudget/ledger money.
+
+409 або невідомий write ACK зберігає форму і блокує Save до явного GET/порівняння. Apply приймає
+лише fresh baseline/revision + merged local draft; окремий Save робить PATCH. Latest 403/503,
+malformed/інший ID, source identity drift, cancel/close/navigation/late response не приймають revision
+і не гублять введення. Delete після конфлікту читає current record, Apply не видаляє, потрібне нове
+підтвердження видалення. Створення і lifecycle actions не переходять на generic editing.
+
+Inline expense amount має frozen baseline першої зміни. Категорія не змінюється оптимістично;
+під час запису блокується лише відповідний рядок. Незбережені інші inline drafts лишаються після
+state refresh. Поля діалогу живуть поза main rerender; reload survival не обіцяється.
+
+Цільові команди (окрема локальна БД, жодної production/Sheet):
+
+```sh
+npm exec --workspace frontend -- vitest run --project unit src/shared/native/legacy.test.ts
+npm exec --workspace frontend -- vitest run --project storybook src/shared/native/NativeConflict.stories.tsx -t 'Legacy Expense Terms'
+python manage.py test tests.test_legacy_records --noinput
+PYTHON_BIN=/path/to/python node tests/legacy-records-ui.cjs
+QA_LEGACY_INLINE_ONLY=1 PYTHON_BIN=/path/to/python node tests/legacy-records-ui.cjs
+QA_LEGACY_INPUT_ONLY=1 PYTHON_BIN=/path/to/python node tests/legacy-records-ui.cjs
+QA_LEGACY_ACK_ONLY=1 PYTHON_BIN=/path/to/python node tests/legacy-records-ui.cjs
+```
+
+Native script будує лише synthetic records у власній temporary SQLite, використовує compiled shared
+entry і Chrome. `QA_OUTPUT_DIR` або temporary `tsukenya-legacy-conflict-proof` містить main, inline, input та ACK reports і actual comparison 1440/320 PNG. Main proof: actual409, unrelated server changes,
+atomic financial choice, no PATCH before Save, lostACK, read503/malformed/current scope, cancel/late,
+fresh delete review. PG concurrency перевіряє два PATCH із одним token: рівно один200, інший409,
+один audit; connection teardown явний для thread workers. Повний прогін у розробці не виконувався.
+
+
+### Докази власного B06 legacy пакета
+
+На own source: unit3 PASS, affected Storybook1 PASS, tsc/Vite build PASS; нові PG5 API сценарії
+пройдені із вузькими повтореннями лише виправлених cases; PG simultaneous-token1 PASS.
+Чинні task/financial/create compatibility31 cases PASS (26 незмінних успіхів + повтор5 виправлених),
+runtime recovery VM PASS. Native main/inline/input/ACK targets PASS; ACK JSON null та revision array
+не приймаються як success. Окреме видалення expense має одне initial confirmation. Actual PNG1440/320
+переглянуті. Повтору всіх успішних перевірок після локальних boundary виправлень не було.
