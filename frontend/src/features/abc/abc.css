@@ -1,0 +1,115 @@
+.tk-abc {
+  color: var(--tk-ink);
+  font-family: inherit;
+  min-width: 0;
+}
+.tk-abc h2 {
+  margin: 20px 0 10px;
+  font-size: 1.4rem;
+}
+.tk-abc p {
+  overflow-wrap: anywhere;
+}
+.tk-abc-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.tk-abc-confirmed {
+  padding: 16px;
+  border: 1px solid var(--tk-line);
+  margin: 20px 0;
+  border-radius: 8px;
+  background: var(--tk-paper);
+}
+.tk-abc-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.tk-abc-summary dd {
+  margin: 8px 0;
+  font-weight: 650;
+  font-size: 1.25rem;
+}
+.tk-abc-classes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+.tk-abc-classes li {
+  border-top: 2px solid var(--tk-line);
+  padding: 12px 0;
+}
+.tk-abc-classes span {
+  display: block;
+  margin-top: 8px;
+}
+.tk-abc-rows {
+  display: grid;
+  gap: 12px;
+}
+.tk-abc-row {
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+  padding: 16px;
+}
+.tk-abc-row header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  justify-content: space-between;
+}
+.tk-abc-row strong {
+  overflow-wrap: anywhere;
+}
+.tk-abc-badge {
+  padding: 4px 8px;
+  background: var(--tk-bg);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.tk-abc-row dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.tk-abc-row dt {
+  font-size: 0.9rem;
+}
+.tk-abc-row dd {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+.tk-abc-row summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.tk-abc-pager {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.tk-abc-pager span {
+  flex: 1;
+}
+@media (max-width: 760px) {
+  .tk-abc-filters,
+  .tk-abc-summary,
+  .tk-abc-classes,
+  .tk-abc-row dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tk-abc-export {
+  color: var(--tk-ink);
+  text-decoration: none;
+}

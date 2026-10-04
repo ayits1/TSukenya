@@ -1,0 +1,524 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya ABC analytics",
+    "version": "1.0.0",
+    "description": "Поточний readonly RR-знімок. Класи за чистим виторгом; позитивний пул; рівні значення класифікуються до цілої групи. Пошук не змінює класи. Всі сторінки/CSV читають незалежно."
+  },
+  "paths": {
+    "/api/v1/trading/reports/abc": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "store",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "aThreshold",
+            "schema": {
+              "type": "string",
+              "default": "80",
+              "description": "Аналітична межа, не бізнес-політика."
+            }
+          },
+          {
+            "in": "query",
+            "name": "bThreshold",
+            "schema": {
+              "type": "string",
+              "default": "95"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            }
+          },
+          {
+            "in": "query",
+            "name": "class",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "A",
+                "B",
+                "C",
+                "unclassified"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Звіт доступних магазинів або повний CSV вибірки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректні умови"
+          },
+          "401": {
+            "description": "Сеанс завершився"
+          },
+          "403": {
+            "description": "Недостатньо поточних прав"
+          }
+        }
+      }
+    },
+    "/api/v1/trading/reports/abc/export.csv": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "store",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "aThreshold",
+            "schema": {
+              "type": "string",
+              "default": "80",
+              "description": "Аналітична межа, не бізнес-політика."
+            }
+          },
+          {
+            "in": "query",
+            "name": "bThreshold",
+            "schema": {
+              "type": "string",
+              "default": "95"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            }
+          },
+          {
+            "in": "query",
+            "name": "class",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "A",
+                "B",
+                "C",
+                "unclassified"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Звіт доступних магазинів або повний CSV вибірки",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректні умови"
+          },
+          "401": {
+            "description": "Сеанс завершився"
+          },
+          "403": {
+            "description": "Недостатньо поточних прав"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ClassSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "count",
+          "netRevenue",
+          "share"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "netRevenue": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "share": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d+\\.\\d{4}$"
+          }
+        }
+      },
+      "Summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productCount",
+          "positiveCount",
+          "zeroCount",
+          "negativeCount",
+          "mixedUnitCount",
+          "hiddenCount",
+          "netRevenue",
+          "positivePoolRevenue",
+          "negativeRevenue",
+          "netCogs",
+          "grossProfit",
+          "classes"
+        ],
+        "properties": {
+          "productCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "positiveCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "zeroCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "negativeCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mixedUnitCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hiddenCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "netRevenue": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "positivePoolRevenue": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "negativeRevenue": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "netCogs": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "grossProfit": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "classes": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "A",
+              "B",
+              "C",
+              "unclassified"
+            ],
+            "properties": {
+              "A": {
+                "$ref": "#/components/schemas/ClassSummary"
+              },
+              "B": {
+                "$ref": "#/components/schemas/ClassSummary"
+              },
+              "C": {
+                "$ref": "#/components/schemas/ClassSummary"
+              },
+              "unclassified": {
+                "$ref": "#/components/schemas/ClassSummary"
+              }
+            }
+          }
+        }
+      },
+      "Row": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "product",
+          "name",
+          "unit",
+          "quantity",
+          "unitConflicted",
+          "hiddenCurrent",
+          "netRevenue",
+          "netCogs",
+          "grossProfit",
+          "classification",
+          "share",
+          "cumulativeBefore",
+          "cumulativeAfter"
+        ],
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quantity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?\\d+\\.\\d{3}$"
+          },
+          "unitConflicted": {
+            "type": "boolean"
+          },
+          "hiddenCurrent": {
+            "type": "boolean"
+          },
+          "netRevenue": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "netCogs": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "grossProfit": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "unclassified"
+            ]
+          },
+          "share": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d+\\.\\d{4}$"
+          },
+          "cumulativeBefore": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d+\\.\\d{4}$"
+          },
+          "cumulativeAfter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d+\\.\\d{4}$"
+          }
+        }
+      },
+      "Report": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract",
+          "from",
+          "to",
+          "store",
+          "scopeName",
+          "aThreshold",
+          "bThreshold",
+          "basis",
+          "reversalPolicy",
+          "snapshot",
+          "tiePolicy",
+          "captionBasis",
+          "snapshotNotice",
+          "generatedAt",
+          "summary",
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "q",
+          "class"
+        ],
+        "properties": {
+          "contract": {
+            "const": "trading-abc-v1"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "scopeName": {
+            "type": "string"
+          },
+          "aThreshold": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "bThreshold": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$"
+          },
+          "basis": {
+            "const": "net_revenue"
+          },
+          "reversalPolicy": {
+            "const": "kyiv_reversed_at"
+          },
+          "snapshot": {
+            "const": "current"
+          },
+          "tiePolicy": {
+            "const": "before_group"
+          },
+          "captionBasis": {
+            "const": "first_contributing_line"
+          },
+          "snapshotNotice": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/Row"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "const": 30
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "class": {
+            "type": "string",
+            "enum": [
+              "",
+              "A",
+              "B",
+              "C",
+              "unclassified"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
