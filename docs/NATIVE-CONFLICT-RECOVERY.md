@@ -225,3 +225,8 @@ managed-alert1, price-task1), що отримали428 перед своєю б�
 revision без послаблення server guard; status/source/owner/maximum-cent assertions збережені.
 Expense numeric adapter збережено; додано valid decimal-string12.10, invalid string12.091 лишається400.
 Повторено лише ці чотири affected scenarios на isolated PostgreSQL: PASS0.432 s.
+
+Наступний exact-head CI: PostgreSQL662/0 skips та frontend PASS; server після Django виявив старий
+`portal-metadata-contract.cjs` без captured revision. Фікстура тепер використовує snapshot revision32,
+явно перевіряє відмову без неї та точний If-Match; попередні304/cache/GET-only/confirmed-write-barrier
+assertions збережено. Повторено лише цей VM scenario: PASS; runtime/server guard не змінені.
