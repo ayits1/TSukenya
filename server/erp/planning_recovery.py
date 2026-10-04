@@ -138,3 +138,18 @@ def category_context(user, params):
                 'role': user.profile.role, 'storeId': user.profile.store_id,
                 'networkOwner': user.profile.role == 'owner' and user.profile.store_id is None,
                 'canEdit': user.profile.role == 'owner'}
+
+
+def monthly_context(user, params):
+    """Read authorization uses frozen period/scope, never invalid newer raw filters."""
+    with read_snapshot():
+        user = current_actor(user); b = helpers(); b.owner(user)
+        require(set(params) <= {'id', 'month', 'store'}, 'Невідомий параметр відновлення.')
+        start = b.month(params.get('month')); store = b.store_for(user, params.get('store'))
+        raw = params.get('id'); key = str(b.identity(raw)) if raw else None
+        target = MonthlyBudget.objects.filter(pk=key).only('month', 'store_id').first() if key else None
+        require(target is None or (target.month == start and target.store_id == (store.pk if store else None)), 'Період або магазин запису змінено.')
+        return {'resource': 'monthly_budget', 'id': key, 'month': start.strftime('%Y-%m'),
+                'store': store.pk if store else None, 'exists': target is not None if key else None,
+                'role': user.profile.role, 'storeId': user.profile.store_id,
+                'networkOwner': user.profile.store_id is None, 'canEdit': True}

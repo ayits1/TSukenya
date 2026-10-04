@@ -18,7 +18,7 @@ ACK звіряє resource/request_key для POST, ID для PUT, revision і к
 
 Confirmed Save + збій оновлення факту — тільки GET retry. «Оновити факт і довідник» зберігає plan draft/baseline/identity, а не робить destructive reload. Паралельне збереження статті через окремий dialog оновлює choices, не стираючи план.
 
-Reload survival не додано: ключі й чернетки живуть у відкритій сторінці, beforeunload попереджає про незбережені зміни. Це чинна B06 межа. Фізичний DELETE бюджету чи нові фінансові правила не додавались.
+Історична межа цього initial пакета була лише відкритою сторінкою. Raw reload persistence, privacy/read gate та незалежний confirmed-GET cleanup тепер додано окремим [MONTHLY-DRAFT-PERSISTENCE.md](MONTHLY-DRAFT-PERSISTENCE.md) пакетом; його exact coverage не підміняє ці первинні докази. Фізичний DELETE бюджету чи нові фінансові правила не додавались.
 
 ## Цільові докази
 
