@@ -76,3 +76,20 @@ Strict runtime decoder перевіряє contract/context/dates/counts/точн
 - Незалежний metadata poll на час другого сценарію відповідає раніше отриманим synthetic DTO, щоб довести саме report adapter redirect. Це не підміна401 report endpoint.
 
 Штатний new native сценарій містить expiry proof наприкінці; `QA_REPORT_FROM=expiry` — цільовий повтор. Попередні broad native/backend перевірки не повторювалися; під час налаштування harness виправлено двозначний overview `.stats` locator і замінено читання з уже знищеного навігацією DOM на beforeunload capture.
+
+## Незалежне інтеграційне рев’ю
+
+Пакет інтегровано поверх прийнятого #61 (`b49212a`), із збереженням entity/workshift editors і route loaders.
+Root isolated PostgreSQL3 PASS (2.438 s) для HTTP/scope/no-write, N+1 cash1vs65 та actual READ ONLY/RR concurrent rename; незмінені backend inputs після caption/native patch повторно не запускалися.
+Root `node tests/bounded-reports-contract.cjs` і `PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/cashier-csv.cjs`: PASS.
+Root actual native `QA_REPORT_FROM=recovery` PASS (503 підтверджений старий контекст/новий draft/busy/GET retry/403).
+Нове рев’ю виявило401 retention замість завершення сеансу; після виправлення окремий root `QA_REPORT_FROM=expiry` PASS:
+actual expired PostgreSQL-independent SQLite PortalSession очищає приватні summary/debts/export/source перед login, late401 після cancel/navigation не перенаправляє.
+Обидві команди використовують той самий native harness та Python runtime на synthetic disposable даних.
+Final settled1440/320 PNG переглянуті. Це не повтор дев’яти старих browser families; їхні дати/суми/privacy/keyboard assertions адаптовано зі збереженням змісту.
+Unrelated entity400 validation gate збережено; тимчасовий503 замість400 у fixture прибрано.
+
+CI реєструє dependency-free report decoder та synthetic authoritative cashier CSV; full runner — один default bounded reports harness і ці дві pure перевірки,
+зі scrub partial flags QA_REPORT_FROM/QA_REPORT_DATE_TAIL/output. `test:full -- --plan` тільки dry-run. Full regression/deployment не запускалися.
+Optional native directory filters поки втрачають видимий підпис empty option; окремий shared-control follow-up розпочато,
+без приписування порожнього значення вибраному record ID або тексту пошуку.

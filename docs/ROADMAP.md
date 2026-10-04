@@ -133,3 +133,9 @@ B21 пакет прийнято в [#53](https://github.com/ayits1/TSukenya/pull
 ## B24: деталі документів та локальний posting probe
 
 Наступний пакет для PR/CI усуває per-line DTO queries: receipt100409→10SQL, sale100309→10SQL; суми повернень і receipt lineage читаються batch тільки для конкретного документа. Root integrated PostgreSQL3, agent matching6, independent legacy DTO parity та scope/retry докази успішні. [B24-DOCUMENT-POSTING.md](B24-DOCUMENT-POSTING.md) містить source-hashed local1/5/10 concurrent create/post/exact-retry baseline. Accounting lock/posting/formulas не змінені; unchanged posting waves не повторювалися після serializer-only patch. Цей локальний one-process probe не є VPS/network SLA. B24 slim ERP/global runtime bootstrap лишається незавершеним.
+
+
+## Поточне автономне продовження · 04.10.2026
+
+Прийнято #57–#61: compact portal metadata, initiative/entity/workshift conflict recovery та bounded trading directories. Exact-head CI й відповідні native/PG докази описані в [PLAN-COMPLETION-AUDIT.md](PLAN-COMPLETION-AUDIT.md); canonical local main synchronized throughb49212a (#61).
+Наступний report пакет інтегровано для рев’ю/CI: bounded pages і full server CSV; [B24-BOUNDED-REPORTS.md](B24-BOUNDED-REPORTS.md). Legacy record recovery проходить рев’ю, voucher/payment і recipe пакети реалізуються окремо. Це не закриває весь B06/B24, повну React/CRM міграцію, release/full gate, production capacity чи зовнішні інтеграції; deployment і0.1 зберігають попередній режим.

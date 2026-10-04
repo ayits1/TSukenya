@@ -182,3 +182,11 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B06 workshift:** інтегровано для PR/CI. Незалежне root рев’ю відтворило invalid semantic payment terms і підтвердило виправлення; unit reproduction7/combined build/actual narrow semantic PASS, actual320/1440 PNG переглянуто. [WORK-SHIFT-CONFLICT-RECOVERY.md](WORK-SHIFT-CONFLICT-RECOVERY.md). Це не закриває vouchers/payments, recipes, monthly/legacy та reload survival.
 - **B24 reports:** backend root PostgreSQL3 PASS; native delivery отримано, source/старі adapter fixtures та remaining integration проходять рев’ю.
 - Повний regression, production release/VPS та виключений backup0.1 не виконані.
+
+
+## Після прийняття #61 · mainb49212a · 04.10.2026
+
+- **B06 workshift:** #61 MERGED, exact head838aea8 frontend/server/PostgreSQL CI успішні. Independent semantic reproduction та actual narrow refusal/recovery PASS; canonical clone fast-forwardb49212a clean. [WORK-SHIFT-CONFLICT-RECOVERY.md](WORK-SHIFT-CONFLICT-RECOVERY.md).
+- **B24 reports:** bounded summary/page30/streamed full CSV/native consumers інтегровано для PR/CI. Root PG3/protocol/authoritative CSV/actual503+401 recovery PASS; final1440/320 PNG переглянуто. Старі nine fixture сценарії адаптовано без повного повтору. Independent review виправило cash N+1, busy/prior-confirmed context, scoped expense captions і expired-session401 privacy. [B24-BOUNDED-REPORTS.md](B24-BOUNDED-REPORTS.md). O(N), fanout, temp-disk/RR/capacity та durable cache залишаються явними відкритими межами.
+- **B06 legacy tasks/ideas/expenses:** доставка отримана; root source review триває, пакет ще не прийнятий. Voucher/payment та recipe consumers розпочато окремо. Shared optional directory empty-label UX також окремий follow-up.
+- Повний regression, production deployment/VPS, зовнішні credentials і0.1 не виконані. Повний план не оголошується завершеним.
