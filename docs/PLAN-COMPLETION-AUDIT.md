@@ -6,6 +6,18 @@
 
 **0.1 — рішення про бекапи виключено з автономної роботи.** Deployment виконується за окремою командою. Повну регресію не запитували; цей аудит її не запускає. Робота над B26, B24 polling та B32 memory, що почалася після цього зрізу, ще не зарахована до завершених пунктів.
 
+## Подальші прийняті зміни · main 4fe824a · 04.10.2026
+
+Матриця нижче зберігає історичний зріз9c04dad; наступні пакети перевірено окремо:
+
+- **#44:** catalog/import/pricing/references/layout/campaign актор перечитується після ledger lock. Root перевірив guard placement і цільові lock-wait/no-write докази; server/PostgreSQL CI exacthead пройшли. Захисний follow-up наприкінці документа тепер виконаний, а його опис лишається історичним.
+- **#45 / B32:** one-A4 PDF capture, bounded LRU32, Blob-backed writer і one-page preview; усі унікальні SKU проходять перевірку обрізання незалежно від видимого аркуша. Actual PDF300dpi/geometry/cancel/focus та CI пройшли. [LABEL-MEMORY.md](LABEL-MEMORY.md) прямо фіксує обмеження RSS вимірювання й full print DOM.
+- **#46 / B26:** paged React клієнтська база, історія, середній чек, повторні покупки та поточна заборгованість. Role/store/redaction, authoritative settlements, read-only snapshot, unit/story/native1440/320/axe та CI exacthead пройшли. [CRM-CUSTOMERS.md](CRM-CUSTOMERS.md). Contact tasks, loyalty/consents/channels і міжпристроєве CRM polling залишаються I/U.
+- **B24 conditional polling і B04 multi-shift** ще не прийняті. Незалежне рев’ю виявило midnight-commit invalidation та exact first-intent recovery після lostACK/edited inputs; ці пакети виправляються. Не зараховувати їхні первинні green target checks як завершення.
+- **B05 same-day late return** розпочато окремим пакетом; поточний main ще має календарну межу.
+
+Це оновлення code/PR evidence. VPS/deployment, full regression, external integrations і0.1 не виконувалися. Повний план залишається незавершеним.
+
 ## Позначення
 
 - **C — завершено узгоджену реалізацію:** правило є в authoritative source, matching цільове покриття й опис результату існують. Явні implementation defaults не є новими рішеннями власника.
