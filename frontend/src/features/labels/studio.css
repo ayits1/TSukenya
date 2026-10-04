@@ -71,7 +71,8 @@
   display: grid;
   place-items: center;
   text-align: center;
-  min-width: 0;
+  min-width: min-content;
+  overflow-wrap: normal;
   min-height: 44px;
   padding: 8px 12px;
   font: inherit;
