@@ -12,7 +12,7 @@ from server.erp.models import AuditEvent, Document, LedgerLock, PortalSession, P
 from server.erp.services import BusinessError
 
 
-class CatalogPricingTests(TestCase):
+class CatalogPricingTests(TransactionTestCase):
     def setUp(self):
         self.user = User.objects.create(username='isolated-pricing-owner')
         Profile.objects.create(user=self.user, role='owner')

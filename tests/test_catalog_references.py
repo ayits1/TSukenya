@@ -3,11 +3,11 @@ import time
 from io import StringIO
 from django.core.management import call_command
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TransactionTestCase
 from server.erp.models import Document, Profile, PortalSession, LedgerLock, AuditEvent
 
 
-class CatalogReferenceTests(TestCase):
+class CatalogReferenceTests(TransactionTestCase):
     def setUp(self):
         self.user = User.objects.create(username='reference-owner')
         Profile.objects.create(user=self.user, role='owner')

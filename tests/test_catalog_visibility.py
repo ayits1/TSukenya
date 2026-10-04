@@ -172,3 +172,16 @@ class CatalogVisibilityTests(TransactionTestCase):
         fresh=self.client.get('/api/v1/catalog/products?visibility=hidden').json()
         self.assertEqual(fresh['total'],0);self.assertEqual(fresh['items'],[])
         self.assertFalse(AuditEvent.objects.exists())
+
+    def test_postgres_catalogue_reads_refuse_incompatible_outer_transaction(self):
+        from django.db import connection, transaction
+        if connection.vendor != 'postgresql':
+            self.skipTest('PostgreSQL transaction characteristics only')
+        with transaction.atomic():
+            for path in ['/api/v1/catalog/products', '/api/v1/catalog/products/one',
+                         '/api/v1/catalog/products/one?includeHidden=true']:
+                result = self.client.get(path)
+                self.assertEqual(result.status_code, 400, result.content)
+                self.assertIn('REPEATABLE READ', result.json()['error'])
+        self.assertEqual(self.client.get('/api/v1/catalog/products/one').status_code, 200)
+        self.assertFalse(AuditEvent.objects.exists())

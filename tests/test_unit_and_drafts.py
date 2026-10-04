@@ -6,11 +6,11 @@ from django.utils import timezone
 from server.erp.models import *
 from server.erp.services import *
 from tests.test_erp import AccountingFixture
+from django.test import TransactionTestCase
 
 
-class ApiFixture(AccountingFixture):
-    def setUp(self):
-        super().setUp()
+class ApiSessionFixture:
+    def setup_api_session(self):
         token = 'isolated-b03-b06-token'
         PortalSession.objects.create(token_hash=hashlib.sha256(token.encode()).hexdigest(), user=self.u, csrf='b-csrf', expires=int(time.time()) + 3600)
         self.client.cookies['ts_session'] = token
@@ -24,7 +24,24 @@ class ApiFixture(AccountingFixture):
         return self.client.get('/api/v1/catalog/products/' + identifier).json()
 
 
-class UnitLockTests(ApiFixture):
+class ApiFixture(ApiSessionFixture, AccountingFixture):
+    def setUp(self):
+        super().setUp()
+        self.setup_api_session()
+
+
+class TransactionApiFixture(ApiSessionFixture, TransactionTestCase):
+    """HTTP snapshot reads need committed setup and their own transaction boundary."""
+    v = AccountingFixture.v
+    cash_start = AccountingFixture.cash_start
+    sale = AccountingFixture.sale
+
+    def setUp(self):
+        AccountingFixture.setUp(self)
+        self.setup_api_session()
+
+
+class UnitLockTests(TransactionApiFixture):
     def test_unused_product_unit_can_still_be_corrected(self):
         # The legacy portal path stores free-text units; v1 additionally requires a directory entry.
         response = self.call('patch', '/api/docs/products/p', {'unit': 'кг'}, HTTP_IF_MATCH=self.product()['revision'])

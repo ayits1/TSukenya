@@ -1,12 +1,12 @@
 import copy
 import uuid
 from unittest.mock import patch
-from django.test import TestCase
+from django.test import TransactionTestCase
 from server.erp.models import AuditEvent, Document
 from tests import test_catalog_references as fixtures
 
 
-class ReferenceManagementTests(TestCase):
+class ReferenceManagementTests(TransactionTestCase):
     setUp = fixtures.CatalogReferenceTests.setUp
     references = fixtures.CatalogReferenceTests.references
     create = fixtures.CatalogReferenceTests.create
@@ -229,7 +229,7 @@ class ReferenceConcurrentTests(TransactionTestCase):
         self.assertEqual(Document.objects.get(pk='products/coffee').data['pack'],'Банка')
 
 
-class ReferenceUnitAliasTests(TestCase):
+class ReferenceUnitAliasTests(TransactionTestCase):
     setUp = fixtures.CatalogReferenceTests.setUp
     patch = fixtures.CatalogReferenceTests.patch
 

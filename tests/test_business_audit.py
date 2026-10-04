@@ -218,7 +218,7 @@ from django.test import TestCase
 from tests import test_catalog as catalog_fixture
 from server.erp.models import Document,AuditEvent
 
-class AuditCatalogHooksTests(TestCase):
+class AuditCatalogHooksTests(TransactionTestCase):
     setUp=catalog_fixture.CatalogTests.setUp;detail=catalog_fixture.CatalogTests.detail;patch=catalog_fixture.CatalogTests.patch
     def test_catalog_and_legacy_budget_whitelists_and_request_context(self):
         document=Document.objects.get(pk='products/one');document.data.update(gsBase={'cost':999,'secret':'x'},secret='x');document.save()

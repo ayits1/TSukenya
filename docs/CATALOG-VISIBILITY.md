@@ -65,3 +65,14 @@ Native harness ізолює owner/DB/settings env і чекає зупинки �
 Exact-head CI виявив одну стару api unit fixture із null cost/markup, але
 canEdit=true. Уточнено її реальну readonly роль; повторено лише affected
 decimal/redaction case, PASS. Нове правило strict decoder збережено.
+
+PostgreSQL CI також виявив старі HTTP fixtures із зовнішньою транзакцією Django
+TestCase. Strict catalogue GET закономірно відхилив її READ COMMITTED/writeable
+контекст. Відповідні класи переведено на TransactionTestCase; для облікових
+API-сценаріїв додано opt-in TransactionApiFixture зі спільною setup/HTTP логікою.
+Інші AccountingFixture/ApiFixture сценарії зберігають свій попередній режим.
+Root PostgreSQL 13 PASS3.570s: представник кожного мігрованого класу, незмінений
+draft API fixture і явна відмова list/default/explicit detail усередині
+несумісної зовнішньої транзакції. Strict production snapshot не змінено;
+новий нормальний standalone GET успішний і не пише аудит. Решту підтверджених
+proofs не повторювали; автоматичні exact-head CI є обов’язковими перед merge.
