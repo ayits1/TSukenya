@@ -36,3 +36,10 @@
 ## CRM межа · 04.10.2026
 
 Клієнтську базу на `#trade/customers` перенесено на React/TypeScript із TanStack Query та окремим OpenAPI `contracts/crm.openapi.json`. Список/аналітика мають серверний paging і рольовий scope. Створення/редагування контакту та історія залишаються чинними native діалогами. Торговельні модулі загалом ще змішані; деталі, цільові докази й межі — [CRM-CUSTOMERS.md](CRM-CUSTOMERS.md). Це кодова інтеграція, не доказ deployment.
+
+## Закупівлі: фактичний React workspace
+
+`#trade/purchases` перенесено на React/TypeScript: bounded журнал, server search/scope,
+поповнення з lazy деталями та явними частинами до 200 рядків. Чинні native
+редактори/деталі/проведення й receipt → price review працюють через callbacks.
+Контракт, цільові докази та межа — [REACT-PURCHASES.md](REACT-PURCHASES.md).

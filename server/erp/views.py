@@ -538,7 +538,7 @@ def handle(request):
                 entry=manifest.get(key,{})
                 styles.update(entry.get('css',[]))
                 for chunk in entry.get('imports',[]): collect_styles(chunk)
-            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx','src/native-conflict-entry.tsx','src/trading-entry.tsx','src/abc-entry.tsx','src/stock-entry.tsx','src/receipt-pricing-entry.tsx']:
+            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx','src/native-conflict-entry.tsx','src/trading-entry.tsx','src/abc-entry.tsx','src/stock-entry.tsx','src/purchases-entry.tsx','src/receipt-pricing-entry.tsx']:
                 collect_styles(key)
                 if manifest.get(key,{}).get('file'): scripts.append('<script type="module" src="/frontend/'+manifest[key]['file']+'" onerror="window.dispatchEvent(new CustomEvent(\'tsukenya:module-unavailable\',{detail:\''+key.split('/')[1].split('-')[0]+'\'}))"></script>')
             html=html.replace('</head>',''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in sorted(styles))+'</head>').replace('</body>',''.join(scripts)+'</body>')
@@ -569,6 +569,11 @@ def handle(request):
     if match and request.method=='POST':
         from .entity_receipts import identity
         return response(identity(user,match[1],body(request)))
+    if path in {'/api/v1/trading/purchases/documents','/api/v1/trading/purchases/replenishment','/api/v1/trading/purchases/replenishment/lines','/api/v1/trading/purchases/replenishment/draft'}:
+        from . import purchases_reads
+        if request.method!='GET': return response({'error':'Метод недоступний.'},405)
+        reader={'documents':purchases_reads.documents,'replenishment':purchases_reads.replenishment,'lines':purchases_reads.lines,'draft':purchases_reads.draft}[path.rsplit('/',1)[-1]]
+        return response(reader(user,request.GET))
     if path in {'/api/v1/trading/stock','/api/v1/trading/stock.csv','/api/v1/trading/stock/documents','/api/v1/trading/assortment'}:
         from .stock_api import handle as handle_stock
         return handle_stock(request,user)
@@ -688,8 +693,8 @@ def handle(request):
             saved_revision=revision(product)
         return response({'ok':True,'product':value['product'],'revision':saved_revision})
     if path=='/api/erp/replenishment' and request.method=='GET':
-        from .replenishment import replenishment
-        return response(replenishment(user))
+        return response({'error':'Старий список поповнення більше недоступний. Оновіть застосунок.',
+                         'code':'endpoint_retired','replacement':'/api/v1/trading/purchases/replenishment'},410)
     if path=='/api/erp/assortment' and request.method in {'GET','POST'}:
         from .assortment import assortment, save_assortment
         return response(assortment(user,request.GET) if request.method=='GET' else save_assortment(user,body(request)))

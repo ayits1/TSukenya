@@ -23,6 +23,7 @@ export default defineConfig({
         trading: resolve(import.meta.dirname, 'src/trading-entry.tsx'),
         abc: resolve(import.meta.dirname, 'src/abc-entry.tsx'),
         stock: resolve(import.meta.dirname, 'src/stock-entry.tsx'),
+        purchases: resolve(import.meta.dirname, 'src/purchases-entry.tsx'),
         receiptPricing: resolve(import.meta.dirname, 'src/receipt-pricing-entry.tsx'),
       },
     },

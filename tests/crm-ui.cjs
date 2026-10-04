@@ -23,7 +23,7 @@ const date=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Eu
 const voucher=async body=>{const v=await ok('vouchers','POST',{store,warehouse:wh,date,...body});return ok('vouchers/'+v.id+'/post','POST',{});};
 await voucher({kind:'cash_opening',amount:1000,account:cash});
 // Receive stock using the form, not the API.
-await go('purchases');await page.locator('[data-trade=new-voucher][data-kind=receipt]').click();await page.locator('#tradeVoucherForm').waitFor();
+await go('purchases');await page.getByRole('button',{name:'+ Надходження',exact:true}).click();await page.locator('#tradeVoucherForm').waitFor();
 let f=page.locator('#tradeVoucherForm');await f.locator('[name=party]').selectOption(String(supplier));await f.locator('[data-line=product]').selectOption(p);await f.locator('[data-line=quantity]').fill('10');await f.locator('[data-line=price]').fill('10');await page.locator('[type=submit][form=tradeVoucherForm][value=post]').click();await page.locator('.trade-dialog-head h2').filter({hasText:'Надходження ·'}).waitFor();const received=(await ok('vouchers?kind=receipt')).items[0];assert.equal(received.total,'100.00');assert.equal(received.outstanding,'100.00');
 await voucher({kind:'payment',reference:received.id,account:cash,amount:100});
 const shift=(await ok('shifts','POST',{account:cash,employee})).id;

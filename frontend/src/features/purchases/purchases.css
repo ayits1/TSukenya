@@ -1,0 +1,250 @@
+.purchases-workspace {
+  color: var(--tk-ink);
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  gap: 16px;
+}
+.purchases-workspace > * {
+  min-width: 0;
+}
+.purchases-workspace h2,
+.purchases-workspace h3,
+.purchases-workspace h4,
+.purchases-workspace p {
+  margin: 0;
+}
+.purchases-toolbar,
+.purchases-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.purchases-toolbar h2 {
+  font-size: 24px;
+}
+.purchases-toolbar p {
+  color: var(--tk-muted);
+  margin-top: 4px;
+}
+.purchases-create,
+.purchases-parts {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.purchases-parts > div {
+  display: grid;
+  gap: 4px;
+}
+/* Tabs tracks descendant focus; the actual tab/control keeps its own focus ring. */
+.purchases-tab-layout {
+  outline: none;
+}
+.purchases-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--tk-line);
+  margin-bottom: 16px;
+}
+.purchases-tabs [role='tab'] {
+  padding: 12px 16px;
+  min-height: 44px;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  outline-offset: 2px;
+}
+.purchases-tabs [data-selected] {
+  border-color: var(--tk-brand);
+  font-weight: 600;
+}
+.purchases-tabs [data-focus-visible] {
+  outline: 2px solid var(--tk-focus);
+}
+.purchases-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.purchases-filters > .tk-button {
+  align-self: end;
+}
+.purchases-workspace section {
+  min-width: 0;
+}
+.purchases-section-heading {
+  margin-bottom: 12px;
+}
+.purchases-section-heading h3 {
+  font-size: 18px;
+}
+.purchases-table-wrap {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+  margin-top: 16px;
+}
+.purchases-table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  font-size: 14px;
+}
+.purchases-table th,
+.purchases-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--tk-line);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.purchases-table th {
+  position: static;
+  background: var(--tk-bg);
+  font-weight: 600;
+}
+.purchases-table tr:last-child td {
+  border-bottom: 0;
+}
+.purchases-table td > span,
+.purchases-table td > strong {
+  display: block;
+}
+.purchases-money {
+  font-variant-numeric: tabular-nums;
+}
+.purchases-status {
+  border-radius: 5px;
+  padding: 4px 8px;
+  display: inline-block !important;
+  background: var(--tk-bg);
+}
+.purchases-status.posted {
+  color: var(--tk-brand);
+}
+.purchases-pager {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.purchases-pager span {
+  font-size: 14px;
+}
+.purchases-summary {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 0;
+}
+.purchases-summary span {
+  color: var(--tk-muted);
+}
+.purchases-groups {
+  display: grid;
+  gap: 12px;
+}
+.purchases-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 320px);
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+  background: var(--tk-paper);
+}
+.purchases-group h4 {
+  font-size: 16px;
+}
+.purchases-group p {
+  margin-top: 6px;
+}
+.purchases-group ul {
+  padding-left: 20px;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.purchases-group-actions {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.purchases-detail {
+  margin-top: 20px;
+  border-top: 2px solid var(--tk-line);
+  padding-top: 20px;
+}
+.purchases-error {
+  padding: 16px;
+  background: var(--tk-bg);
+  border-left: 3px solid var(--tk-error);
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.purchases-empty {
+  padding: 24px 0;
+}
+@media (max-width: 720px) {
+  .purchases-group {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+  .purchases-table,
+  .purchases-table tbody,
+  .purchases-table tr,
+  .purchases-table td {
+    display: block;
+    width: 100%;
+  }
+  .purchases-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .purchases-table tr {
+    padding: 12px;
+    border-bottom: 1px solid var(--tk-line);
+  }
+  .purchases-table td {
+    padding: 6px 0;
+    border: 0;
+  }
+  .purchases-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 12px;
+    color: var(--tk-muted);
+    margin-bottom: 4px;
+  }
+  .purchases-table td > .tk-button {
+    width: 100%;
+  }
+  .purchases-pager {
+    justify-content: space-between;
+  }
+  .purchases-pager span {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
+  .purchases-tabs [role='tab'] {
+    padding: 12px 10px;
+  }
+  .purchases-create {
+    display: grid;
+  }
+  .purchases-parts,
+  .purchases-parts > div {
+    width: 100%;
+  }
+}
