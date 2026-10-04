@@ -62,3 +62,9 @@ source `0c4d8c40b4dc1dd06c60d9fc911508ec69815840`, runtime errors відсутн
 price receipts і schema — PASS0.232с, `/tmp/tsukenya-schema-price-root-pg.log`.
 Root переглянув 320px download/preview PNG та workbook render; незмінені ширші
 докази автора використано повторно. Цей запис не підтверджує deployment.
+
+CI follow-up: SQLite761 PASS; старий promotion-legacy VM не передавав нову
+CatalogSchema, хоча actual index уже завантажував її. Fixture отримала той самий
+реальний модуль і явну перевірку parse error. Повтор лише promotion-legacy PASS;
+read-only пошук інших extracted portal VM підтвердив, що їхні залежності вже
+підключені. Runtime не змінено, native/PG матрицю локально не повторювали.
