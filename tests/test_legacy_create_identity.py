@@ -68,6 +68,8 @@ class LegacyCreateIdentityTests(TransactionTestCase):
         self.assertEqual(self.lookup().json()['state'], 'deleted')
         LegacyCreateReceipt.objects.filter(pk=self.key).update(original=None)
         self.assertEqual(self.lookup().status_code, 403)
+        Profile.objects.filter(user=self.user).update(store=None)
+        self.assertEqual(self.lookup().status_code, 403)
         Profile.objects.filter(user=self.user).update(role='owner')
         self.assertEqual(self.lookup().json()['state'], 'deleted')
         self.assertIsNone(self.lookup().json()['original'])

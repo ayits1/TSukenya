@@ -43,7 +43,7 @@ def identity(user, params):
             from .task_scope import authorize_task
             if receipt.original is not None:
                 authorize_task(user, receipt.original['data'])
-            elif user.profile.role != 'owner' and user.profile.store_id is not None:
+            elif user.profile.role != 'owner' and (user.profile.store_id is not None or document is None or receipt.deleted_at is not None):
                 require(False, 'Немає доказу початкового магазину історичної задачі; доступ до квитанції недоступний.')
         from .views import legacy_create_fingerprint
         deleted = receipt.deleted_at is not None or document is None
