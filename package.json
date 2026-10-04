@@ -22,6 +22,7 @@
     "build:frontend": "npm run build --workspace frontend",
     "storybook": "npm run storybook --workspace frontend",
     "build:storybook": "npm run build-storybook --workspace frontend",
+    "check:browser-policy": "node scripts/check-browser-policy.mjs",
     "check:frontend": "npm run check --workspace frontend",
     "test:frontend": "npm run test --workspace frontend",
     "test:components": "npm run test:components --workspace frontend",

@@ -8,7 +8,7 @@ const server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});le
 const wait=async fn=>{for(let n=0;n<100;n++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
 (async()=>{
  await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
- browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
+ browser=await chromium.launch({ headless: true });
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await require('./browser-login.cjs')(page,base,password);
  const api=(endpoint,method='GET',value)=>page.evaluate(async({endpoint,method,value})=>{const s=await(await fetch('/api/state')).json();const response=await fetch('/api/'+endpoint,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:value===undefined?undefined:JSON.stringify(value)});return{status:response.status,value:await response.json()};},{endpoint,method,value});
  const ok=async(...args)=>{const result=await api(...args);assert(result.status<300,JSON.stringify(result));return result.value;};

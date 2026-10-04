@@ -20,7 +20,7 @@ for i in range(67):
  p=Document.objects.create(path=f'products/b24_{i:03}',data={'name':f'B24 Товар {i:03} · довга українська назва для перевірки складу','unit':'кг' if i%2 else 'шт','minStock':2})
  StockLot.objects.create(warehouse=w,product=p,code=f'QA-{i:03}',quantity=1,value=10)
 `],{cwd:root,env});
- browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined),headless:true});
+ browser=await chromium.launch({ headless: true });
  const page=await browser.newPage({viewport:{width:1440,height:1050}}),errors=[],requests=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('response',async r=>{if(r.url().includes('/api/erp/stock?')||r.url().includes('/api/erp/assortment?')){try{const value=await r.json();if(r.status()===200)requests.push({url:r.url(),count:(value.items||value.rows).length,total:value.total});}catch{}}});
  await require('./browser-login.cjs')(page,base,password);

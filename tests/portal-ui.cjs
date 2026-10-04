@@ -13,8 +13,8 @@ let browser;
 async function check(condition,message){for(let i=0;i<80;i++){if(await condition())return;await new Promise(r=>setTimeout(r,100));}throw Error(message);}
 (async()=>{
  await check(async()=>{try{return (await fetch(base+'/health')).ok}catch{return false}},'server startup');
- const executable=process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined);
- browser=await chromium.launch({executablePath:executable,headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});const page=await context.newPage(),errors=[];
+
+ browser=await chromium.launch({ headless: true });const context=await browser.newContext({viewport:{width:1440,height:1000}});const page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await require('./browser-login.cjs')(page,base,password);
  const state=()=>page.evaluate(async()=> (await (await fetch('/api/state')).json()).data);

@@ -8,7 +8,7 @@ const server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});le
 const wait=async(fn,message='Timed out')=>{for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw Error(message);};
 (async()=>{
  await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}},'Server startup');
- browser=await chromium.launch({headless:true,...(process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
+ browser=await chromium.launch({ headless: true });
  page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  await require('./browser-login.cjs')(page,base,password);await page.goto(base+'/#operations/products');await page.locator('.tk-product-table').waitFor();
  const disclosure=page.locator('[data-disclosure=import]');await disclosure.locator('summary').click();

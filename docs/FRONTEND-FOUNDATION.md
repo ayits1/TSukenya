@@ -37,7 +37,7 @@ npm run test:visual       # зібраний Storybook + Playwright + axe + по
 npm test                  # попередні сценарії синхронізації
 ```
 
-Для локальних браузерів: `npm exec -- playwright install chromium webkit`. На macOS конфігурація використовує встановлений Chrome, якщо він є; `CHROME_PATH` дозволяє явно вказати шлях. Канонічні візуальні зразки генеруються в Linux Docker, описаному нижче. Зразки з іншої ОС не підходять для CI через відмінності шрифтів і браузера.
+Для локальних браузерів: `npm exec -- playwright install chromium webkit`. На macOS та Linux конфігурація використовує тільки bundled Chromium Playwright у headless-режимі; channel/executablePath і системний Chrome заборонені для автоматичних перевірок. Канонічні візуальні зразки генеруються в Linux Docker, описаному нижче. Зразки з іншої ОС не підходять для CI через відмінності шрифтів і браузера.
 
 ### Візуальні зразки
 

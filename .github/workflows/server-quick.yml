@@ -13,6 +13,7 @@ on:
       - 'contracts/catalog-exchange.schema.json'
       - 'scripts/generate-catalog-schema.mjs'
       - 'scripts/build-catalog-template.mjs'
+      - 'scripts/check-browser-policy.mjs'
       - 'data/catalogue-template-v1.xlsx'
       - 'docs/CATALOG-SCHEMA-FIELDS.md'
       - '.github/workflows/server-quick.yml'
@@ -27,6 +28,7 @@ on:
       - 'contracts/catalog-exchange.schema.json'
       - 'scripts/generate-catalog-schema.mjs'
       - 'scripts/build-catalog-template.mjs'
+      - 'scripts/check-browser-policy.mjs'
       - 'data/catalogue-template-v1.xlsx'
       - 'docs/CATALOG-SCHEMA-FIELDS.md'
       - '.github/workflows/server-quick.yml'
@@ -51,6 +53,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
+      - name: Browser launch policy (static, no browser)
+        run: node scripts/check-browser-policy.mjs
       - run: python -m pip install -r server/requirements.txt
       - name: Isolated data paths
         # Disposable SQLite only; production database variables are never set here.

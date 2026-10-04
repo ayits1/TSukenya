@@ -14,7 +14,7 @@ const wait=async f=>{for(let i=0;i<120;i++){if(server.exitCode!==null)throw Erro
 const py=code=>execFileSync(python,['-c',"import os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings');import django;django.setup();"+code],{cwd:root,env,encoding:'utf8'}).trim();
 (async()=>{
  await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
- browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined)});
+ browser=await chromium.launch({ headless: true });
  page=await browser.newPage({viewport:{width:1440,height:1050}});const errors=[],checks=[],writes=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  await require('./browser-login.cjs')(page,base,password);
  const details='**/api/v1/trading/directories/details',entity='**/api/erp/entities/*',identity='**/api/v1/trading/entities/*/identity';

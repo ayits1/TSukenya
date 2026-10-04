@@ -38,7 +38,7 @@ post('sale',1,30,party=c.pk,payload={'payments':[{'account':a.pk,'amount':'30'}]
 returned=post('customer_return',1,10,party=c.pk,reference=sale.pk,payload={'payments':[{'account':a.pk,'amount':'10'}]})
 Voucher.objects.filter(pk=returned.pk).update(party=None)
 `);
-  browser = await chromium.launch({ headless: true, ...(process.platform === 'darwin' ? { executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' } : {}) });
+  browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));

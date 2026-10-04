@@ -12,7 +12,7 @@ async function download(page,button,name){const pending=page.waitForEvent('downl
 (async()=>{try{
  for(let i=0;i<120;i++){if(server.exitCode!==null)throw Error(fs.readFileSync(path.join(data,'server.log'),'utf8').slice(-2000));try{if((await fetch(base+'/health')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
  execFileSync(python,['-c',`import os\nos.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings')\nimport django;django.setup()\nfrom server.erp.models import Document\nfrom django.utils import timezone\nDocument.objects.create(path='products/=csv',data={'name':'=1+1','category':'+SUM(A1:A2)','unit':'шт','pack':'Штучно','cost':12.1234,'markup':30,'manualPrice':True,'price':34.50,'promotion':True,'promotionPrice':21.99,'priceAt':str(timezone.localdate())})`],{cwd:root,env});
- browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+ browser=await chromium.launch({ headless: true });
  const page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  await require('./browser-login.cjs')(page,base,password);assert.equal(await page.evaluate(()=>typeof TSukenyaCsv.serialize),'function');
  await page.goto(base+'/#operations/tags');await page.getByRole('tab',{name:/^Товари для друку/}).click();await page.getByRole('searchbox',{name:'Пошук товарів'}).fill('=1+1');await page.locator('.tk-studio-product-row').filter({hasText:'=1+1'}).locator('.tk-studio-check').click();

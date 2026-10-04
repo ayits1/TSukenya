@@ -13,7 +13,7 @@ const dialog=()=>page.locator('.trade-dialog[open]');
 (async()=>{
  await wait(async()=>{try{return(await fetch(base+'/health')).ok;}catch{return false;}},'server');
  const id=fixture("from server.erp.models import Document,Profile\nfrom server.erp.alerts import sync_alerts\np=Document.objects.create(path='products/alert_ui',data={'name':'Товар з довгою українською назвою для контролю','unit':'шт','minStock':2});u=Profile.objects.get(user__username='tester').user;sync_alerts(u);d=next(d for d in Document.objects.filter(path__startswith='tasks/auto_') if d.data['_alertKey'].endswith(':alert_ui'));print(d.path.split('/')[1])").trim();
- browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});page=await browser.newPage({viewport:{width:320,height:1000}});page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));await require('./browser-login.cjs')(page,base,password);await page.goto(base+'/#operations/work');
+ browser=await chromium.launch({ headless: true });page=await browser.newPage({viewport:{width:320,height:1000}});page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));await require('./browser-login.cjs')(page,base,password);await page.goto(base+'/#operations/work');
  const row=()=>page.locator(`[data-task-id="${id}"]`);await row().waitFor();assert.match(await row().innerText(),/Облікова умова активна/);
  if(process.env.QA_ALERTS_FROM==='read'){
   let confirmed=false,failed=false,posts=0;

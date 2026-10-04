@@ -21,7 +21,7 @@ async function checkSelects(page){
 }
 (async()=>{
  for(let i=0;i<100;i++){try{if((await fetch(base+'/health')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
- browser=process.env.QA_BROWSER==='webkit'?await webkit.launch({headless:true}):await chromium.launch({executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+ browser=process.env.QA_BROWSER==='webkit'?await webkit.launch({headless:true}):await chromium.launch({ headless: true });
  const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await require('./browser-login.cjs')(page,base,password);
  for(const theme of (process.env.QA_ZOOM_ONLY?[]:layoutThemes))for(const width of layoutWidths){
@@ -97,7 +97,7 @@ async function checkSelects(page){
   // Chrome's actual persisted page zoom, not CSS zoom or a simulated viewport.
   zoomProfile=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-zoom-'));fs.mkdirSync(path.join(zoomProfile,'Default'));
   fs.writeFileSync(path.join(zoomProfile,'Default','Preferences'),JSON.stringify({partition:{default_zoom_level:{x:Math.log(2)/Math.log(1.2)}}}));
-  zoomContext=await chromium.launchPersistentContext(zoomProfile,{executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true,viewport:null,args:['--window-size=1440,1000']});
+  zoomContext=await chromium.launchPersistentContext(zoomProfile,{ headless: true, viewport:null, args:['--window-size=1440,1000'] });
   const zoom=zoomContext.pages()[0];await zoom.goto(base);assert.equal(await zoom.evaluate(()=>devicePixelRatio),2,'actual 200% page zoom');assert.equal(await zoom.evaluate(()=>innerWidth),720);
   await zoom.locator('[name=username]').fill('tester');await zoom.locator('[name=password]').fill(password);await zoom.locator('[type=submit]').click();await zoom.waitForSelector('#main .stats');
   for(const route of ['operations/products','operations/tags','trade/purchases','trade/stock','trade/sales','trade/finance','trade/staff','trade/customers','trade/reports','trade/setup']){

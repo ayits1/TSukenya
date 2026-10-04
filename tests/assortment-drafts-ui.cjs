@@ -17,7 +17,7 @@ from server.erp.models import Document,Store,Warehouse
 Warehouse.objects.create(store=Store.objects.first(),name='Склад Б')
 Document.objects.create(path='products/alpha',data={'name':'Альфа','unit':'шт','minStock':2})
 Document.objects.create(path='products/beta',data={'name':'Бета','unit':'шт','minStock':3})`],{cwd:root,env});
- browser=await chromium.launch({headless:true,...(process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
+ browser=await chromium.launch({ headless: true });
  const page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.route('https://fonts.gstatic.com/**',route=>route.abort());
  await require('./browser-login.cjs')(page,base,password);

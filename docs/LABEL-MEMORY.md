@@ -42,7 +42,6 @@ Raw reports (локальні QA артефакти):
 `tests/labels-memory.cjs` відтворює вимірювання з синтетичними даними. Не входить у щоденний чи full gate: це тривале ручне вимірювання, яке чекає на expiry URL. Команда:
 
 ```sh
-CHROME_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
 QA_OUTPUT_DIR=/tmp/tsukenya-label-memory-manual node tests/labels-memory.cjs
 ```
 

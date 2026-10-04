@@ -1,11 +1,7 @@
-import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
-
-const chrome =
-  process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 export default defineConfig({
   test: {
@@ -21,9 +17,7 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright({
-              launchOptions: existsSync(chrome) ? { executablePath: chrome } : {},
-            }),
+            provider: playwright(),
             instances: [{ browser: 'chromium' }],
           },
         },

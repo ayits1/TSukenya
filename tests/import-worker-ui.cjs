@@ -13,7 +13,7 @@ const shell=script=>execFileSync(python,['manage.py','shell','-c',script],{cwd:r
 const stopped=child=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>{child.kill('SIGKILL');reject(Error('Worker stop timeout'));},15000);if(child.exitCode!==null){clearTimeout(timer);return resolve(child.exitCode);}child.once('exit',code=>{clearTimeout(timer);resolve(code);});});
 (async()=>{
  await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}},'Server start');
- browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});
+ browser=await chromium.launch({ headless: true });
  page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[],posts=[];page.on('pageerror',error=>errors.push(error.message));
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  page.on('request',request=>{if(request.method()==='POST'&&request.url().includes('/api/v1/catalog/import/'))posts.push(new URL(request.url()).pathname);});

@@ -331,7 +331,7 @@ async function actualZoom() {
   zoomProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'tsukenya-output-zoom-'));
   fs.mkdirSync(path.join(zoomProfile, 'Default'));
   fs.writeFileSync(path.join(zoomProfile, 'Default', 'Preferences'), JSON.stringify({ partition: { default_zoom_level: { x: Math.log(2) / Math.log(1.2) } } }));
-  zoomContext = await chromium.launchPersistentContext(zoomProfile, { executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, viewport: null, args: ['--window-size=1440,1000'] });
+  zoomContext = await chromium.launchPersistentContext(zoomProfile, { headless: true, viewport: null, args: ['--window-size=1440,1000'] });
   page = zoomContext.pages()[0];
   page.setDefaultTimeout(12000);
   await installGates(page);
@@ -352,7 +352,7 @@ async function actualZoom() {
 }
 (async () => {
   await until(async () => { try { return (await fetch(base + '/health')).ok; } catch { return false; } }, 'isolated output server startup');
-  browser = await chromium.launch({ headless: true, ...(process.platform === 'darwin' ? { executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' } : {}) });
+  browser = await chromium.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(12000);
   await installGates(page);

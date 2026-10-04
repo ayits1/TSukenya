@@ -14,7 +14,7 @@ const py=code=>execFileSync(python,['-c',"import os;os.environ.setdefault('DJANG
  await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
  const id=py("from server.erp.models import Document,IdeaProject;from django.contrib.auth.models import User;d=Document.objects.create(path='ideas/conflict_qa',data={'title':'Перевірка попиту','reaction':'yes'});p=IdeaProject.objects.create(idea=d,created_by=User.objects.get(username='tester'),title='Початковий план',hypothesis='Перша гіпотеза',state='active',metric='Продажі',metric_unit='шт',target_value='10');print(p.pk)");
  const change=(expression)=>py("from server.erp.models import IdeaProject;from django.db.models import F;IdeaProject.objects.filter(pk='"+id+"').update(revision=F('revision')+1,"+expression+")");
- browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined)});
+ browser=await chromium.launch({ headless: true });
  page=await browser.newPage({viewport:{width:1440,height:1050}});const errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>dialog.accept());
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());
  await require('./browser-login.cjs')(page,base,password);await page.goto(base+'/#development/devOverview');

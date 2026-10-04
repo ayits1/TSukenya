@@ -8,7 +8,7 @@ let server,browser,page;const wait=async(fn,label='Timed out')=>{for(let i=0;i<1
 (async()=>{
  try{await fetch(base+'/health');throw Error('QA port occupied')}catch(e){if(!e.cause)throw e}
  server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
- browser=await chromium.launch({headless:true,...(process.platform==='darwin'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'}:{})});page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[],stateResponses=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.url()===base+'/api/v1/portal/metadata')stateResponses.push(r.status())});
+ browser=await chromium.launch({ headless: true });page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[],stateResponses=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.url()===base+'/api/v1/portal/metadata')stateResponses.push(r.status())});
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());await require('./browser-login.cjs')(page,base,password);
  await page.goto(base+'/#operations/work');await page.locator('#newWork').waitFor();
  await page.evaluate(()=>window.TSUKENYA_REFRESH());assert(stateResponses.includes(304),'real unchanged fetch returns304');

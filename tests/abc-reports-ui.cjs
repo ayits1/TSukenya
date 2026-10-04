@@ -24,7 +24,7 @@ for i in range(65):
  v=Voucher.objects.create(kind='sale',status='posted',date=timezone.localdate(),store=store,created_by=u,total=i+1,cost=1,posted_at=timezone.now())
  VoucherLine.objects.create(voucher=v,product=p,name=('=1+1' if i==0 else f'ABC товар {i:03}'),unit='шт',quantity=1,price=i+1,amount=i+1,cost=1)
 `],{cwd:root,env});
- browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined),headless:true});page=await browser.newPage({viewport:{width:1440,height:1000}});
+ browser=await chromium.launch({ headless: true });page=await browser.newPage({viewport:{width:1440,height:1000}});
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.route('https://fonts.gstatic.com/**',route=>route.abort());
  await page.addInitScript(()=>{const original=window.fetch.bind(window);window.fetch=(input,options)=>String(input).includes('/reports/abc?')&&window.abcIgnoreAbort?original(input,{...options,signal:undefined}).then(result=>{window.abcLateArrived=true;return result;}):original(input,options);});
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/reports/abc'))calls.push({url:r.url(),method:r.method()});});

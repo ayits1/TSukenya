@@ -27,7 +27,7 @@ for role in ['manager','owner']:
  person=User.objects.create(username='scoped-'+role);Profile.objects.create(user=person,role=role,store=own)
  PortalSession.objects.create(user=person,token_hash=hashlib.sha256(('scoped-'+role).encode()).hexdigest(),csrf='qa-report-scope',expires=int(time.time())+3600)
 `],{cwd:root,env,stdio:'pipe'});
- browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined),headless:true});page=await browser.newPage({viewport:{width:1440,height:1000}});
+ browser=await chromium.launch({ headless: true });page=await browser.newPage({viewport:{width:1440,height:1000}});
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/'))calls.push({url:r.url(),method:r.method()});});
  await require('./browser-login.cjs')(page,base,password);await page.goto(base+'/#trade/reports');
  await wait(async()=>await page.locator('[data-report-pager]').innerText().then(t=>t.includes('65 рядків')).catch(()=>false));

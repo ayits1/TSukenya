@@ -22,7 +22,7 @@ Helper створює власну SQLite й server process на **localhost:182
 
 - `QA_SETTINGS_FROM=users|period|fiscal|detail|zoom|detail-zoom` — одна конкретна група для повтору; default `all` — лише перелічені нові стани.
 - `QA_SETTINGS_PORT` — інший вільний localhost-порт.
-- `CHROME_PATH` — executable локального Chrome.
+- Браузер — Chromium із Playwright у headless-режимі, без власного executablePath.
 - Helper уже включено у `scripts/full-check.mjs`; entrypoint очищає `QA_SETTINGS_FROM` і `QA_SETTINGS_PORT`. Цільовий прохід не запускав повну регресію.
 
 ## Фактичний результат

@@ -30,7 +30,7 @@ P1 означає неоднозначний результат запису; P2
 PYTHON_BIN=/tmp/tsukenya-crm-venv/bin/python node tests/erp-recovery-ui.cjs
 ```
 
-Для повтору тільки ураженої групи: `QA_RECOVERY_FROM=users|saved|documents|recipe|customers`; `tail` виконує лише рецептуру та клієнтський пошук. `QA_RECOVERY_PORT` дозволяє інший вільний localhost-порт; `CHROME_PATH` — інший Chrome executable. Це окрема команда, не новий entrypoint повної регресії. Shared harness/full-check не змінював.
+Для повтору тільки ураженої групи: `QA_RECOVERY_FROM=users|saved|documents|recipe|customers`; `tail` виконує лише рецептуру та клієнтський пошук. `QA_RECOVERY_PORT` дозволяє інший вільний localhost-порт; Chromium береться з Playwright та запускається у headless-режимі без executable override. Це окрема команда, не новий entrypoint повної регресії. Shared harness/full-check не змінював.
 
 | Змінена поведінка | Фактичний результат |
 | --- | --- |

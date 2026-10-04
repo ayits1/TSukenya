@@ -333,7 +333,7 @@ async function checkStudio() {
 (async () => {
   await until(async () => { try { return (await fetch(base + '/health')).ok; } catch { return false; } }, 'isolated label server startup');
   const type = process.env.QA_BROWSER === 'webkit' ? webkit : chromium;
-  browser = await type.launch({ headless: true, ...(type === chromium && process.platform === 'darwin' ? { executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' } : {}) });
+  browser = await type.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(12000);
   const errors = [];

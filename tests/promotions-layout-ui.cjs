@@ -1,11 +1,10 @@
 /* Targeted synthetic Storybook layout proof. Requires the local Storybook dev server. */
 const assert = require('node:assert/strict');
-const { existsSync } = require('node:fs');
 const { chromium } = require('playwright');
 const url = process.env.PROMOTION_STORYBOOK_URL || 'http://127.0.0.1:61117';
 (async () => {
-  const systemChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || (existsSync(systemChrome) ? systemChrome : undefined) });
+
+  const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 320, height: 900 } });
     const story = async (id) => page.goto(`${url}/iframe.html?id=${encodeURIComponent(id)}&viewMode=story`);
