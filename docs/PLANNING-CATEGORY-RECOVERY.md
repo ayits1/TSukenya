@@ -69,3 +69,15 @@ Apply(noPUT)/separateSave, план777.77 не втрачений; canceledGET/w
 Harness pins isolated settings/password helper, scrubs DB/PG/URL/owner credentials, closes
 log FD, detects earlyexit і awaitsclean teardown. Explicit full registry включає primary/
 scope-only/ack-repeat-only по одному разу; його --plan перевірено, full не запускався.
+
+
+## Уточнення старого CI сценарію повторного CREATE
+
+Перший CI PR #70 виявив старе очікування HTTP400 після перейменування статті
+та повернення початкового імені. Durable receipt навмисно повертає HTTP409
+`original_request_confirmed`: той самий створений запис підтверджений, але
+його revision3 не стає новою базою редагування. Змінено лише цей тест:
+додано перевірки ID/request_key/resource, відсутності revision, одного receipt,
+незмінного audit і revision3. Бізнес-код не змінювався. Цільовий сценарій
+SQLite PASS (0.018s) і PostgreSQL PASS (0.181s); повний локальний прогін
+не повторювався. Новий exact-head CI має пройти до прийняття PR.

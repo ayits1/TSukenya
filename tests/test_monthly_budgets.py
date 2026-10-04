@@ -128,7 +128,15 @@ class MonthlyBudgetTests(TransactionTestCase):
         changed=self.request('put','/api/erp/budget-categories/'+body['id'],{'name':'Змінена стаття','active':True,'revision':1});self.assertEqual(changed.status_code,200,changed.content)
         restored=self.request('put','/api/erp/budget-categories/'+body['id'],{'name':body['name'],'active':True,'revision':2});self.assertEqual(restored.status_code,200,restored.content)
         audits=AuditEvent.objects.filter(subject=subject).count()
-        refused=self.request('post','/api/erp/budget-categories',body);self.assertEqual(refused.status_code,400,refused.content);self.assertEqual(AuditEvent.objects.filter(subject=subject).count(),audits)
+        refused=self.request('post','/api/erp/budget-categories',body)
+        self.assertEqual(refused.status_code,409,refused.content)
+        conflict=refused.json()
+        self.assertEqual(conflict['code'],'original_request_confirmed')
+        self.assertIs(conflict['original_request_confirmed'],True)
+        self.assertEqual((conflict['id'],conflict['request_key'],conflict['resource']),(body['id'],body['id'],'category'))
+        self.assertNotIn('revision',conflict)  # Identity is not a new editable baseline.
+        self.assertEqual(AuditEvent.objects.filter(subject=subject).count(),audits)
+        self.assertEqual(PlanningCreateReceipt.objects.filter(key=body['id']).count(),1)
         self.assertEqual(ExpenseCategory.objects.get(pk=body['id']).revision,3)
 
     def test_normalized_budget_and_category_audit_captures_pre_mutation_rows(self):
