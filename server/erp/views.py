@@ -82,10 +82,16 @@ def legacy_state(user):
     if user.profile.store_id is not None:store_query=store_query.filter(pk=user.profile.store_id)
     price_resolver=PriceResolver(catalog_config,price_store)
     store_resolvers={str(s.pk):PriceResolver(catalog_config,s) for s in store_query}
+    from .models import ProjectTask,IdeaProject
+    linked_tasks={row['document_id']:row for row in ProjectTask.objects.values('document_id','project_id','project__store_id')} if user.profile.role=='owner' else {}
+    linked_ideas={row['idea_id']:row for row in IdeaProject.objects.values('idea_id','id','store_id')} if user.profile.role=='owner' else {}
     data={x:[] for x in COLLECTIONS}|{x:{} for x in SINGLE_DOCS}
     for d in Document.objects.all():
         col,_,id=d.path.partition('/')
         if col in COLLECTIONS:
+            link=linked_tasks.get(d.path) if col=='tasks' else linked_ideas.get(d.path) if col=='ideas' else None
+            link_store=link.get('project__store_id',link.get('store_id')) if link else None
+            initiative=str(link.get('project_id',link.get('id'))) if link and (user.profile.store_id is None or user.profile.store_id==link_store) else None
             if col=='tasks' and not task_visible(user,d.data):
                 continue
             if col=='expenses':
@@ -106,7 +112,8 @@ def legacy_state(user):
                     product['price']=product['regularPrice']
                     product['manualPrice']=True
             data[col].append({'id':id,'data':product,
-                             **({'permissions':task_permissions(user,d.path,product)} if col=='tasks' else {}),
+                             **({'permissions':{'canEdit':False,'canDelete':False} if link else task_permissions(user,d.path,product)} if col=='tasks' else {}),
+                             **({'initiative':initiative} if initiative else {}),
                              **({'revision':revision(d,catalog_config)} if col=='products' else {})})
         elif d.path=='settings/main':data[d.path]=settings_for_role(d.data,user.profile.role,user.profile.store_id)
         elif d.path=='project/state' and user.profile.role=='owner':data[d.path]=d.data
@@ -166,6 +173,9 @@ def legacy_mutation(request,user,path,create_key=None):
     d=Document.objects.filter(pk=path).first()
     audit_kind = 'product' if col=='products' else 'budget' if col=='expenses' else 'settings' if path=='settings/main' else None
     audit_before = audit_snapshot(audit_kind, d.data if d else None) if audit_kind else None
+    if d is not None and col in {'tasks','ideas'}:
+        from .initiatives import reject_linked_legacy
+        reject_linked_legacy(user,d,request.method)
     if col=='tasks' and d is not None:
         from .task_scope import authorize_task
         authorize_task(user,d.data)
@@ -433,7 +443,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/erp.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/runtime.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -466,7 +476,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/erp.js','/erp.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/csv.js','/catalog-import.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -590,6 +600,23 @@ def handle(request):
         if user.profile.role not in {'owner','manager','accountant'}:return response({'error':'Недостатньо прав для фінансових даних.'},403)
         from .party_finance import advances, statement
         return response((advances if path.endswith('/advances') else statement)(user,request.GET))
+    if path=='/api/erp/initiatives':
+        from .initiatives import list_projects,mutate
+        if request.method=='GET':return response(list_projects(user,request.GET))
+        require(request.method=='POST','Метод не підтримується.');return response(mutate(user,body(request)),201)
+    if path=='/api/erp/initiatives/options' and request.method=='GET':
+        from .initiatives import options
+        return response(options(user,request.GET))
+    initiative_idea=re.fullmatch(r'/api/erp/initiatives/ideas/([A-Za-z0-9_-]{1,120})',path)
+    if initiative_idea and request.method=='GET':
+        from .initiatives import idea_info
+        from .historical_reports import read_snapshot
+        with read_snapshot():return response(idea_info(user,initiative_idea[1]))
+    initiative_match=re.fullmatch(r'/api/erp/initiatives/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/candidates|/sources)?',path)
+    if initiative_match:
+        from .initiatives import detail,candidates,source_detail,mutate
+        if request.method=='GET':return response(({'/candidates':candidates,'/sources':source_detail}.get(initiative_match[2],detail))(user,initiative_match[1],request.GET))
+        require(request.method=='POST' and not initiative_match[2],'Метод не підтримується.');return response(mutate(user,body(request),initiative_match[1]))
     if path=='/api/erp/references' and request.method=='GET':
         from .browsing import references
         return response(references(user,request.GET))
