@@ -366,6 +366,65 @@
           }
         }
       }
+    },
+    "/api/v1/portal/budget-template": {
+      "get": {
+        "operationId": "getBudgetTemplate",
+        "description": "Network owner only. Read-only count inferred by the existing legacy precedence; independent from Label Studio revision.",
+        "responses": {
+          "200": {
+            "description": "Авторитетна кількість і поточні права",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetTemplate"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role or network scope unavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "saveBudgetTemplate",
+        "description": "Network owner and current actor checked after ledger lock. Updates only budgetStores; preserves unrelated settings. Stale/unknown acknowledgement requires explicit read and local comparison before a separate Save.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetTemplateWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Авторитетна кількість і поточні права",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed count or revision"
+          },
+          "403": {
+            "description": "Current role or network scope unavailable"
+          },
+          "428": {
+            "description": "Missing observed revision"
+          },
+          "409": {
+            "description": "Stale template revision; draft preserved"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -923,6 +982,61 @@
               "null"
             ],
             "format": "uuid"
+          }
+        }
+      },
+      "BudgetTemplate": {
+        "type": "object",
+        "required": [
+          "resource",
+          "budgetStores",
+          "revision",
+          "source",
+          "canEdit"
+        ],
+        "properties": {
+          "resource": {
+            "const": "budget-template",
+            "type": "string"
+          },
+          "budgetStores": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "explicit",
+              "legacy"
+            ]
+          },
+          "canEdit": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "BudgetTemplateWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "budgetStores",
+          "revision"
+        ],
+        "properties": {
+          "budgetStores": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         }
       }

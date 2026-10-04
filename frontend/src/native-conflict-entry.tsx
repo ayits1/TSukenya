@@ -12,6 +12,7 @@ import {
   workShiftProjection,
 } from './shared/native/workShift';
 import './shared/ui/controls.css';
+import * as budgetTemplateEditor from './shared/native/budgetTemplate';
 import * as entityEditor from './shared/native/entity';
 import * as legacyEditor from './shared/native/legacy';
 import * as recipeEditor from './shared/native/recipe';
@@ -19,6 +20,7 @@ import * as recipeEditor from './shared/native/recipe';
 declare global {
   interface Window {
     NativeVoucherEditor?: typeof voucherEditor;
+    NativeBudgetTemplateEditor?: typeof budgetTemplateEditor;
     NativeEntityEditor?: typeof entityEditor;
     NativeLegacyEditor?: typeof legacyEditor;
     NativeRecipeEditor?: typeof recipeEditor;
@@ -35,6 +37,7 @@ declare global {
     };
   }
 }
+window.NativeBudgetTemplateEditor = budgetTemplateEditor;
 window.NativeEntityEditor = entityEditor;
 window.NativeLegacyEditor = legacyEditor;
 window.NativeRecipeEditor = recipeEditor;

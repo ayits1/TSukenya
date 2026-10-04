@@ -229,7 +229,9 @@ class AuditCatalogHooksTests(TestCase):
         count=AuditEvent.objects.count();self.assertEqual(self.patch({'revision':version,'cost':'30'}).status_code,409);self.assertEqual(AuditEvent.objects.count(),count)
         budget=self.client.put('/api/docs/expenses/b18',{'name':'Оренда','group':'fixed','amount':123.45,'password':'never-audit'},content_type='application/json',**self.headers)
         self.assertEqual(budget.status_code,200,budget.content);data=AuditEvent.objects.filter(subject='expenses/b18').get().detail;self.assertIsNone(data['before']);self.assertEqual(data['after']['amount'],'123.45');self.assertNotIn('password',str(data))
-        settings=self.client.patch('/api/docs/settings/main',{'budgetStores':2,'gsBase':{'secret':'x'}},content_type='application/json',**self.headers)
+        from server.erp.budget_template import revision as template_revision
+        old_settings=Document.objects.filter(pk='settings/main').first()
+        settings=self.client.patch('/api/docs/settings/main',{'budgetStores':2,'gsBase':{'secret':'x'}},content_type='application/json',HTTP_X_BUDGET_TEMPLATE_REVISION=template_revision(old_settings.data if old_settings else {}),**self.headers)
         self.assertEqual(settings.status_code,200,settings.content);data=AuditEvent.objects.filter(subject='settings/main',action='legacy_changed').get().detail;self.assertEqual(data['after']['budgetStores'],2);self.assertNotIn('gsBase',str(data));self.assertNotIn('secret',str(data))
     def test_import_and_pricing_before_after_replay_has_no_new_audit(self):
         def post(resource,action,value):return self.client.post(f'/api/v1/catalog/{resource}/{action}',value,content_type='application/json',**self.headers)

@@ -222,6 +222,11 @@ def catalogue_csv(user,params):
 def handle_portal(request,user):
     from .views import response,legacy_state
     path=request.path
+    if path=='/api/v1/portal/budget-template':
+        from .budget_template import read, save
+        if request.method=='GET':return response(read(user))
+        if request.method=='PATCH':return save(request,user)
+        return HttpResponse(status=405)
     if request.method=='GET':
         record=re.fullmatch(r'/api/v1/portal/records/(tasks|ideas|expenses)/([A-Za-z0-9_-]{1,120})',path)
         if record:
