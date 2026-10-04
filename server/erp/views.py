@@ -422,7 +422,8 @@ def handle(request):
     path=request.path
     if path=='/health' and request.method in {'GET','HEAD'}:
         LedgerLock.objects.get(pk=1)
-        return response({'status':'ok','storage':'relational','version':'crm-2','release':RELEASE})
+        from .service_health import import_worker_status
+        return response({'status':'ok','storage':'relational','version':'crm-2','release':RELEASE,'imports':import_worker_status()})
     if path=='/favicon.svg':return HttpResponse(FAVICON,content_type='image/svg+xml')
     if path=='/ui.css' and request.method in {'GET','HEAD'}:
         return HttpResponse((ROOT/'app/ui.css').read_bytes(),content_type='text/css')

@@ -2889,6 +2889,8 @@ export interface components {
       limits: components['schemas']['CatalogImportJobLimits'];
       /** @description Optional durable count of indexed catalogue paths, distinct from imported file row progress. */
       indexedPaths?: number;
+      /** @description Present in GET detail/history. One shared snapshot per history page; control receipts may omit it. */
+      readonly worker?: components['schemas']['CatalogImportWorker'];
     };
     CatalogImportJobRow: {
       ordinal: number;
@@ -3002,6 +3004,15 @@ export interface components {
       total: number;
       page: number;
       pages: number;
+    };
+    /** @description Technical process liveness, independent of private run progress. GET is read-only. Optional profile unavailable is not a web outage. */
+    CatalogImportWorker: {
+      /** @enum {string} */
+      status: 'available' | 'stale' | 'unavailable';
+      /** Format: date-time */
+      lastSeen: string | null;
+      /** @constant */
+      staleAfterSeconds: 45;
     };
   };
   responses: never;

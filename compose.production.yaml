@@ -27,6 +27,35 @@ services:
     mem_limit: 768m
     cpus: 1.0
     pids_limit: 128
+  import-worker:
+    profiles: ["imports"]
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    command: ["python", "manage.py", "process_catalog_imports", "--continuous", "--poll-seconds", "2"]
+    stop_grace_period: 150s
+    env_file: .env
+    environment:
+      DB_HOST: tsukenya-postgres
+      DB_NAME: tsukenya
+      DB_USER: tsukenya_app
+    networks:
+      - accounting
+    depends_on:
+      web:
+        condition: service_healthy
+      tsukenya-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "import_worker_health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 64
   tsukenya-postgres:
     image: postgres:18@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
     restart: unless-stopped
