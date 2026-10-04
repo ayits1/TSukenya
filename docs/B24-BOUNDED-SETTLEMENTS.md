@@ -148,3 +148,13 @@ SQLite/DATA_DIR і bundled headless Chromium: відкриття звірки ч
 Картку summary окремо в браузері цього разу не проганяли. Precision великої
 суми у старому Number formatter залишається окремим підпакетом. Немає push,
 PR, VPS deployment або запуску системного Chrome.
+
+### Accepted monthly base integration
+
+Перебазовано на прийнятий PR106. Loader/static конфлікти вирішено додаванням
+settlement script зі збереженням monthly/category/recipe/work-shift recovery
+та закупівель. Python/Node syntax, diff і settlement contract fixture PASS.
+Frontend та його build inputs не змінені цим пакетом; matching accepted
+monthly build використовується повторно. Native transport доказ вище та
+PG/fanout/source review proofs мають незмінні settlement inputs.
+Повну регресію та розгортання цього пакета не виконано.
