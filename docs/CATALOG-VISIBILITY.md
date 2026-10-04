@@ -61,3 +61,7 @@ actor в одному READ ONLY repeatable-read snapshot. Root PostgreSQL 2 PASS
 Native harness ізолює owner/DB/settings env і чекає зупинки сервера перед
 видаленням тимчасової БД. У test:full зареєстровані main/tail/layout по одному;
 перевірено лише dry-run plan і syntax, повний набір не запускався.
+
+Exact-head CI виявив одну стару api unit fixture із null cost/markup, але
+canEdit=true. Уточнено її реальну readonly роль; повторено лише affected
+decimal/redaction case, PASS. Нове правило strict decoder збережено.

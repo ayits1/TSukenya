@@ -18,7 +18,7 @@ test('decimal strings and role-redacted costs survive decoding', () => {
   expect(decodeProduct(product).salePrice).toBe('29.99');
   expect(decodeProduct(product).regularPrice).toBe('35.00');
   expect(decodeProduct(product).promotionPrice).toBe('29.99');
-  expect(decodeProduct({ ...product, cost: null, markup: null }).cost).toBeNull();
+  expect(decodeProduct({ ...product, canEdit: false, cost: null, markup: null }).cost).toBeNull();
   expect(decodePage(catalogPage).total).toBe(3);
 });
 test('rejects numeric money, missing revisions and malformed facets', () => {
