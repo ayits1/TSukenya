@@ -5,13 +5,13 @@ from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from django.contrib.auth.models import User
-from django.test import Client, TestCase, TransactionTestCase
+from django.test import Client, TransactionTestCase
 from django.db import close_old_connections, connection, connections
 from server.erp.catalog import revision
 from server.erp.models import AuditEvent, Document, LedgerLock, PortalSession, Profile
 
 
-class CatalogImportTests(TestCase):
+class CatalogImportTests(TransactionTestCase):
     def setUp(self):
         self.user = User.objects.create(username='isolated-import-owner')
         Profile.objects.create(user=self.user, role='owner')

@@ -6,7 +6,7 @@ import uuid
 from datetime import timedelta
 from unittest.mock import patch
 from django.contrib.auth.models import User
-from django.test import TestCase, TransactionTestCase
+from django.test import TransactionTestCase
 from django.utils import timezone
 from server.erp.models import Document, Profile, LedgerLock, PortalSession, AuditEvent
 from server.erp.import_models import CatalogImportRun, CatalogImportRow, CatalogImportChunk
@@ -46,7 +46,7 @@ class ImportJobsFixture:
         result=self.post('runs/'+key+'/apply',{'planRevision':detail['planRevision']});self.assertEqual(result.status_code,200,result.content);return result.json()
 
 
-class CatalogImportJobsTests(ImportJobsFixture,TestCase):
+class CatalogImportJobsTests(ImportJobsFixture,TransactionTestCase):
     def setUp(self):self.setup_jobs()
     def test_upload_receipts_lost_ack_exact_retry_seal_and_read_only_journal(self):
         key=str(uuid.uuid4());body={'idempotencyKey':key,'fileName':'Тест.csv','expectedRows':2}

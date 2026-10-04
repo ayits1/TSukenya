@@ -402,6 +402,10 @@ def handle_catalog(request, user):
     from .views import response
     path = request.path.rstrip('/')
     collection = '/api/v1/catalog/products'
+    result_match = re.fullmatch(r'/api/v1/catalog/price-results/(pricing|import)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', path)
+    if result_match and request.method == 'GET':
+        from .catalog_price_results import read_result
+        return read_result(request, user, *result_match.groups())
     if path in {'/api/v1/catalog/references/manage', '/api/v1/catalog/references/preview', '/api/v1/catalog/references/commit'}:
         from .catalog_reference_management import handle
         return handle(request, user)

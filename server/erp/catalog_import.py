@@ -1,5 +1,6 @@
 """Read-only catalogue import plans and bounded, retry-safe atomic commits."""
 from .catalog_access import revalidate_actor
+from . import catalog_price_results as price_results
 from .business_audit import snapshot as audit_snapshot, change as audit_change
 import hashlib
 import hmac
@@ -26,19 +27,21 @@ def canonical(value):
         raise BusinessError('Імпорт містить некоректні JSON-значення.')
 
 
-def snapshot(documents, config):
-    from .promotion_prices import PriceResolver
-    resolver=PriceResolver(config)
+def snapshot(documents, config, *, day=None):
+    from .promotion_prices import PriceResolver,kyiv_day
+    day=day or kyiv_day()
+    resolver=PriceResolver(config,None,day)
     from .models import Store
-    store_resolvers=[PriceResolver(config,s) for s in Store.objects.filter(active=True).order_by('pk')]
+    store_resolvers=[PriceResolver(config,s,day) for s in Store.objects.filter(active=True).order_by('pk')]
     material = {'effective': [(doc.path, [r.resolve(doc)['effectivePriceRevision'] for r in [resolver,*store_resolvers]]) for doc in documents], 'products': [(doc.path, revision(doc, config)) for doc in documents],
                 'pricing': {key: plain(value) for key, value in config.items()}}
     return hmac.new(settings.SECRET_KEY.encode(), canonical(material).encode(), hashlib.sha256).hexdigest()
 
 
 def validate_payload(payload, *, committing=False):
-    allowed = {'entries', 'defaultMarkup'} | ({'snapshot', 'idempotencyKey'} if committing else set())
+    allowed = {'entries', 'defaultMarkup','priceContext'} | ({'snapshot', 'idempotencyKey'} if committing else set())
     require(not (set(payload) - allowed), 'Запит містить невідомі поля імпорту.')
+    if 'priceContext' in payload: price_results.validate_context(payload['priceContext'])
     entries = payload.get('entries')
     require(isinstance(entries, list) and 0 < len(entries) <= MAX_ENTRIES,
             f'Імпорт має містити від 1 до {MAX_ENTRIES} рядків. Розділіть більший файл на окремі пакети.')
@@ -58,6 +61,9 @@ def plan(payload, user):
     from .catalog_references import reference_records
     references = reference_records()
     documents = list(Document.objects.filter(path__startswith='products/').order_by('path'))
+    from .promotion_prices import PriceResolver
+    store=price_results.resolve_context(user,payload)
+    resolver=PriceResolver(config,store,product_paths=[doc.path for doc in documents])
     by_id = {doc.path.split('/', 1)[1]: doc for doc in documents}
     by_name = defaultdict(list)
     for doc in documents:
@@ -109,7 +115,9 @@ def plan(payload, user):
                             f'{field}: очікується десятковий рядок.')
             # CSV/XLSX carry historical free text choices, like legacy catalogue writes.
             data = normalise_product(value, old, path, validate_references=False, references=references)
-            product = serialize(Document(path=path, data=data), user, config)
+            candidate=Document(path=path,data=data)
+            product = serialize(candidate, user, config,resolver=resolver)
+            entry['priceComparison']=price_results.comparison(existing,candidate,config,resolver)
             entry.update(action='update' if existing else 'create',
                          values={key: product[key] for key in (*TEXT_FIELDS, 'cost', 'markup', 'price', 'manualPrice', 'promotion', 'promotionPrice', 'priceAt', 'minStock')},
                          regularPrice=product['regularPrice'], salePrice=product['salePrice'])
@@ -125,8 +133,12 @@ def plan(payload, user):
     counts = {'created': sum(row['action'] == 'create' for row in result),
               'updated': sum(row['action'] == 'update' for row in result),
               'errors': sum(row['action'] == 'error' for row in result)}
-    return {'valid': counts['errors'] == 0, 'entries': result, 'counts': counts,
-            'snapshot': snapshot(documents, config), 'defaultMarkup': payload.get('defaultMarkup', format(config['markup'], 'f'))}, prepared
+    review=snapshot(documents,config,day=resolver.day)
+    if 'priceContext' in payload:
+        from .labels import sign
+        review=sign({'catalogue':review,'priceContext':payload['priceContext']})
+    return {'priceContext':price_results.capture_context(store),'effectiveDay':resolver.day.isoformat(),'valid': counts['errors'] == 0, 'entries': result, 'counts': counts,
+            'snapshot': review, 'defaultMarkup': payload.get('defaultMarkup', format(config['markup'], 'f'))}, prepared
 
 
 def import_body(request):
@@ -139,10 +151,14 @@ def import_body(request):
 
 def preview_import(request, user):
     from .views import response
-    require(user.profile.role in EDIT_ROLES, 'Недостатньо прав для імпорту каталогу.')
+    from .historical_reports import read_snapshot
+    from .services import current_actor
     payload = import_body(request)
-    result, _ = plan(payload, user)
-    return response(result)
+    with read_snapshot():
+        user = current_actor(user)
+        require(user.profile.role in EDIT_ROLES, 'Недостатньо прав для імпорту каталогу.')
+        result, *_ = plan(payload, user)
+        return response(result)
 
 
 @transaction.atomic
@@ -159,17 +175,24 @@ def commit_import(request, user):
     if previous:
         if previous.data.get('owner') != user.pk or previous.data.get('payloadHash') != digest:
             return response({'error': 'Ключ повтору вже використано для іншого імпорту.', 'code': 'idempotency_conflict'}, 409)
+        if previous.data.get('priceContext') is not None:price_results.scope_context(user,previous.data['priceContext'])
         return response(previous.data['result'])
     from .import_models import CatalogImportRun
     if CatalogImportRun.objects.filter(pk=payload['idempotencyKey']).exists():
         return response({'error': 'Ключ повтору вже використано для іншого імпорту.', 'code': 'idempotency_conflict'}, 409)
-    preview_payload = {key: value for key, value in payload.items() if key in {'entries', 'defaultMarkup'}}
+    preview_payload = {key: value for key, value in payload.items() if key in {'entries', 'defaultMarkup','priceContext'}}
     result, prepared = plan(preview_payload, user)
     if not hmac.compare_digest(payload['snapshot'], result['snapshot']):
         return response({'error': 'Каталог або налаштування цін уже змінено. Оновіть попередній перегляд імпорту.', 'code': 'revision_conflict'}, 409)
     if not result['valid']:
         return response({**result, 'error': 'Імпорт містить помилки. Жодного товару не збережено.', 'code': 'invalid_import'}, 400)
     config = defaults()
+    from .promotion_prices import PriceResolver
+    store=price_results.resolve_context(user,preview_payload)
+    from datetime import date
+    resolver=PriceResolver(config,store,date.fromisoformat(result['effectiveDay']),product_paths=[document.path for _,document,_ in prepared if document])
+    from django.utils import timezone
+    committed_at=timezone.now()
     saved = []
     for entry, document, data in prepared:
         before = audit_snapshot('product', document.data) if document is not None else None
@@ -185,11 +208,13 @@ def commit_import(request, user):
         document.save()
         observe_prices(user,[document],'import','Імпорт товарів')
         audit(user, 'catalog_changed', document.path, {'method': 'IMPORT', 'contract': 'v1', 'run': payload['idempotencyKey'], 'line': entry['line'], **audit_change(before, audit_snapshot('product', data), observed=payload['snapshot'], reason='Імпорт товарів')})
-        product = serialize(document, user, config)
-        saved.append({'line': entry['line'], 'action': entry['action'], 'id': product['id'], 'revision': product['revision']})
-    committed = {'ok': True, 'idempotencyKey': payload['idempotencyKey'], 'counts': result['counts'], 'entries': saved}
-    Document.objects.create(path=run_path, data={'owner': user.pk, 'payloadHash': digest, 'result': committed})
+        product = serialize(document, user, config,resolver=resolver)
+        compared=price_results.compare_terms(entry['priceComparison']['before'],price_results.terms(document,config,resolver))
+        price_result=price_results.result(product['id'],'created' if entry['action']=='create' else 'updated',compared,resolver,line=entry['line'],ordinal=len(saved)+1,committed_at=committed_at)
+        saved.append({'line': entry['line'], 'action': entry['action'], 'id': product['id'], 'revision': product['revision'],'priceResult':price_result})
+    committed = {'ok': True, 'priceContext':result['priceContext'], 'idempotencyKey': payload['idempotencyKey'], 'counts': result['counts'], 'entries': saved}
+    Document.objects.create(path=run_path, data={'owner': user.pk, 'payloadHash': digest, 'priceContext':result['priceContext'], 'result': committed})
     from .import_jobs import mirror_atomic
-    mirror_atomic(user, uuid.UUID(payload['idempotencyKey']), digest, committed)
+    mirror_atomic(user, uuid.UUID(payload['idempotencyKey']), digest, committed,price_context=result['priceContext'])
     audit(user, 'catalog_imported', run_path, result['counts'])
     return response(committed)

@@ -2158,6 +2158,23 @@ export interface paths {
     patch: operations['changeProductVisibility'];
     trace?: never;
   };
+  '/api/v1/catalog/price-results/{kind}/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read-only creator/current-role/context-scoped immutable operation evidence; not current prices. 100 successful outcomes per page; actual import status may be partial/cancelled. Legacy receipts comparisonUnavailable with no guessed backfill. retail=existing salePrice delta, display=display-only, new=before null. Current Studio print proof remains required. */
+    get: operations['catalogOperationPriceResult'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2435,6 +2452,7 @@ export interface components {
       entries: components['schemas']['CatalogImportEntry'][];
       /** @description Initial markup for newly created products; omitted uses the server default. Does not replace an existing markup. */
       defaultMarkup?: string;
+      priceContext?: components['schemas']['OperationPriceContextRequest'];
     };
     CatalogImportCounts: {
       created: number;
@@ -2453,6 +2471,7 @@ export interface components {
       error?: string;
       /** @enum {string} */
       code?: 'invalid_import_row';
+      priceComparison?: components['schemas']['OperationPriceComparison'];
     };
     CatalogImportPreview: {
       valid: boolean;
@@ -2461,6 +2480,9 @@ export interface components {
       /** @description Opaque HMAC snapshot of all catalogue documents including hidden products and pricing settings. */
       snapshot: string;
       defaultMarkup: string;
+      priceContext?: components['schemas']['PriceContext'];
+      /** Format: date */
+      effectiveDay?: string;
     };
     CatalogImportCommitRequest: {
       entries: components['schemas']['CatalogImportEntry'][];
@@ -2472,6 +2494,7 @@ export interface components {
        * @description Generate once per confirmed preview; reuse unchanged after an ambiguous network failure. Bound to the user and complete immutable payload.
        */
       idempotencyKey: string;
+      priceContext?: components['schemas']['OperationPriceContextRequest'];
     };
     CatalogImportResult: {
       /** @constant */
@@ -2485,7 +2508,9 @@ export interface components {
         action: 'create' | 'update';
         id: string;
         revision: string;
+        priceResult?: components['schemas']['OperationPriceResult'];
       }[];
+      priceContext?: components['schemas']['PriceContext'];
     };
     CatalogMarkupRequest: {
       /** @constant */
@@ -2497,12 +2522,14 @@ export interface components {
       resetManualPrices: boolean;
       /** @description Allowed only when ids is null. Existing excluded products lacking an explicit markup get their old fallback materialized, including hidden and skipped manual products. */
       updateDefault: boolean;
+      priceContext?: components['schemas']['OperationPriceContextRequest'];
     };
     CatalogRoundingRequest: {
       /** @constant */
       kind: 'rounding';
       /** @enum {string} */
       rounding: '0.01' | '0.1' | '0.5' | '1';
+      priceContext?: components['schemas']['OperationPriceContextRequest'];
     };
     CatalogPricingRequest:
       | components['schemas']['CatalogMarkupRequest']
@@ -2520,6 +2547,7 @@ export interface components {
       snapshot: string;
       /** Format: uuid */
       idempotencyKey: string;
+      priceContext?: components['schemas']['OperationPriceContextRequest'];
     };
     CatalogRoundingCommitRequest: {
       /** @constant */
@@ -2529,6 +2557,7 @@ export interface components {
       snapshot: string;
       /** Format: uuid */
       idempotencyKey: string;
+      priceContext?: components['schemas']['OperationPriceContextRequest'];
     };
     CatalogPricingCommitRequest:
       | components['schemas']['CatalogMarkupCommitRequest']
@@ -2562,6 +2591,7 @@ export interface components {
       before: components['schemas']['CatalogPricingPair'];
       after: components['schemas']['CatalogPricingPair'];
       error?: string;
+      priceComparison?: components['schemas']['OperationPriceComparison'];
     };
     CatalogPricingPreview: {
       valid: boolean;
@@ -2571,6 +2601,9 @@ export interface components {
       entries: components['schemas']['CatalogPricingPreviewEntry'][];
       summary: components['schemas']['CatalogPricingSummary'];
       settings: components['schemas']['CatalogPricingSettings'];
+      priceContext?: components['schemas']['PriceContext'];
+      /** Format: date */
+      effectiveDay?: string;
     };
     CatalogPricingResult: {
       /** @constant */
@@ -2586,7 +2619,9 @@ export interface components {
         revision: string;
         /** @enum {string} */
         action: 'update' | 'unchanged' | 'skip';
+        priceResult?: components['schemas']['OperationPriceResult'];
       }[];
+      priceContext?: components['schemas']['PriceContext'];
     };
     /** @description Read-only pricing inputs shared with Save. Existing id enables unchanged legacy promotion terms; revision without id is invalid. */
     ProductPricePreviewRequest: {
@@ -2924,6 +2959,7 @@ export interface components {
       indexedPaths?: number;
       /** @description Present in GET detail/history. One shared snapshot per history page; control receipts may omit it. */
       readonly worker?: components['schemas']['CatalogImportWorker'];
+      priceContext?: components['schemas']['PriceContext'] | null;
     };
     CatalogImportJobRow: {
       ordinal: number;
@@ -2950,6 +2986,8 @@ export interface components {
       regularPrice: string | null;
       salePrice: string | null;
       error: components['schemas']['CatalogImportJobError'];
+      priceResult?: components['schemas']['OperationPriceResult'] | null;
+      priceComparison?: components['schemas']['OperationPriceComparison'] | null;
     };
     /** @description Immutable create body for exact retry. UI always supplies sourceHash and genericAs; uploads without sourceHash cannot safely recover a reselected file. */
     CatalogImportRunCreate: {
@@ -2962,6 +3000,7 @@ export interface components {
       sourceHash?: string;
       /** @enum {string} */
       genericAs?: 'cost' | 'price';
+      priceContext?: components['schemas']['OperationPriceContextRequest'];
     };
     CatalogImportCreateAck: {
       /** @constant */
@@ -2973,6 +3012,7 @@ export interface components {
       expectedRows: number;
       sourceHash: string | null;
       limits: components['schemas']['CatalogImportJobLimits'];
+      priceContext?: components['schemas']['PriceContext'];
     };
     /** @description Sequential zero-based offset. UTF8 JSON chunk <=1 MiB, each entry <=16 KiB, total canonical input <=50 MiB. */
     CatalogImportChunkRequest: {
@@ -3046,6 +3086,78 @@ export interface components {
       lastSeen: string | null;
       /** @constant */
       staleAfterSeconds: 45;
+    };
+    OperationPriceContextRequest: {
+      storeId: number | null;
+    };
+    OperationPriceDisplay: {
+      promotion: boolean;
+      oldPrice: string | null;
+    };
+    OperationPriceTerms: {
+      productRevision: string;
+      effectivePriceRevision: string;
+      regularPrice: string;
+      salePrice: string;
+      effectivePromotion: components['schemas']['EffectivePromotion'] | null;
+      display: components['schemas']['OperationPriceDisplay'];
+    };
+    OperationPriceComparison: {
+      before: components['schemas']['OperationPriceTerms'] | null;
+      after: components['schemas']['OperationPriceTerms'];
+      retailChanged: boolean;
+      displayChanged: boolean;
+      created: boolean;
+    };
+    OperationPriceResult: {
+      before: components['schemas']['OperationPriceTerms'] | null;
+      after: components['schemas']['OperationPriceTerms'];
+      retailChanged: boolean;
+      displayChanged: boolean;
+      created: boolean;
+      id: string;
+      line: number | null;
+      ordinal: number;
+      /** @enum {string} */
+      outcome: 'created' | 'updated' | 'unchanged' | 'skipped';
+      context: {
+        storeId: number | null;
+        storeName: string | null;
+        /** Format: date */
+        effectiveDay: string;
+      };
+      /** Format: date-time */
+      committedAt: string;
+    };
+    OperationPriceResultPage: {
+      operation: {
+        /** @enum {string} */
+        kind: 'pricing' | 'import';
+        /** Format: uuid */
+        id: string;
+      };
+      comparisonUnavailable: boolean;
+      priceContext: components['schemas']['PriceContext'] | null;
+      /** @enum {string} */
+      status:
+        | 'uploading'
+        | 'queued'
+        | 'running'
+        | 'ready'
+        | 'invalid'
+        | 'completed'
+        | 'completed_with_issues'
+        | 'blocked'
+        | 'failed'
+        | 'cancelled';
+      /** @enum {string} */
+      group: 'all' | 'retail' | 'display' | 'new';
+      total: number;
+      page: number;
+      pages: number;
+      /** @constant */
+      limit: 100;
+      items: components['schemas']['OperationPriceResult'][];
     };
   };
   responses: never;
@@ -3669,6 +3781,46 @@ export interface operations {
       };
       /** @description Revision conflict; readonly recovery is required */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  catalogOperationPriceResult: {
+    parameters: {
+      query?: {
+        page?: number;
+        group?: 'all' | 'retail' | 'display' | 'new';
+      };
+      header?: never;
+      path: {
+        kind: 'pricing' | 'import';
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Immutable committed price outcomes */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OperationPriceResultPage'];
+        };
+      };
+      /** @description Current role/context access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No result owned by the current author */
+      404: {
         headers: {
           [name: string]: unknown;
         };
