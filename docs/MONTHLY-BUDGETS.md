@@ -55,3 +55,13 @@ B18 snapshot whitelist має включити чотири моделі й по
 ### Цільове рев’ю B18-сумісності
 
 Чотири PG-перевірки PASS після доповнення аудиту: API відхиляє mode[]/{} і інші нестрокові значення з400 без рядків/audit; category create replay після edit→renameback відхиляється; before/after зберігає попередні рядки й позиції без client unknown/private fields; 65batch-рядків лишаються в межі≤25queries. Міграцію0010 не змінено, успішні UI та accounting перевірки повторно не запускались.
+
+### Відновлення непідтвердженого запису й DTO
+
+Місячний бюджет і стаття мають immutable intent: початкові method/path/body фіксуються перед записом. Мережева помилка, 5xx або некоректний200 не вважаються ACK; чернетка й intent лишаються, поля/навігація блокуються, кнопка «Повторити початковий запит» повторює точний body/key. Надійна400/403/404/409/422 звільняє форму для виправлення; POST автоматично не повторюється. Після відомого успіху невдалий GET пропонує тільки читання.
+
+Runtime decoder перевіряє UUID/revision, десяткові рядки, місяць/store контекст, рядки й категорії, дати, stores/months/comparison/coverage та політики розрахунку. Saved ACK додатково відповідає запитаним значенням/ID рядків і очікуваній revision. Некоректний readDTO не встановлюється й не залишає доступних старих writecontrols.
+
+Перед initialGET використано validated `GET /api/v1/promotions/context`. Scoped owner відкриває свій магазин, не бачить network option/чужі stores або мережеву каталогну вкладку; пояснення scope не редагується. Це вузька UIboundary: старий server legacy globalOwnerDTO не переписано, його фінансовий scope є окремою B02 перевіркою.
+
+Новий targeted `tests/monthly-budget-recovery-ui.cjs` перевірив commit→lostACK→спробу змінити заблоковану форму→exact retry для бюджету, committed malformed200 для budget/category, один запис/audit, відкидання wrong-context/missing-fields/NaN/missing-categoryID на GET. Scoped owner tail пройшов окремо (`--scope-only`): initial ownstore,320px, прихована мережева вкладка, сервер403 для мережі й реального чужого магазину. Старі успішні UIсценарії без змінених inputs не проганялись повторно; основний budgetUIhelper адаптовано до explicitretrybutton.
