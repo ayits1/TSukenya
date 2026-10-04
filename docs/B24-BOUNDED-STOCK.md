@@ -35,3 +35,7 @@
 - Node syntax змінених app/test scripts, Python compile, `git diff --check`: PASS. Наявні CRM/CSV/dialog fixtures адаптовано до нового контракту; їхні повні незмінені сценарії не запускали. Повна регресія, інші браузери, deployment та production capacity не перевірялися.
 
 PG команда використовує лише наданий локальний QA контейнер і власний DB_NAME; credentials беруться з локального QA context, не з production. Тестовий скрипт Chrome прибирає успадковані DB variables та видаляє власні дані після завершення. Root додає новий браузерний сценарій до explicit full-check registry під час інтеграції.
+
+## Незалежна інтеграція
+
+Пакет `dfdc75183e87fa78b969ccf9a807966689a753cb` перенесено на main `be48a4aa7f0ce6e03de12600bfaa84338ef8867d`; чинний `current_actor` для assortment mutation та guards PR51 збережено. Root переглянув SQL/streaming cursor, scope/redaction, latest-request UI та native `assortment-row-320.png`. На інтегрованому коді PostgreSQL **3 PASS**: page/whole-summary parity, конкурентний read-only snapshot та наявний API save/revision сценарій асортименту. Незмінені решта PostgreSQL і native докази використані повторно. Новий браузерний сценарій зареєстровано в explicit `test:full`; сам повний прогін не запускався. Node syntax registry й diff-check успішні.
