@@ -120,3 +120,15 @@ string display unit/story. Це не capacity benchmark, не screen-reader аб
 cross-browser доказ. Фізичний CSV/друк не заявляється: фінансовий екран не мав
 CSV дії. Native editors, staff/reports/setup та повна CRM React міграція
 залишаються окремими пакетами.
+
+## Інтеграція з прийнятим порталом
+
+Ownb7b593d і follow-upfe19b80/21cb855 інтегровано на accepted3976f6c.
+Збережено ReactSales mount/leave, його response-live gate, typed generated
+контракт/entry та count/monthly/category/recipe/workShift recovery. Matching
+TypeScript/Vite build, node syntax, diff та full-check --plan PASS.
+Actual integrated late scope PASS: ignored-abort detail401 після leave
+не інвалідує новий сеанс і не відкриває старий dialog; локальний доказ
+`/tmp/tsukenya-finance-integrated-late/late-report.json`. Інші авторські
+PG/unit/story/privacy/layout докази повторно використано для незмінених inputs.
+Full regression і production mutations не виконували.
