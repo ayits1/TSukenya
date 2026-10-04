@@ -56,3 +56,13 @@ Harness задає ізольований Django settings до password helper, 
 успадковані owner credentials, перевіряє ранній exit; teardown очікує власний процес.
 Actual native layout root на зведеному коді PASS:1440/320, клавіатура/44px/no overflow, Apply без PATCH.
 Артефакт `/tmp/tsukenya-root-legacy-create/layout-report.json`; receipt320 PNG переглянуто.
+
+
+Перший exact-head CI: frontend/server PASS; PostgreSQL виявив два старі multilot
+fixtures, що присвоювали EARLY/LATE за неоголошеним порядком SQL. VoucherLine не має
+default ordering; query planner після нової таблиці може повертати ті самі rows інакше.
+Виправлено лише tests/test_multilot.py: cost звіряється за lot, source EARLY — через
+get(lot='EARLY'), remaining — за actual line ID. Точні суми/FEFO/StockEntry/obligation/
+reverse/reconcile та ambiguity guard assertions збережені. Обидва affected cases:
+PostgreSQL2 PASS0.298s, SQLite2 PASS0.068s. Business source не змінено, повну локальну
+регресію не повторювали. CI наступного head перевіряється окремо.
