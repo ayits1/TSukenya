@@ -48,3 +48,38 @@ env -i PATH="$PATH" PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python QA_OUTPUT_DI
 No VPS/production/Google Sheet/full regression/backup0.1/push/deploy. Між браузерними reads немає обіцянки persisted server snapshot; факт завжди readonly актуальний запит, historical/formula semantics чинні.
 
 Фінальний static tail: browser-policy219, scoped ESLint/Prettier та JS syntax/diff PASS. Перший запуск нового preflight stage у sandbox не міг відкрити local socket (`Operation not permitted`), бізнес-сценарій не почався; повтор із дозволеним isolated localhost terminal PASS у `preflight-final`. Ці межі не є production/load/physical-print QA.
+
+## Незалежний response-boundary follow-up
+
+Окрема правка поверх `3e06f8a9e87eac9b3221a65d2e13484018ba4489`:
+API перевіряє live/generation guard після останнього session await, після
+`response.json()` і перед обробкою 401 або декодуванням ACK. Відповідь уже
+надісланого POST, що закінчилася після pagehide/нової авторизації, не може
+відкликати новий сеанс чи прийняти старий ACK. Frozen first intent залишається
+для окремого identity/read recovery; невідомий результат не є доказом rollback.
+Поточний business POST403 запускає свіжу P0 session-перевірку до будь-якого
+повторного показу private UI. Та сама session identity зберігає початковий intent
+і raw; підтверджена зміна session/role/scope прибирає приватні записи за P0.
+Жодного автоматичного POST/PUT або прийняття нового revision тут немає.
+
+Лише два нові actual isolated SQLite/bundled headless Chromium stages:
+
+- `QA_MONTHLY_DRAFT_FROM=response`: PASS,
+  `/tmp/tsukenya-monthly-response-proof/response-report.json` — issued POST401
+  після pagehide та fresh warm authorization: zero global invalidation,
+  no redirect/private hide, frozen100 + newer invalid raw, тільки один POST.
+- `QA_MONTHLY_DRAFT_FROM=write403`: PASS,
+  `/tmp/tsukenya-monthly-write403-final/write403-report.json` — реальне
+  owner→accountant після final session preflight: сервер POST403, private
+  plan/fact/category DOM прихований, revoked-session storage прибрано,
+  бюджетів у БД нуль. Перший harness wait помилково прийняв pre-send gate за
+  фінальний hide; failed artifact лишився у `monthly-write403-proof`, wait
+  замінено на фактичну POST403 і виконано лише цей stage ще раз.
+
+Own matching TypeScript/Vite build, JS syntax, diff whitespace та static
+browser-policy219 PASS. Перед першим local run sandbox заборонив socket,
+бізнесовий сценарій не почався; перевірки виконано з дозволеним isolated
+localhost. Інші author unit/PG/layout/merge proofs вище використано повторно
+без запуску: server, codec, shared controls і geometry не змінено. No full,
+production/VPS/Sheet, push/deploy або нові міграції. Category baseline із
+авторської гілки не є частиною цього follow-up; root інтегрує її окремі виправлення.

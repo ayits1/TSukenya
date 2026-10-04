@@ -63,12 +63,15 @@ async function api(path,method='GET',value,signal,guard){
  const writing=method!=='GET'&&!path.endsWith('/identity');
  const gate=()=>{if(signal?.aborted||(guard&&!guard()))throw new DOMException('Скасовано','AbortError');};
  gate();
- if(writing||!csrf){let session;try{session=await window.PortalApi.session(signal);}catch(e){if(!signal?.aborted&&[401,403].includes(e.status)){await window.NativeDraftRecovery.controller.check(false).catch(()=>{});}throw e;}gate();if(writing&&sessionBinding!==sessionFingerprint(session)){await window.NativeDraftRecovery.controller.check(false).then(bindMonthlySession).catch(()=>{});throw new DOMException('Доступ змінився','AbortError');}csrf=session.csrf;}
+ if(writing||!csrf){let session;try{session=await window.PortalApi.session(signal);}catch(e){gate();if([401,403].includes(e.status)){await window.NativeDraftRecovery.controller.check(false).catch(()=>{});}throw e;}gate();if(writing&&sessionBinding!==sessionFingerprint(session)){await window.NativeDraftRecovery.controller.check(false).then(bindMonthlySession).catch(()=>{});throw new DOMException('Доступ змінився','AbortError');}csrf=session.csrf;}
  // Last awaited session can outlive a route, visibility or recovery cancellation.
  gate();
  let response;try{response=await fetch(path==='context'?'/api/v1/promotions/context':'/api/erp/'+path,{method,credentials:'same-origin',signal,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:method==='GET'||value===undefined?undefined:JSON.stringify(value)});}catch(e){if(e.name==='AbortError')throw e;throw Object.assign(Error(writing?'Підтвердження запису не отримано. Чернетку збережено; використайте доступну дію відновлення.':'Не вдалося прочитати бюджет. Повторіть запит.'),{uncertain:writing});}
- let result;try{result=await response.json();}catch{throw Object.assign(Error('Невідома відповідь сервера. Чернетку збережено.'),{uncertain:writing});}
- if(signal?.aborted)throw new DOMException('Скасовано','AbortError');
+ let result;try{result=await response.json();}catch{gate();throw Object.assign(Error('Невідома відповідь сервера. Чернетку збережено.'),{uncertain:writing});}
+ // An issued write can finish after suspension or a newer authorization.
+ // Its old response must not invalidate or expose the current private screen.
+ gate();
+ if(writing&&response.status===403){await window.NativeDraftRecovery.controller.check(false).then(bindMonthlySession).catch(()=>{});}
  if(response.status===401){window.dispatchEvent(new Event('tsukenya:session-invalidated'));location.href='/';}
  if(!response.ok)throw Object.assign(Error(object(result)&&text(result.error)?result.error:'Не вдалося виконати дію.'),{code:result?.code,status:response.status,rejection:result?.write_rejected===true?result:null,uncertain:writing&&![400,403,404,409,422].includes(response.status)});
  try{return decode(path,method,value,result);}catch(e){throw Object.assign(e,{uncertain:writing});}
