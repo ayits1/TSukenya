@@ -241,3 +241,16 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 
 - **Budget template:** #67 MERGED, exacthead da7031d frontend/server/PostgreSQL CI SUCCESS; canonical clone clean fast-forward301cdd0. Єдине старе pricing settings fixture очікування доповнено inferred budgetStores1 без послаблення refusal/audit/revision guards, targeted SQLite1/PG1 PASS. [BUDGET-TEMPLATE-RECOVERY.md](BUDGET-TEMPLATE-RECOVERY.md).
 - Entity CREATE інтеграція перебазована на main67, combinedbuild/all namespace exports та registry dry-run PASS, готується окремий PR. Наступні safe legacy snapshot0021, planning/category0022 та monthly UI виконуються окремими пакетами. Реліз сайту лишається main65b7ee71d; ці нові PR на VPS не розгорнуті. Весь план активний,0.1/full/capacity не виконані.
+
+
+## B06 — legacy CREATE identity, root інтеграція · 04.10.2026
+
+Після прийнятого #68: фактичні задачі/ідеї/статті витрат та idea→task мають frozen
+first body/key, явний exact retry і GET-only receipt identity. Original whitelist snapshot
+в0021 не backfill-иться для історичних квитанцій. Поточна роль/автор/початковий store
+перевіряються в RR READ ONLY; ID не стає Save revision. Новіші поля зберігаються,
+тристороннє узгодження застосовується лише локально, PATCH — окреме явне збереження.
+Історичний deleted manager scope відмовляє без доказу. Докази/межі —
+[LEGACY-CREATE-IDENTITY-RECOVERY.md](LEGACY-CREATE-IDENTITY-RECOVERY.md).
+Monthly plan/category пакети ще окремо готуються; весь B06 і весь план цим записом
+не оголошено завершеними. Production на main94dece2 — див. SERVER-DEPLOYMENT.md.

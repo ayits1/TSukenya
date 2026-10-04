@@ -24,7 +24,7 @@ class MultilotTests(AccountingFixture):
         r.refresh_from_db()
         self.assertEqual(r.total, Decimal('7.36'))
         self.assertEqual(obligation(r), r.total)
-        self.assertEqual(list(r.lines.values_list('cost', flat=True)), [Decimal('3.34'), Decimal('4.02')])
+        self.assertEqual(dict(r.lines.values_list('lot', 'cost')), {'LATE': Decimal('3.34'), 'EARLY': Decimal('4.02')})
         self.assertEqual(sum(r.stock_entries.values_list('value', flat=True)), r.total)
         self.assertEqual(set(r.stock_entries.values_list('line_id', flat=True)), set(r.lines.values_list('id', flat=True)))
         s = self.sale(3, 10)
@@ -40,7 +40,7 @@ class MultilotTests(AccountingFixture):
 
     def test_exact_second_source_return_and_ambiguity_guard(self):
         r = self.save();post_voucher(self.u, r.pk)
-        late, early = list(r.lines.all())
+        early = r.lines.get(lot='EARLY')
         with self.assertRaisesMessage(BusinessError, 'кілька партій'):
             self.save('supplier_return', [{'product':'p', 'quantity':1, 'price':999}], reference=r.pk)
         returned = self.save('supplier_return', [{'product':'p','quantity':1,'price':999,'reference_line':early.pk}], reference=r.pk)
@@ -50,7 +50,8 @@ class MultilotTests(AccountingFixture):
         self.assertEqual(returned.stock_entries.get().lot.code, 'EARLY')
         self.assertEqual(returned.lines.get().expiry, early.expiry)
         self.assertEqual(StockLot.objects.get(code='LATE').quantity, 3)
-        self.assertEqual(voucher_json(r, True, user=self.u)['lines'][1]['remaining'], '1.000')
+        early_row = next(row for row in voucher_json(r, True, user=self.u)['lines'] if row['id'] == early.pk)
+        self.assertEqual(early_row['remaining'], '1.000')
         with self.assertRaisesMessage(BusinessError, 'партії вихідного рядка'):
             self.save('supplier_return', [{'product':'p','quantity':1,'price':999,'reference_line':early.pk,'lot':'LATE'}], reference=r.pk)
         # Consumed EARLY cannot fall through to LATE even though enough total product stock remains.

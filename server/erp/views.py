@@ -255,10 +255,10 @@ def legacy_mutation(request,user,path,create_key=None):
             if receipt.request_fingerprint!=request_fingerprint:
                 return response({'error':'Зміст цього запиту створення вже інший. Спочатку підтвердьте початкове створення.','code':'create_payload_conflict'},409)
             if receipt.deleted_at is not None or d is None:
-                return response({'error':'Запис уже було створено та видалено. Повтор не відновлює його. Щоб почати нову чернетку, очистьте поле назви.','code':'create_deleted'},409)
+                return response({'error':'Запис уже було створено та видалено. Повтор не відновлює його. Перевірте початкове створення; новіше введення залишиться для окремого рішення.','code':'create_deleted'},409)
             if receipt.created_fingerprint!=legacy_create_fingerprint(d.data):
-                return response({'error':'Запис уже створено й змінено. Перегляньте його в списку; повтор не замінює зміни. Щоб почати нову чернетку, очистьте поле назви.','code':'create_changed','id':id},409)
-            return response({'ok':True,'id':id,'replayed':True})
+                return response({'error':'Запис уже створено й змінено. Перегляньте його в списку; повтор не замінює зміни. Перевірте початкове створення; новіше введення залишиться для окремого рішення.','code':'create_changed','id':id},409)
+            return response({'ok':True,'id':id,'replayed':True,'collection':col,'createKey':create_key,'original':receipt.original})
         if create_key is not None and d is not None:
             return response({'error':'Запис уже існує. Створення не може його замінити.','code':'create_exists'},409)
         if request.method=='PUT' and d is not None and create_key is None and col in {'tasks','ideas','expenses'}:
@@ -301,8 +301,10 @@ def legacy_mutation(request,user,path,create_key=None):
             if duplicate_name(value,old,path):return response(DUPLICATE_NAME,409)
         if create_key is not None:
             Document.objects.create(pk=path,data=value)
+            from .legacy_create_identity import original_snapshot
             LegacyCreateReceipt.objects.create(key=create_key,author=user,collection=col,document_path=path,
-                request_fingerprint=request_fingerprint,created_fingerprint=legacy_create_fingerprint(value))
+                request_fingerprint=request_fingerprint,created_fingerprint=legacy_create_fingerprint(value),
+                original=original_snapshot(user,col,Document.objects.get(pk=path)))
         else:
             Document.objects.update_or_create(pk=path,defaults={'data':value})
     if col=='products' and request.method!='DELETE':
@@ -319,7 +321,7 @@ def legacy_mutation(request,user,path,create_key=None):
     if col in {'tasks','ideas','expenses'} and request.method!='DELETE':
         from .managed_alerts import task_revision
         saved=Document.objects.get(pk=path)
-        return response({'ok':True,'id':id,'revision':task_revision(saved)})
+        return response({'ok':True,'id':id,'revision':task_revision(saved),**({'collection':col,'createKey':create_key,'original':LegacyCreateReceipt.objects.get(pk=create_key).original} if create_key is not None else {})})
     return response({'ok':True,'id':id})
 
 @transaction.atomic

@@ -98,8 +98,10 @@
       throw error;
     }
     const after = started, result = await response.json();
-    if (options?.createKey && (!result || result.ok !== true || typeof result.id !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(result.id)))
+    if (options?.createKey && (!result || result.ok !== true || typeof result.id !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(result.id) || result.createKey !== options.createKey || result.collection !== path.slice('/api/'.length)))
       throw new Error('Unconfirmed create response');
+    if(options?.createKey)try{window.PortalApi.decodeCreateAcknowledgement(result,path.slice('/api/'.length),options.createKey,value);}catch(_){throw new Error('Unconfirmed create response');}
+    options?.onConfirmed?.(result);
     // The write's own layout version: valid even when the following read fails.
     if (path === '/api/docs/settings/main' && typeof result?.revision === 'string') labelRevision = result.revision;
     // The server already confirmed this write. A failed read is a separate UI
@@ -129,6 +131,7 @@
     collection(name) {
       return {
         doc(id = crypto.randomUUID()) { return doc(`${name}/${id}`); },
+        createIdentity(createKey, signal) { return window.PortalApi.createIdentity(name, createKey, signal); },
         async add(value, options) {
           const protectedCreate = ['tasks','ideas','expenses'].includes(name);
           const intent = protectedCreate ? options?.createKey ? {key:options.createKey,value} :
@@ -136,9 +139,9 @@
           if (intent && !options?.createKey) createIntents.set(value,intent);
           try {
             const result = await mutate("POST", `/api/${name}`, intent ? intent.value : value,
-              intent ? {createKey:intent.key} : undefined);
+              intent ? {createKey:intent.key,onConfirmed:options?.onConfirmed} : undefined);
             if (intent && !options?.createKey) createIntents.delete(value);
-            return doc(`${name}/${result.id}`);
+            return Object.assign(doc(`${name}/${result.id}`),protectedCreate?{creation:result}:{});
           } catch (error) {
             if (intent && !options?.createKey) {
               if (error.status>=400 && error.status<500 && !intent.uncertain && !error.code?.startsWith('create_')) createIntents.delete(value);

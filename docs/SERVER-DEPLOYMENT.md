@@ -302,3 +302,30 @@ migration/health, потім окремо оновлювати worker тієї �
 Повної регресії, offsite backup0.1, restore exercise чи reconcile scheduler цього разу не було.
 В IAB відкрито live login page; authenticated production UI потребує входу власника,
 тому його каталог/CRM екрани не названо перевіреними цим production smoke.
+
+
+## Реліз прийнятих PR #66–68 · 04.10.2026
+
+За окремим дорученням власника сайт оновлено до прийнятого main
+`94dece283b11f915c70d9edd4502fcd9e338a6e6`. Усі frontend/server/PostgreSQL gates
+PR #68 успішні; незавершені legacy-create/planning/monthly гілки до релізу не входили.
+Опубліковано recovery документів/оплат, versioned budget template та immutable entity
+create receipts. Локальний checkout Documents/Projects/TSukenya синхронізований fast-forward.
+
+Штатний git archive та release.py --check пройшли. Спочатку scoped stop import-worker,
+далі backup/web build/migrate/health; потім scoped rebuild/restart worker тієї самої SHA.
+Compose/env/gateway не замінювали, PostgreSQL container `8b74e7132c36` не перезапускався.
+Новий web `c09888855c2e`, worker `66839c7b76de` healthy; застосовано лише erp0020.
+Публічний /health: status ok, release відповідає SHA, imports available. Сусідній сайт HTTPS200.
+
+Backup: `backups/tsukenya-crm-20261004T110335Z.dump`, checksum і pg_restore --list PASS.
+Попередній код: `releases/pre-20261004T110334Z.tar.gz`. Перша pg_restore перевірка не
+передала stdin через docker exec без -i; повторено лише цей read-only крок із -i, успішно.
+Reconcile exit0/issues0. До/після 90 Document, 0 Voucher/StockEntry/CashEntry, 28 AuditEvent;
+JSON digest незмінний `a85eef4aa5063ec958c3a1e0b8e515ef595e4a09e2e9bd319d285e17a16573df`.
+Черга імпорту порожня. Production mutation-тестів і повної локальної регресії не запускали.
+Приватні authenticated екрани цим smoke не перевіряли. Offsite0.1 не виконано.
+
+Відкат коду: stop worker; release.py з pre-20261004T110334Z.tar.gz; після health
+перебудувати worker сумісного попереднього коду. Не відновлювати БД поверх нових записів.
+Нова erp0020 лише додає таблицю receipt; дані при code rollback не видаляти.
