@@ -97,3 +97,13 @@ raw та confirmed ID без прийняття revision чи повторног
 повторно за незмінних inputs. Full runner лише перевірено з --plan; додано
 primary і10 окремих monthly scopes та scrub QA_MONTHLY_DRAFT_FROM.
 Цей пакет не переносить шаблон бюджету й не означає завершення B06.
+
+### CI fixture follow-up
+
+Серверний Django SQLite CI пройшов845 tests, але наступний Node decimal
+fixture не мав нового MonthlyBudgetPersistence bridge і зупинився на configure.
+Додано лише VM fixture bridge з перевіркою складу callback configuration;
+production/formulas не змінено. Повторено тільки monthly-budget-decimal:
+exact .98/.99, negative facts/kopecks, ACK/rate3 PASS. Перша локальна правка
+назвала bridge помилково; виправлено на фактичний MonthlyBudgetPersistence
+і повторено цей самий вузький fixture. Full/Django/browser не повторювали.
