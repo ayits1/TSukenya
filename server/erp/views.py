@@ -354,7 +354,21 @@ def work_shift_save(user,value):
     owner_or_accountant=user.profile.role in {'owner','accountant'}
     require(owner_or_accountant,'Недостатньо прав для зарплати.')
     lock=ledger_lock()
+    user.refresh_from_db(fields=['is_active'])
+    user.profile.refresh_from_db()
+    require(user.is_active and user.profile.role in {'owner','accountant'},'Недостатньо прав для зарплати.')
     e=get(Employee,value.get('employee'),'Працівник');scope(user,e.store)
+    key=value.get('idempotency_key')
+    fingerprint=None
+    if key is not None:
+        require(not value.get('id') and isinstance(key,str) and bool(re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',key)), 'Ключ створення табеля має бути UUID і дозволений лише для нового запису.')
+        fingerprint=request_fingerprint(user,value)
+        receipt=WorkShiftCreateReceipt.objects.select_related('work_shift').filter(pk=key).first()
+        if receipt:
+            scope(user,receipt.work_shift.store)
+            if receipt.author_id!=user.pk or receipt.fingerprint!=fingerprint:
+                raise Conflict('Ключ повтору вже використано для іншого запису табеля.', 'idempotency_conflict')
+            return response({'id':receipt.work_shift_id})
     d=day(value.get('date'));require(d<=timezone.localdate(),'Зміну не можна відмітити майбутнім днем.')
     require(not lock.closed_through or d>lock.closed_through,'Обліковий період закритий.')
     s=get(WorkShift,value['id'],'Зміна') if value.get('id') else WorkShift(employee=e,store=e.store,date=d)
@@ -377,10 +391,15 @@ def work_shift_save(user,value):
         closed=timezone.localtime(s.cash_shift.closed_at).date() if s.cash_shift.closed_at else timezone.localdate()
         require(opened<=d<=closed,'Дата табеля не відповідає касовій зміні.')
     require(s.bonus_percent==0 or s.cash_shift is not None,'Для відсотка від виторгу виберіть касову зміну.')
+    duplicate=WorkShift.objects.filter(employee=e,date=d,cash_shift=s.cash_shift).exclude(pk=s.pk).first()
+    if duplicate:
+        raise Conflict('За цей день уже є табель цього працівника для вибраної касової зміни. Відкрийте існуючий запис; для іншої касової зміни створіть окремий.', 'work_shift_exists', id=duplicate.pk)
     counted=WorkShift.objects.filter(employee=e,cash_shift=s.cash_shift,bonus_percent__gt=0).exclude(pk=s.pk).first() if s.cash_shift and s.bonus_percent>0 else None
     require(counted is None,f'Відсоток від виторгу касової зміни № {s.cash_shift_id} уже враховано в табелі за {counted.date.isoformat()}. Для цього дня залиште лише ставку (відсоток 0).' if counted else '')
     s.note=str(value.get('note',''))[:2000];s.full_clean();s.save()
     audit(user,'work_shift_saved',f'work_shift/{s.pk}',{'rate':str(s.shift_rate),'percent':str(s.bonus_percent),'basis':s.bonus_basis, **audit_change(before, audit_snapshot('work_shift', s), observed=value.get('revision'), reason=value.get('reason'))})
+    if key is not None:
+        WorkShiftCreateReceipt.objects.create(key=key,author=user,work_shift=s,fingerprint=fingerprint)
     return response({'id':s.pk})
 
 def portal(request):

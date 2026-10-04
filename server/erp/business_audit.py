@@ -56,7 +56,7 @@ def snapshot(kind, value):
             safe = select(payload, PAYLOAD_FIELDS)
             if isinstance(payload.get('payments'), list): safe['payments'] = [select(row, ('account', 'amount')) for row in payload['payments'] if isinstance(row, dict)]
             if isinstance(payload.get('differences'), list): safe['differences'] = [select(row, ('product', 'quantity', 'value')) for row in payload['differences'] if isinstance(row, dict)]
-            if isinstance(payload.get('calculation'), list): safe['calculation'] = [select(row, ('date', 'units', 'rate', 'percent', 'basis', 'basis_amount', 'accrued')) for row in payload['calculation'] if isinstance(row, dict)]
+            if isinstance(payload.get('calculation'), list): safe['calculation'] = [select(row, ('id', 'date', 'cash_shift', 'units', 'rate', 'percent', 'basis', 'basis_amount', 'accrued')) for row in payload['calculation'] if isinstance(row, dict)]
             result['payload'] = safe
         lines = value.get('lines', []) if isinstance(value, dict) else value.lines.order_by('pk') if value.pk else []
         result['lines'] = [select(line, LINE_FIELDS) for line in lines]
