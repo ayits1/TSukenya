@@ -103,6 +103,23 @@ class ProductionVersionTests(ApiFixture):
         with self.assertRaisesMessage(BusinessError,'не може продовжувати'):post_voucher(self.u,draft.pk)
         self.assertEqual(StockEntry.objects.filter(voucher=draft).count(),0)
 
+    def test_production_cannot_consume_other_order_reserved_material(self):
+        from server.erp.orders import mutate,order_json
+        from server.erp.models import StockReservation
+        self.p.data.update({'salePrice':'10.00','cost':'2.00'});self.p.save()
+        self.receive(expiry=(date.fromisoformat(self.today)+timedelta(days=2)).isoformat())
+        order=save_voucher(self.u,{'kind':'customer_order','store':self.store.pk,'warehouse':self.wh.pk,'party':self.customer.pk,'date':self.today,'lines':[{'product':'p','quantity':'12','price':'10'}]});post_voucher(self.u,order.pk)
+        mutate(self.u,order.pk,{'action':'reserve','revision':order_json(order,self.u)['revision'],'idempotencyKey':str(uuid.uuid4()),'expires_on':self.today,'lines':[{'line':order.lines.get().pk,'quantity':'12'}]})
+        version,_=self.approve();draft=self.production(version)
+        with self.assertRaisesMessage(BusinessError,'Резерви інших замовлень недоступні'):post_voucher(self.u,draft.pk)
+        self.assertEqual(StockEntry.objects.filter(voucher=draft).count(),0)
+        self.assertEqual(StockLot.objects.get(product=self.p).quantity,30)
+        reservation=StockReservation.objects.get()
+        mutate(self.u,order.pk,{'action':'release','revision':order_json(order,self.u)['revision'],'idempotencyKey':str(uuid.uuid4()),'reservation':reservation.pk,'quantity':'2','reason':'Явно звільнено для виробництва'})
+        self.assertEqual(post_voucher(self.u,draft.pk).cost,40)
+        reservation.refresh_from_db();self.assertEqual(reservation.used,0);self.assertEqual(reservation.released,2)
+        self.assertEqual(StockLot.objects.get(product=self.p).quantity,10)
+
 from django.test import TransactionTestCase,RequestFactory
 import json
 from django.db import connection,connections,close_old_connections

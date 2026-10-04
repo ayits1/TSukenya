@@ -1,4 +1,4 @@
-/* Recipe UX against its own local Django/SQLite; no remote database or Google writes. */
+/* Production UX against its own local Django/SQLite; no remote database or Google writes. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process');
 const {chromium}=require('playwright');
@@ -17,7 +17,7 @@ from server.erp.services import save_voucher,post_voucher
 from django.utils import timezone
 from datetime import timedelta
 u=Profile.objects.get(user__username='tester').user;u.profile.role='owner';u.profile.save()
-for id,data in [('raw',{'name':'Сировина з довгою українською назвою','unit':'кг'}),('output',{'name':'Готовий кекс контрольний','unit':'шт','recipe':[{'product':'raw','quantity':'2'}]})]:
+for id,data in [('raw',{'name':'Сировина з довгою українською назвою','unit':'кг'}),('other_output',{'name':'Інший готовий товар','unit':'шт'}),('output',{'name':'Готовий кекс контрольний','unit':'шт','recipe':[{'product':'raw','quantity':'2'}]})]:
  Document.objects.create(path='products/'+id,data=data)
 s=Store.objects.first();w=Warehouse.objects.filter(store=s).first();p=Counterparty.objects.create(name='Контрольний постачальник',kind='supplier')
 v=save_voucher(u,{'kind':'receipt','store':s.pk,'warehouse':w.pk,'party':p.pk,'date':timezone.localdate().isoformat(),'lines':[{'product':'raw','quantity':'30','price':'2','expiry':(timezone.localdate()+timedelta(days=4)).isoformat()}]});post_voucher(u,v.pk)`);
@@ -37,7 +37,7 @@ async function screenshot(name,target=page,cdp=false){const filename=path.join(o
  let lost=true,keys=[];await page.route('**/api/erp/recipes/versions',async route=>{if(route.request().method()!=='POST')return route.continue();keys.push(route.request().postDataJSON().idempotencyKey);if(lost){lost=false;await route.fetch();return route.abort();}return route.continue();});
  await dialog().locator('[type=submit]').click();await error('З’єднання перервано');await dialog().locator('[name=reason]').fill('Нове обґрунтування');await dialog().locator('[type=submit]').click();await error('Первісну версію затверджено');assert.equal(keys[0],keys[1]);assert.equal(await dialog().locator('[name=reason]').inputValue(),'Нове обґрунтування');assert.equal((await api(page,'GET','/api/erp/recipes/versions?product=output')).body.total,1);await close(page,true);await page.unroute('**/api/erp/recipes/versions');
  results.push('Confirmed server create with lost HTTP response: same key exact retry, one version, changed text retained: PASS');
- await page.locator('[data-trade=new-voucher][data-kind=production]').click();await dialog().locator('[data-line=product]').selectOption('output');await dialog().locator('[name=productionVersion]').waitFor();await dialog().locator('[data-line=quantity]').fill('8');await dialog().locator('[name=varianceReason]').fill('Втрати під час випікання');await dialog().locator('[data-fact=quantity]').fill('21');
+ await page.locator('[data-trade=new-voucher][data-kind=production]').click();await dialog().locator('[data-line=product]').selectOption('output');await dialog().locator('[name=productionVersion]').waitFor();await dialog().locator('[data-line=quantity]').fill('8');await dialog().locator('[name=varianceReason]').fill('Втрати під час випікання');await dialog().locator('[data-fact=quantity]').fill('21');page.once('dialog',native=>native.dismiss());await dialog().locator('[data-line=product]').selectOption('other_output');assert.equal(await dialog().locator('[data-line=product]').inputValue(),'output');assert.equal(await dialog().locator('[data-fact=quantity]').inputValue(),'21');
  // An actual failed GET pauses posting without clearing the visible actual quantities or reason.
  await page.route('**/api/erp/recipes/versions?*',route=>response(route,{error:'Контрольне читання недоступне'},503));await dialog().locator('[data-production=retry]').click();await error('Контрольне читання недоступне');assert.equal(await dialog().locator('[data-fact=quantity]').inputValue(),'21');assert.equal(await dialog().locator('[name=varianceReason]').inputValue(),'Втрати під час випікання');await dialog().locator('[value=post]').click();await error('Дочекайтеся актуальних');
  await page.unroute('**/api/erp/recipes/versions?*');await dialog().locator('[data-production=retry]').focus();await page.keyboard.press('Enter');await wait(async()=>!(await dialog().locator('.trade-production').getAttribute('aria-busy')),'retry');assert.equal(await dialog().locator('[data-fact=quantity]').inputValue(),'21');
