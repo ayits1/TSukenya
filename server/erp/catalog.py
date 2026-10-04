@@ -235,7 +235,9 @@ def save_product(request, user, identifier=None):
         data = new_product_data(config)
     require(not (set(value) - PRODUCT_FIELDS - {'revision', 'pricingRevision'}), 'Запит містить невідомі поля товару.')
     if request.method == 'DELETE':
-        from .models import VoucherLine, StockLot, PromotionPrice
+        from .models import VoucherLine, StockLot, PromotionPrice, RecipeVersion, RecipeComponent, ProductionInput
+        require(not ProductionInput.objects.filter(product=document).exists(),'Товар збережено як інгредієнт виробничого документа.')
+        require(not RecipeVersion.objects.filter(product=document).exists() and not RecipeComponent.objects.filter(product=document).exists(), 'Товар використовується в затверджених рецептурах. Приховайте його замість видалення.')
         require(not PromotionPrice.objects.filter(product=document).exists(), 'Товар використовується в історії акцій. Приховайте його замість видалення.')
         require(not VoucherLine.objects.filter(product=document).exists() and not StockLot.objects.filter(product=document).exists(), 'Товар уже використовується в обліку. Його не можна видалити.')
         require(not any(any(str(row.get('product')) == identifier for row in item.data.get('recipe', [])) for item in Document.objects.filter(path__startswith='products/')), 'Товар використовується у рецептурі.')
@@ -255,9 +257,13 @@ def save_product(request, user, identifier=None):
 
 def unit_in_use(path, data):
     """Why the base unit is fixed: stock quantities and recipes are counted in it. None when it is still free."""
-    from .models import VoucherLine, StockLot
+    from .models import VoucherLine, StockLot, RecipeVersion, RecipeComponent, ProductionInput
     if VoucherLine.objects.filter(product_id=path).exists() or StockLot.objects.filter(product_id=path).exists():
         return 'товар уже є в облікових документах або на складі'
+    if ProductionInput.objects.filter(product_id=path).exists():
+        return 'товар збережено як інгредієнт виробничого документа'
+    if RecipeVersion.objects.filter(product_id=path).exists() or RecipeComponent.objects.filter(product_id=path).exists():
+        return 'товар використовується в затвердженій версії рецептури'
     if data.get('recipe'):
         return 'для товару задано рецептуру'
     identifier = path.split('/', 1)[1]

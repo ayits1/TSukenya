@@ -80,3 +80,9 @@
 .monthly-budget-line{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.5fr) minmax(0,1fr) 44px;align-items:end;gap:12px;margin:16px 0}.monthly-budget-line label{min-width:0}.monthly-budget-line [hidden]{display:none!important}.monthly-budget-line button{width:44px;padding:0}.monthly-budget-line input,.monthly-budget-line select,#monthlyBudgetForm>label{width:100%;min-width:0}#monthlyBudgetForm>label{display:block;max-width:360px}#monthlyCategoryForm .inl input{width:auto}#monthlyBudget [role=alert]:empty{display:none}
 @media(max-width:600px){.monthly-budget-line{grid-template-columns:minmax(0,1fr) 44px}.monthly-budget-line label{grid-column:1}.monthly-budget-line button{grid-column:2;grid-row:1/4;align-self:start}}
 .trade-order-actions{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}.trade-order-actions .btn{min-height:44px}.trade-order-actions>span{align-self:center}
+/* B12 manufacturing fields follow the existing native dialog controls. */
+.trade-production-component{display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,1fr) minmax(0,1fr);gap:12px;align-items:end;border-bottom:1px solid var(--line);padding:12px 0;min-width:0}
+.trade-production-component strong{overflow-wrap:anywhere}
+.trade-production-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.trade-production details{margin-top:16px}
+@media(max-width:600px){.trade-production-component{grid-template-columns:minmax(0,1fr)}.trade-production label,.trade-production-component label{min-width:0}.trade-production-component button{max-width:100%;overflow-wrap:anywhere}}

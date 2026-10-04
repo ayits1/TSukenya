@@ -377,11 +377,11 @@ def save_voucher(user, body, pk=None):
     payload = body.get('payload', {})
     require(isinstance(payload, dict), 'Некоректні реквізити документа.')
     # Store only supported fields; amounts and computed payroll never come from the client.
+    previous_payload = dict(v.payload)
     old_expense_scope = v.payload.get('expense_scope', 'store') if v.pk else None
     expense_scope = payload.get('expense_scope', old_expense_scope or 'store')
     require(expense_scope in {'store', 'network'}, 'Некоректна належність витрати.')
     require(expense_scope == 'store' or kind == 'expense' and user.profile.role in {'owner', 'accountant'}, 'Мережеві витрати доступні лише власнику або бухгалтеру.')
-    previous_payload=dict(v.payload)
     v.payload = {'payments': payload.get('payments', []), 'fiscal_ref': str(payload.get('fiscal_ref',''))[:160], 'category': str(payload.get('category','Інше'))[:100], 'shift_ids': payload.get('shift_ids', []), 'due_date': str(payload.get('due_date','')), 'additional_cost': str(dec(payload.get('additional_cost', 0))), 'recipe': payload.get('recipe', []), 'target_account': payload.get('target_account'), 'discount_reason': str(payload.get('discount_reason','')).strip()[:300], **({'expense_scope': expense_scope} if kind == 'expense' else {})}
     if kind=='expense':
         from .monthly_budgets import bind_expense
@@ -484,6 +484,9 @@ def save_voucher(user, body, pk=None):
         require(v.total <= Decimal('99999999999999.99'), 'Сума документа перевищує допустиме значення.')
         v.save(update_fields=['total'])
     v.lines.exclude(line_key__in=retained_lines).delete()
+    if kind == 'production':
+        from .production import freeze_production
+        freeze_production(user,v,payload,previous_payload)
     from .settlements import save_allocations
     save_allocations(v, body)
     audit(user, 'draft_saved', f'voucher/{v.pk}', {**audit_change(before, audit_snapshot('voucher', v), observed=body.get('revision'), reason=body.get('reason')), 'kind':kind, **({'allocations': [{'source':r.source_id,'amount':str(r.amount)} for r in v.allocation_entries.all()]} if kind in {'payment','advance_allocation'} else {}), **({'expense_scope': expense_scope, 'old_expense_scope': old_expense_scope} if kind == 'expense' else {})})
@@ -645,27 +648,8 @@ def post_voucher(user, pk, *, expected_revision=_UNOBSERVED_REVISION):
             l.save(update_fields=['cost'])
         v.total = ZERO
     elif v.kind == 'production':
-        require(len(lines) == 1, 'Виробництво оформлюється для одного готового товару.')
-        output = lines[0]
-        recipe = v.payload.get('recipe') or output.product.data.get('recipe',[])
-        require(isinstance(recipe,list) and recipe, 'Для готового товару задайте рецептуру.')
-        normalized = []
-        require(len({str(x.get('product')) for x in recipe}) == len(recipe), 'Інгредієнт не може повторюватись.')
-        for component in recipe:
-            product = get(Document,'products/'+str(component.get('product')),'Інгредієнт')
-            require(product != output.product, 'Готовий товар не може бути власним інгредієнтом.')
-            per_unit = dec(component.get('quantity'),'Кількість інгредієнта',QTY,minimum=QTY)
-            quantity = per_unit*output.quantity
-            require(quantity == quantity.quantize(QTY), 'Кількість інгредієнта повинна мати не більше трьох знаків після коми.')
-            proxy = VoucherLine(product=product,name=product.data.get('name',''),unit=product.data.get('unit','шт'),lot='')
-            value,_ = outgoing(v,proxy,quantity)
-            costs += value
-            normalized.append({'product':component['product'],'quantity':str(quantity),'cost':str(value)})
-        output.cost = costs
-        output.save(update_fields=['cost'])
-        incoming(v,output,output.quantity,costs)
-        v.payload['consumed'] = normalized
-        v.total = ZERO
+        from .production import post_production
+        costs = post_production(user,v,lines)
     if v.kind in {'sale','customer_return'} and v.shift:
         require(v.shift.store_id == v.store_id and not v.shift.closed_at, 'Касова зміна закрита або належить іншому магазину.')
         require(user.profile.role != 'cashier' or v.shift.opened_by_id == user.pk, 'Касова зміна відкрита іншим касиром.')
