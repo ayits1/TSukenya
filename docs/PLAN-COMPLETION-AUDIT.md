@@ -303,3 +303,16 @@ summary, повторено тільки цей layout випадок. Фіна�
 `/tmp/tsukenya-release-layout/release-enlarged-320.png`; report.json поруч.
 Browser proof suppresses scripts і не є authenticated/full-portal/production
 перевіркою. Публікація цього UI ще не виконана; full локально не запускався.
+
+
+## Original issue #1 version прийнято; B24 child fanout root integration
+
+PR #72 exactheadcbe2be1 прийнято після незалежного source/layout рев’ю та
+server/PostgreSQL CI37200303120 SUCCESS. Visible version/CHANGELOG у main,
+ще не на сайті (production залишається functional5b079bb).
+
+Наступний B24 пакет child fanout звітів інтегровано own-only; source hashes
+збігаються з delivery, author7+4matching результати reuse. Root додаткові
+PostgreSQL2 boundary PASS0.392s. Це Python/model/JSON child stream bound,
+не гарантія total DB memory/time/tempdisk або всього B24. Details —
+B24-BOUNDED-REPORTS.md; новий exact-head CI має пройти до прийняття.

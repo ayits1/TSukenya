@@ -10,18 +10,19 @@ import sqlite3
 import tempfile
 from contextlib import contextmanager
 from decimal import Decimal
-from datetime import timezone as utc
+from datetime import date, datetime, timezone as utc
+from types import SimpleNamespace
 from itertools import islice
 from django.contrib.auth.models import User
 from django.http import StreamingHttpResponse
 from django.utils import timezone
-from .models import CashAccount, CashEntry, CashShift, Employee, StockEntry, Voucher, WorkShift
-from .services import ZERO, day, money, obligation, require
+from .models import CashAccount, CashEntry, CashShift, Employee, StockEntry, Voucher, VoucherLine, WorkShift
+from .services import ZERO, day, money, require
 from .browsing import PAGE_SIZE, page_number, page_bounds
 from .historical_reports import (KYIV, ROLES, read_snapshot, stores_for, metrics, totals,
     period_documents, period_sign, effective_entries, require_reversal_dates, active_at)
 from .report_contributions import voucher_contributions
-from .settlements import context, advance_balances
+from . import report_children as children
 from .csv_format import guarded
 
 CONTRACT = 'trading-reports-v1'
@@ -116,10 +117,14 @@ def period(user, params, spool, stores, scoped):
     require(start<=end<=today,'Період має закінчуватись не раніше початку й не пізніше сьогодні.')
     require_reversal_dates(ids,end); whole=metrics(); unallocated=ZERO
     for store in stores: spool.put('by_store',store.pk,{'store':store.pk,'name':store.name,**{key:'0' for key in whole}})
-    for batch in batches(period_documents(ids,start,end,include_lines=True).order_by('pk')):
+    documents=children.nonzero_period(period_documents(ids,start,end),start,end).order_by('pk')
+    children.inventory_totals(documents,spool)
+    for batch in batches(children.headers(documents)):
         for voucher in batch:
             sign=period_sign(voucher,start,end)
             if not sign: continue
+            children.payload(voucher)
+            if voucher.kind=='inventory': voucher.payload['differences']=[{'value':(spool.get('_inventory',voucher.pk) or {'amount':'0'})['amount']}]
             changes=voucher_contributions(voucher,sign,scoped=scoped)
             for key,value in changes.items():
                 if key=='unallocated_expenses': unallocated+=value
@@ -130,15 +135,20 @@ def period(user, params, spool, stores, scoped):
                 if not network or not scoped:
                     category=voucher.payload.get('category','Інше'); store=None if network else voucher.store_id
                     spool.add('expenses_by_category',json.dumps([store,category]),{'store':store,'scope':'network' if network else 'store','store_name':None if network else spool.get('by_store',store)['name'],'category':category,'amount':'0'}, {'amount':sign*voucher.total})
-            if voucher.kind not in {'sale','customer_return','writeoff','inventory'}: continue
-            for line in voucher.lines.all():
-                initial={'product':line.product_id.split('/',1)[1],'name':line.name,'unit':line.unit,**{k:'0' for k in ('quantity','revenue','cogs','writeoff_quantity','writeoff','inventory')}}
-                if voucher.kind=='writeoff': changes={'writeoff_quantity':sign*line.quantity,'writeoff':sign*line.cost}
-                elif voucher.kind=='inventory': changes={'inventory':sign*sum((Decimal(item['value']) for item in voucher.payload.get('differences',[]) if str(item.get('product','')).removeprefix('products/')==initial['product']),ZERO)}
-                else:
-                    direction=sign*(-1 if voucher.kind=='customer_return' else 1)
-                    changes={'quantity':direction*line.quantity,'revenue':direction*line.amount,'cogs':direction*line.cost}
-                spool.add('products',line.product_id,initial,changes)
+    lines=VoucherLine.objects.filter(voucher_id__in=documents.values('pk'),voucher__kind__in=['sale','customer_return','writeoff','inventory']).select_related('voucher').only(
+        'id','voucher_id','product_id','name','unit','quantity','amount','cost','voucher__id','voucher__kind','voucher__status','voucher__date','voucher__reversed_at').order_by('voucher_id','pk')
+    for line in lines.iterator(chunk_size=children.CHUNK):
+        voucher=line.voucher; sign=period_sign(voucher,start,end)
+        if not sign:continue
+        initial={'product':line.product_id.split('/',1)[1],'name':line.name,'unit':line.unit,**{k:'0' for k in ('quantity','revenue','cogs','writeoff_quantity','writeoff','inventory')}}
+        if voucher.kind=='writeoff': changes={'writeoff_quantity':sign*line.quantity,'writeoff':sign*line.cost}
+        elif voucher.kind=='inventory':
+            key=json.dumps([voucher.pk,initial['product']],separators=(',',':'))
+            changes={'inventory':sign*Decimal((spool.get('_inventory_product',key) or {'amount':'0'})['amount'])}
+        else:
+            direction=sign*(-1 if voucher.kind=='customer_return' else 1)
+            changes={'quantity':direction*line.quantity,'revenue':direction*line.amount,'cogs':direction*line.cost}
+        spool.add('products',line.product_id,initial,changes)
     for entry in effective_entries(CashEntry,end,start).filter(account__store_id__in=ids).exclude(voucher__kind='cash_opening').select_related('account').iterator(chunk_size=200):
         whole['cash_net']+=entry.amount; spool.add('by_store',entry.account.store_id,{}, {'cash_net':entry.amount})
     for key,row in spool.rows('products'): spool.put('products',key,product_finish(row))
@@ -167,23 +177,26 @@ def cashier_rows(user,ids,start,end,spool):
         eligible=WorkShift.objects.filter(payroll__status='posted',bonus_percent__gt=0,cash_shift__isnull=False)
         returns=Voucher.objects.filter(store_id__in=ids,status='posted',kind='customer_return',date__lte=end,reference__shift_id__in=eligible.values('cash_shift_id')).select_related('reference__shift__employee','reference__shift__opened_by').order_by('pk')
         # return_order combines posted_at with a legacy date fallback; disk sorting preserves exact chronology.
-        for returned in returns.iterator(chunk_size=200):
+        for returned in returns.defer('payload','reference__payload').iterator(chunk_size=200):
             instant,pk=return_order(returned);spool.put('_returns',f'{instant.astimezone(utc.utc).isoformat()}:{pk:020d}',{'id':pk})
         cursor=spool.db.execute("SELECT value FROM rows WHERE section='_returns' ORDER BY key")
         while raw := cursor.fetchmany(200):
-            lookup={r.pk:r for r in Voucher.objects.filter(pk__in=[json.loads(x[0])['id'] for x in raw]).select_related('reference__shift__employee','reference__shift__opened_by')}
+            lookup={r.pk:r for r in Voucher.objects.filter(pk__in=[json.loads(x[0])['id'] for x in raw]).select_related('reference__shift__employee','reference__shift__opened_by').defer('payload','reference__payload')}
             shift_ids={r.reference.shift_id for r in lookup.values()}
-            workers={}
-            for worker in eligible.filter(cash_shift_id__in=shift_ids).select_related('payroll').iterator(chunk_size=200): workers.setdefault(worker.cash_shift_id,[]).append(worker)
+            for worker in eligible.filter(cash_shift_id__in=shift_ids).select_related('payroll').only('id','cash_shift_id','employee_id','bonus_basis','basis_amount','bonus_percent','payroll__id','payroll__date','payroll__posted_at').iterator(chunk_size=children.CHUNK):
+                spool.put('_workers',f'{worker.cash_shift_id}:{worker.pk}',{'shift':worker.cash_shift_id,'id':worker.pk,'employee':worker.employee_id,'basis':worker.bonus_basis,'amount':str(worker.basis_amount),'percent':str(worker.bonus_percent),'payroll_date':worker.payroll.date.isoformat(),'payroll_posted_at':worker.payroll.posted_at.isoformat() if worker.payroll.posted_at else None})
             for item in raw:
                 returned=lookup[json.loads(item[0])['id']];sale=returned.reference;shift=sale.shift;key,employee,name=identity(shift)
                 if start<=returned.date and spool.get('cashiers',key) is None: spool.put('cashiers',key,initial(employee,name))
-                for worker in workers.get(shift.pk,[]):
-                    if not is_late_return(returned,worker.payroll) or (worker.bonus_basis=='personal' and sale.employee_id!=worker.employee_id): continue
-                    remaining=spool.get('_basis',worker.pk); remaining=Decimal(remaining['amount']) if remaining else worker.basis_amount
-                    used=min(max(ZERO,returned.total-returned.cost if worker.bonus_basis=='profit' else returned.total),remaining)
-                    spool.put('_basis',worker.pk,{'amount':str(remaining-used)})
-                    if start<=returned.date: spool.add('cashiers',key,initial(employee,name),{'late_return_bonus':used*worker.bonus_percent/Decimal(100)})
+                worker_cursor=spool.db.execute("SELECT value FROM rows WHERE section='_workers' AND key>=? AND key<? ORDER BY key",(f'{shift.pk}:',f'{shift.pk}:~'))
+                while records := worker_cursor.fetchmany(children.CHUNK):
+                    for record in records:
+                        worker=json.loads(record[0]); payroll=SimpleNamespace(date=date.fromisoformat(worker['payroll_date']),posted_at=datetime.fromisoformat(worker['payroll_posted_at']) if worker['payroll_posted_at'] else None)
+                        if not is_late_return(returned,payroll) or (worker['basis']=='personal' and sale.employee_id!=worker['employee']):continue
+                        remaining=spool.get('_basis',worker['id']); remaining=Decimal(remaining['amount']) if remaining else Decimal(worker['amount'])
+                        used=min(max(ZERO,returned.total-returned.cost if worker['basis']=='profit' else returned.total),remaining)
+                        spool.put('_basis',worker['id'],{'amount':str(remaining-used)})
+                        if start<=returned.date:spool.add('cashiers',key,initial(employee,name),{'late_return_bonus':used*Decimal(worker['percent'])/Decimal(100)})
     for key,row in spool.rows('cashiers'):
         seconds=int(Decimal(row.pop('seconds')));revenue=Decimal(row['revenue']);shortage=Decimal(row['shortage']);surplus=Decimal(row['surplus'])
         row.update(shifts=int(Decimal(row['shifts'])),with_difference=int(Decimal(row['with_difference'])),hours=str((Decimal(seconds)/3600).quantize(Decimal('.1'))),revenue_per_hour=str(money(revenue*3600/seconds)) if seconds>=360 else None,net=str(money(surplus-shortage)))
@@ -196,9 +209,10 @@ def balances(user,params,spool,stores):
     ids={s.pk for s in stores};cutoff=day(params.get('as_of') or timezone.localdate().isoformat())
     require(cutoff<=timezone.localdate(),'Дата залишків не може бути в майбутньому.');require_reversal_dates(ids,cutoff)
     stock_value=cash_total=owed_to_us=owed_by_us=ZERO;advance_totals={'customer':ZERO,'supplier':ZERO}
-    for entry in effective_entries(StockEntry,cutoff).filter(lot__warehouse__store_id__in=ids).select_related('lot__product','lot__warehouse').order_by('pk').iterator(chunk_size=200):
+    stock=effective_entries(StockEntry,cutoff).filter(lot__warehouse__store_id__in=ids).select_related('lot__warehouse')
+    for entry in children.stock_captions(stock).order_by('pk').iterator(chunk_size=children.CHUNK):
         lot=entry.lot
-        spool.add('stock',lot.pk,{'lot':lot.pk,'code':lot.code,'warehouse':lot.warehouse_id,'warehouse_name':lot.warehouse.name,'store':lot.warehouse.store_id,'product':lot.product_id.split('/',1)[1],'name':lot.product.data.get('name',''),'unit':lot.product.data.get('unit','шт'),'expiry':lot.expiry.isoformat() if lot.expiry else None,'quantity':'0','value':'0'}, {'quantity':entry.quantity,'value':entry.value})
+        spool.add('stock',lot.pk,{'lot':lot.pk,'code':lot.code,'warehouse':lot.warehouse_id,'warehouse_name':lot.warehouse.name,'store':lot.warehouse.store_id,'product':lot.product_id.split('/',1)[1],'name':children.stock_caption(entry,'name',''), 'unit':children.stock_caption(entry,'unit','шт'),'expiry':lot.expiry.isoformat() if lot.expiry else None,'quantity':'0','value':'0'}, {'quantity':entry.quantity,'value':entry.value})
     for key,row in spool.rows('stock'):
         quantity,value=Decimal(row['quantity']),Decimal(row['value'])
         if not quantity and not value: spool.db.execute('DELETE FROM rows WHERE section=? AND key=?',('stock',key));continue
@@ -206,12 +220,13 @@ def balances(user,params,spool,stores):
     for account in CashAccount.objects.filter(store_id__in=ids).order_by('pk').iterator(chunk_size=200): spool.put('cash',account.pk,{'account':account.pk,'name':account.name,'store':account.store_id,'kind':account.kind,'amount':'0'})
     for entry in effective_entries(CashEntry,cutoff).filter(account__store_id__in=ids).iterator(chunk_size=200): cash_total+=entry.amount;spool.add('cash',entry.account_id,{}, {'amount':entry.amount})
     for key,row in spool.rows('cash'): spool.put('cash',key,{**row,'amount':str(money(Decimal(row['amount'])))})
-    sources=Voucher.objects.filter(store_id__in=ids,date__lte=cutoff,status__in=['posted','reversed'],kind__in=['sale','receipt','debt_opening']).select_related('party').order_by('pk')
+    sources=children.headers(Voucher.objects.filter(store_id__in=ids,date__lte=cutoff,status__in=['posted','reversed'],kind__in=['sale','receipt','debt_opening']).select_related('party').order_by('pk'),party=True)
     for batch in batches(sources):
-        related,allocated=context(batch,cutoff)
+        batch=[source for source in batch if active_at(source,cutoff) and source.party_id]
+        amounts=children.obligations(batch,cutoff)
         for source in batch:
             if not active_at(source,cutoff) or not source.party_id: continue
-            amount=obligation(source,settlements=related[source.pk],allocations=allocated[source.pk])
+            children.payload(source,('due',));amount=amounts[source.pk]
             if not amount:continue
             supplier=source.kind=='receipt' or source.kind=='debt_opening' and source.party.kind=='supplier'
             if supplier:owed_by_us+=amount
@@ -219,16 +234,16 @@ def balances(user,params,spool,stores):
             deadline=source.payload.get('due_date','')
             spool.put('debts',source.pk,{'voucher':source.pk,'number':f'{source.pk:06d}','kind':'receipt' if supplier else 'sale','original_kind':source.kind,'store':source.store_id,'date':source.date.isoformat(),'party':source.party.name,'party_id':source.party_id,'total':str(source.total),'amount':str(money(amount)),'due_date':deadline,'overdue':bool(deadline and deadline<cutoff.isoformat())})
     if user.profile.role in {'owner','accountant'}:
-        for voucher in Voucher.objects.filter(store_id__in=ids,date__lte=cutoff,status__in=['posted','reversed'],kind__in=['payroll','payroll_payment']).iterator(chunk_size=200):
+        for voucher in Voucher.objects.filter(store_id__in=ids,date__lte=cutoff,status__in=['posted','reversed'],kind__in=['payroll','payroll_payment']).only('id','kind','status','date','reversed_at','employee_id','total').iterator(chunk_size=200):
             if active_at(voucher,cutoff):spool.add('_payroll',voucher.employee_id,{'amount':'0'}, {'amount':voucher.total*(1 if voucher.kind=='payroll' else -1)})
         cursor=spool.db.execute("SELECT key,value FROM rows WHERE section='_payroll' ORDER BY key")
         while records := cursor.fetchmany(200):
             amounts={int(key):Decimal(json.loads(value)['amount']) for key,value in records if key!='None'}
             for employee in Employee.objects.filter(pk__in=amounts).iterator(chunk_size=200):
                 if amounts[employee.pk]:spool.put('payroll_debts',employee.pk,{'employee':employee.pk,'name':employee.name,'store':employee.store_id,'amount':str(money(amounts[employee.pk]))})
-    payments=Voucher.objects.filter(store_id__in=ids,kind='payment',status__in=['posted','reversed'],date__lte=cutoff).select_related('party','reference__party').order_by('pk')
+    payments=children.headers(Voucher.objects.filter(store_id__in=ids,kind='payment',status__in=['posted','reversed'],date__lte=cutoff).select_related('party','reference').order_by('pk'),party=True,reference=True)
     for batch in batches(payments):
-        remaining=advance_balances(batch,cutoff)
+        remaining=children.advances(batch,cutoff)
         for payment in batch:
             if not payment.party_id or not remaining[payment.pk]:continue
             value=remaining[payment.pk];advance_totals[payment.party.kind]+=value

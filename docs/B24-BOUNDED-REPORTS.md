@@ -16,13 +16,13 @@
 
 ## Обчислення та ресурси
 
-Спільні B17 `period_sign`, `effective_entries`, `active_at`, `voucher_contributions`, `totals`; B15 `context`, `advance_balances`, `obligation`; чинні `is_late_return/return_order`. Проводки/блокади/зарплатні правила не змінені. Cashiers залишається оперативною статистикою current posted closed shifts, не історичною реконструкцією.
+Спільні B17 `period_sign`, `effective_entries`, `active_at`, `voucher_contributions`, `totals`; report-only потокові адаптери B15 obligation/advance з паритетом незмінених `context`, `advance_balances`, `obligation`; чинні `is_late_return/return_order`. Проводки/блокади/зарплатні правила не змінені. Cashiers залишається оперативною статистикою current posted closed shifts, не історичною реконструкцією.
 
 Проміжні агрегати/сортування в приватному тимчасовому SQLite spool: directory0700, file0600, JSON Decimal strings, жодного SQLite REAL. Decimal collation сортує точні значення; Python Decimal підсумовує. Spool не є обліковою базою, журналом або persisted snapshot. `finally` контексту/закриття stream прибирає файл і каталог. Cancel не пише в Django/PostgreSQL.
 
-ORM читає пакети200 документів із їхніми рядками, рухи iterator200; settlement inputs пакетами200 джерел/платежів. Spool cursor видає100 рядків, page JSON≤30. Бонус пізніх повернень зберігає повну хронологію на диску та залишок фактично нарахованої бази, включаючи повернення до початку вибраного періоду. UTC ключ не плутає повторну годину переходу часу в Києві.
+ORM читає пакети200 вузьких заголовків; рядки документів, рухи та settlement children мають окремі iterator200 без prefetch/result cache. Settlement accumulators обмежені поточними200 source/payment IDs. JSON differences/payments розгортає база, до Python надходять лише вибрані scalar поля курсором200, без завантаження цілого payload. Stock captions читаються окремо від product.data/recipe. WorkShift terms для late bonus зберігаються на приватному spool, а не в необмеженому списку працівників зміни. Spool cursor видає100 рядків, page JSON≤30. Бонус пізніх повернень зберігає повну хронологію на диску та залишок фактично нарахованої бази, включаючи повернення до початку вибраного періоду. UTC ключ не плутає повторну годину переходу часу в Києві.
 
-Це O(N) server scan і O(кількості агрегатів/повернень) тимчасового диска. Немає O(1), гарантії часу або capacity VPS. Пакет200 не обмежує кількість дочірніх рядків/settlements одного документа: fanout лишається явною межею пам’яті. `stores_for` зберігає список доступних магазинів. Кожна сторінка зараз заново обчислює звіт; durable cache/довгі RR transaction/timeout/temp-disk budget — наступні питання, не прихована обіцянка SLA. Нова модель retention/scheduler відсутня.
+Це O(N) source scans і тимчасовий диск для агрегатів/повернень/worker terms; late bonus обходить відповідних працівників для кожного повернення, його час може бути O(returns×workers). Немає O(1), гарантії часу або capacity VPS. Довільний child fanout одного документа більше не створює повного Python списку чи декодованого payload у новому report path. Межа стосується числа матеріалізованих records, а не байтів одного довільного scalar/caption. SQL engine може detoast/parse цілий збережений JSON і сортувати проміжні рядки на сервері; DB memory/work_mem/temp budget тут не доведено. `stores_for` зберігає список доступних магазинів. Кожна сторінка зараз заново обчислює звіт; durable cache/довгі RR transaction/timeout/temp-disk budget — наступні питання, не прихована обіцянка SLA. Нова модель retention/scheduler відсутня.
 
 ## Цільові докази backend
 
@@ -93,3 +93,53 @@ CI реєструє dependency-free report decoder та synthetic authoritative 
 зі scrub partial flags QA_REPORT_FROM/QA_REPORT_DATE_TAIL/output. `test:full -- --plan` тільки dry-run. Full regression/deployment не запускалися.
 Optional native directory filters поки втрачають видимий підпис empty option; окремий shared-control follow-up розпочато,
 без приписування порожнього значення вибраному record ID або тексту пошуку.
+
+## Follow-up B24: історичний child fanout
+
+`server/erp/report_children.py` використовується тільки новими summary/rows/export через `bounded_reports`; mutation services, legacy/default settlement adapters і старий `/api/erp/report` не змінено. `include_lines=True` старого pure oracle залишився для сумісності; native UI нових звітів його не викликає. Немає міграції, cache або нового cash/payroll правила.
+
+- Line stream зберігає кожен рядок, у тому числі старі duplicate product lines: inventory correction додається на кожен відповідний рядок, як раніше. Nonzero period та Kyiv cutoff/reversal збережено.
+- Obligation: source total − money(returns) − money(active allocated+unmapped legacy payments) − embedded payments + refund payments. Advance: money(payment total − active allocations − legacy direct fallback − refunds), без нового clamp. Для advance старий mapped suppression лишається unconditional, для obligation — active; це навмисно різні oracle правила.
+- JSON paths/fields whitelist; scoped ORM subquery і SQL значення параметризовано. PostgreSQL JSONB scalar tokens та SQLite JSON1 `->` (SQLite≥3.38) відновлюють оригінальний Python JSON scalar, з float digits/bool/null і великими integer; немає json_quote→float втрати точності. Payments не читають стороннє поле product. Некоректні потрібні arrays/items/selected nested scalars повертають контрольовану BusinessError з ID, без цілого JSON у Python. Відсутні ключі відрізняються від явного null.
+- Voucher.defer/only(payload) не використовується як прихована обіцянка: потрібний малий payload явно підставляється з header scalar annotations; tests забороняють refresh_from_db(fields=['payload']). Stock не довантажує product.data.
+- READ ONLY RR, current role/store, manager payroll privacy, streamed CSV/formula guard і spool cleanup залишилися в одному чинному контексті. Бонус бере ту саму chronology та remaining frozen basis; календарні/фінансові формули не переписано.
+
+### Цільові докази
+
+Ізольовані SQLite та PostgreSQL18 `test_tsukenya_report_children`, база production не відкривалась. `tests.test_report_children.ReportChildrenTests` містить7 сценаріїв; усі пройшли відповідними вузькими хвилями на обох engines, успішні незмінені хвилі reuse. Це не full/capacity benchmark.
+
+| Вхід | Реальна матеріалізація / паритет |
+| --- | --- |
+| Один історичний sale501 lines | Старий prefetch тримає501 живий VoucherLine; новий rows+повний CSV peak2 models, fetch≤200, whole child payload decode0 (PG+SQLite). Qty501.000 / cogs5.01 / revenue1002.00 і CSV formula guard збережено. |
+| Inventory501 differences,2 однакові product lines | Реальні501 JSON scalar rows, fetch≤200; adjustment5.01, product correction10.02 як pure oracle. Whole JSON decode0 (PG+SQLite). |
+| Source501 embedded +205 returns / allocations / refunds | Obligation/advance паритет з незміненими B15 helpers; advance590.00. PG instrumentation2232 scalar rows (helper + report), fetch≤200, whole payload decode0. |
+| One cashshift205 workers,202 returns включно попереднього дня | Frozen bonus/chronology exact old oracle; PG peak2 WorkShift, manager0 і відсутній late_return_bonus. Перехід через200 returns не губить tail. SQLite також PASS. |
+| Product recipe501 entries | Report captions/value/CSV без whole product JSON; missing/null caption parity, nested selected caption explicit refusal. PG+SQLite. |
+| Numeric scalar / malformed JSON | Float1.0050000000000001, bool, string Decimal та integer понад int64; old oracle exact. Null/object/nested/missing selected child відхиляються без whole decode; SQL array name whitelist відхиляє сторонні імена. PG+SQLite. |
+| Cutoff / mapped suppression | Kyiv next-midnight boundary і −1µs, mapped allocation activity, negative advance/debt без clamp; embedded payment із великим стороннім product object не читається. PG+SQLite. |
+
+Додаткові matching PostgreSQL сценарії: чинні network expense/allocation/refund/reversal parity; previous-return/frozen-basis bonus owner/manager/accountant; HTTP role/scope/invalid/no-write; реальна READ ONLY RR concurrent product rename. Кількість SQL не підміняє доказ живих моделей/decoded arrays.
+
+Source commit `103b036b8a98baca7ed3af4fd2cde1c0ae0c212c`; підсумок counters/source hashes — `/tmp/tsukenya-report-children-proof/report.json`.
+
+Instrumentation: weakref живих VoucherLine/WorkShift, JSONField decode observer, заборона deferred payload fetch, wrapper actual chunked_cursor.fetchmany (кількість отриманих tuples і JSON rows). Optional `REPORT_CHILDREN_PROOF_DIR` пише лише synthetic test counters у `{sqlite,postgresql}.jsonl`; artifact цієї задачі `/tmp/tsukenya-report-children-proof/`. Старий prefetch counter має `legacy_prefetch:true` і є навмисним reproduction, не новим PASS bound.
+
+Новий UI/контракт не змінено, тому попередні native/decoder/layout/CSV докази reuse. Не перевірено production capacity, total DB-process memory, довільний розмір scalar value, timeout/disk budget або persistent cache; не запускались full suite чи deployment. Старий compatibility report/default mutation read fanout поза цим пакетом.
+
+
+### Root інтеграція child fanout
+
+Root переніс тільки own103b036/5c4b7fb поверх accepted main71. Report runtime
+source SHA256 збігається з delivery; його base94→main71 reporting/settlement
+inputs не змінені. Незмінені author7 PG/SQLite та4matching PG докази використані
+повторно. Source review підтвердило паритет rounding/legacy suppression,
+Kyiv reversal/nonzero-period, inventory duplicate multiplicity та payroll
+privacy; SQL fragments whitelist, request/ORM values параметризовані.
+
+Root додав2 окремі boundary кейси: zero-period cancellation не читає malformed
+inventory children; historical direct-reference payment + allocation іншому
+source зберігає різні obligation/per-source та advance/any-map suppression,
+у т.ч. після скасування другого source. Ізольована PostgreSQL2 PASS0.392s:
+DB tsukenya_root_report_children; materialization counters у
+`/tmp/tsukenya-root-report-children/postgresql.jsonl`. Business adapters не
+змінювалися. Повного локального прогону та deployment не було.
