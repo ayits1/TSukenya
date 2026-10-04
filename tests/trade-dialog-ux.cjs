@@ -76,7 +76,7 @@ module.exports = async function tradeDialogUX(page, base, wait) {
     if(route.request().method() !== 'POST') return route.continue();
     requests++;
     await gate;
-    await route.fulfill({status:503, contentType:'application/json', body:JSON.stringify({error:'Тестова помилка збереження'})});
+    await route.fulfill({status:400, contentType:'application/json', body:JSON.stringify({error:'Тестова помилка збереження'})});
   };
   await page.route(entityURL, entityHandler);
   await active().locator('button[type=submit]').click();

@@ -34,7 +34,7 @@ for (const key of ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD',
   'DJANGO_SETTINGS_MODULE', 'DJANGO_SECRET_KEY', 'QA_CUSTOMERS_ARTIFACT_DIR', 'QA_BROWSER', 'QA_ZOOM_ONLY', 'QA_LAYOUT_ONLY', 'QA_FILTERS_ONLY',
   'QA_PORT', 'QA_BUSINESS_AUDIT_ONLY', 'QA_ORDER_RESERVES_ONLY', 'QA_INITIATIVES_ONLY', 'QA_REFERENCE_MANAGEMENT_ONLY', 'QA_EDITOR_NEXT_ONLY', 'QA_REFERENCES_ONLY', 'QA_DATE_ONLY', 'QA_PRICE_ONLY', 'QA_NATIVE_ONLY', 'QA_BROWSE_ONLY', 'QA_SHIFT_BROWSE_ONLY', 'QA_FINANCE_ONLY', 'QA_FINANCE_FROM', 'QA_AUTH_ONLY', 'QA_TRADE_ONLY', 'QA_UX_ONLY',
   'QA_DOCUMENT_LAYOUT_PORT', 'QA_RUNTIME_FROM', 'QA_ALERTS_FROM', 'QA_SCHEMA_SETTINGS', 'QA_PRICING_FROM', 'QA_SETTINGS_FROM', 'QA_SETTINGS_PORT', 'QA_IMPORT_FROM', 'QA_OUTPUT_FROM', 'QA_RECIPES_FROM', 'QA_PRODUCTION_FROM', 'QA_AUDIT_DETAILS_FROM', 'QA_ROLE', 'QA_NAV_ONLY', 'QA_CONTROLS_ROLES', 'QA_RECOVERY_FROM', 'QA_TRADE_FROM', 'QA_BROWSE_FROM', 'QA_CAPTURE_FROM', 'QA_CAPTURE_RESUME', 'QA_ENTITY_OPEN_ONLY', 'QA_CONFLICT_LAYOUT_ONLY',
-  'DIRECTORIES_FROM', 'DIRECTORIES_PROOF_DIR', 'QA_OUTPUT_DIR', 'WORK_CONFLICT_FROM', 'WORK_SHIFTS_PROOF_DIR']) {
+  'DIRECTORIES_FROM', 'DIRECTORIES_PROOF_DIR', 'QA_OUTPUT_DIR', 'WORK_CONFLICT_FROM', 'WORK_SHIFTS_PROOF_DIR', 'QA_REPORT_FROM', 'QA_REPORT_DATE_TAIL', 'REPORT_QA_OUTPUT']) {
   delete isolatedEnv[key];
 }
 isolatedEnv.DJANGO_SECRET_KEY = 'isolated-full-check-only-secret-with-more-than-fifty-characters';
@@ -160,6 +160,8 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/monthly-budget-decimal.cjs']);
     await run('node', ['tests/financial-scope-ui.cjs']);
     await run('node', ['tests/reconciliation-contract.cjs']);
+    await run('node', ['tests/bounded-reports-contract.cjs']);
+    await run('node', ['tests/cashier-csv.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-import-parser.cjs']);
     await run('node', ['tests/catalog-import-jobs.cjs']);
     await run('node', ['tests/csv-format.cjs']);
@@ -200,6 +202,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/customers-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/bounded-stock-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/bounded-directories-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/bounded-reports-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/reconciliation-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/work-shift-conflict-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/ui-audit.cjs'], { env: { ...browserEnv, QA_ORDER_RESERVES_ONLY: '1' } });
