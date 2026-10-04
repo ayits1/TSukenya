@@ -26,7 +26,7 @@ ORM читає пакети200 документів із їхніми рядка
 
 ## Цільові докази backend
 
-Ізольована PostgreSQL18 localhost61144, окрема test_tsukenya_bounded_reports. Дванадцять нових методів `tests.test_bounded_reports.BoundedReportsTests` пройшли цільовими хвилями, без full suite:
+Ізольована PostgreSQL18 localhost61144, окрема test_tsukenya_bounded_reports. Тринадцять нових методів `tests.test_bounded_reports.BoundedReportsTests` пройшли цільовими хвилями, без full suite:
 
 -65+ рядків кожної з9 секцій: всі сторінки/clamp, суми/рядки паритетні чинному report; CSV охоплює весь результат, formula guard.
 - Точне сортування .98/.99 при1e14, від’ємні значення й literal wildcard search; tempfile0600.

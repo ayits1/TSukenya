@@ -1222,6 +1222,16 @@
               "store"
             ]
           },
+          "store_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "category": {
             "type": "string"
           },
@@ -1233,6 +1243,7 @@
         "required": [
           "store",
           "scope",
+          "store_name",
           "category",
           "amount"
         ]

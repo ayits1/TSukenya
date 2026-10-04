@@ -170,6 +170,14 @@ class BoundedReportsTests(TransactionTestCase):
         with CaptureQueriesContext(connection) as many:data=service.summary(self.u,{'mode':'period'})
         self.assertEqual(len(many),len(one));self.assertLess(len(many),25)
         self.assertEqual(data['cash_net'],'-65.00');self.assertEqual(data['cash_net'],report(self.u,{'mode':'period'})['cash_net'])
+    def test_expense_captions_use_scoped_store_names(self):
+        self.cash_start();self.v('expense',amount=2,account=self.cash.pk,payload={'category':'Оренда'})
+        self.v('expense',amount=3,account=self.cash.pk,payload={'category':'Мережа','expense_scope':'network'})
+        result=service.rows(self.u,{'mode':'period','section':'expenses_by_category'})
+        self.assertEqual({row['category']:row['store_name'] for row in result['items']},{'Оренда':'Test','Мережа':None})
+        manager=self.user('manager',self.store)
+        result=service.rows(manager,{'mode':'period','section':'expenses_by_category','store':str(self.store.pk)})
+        self.assertEqual([(r['category'],r['store_name']) for r in result['items']],[('Оренда','Test')])
     def test_batched_queries_do_not_scale_per_stock_debt_row(self):
         self.wide()
         with CaptureQueriesContext(connection) as queries:service.rows(self.u,{'mode':'balances','section':'stock'})

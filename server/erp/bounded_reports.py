@@ -129,7 +129,7 @@ def period(user, params, spool, stores, scoped):
                 network=voucher.payload.get('expense_scope','store')=='network'
                 if not network or not scoped:
                     category=voucher.payload.get('category','Інше'); store=None if network else voucher.store_id
-                    spool.add('expenses_by_category',json.dumps([store,category]),{'store':store,'scope':'network' if network else 'store','category':category,'amount':'0'}, {'amount':sign*voucher.total})
+                    spool.add('expenses_by_category',json.dumps([store,category]),{'store':store,'scope':'network' if network else 'store','store_name':None if network else spool.get('by_store',store)['name'],'category':category,'amount':'0'}, {'amount':sign*voucher.total})
             if voucher.kind not in {'sale','customer_return','writeoff','inventory'}: continue
             for line in voucher.lines.all():
                 initial={'product':line.product_id.split('/',1)[1],'name':line.name,'unit':line.unit,**{k:'0' for k in ('quantity','revenue','cogs','writeoff_quantity','writeoff','inventory')}}
