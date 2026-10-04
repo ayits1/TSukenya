@@ -2,18 +2,39 @@ import { createRoot } from 'react-dom/client';
 import { I18nProvider } from 'react-aria-components';
 import { NativeConflict, type NativeConflictProps } from './shared/native/NativeConflict';
 import { nativeFields } from './shared/native/fields';
+import {
+  captureWorkShiftDraft,
+  decodeWorkShift,
+  workShiftFields,
+  workShiftIdentityMatches,
+  workShiftProjection,
+} from './shared/native/workShift';
 import './shared/ui/controls.css';
 import * as entityEditor from './shared/native/entity';
 
 declare global {
   interface Window {
     NativeEntityEditor?: typeof entityEditor;
+    NativeWorkShiftEditor?: {
+      captureWorkShiftDraft: typeof captureWorkShiftDraft;
+      decodeWorkShift: typeof decodeWorkShift;
+      workShiftFields: typeof workShiftFields;
+      workShiftIdentityMatches: typeof workShiftIdentityMatches;
+      workShiftProjection: typeof workShiftProjection;
+    };
     NativeConflictComparison?: {
       mount: (host: HTMLElement, props: NativeConflictProps) => { unmount: () => void };
     };
   }
 }
 window.NativeEntityEditor = entityEditor;
+window.NativeWorkShiftEditor = {
+  captureWorkShiftDraft,
+  decodeWorkShift,
+  workShiftFields,
+  workShiftIdentityMatches,
+  workShiftProjection,
+};
 window.NativeConflictComparison = {
   mount(host, props) {
     nativeFields(props.fields);

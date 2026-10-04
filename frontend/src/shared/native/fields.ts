@@ -9,6 +9,8 @@ export type NativeField = {
   decimals?: string[];
   labels?: Record<string, string>;
   valueLabels?: Record<string, string>;
+  /** Atomic groups can contain both IDs and amounts with the same scalar value. */
+  keyValueLabels?: Record<string, Record<string, string>>;
 };
 
 const display = (value: unknown) => (value === null || value === '' ? 'Не задано' : String(value));
@@ -46,7 +48,10 @@ export function nativeFields(descriptors: NativeField[]): MergeField<NativeDraft
         field.keys
           .map((key) => {
             const raw = Reflect.get(value as object, key);
-            const scalar = (raw !== null && field.valueLabels?.[String(raw)]) || display(raw);
+            const scalar =
+              (raw !== null &&
+                (field.keyValueLabels?.[key]?.[String(raw)] ?? field.valueLabels?.[String(raw)])) ||
+              display(raw);
             return field.keys.length === 1 ? scalar : `${field.labels?.[key] || key}: ${scalar}`;
           })
           .join('\n'),
