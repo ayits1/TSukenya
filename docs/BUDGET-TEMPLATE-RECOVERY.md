@@ -20,7 +20,7 @@ Legacy `/api/docs/settings/main` не є обходом: explicit budgetStores �
 
 Save явний. 409/403/428 або невідомий результат запису залишають введення та блокують Save до readonly актуального читання й узгодження. GET503, неправильний DTO, скасований чи запізнілий GET не приймають revision. Порівняння використовує existing `NativeConflictComparison`/threeWay, без власного merge algorithm. Apply тільки змінює локальний draft і baseline; окремий Save повторно перевіряє revision. Під час review поле заблоковано. Cancel зберігає чернетку. Після підтвердженого Save наступний metadata GET503 дає штатний GET-only retry, не повтор PATCH.
 
-Закриття/навігація з dirty draft потребує явного відкидання. Під час PATCH закриття блокується. Reload не відновлює відкриту чернетку — чинна B06 межа, persistence не додавалась. Місячні бюджети, їх категорії, legacy витрати, Google sync та облікові проведення не змінені.
+Закриття/навігація з dirty draft потребує явного підтвердження; локальна чернетка лишається для Restore, Discard — окрема дія P0. Під час PATCH закриття блокується. Reload count чернетки додано окремим підпакетом: explicit P0 Restore і fresh resource/current guards; див. [TEMPLATE-DRAFT-PERSISTENCE.md](TEMPLATE-DRAFT-PERSISTENCE.md). Expense inline persistence цим пакетом ще не закрито. Місячні бюджети, їх категорії, legacy витрати, Google sync та облікові проведення не змінені.
 
 ## Цільові докази
 

@@ -12,7 +12,7 @@
 | `recipe-editor.js:open`, `erp-production.js:recipeForm` / native recipe | Raw components/approved-version reason/output, old catalog/revision, first key/body | Legacy unknown update readonly compare; approved CREATE exact receipt; Apply без POST | Реалізовано обидва modes; див. `RECIPE-DRAFT-PERSISTENCE.md` |
 | `planning-category-editor.js` / native planningCategory | Mutable name/active, immutable UUID/semantic/aliases, first body/key | Independent category dialog; creator identity підтверджено до currentGET, явний Apply/окремий Save; raw/context privacy | Реалізовано category family; exact coverage у `CATEGORY-DRAFT-PERSISTENCE.md`, monthly/template ще відкриті |
 | `monthly-budget.js` / native monthlyBudget | Month/store/ID, ordered stableUUID rows, raw revenue/amount/rate; original terms/key | Facts/history не editablecache; remove-v-change явно; confirmedGETbarrier | Реалізовано monthly family; exact coverage у `MONTHLY-DRAFT-PERSISTENCE.md`; template/P2/P3 відкриті |
-| `budget-template.js` / native budgetTemplate | Raw count/expense fields, independent count/optional label revision guards, first body | Count revision не label token; current GET, separate Apply/Save | Відкрито; наступний P1 пакет |
+| `budget-template.js` / native budgetTemplate | Raw count/expense fields, independent count/optional label revision guards, first body | Count revision не label token; current GET, separate Apply/Save | Count-only actual family реалізовано: TEMPLATE-DRAFT-PERSISTENCE.md; expense inline P2 enrollment ще відкритий, всю template сім'ю не закрито |
 
 ## Спільні переходи, які має довести кожна сім'я
 
