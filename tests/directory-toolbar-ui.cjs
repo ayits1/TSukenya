@@ -77,13 +77,12 @@ async function inspectFields(form, label, width, scale) {
   measurements.push({ label, width, scale, fields: boxes });
 }
 async function inspectMenu(label, width, expectedNames) {
-  const popup = page.locator('.tk-popover--paged');
+  const popup = page.locator('.tk-popover--directory');
   await popup.waitFor();
-  await wait(async () => (await popup.locator('[data-directory-paging] [role=status]').innerText()) === `${expectedNames.length} записів · 1 / 1`, label + ' directory page ready');
+  await wait(async () => (await popup.getByRole('option').count()) === expectedNames.length && await popup.locator('[data-directory-paging]').count() === 0, label + ' directory page ready');
   assert.deepEqual(await page.getByRole('option').allTextContents(), expectedNames);
   const geometry = await popup.evaluate(element => {
     const bounds = node => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom }; };
-    const footer = element.querySelector('[data-directory-paging]');
     const words = [];
     for (const option of element.querySelectorAll('[role=option]')) {
       const walker = document.createTreeWalker(option, NodeFilter.SHOW_TEXT);
@@ -95,15 +94,13 @@ async function inspectMenu(label, width, expectedNames) {
         }
       }
     }
-    return { popup: bounds(element), footer: bounds(footer), hint: bounds(footer.querySelector('small')), buttons: [...footer.querySelectorAll('button')].map(button => ({ text: button.textContent.trim(), ...bounds(button) })), scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, viewport: { width: innerWidth, height: innerHeight }, words };
+    return { popup: bounds(element), pagerCount: element.querySelectorAll('[data-directory-paging]').length, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, viewport: { width: innerWidth, height: innerHeight }, words };
   });
   const p = geometry.popup;
   assert(p.width >= Math.min(280, width - 64) - 1, label + ' unreadable popup width: ' + JSON.stringify(geometry));
   assert(p.x >= -1 && p.right <= width + 1 && p.y >= -1 && p.bottom <= geometry.viewport.height + 1, label + ' popup outside viewport: ' + JSON.stringify(geometry));
   assert(geometry.scrollWidth <= geometry.clientWidth + 1, label + ' popup horizontal overflow');
-  for (const row of [geometry.footer, geometry.hint, ...geometry.buttons]) assert(row.x >= p.x - 1 && row.right <= p.right + 1 && row.y >= p.y - 1 && row.bottom <= p.bottom + 1, label + ' footer clipped: ' + JSON.stringify(geometry));
-  assert.deepEqual(geometry.buttons.map(button => button.text), ['Назад', 'Далі']);
-  for (const button of geometry.buttons) assert(button.width >= 44 && button.height >= 44, label + ' pager touch target');
+  assert.equal(geometry.pagerCount, 0, 'No paging controls for one page');
   assert(geometry.words.every(word => word.lines === 1), label + ' ordinary word broken inside narrow option: ' + JSON.stringify(geometry.words));
   measurements.push({ label, menu: geometry });
   await capture(label + '-popup');
@@ -135,7 +132,7 @@ async function exercise(tab, kind, width, scale = 1) {
   assert.equal(await nativeStore.inputValue(), '', 'Escape cannot commit temporary search');
   assert.equal(await store.inputValue(), '');
   await store.fill('Центральний');
-  await wait(async () => await page.locator('[data-directory-paging] [role=status]').innerText() === '1 записів · 1 / 1', 'searched store page');
+  await wait(async () => await page.getByRole('option').count() === 1 && await page.locator('[data-directory-paging]').count() === 0, 'searched store page');
   await store.press('ArrowDown'); await store.press('Enter');
   await wait(async () => await nativeStore.inputValue() === String(ids.stores[0].id), 'keyboard store ID commit');
   await closeMenu(store); await ready(host);
@@ -145,7 +142,7 @@ async function exercise(tab, kind, width, scale = 1) {
   assert.equal(await store.inputValue(), ids.stores[0].name, 'Escape restores committed caption');
   const employee = form.getByRole('combobox', { name: 'Працівник', exact: true });
   await employee.fill('Коваленко');
-  await wait(async () => await page.locator('[data-directory-paging] [role=status]').innerText() === '1 записів · 1 / 1', 'searched employee page');
+  await wait(async () => await page.getByRole('option').count() === 1 && await page.locator('[data-directory-paging]').count() === 0, 'searched employee page');
   await employee.press('ArrowDown'); await employee.press('Enter');
   await wait(async () => await nativeEmployee.inputValue() === String(ids.employees[0].id), 'keyboard employee ID commit');
   await closeMenu(employee); await ready(host);
@@ -174,11 +171,46 @@ print(json.dumps({'stores':[{'id':s.pk,'name':s.name} for s in [first,second,thi
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1440, height: 1050 } });
   page.on('pageerror', error => errors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
   page.on('request', request => { if (request.url().startsWith(base + '/api/')) requests.push({ method: request.method(), url: request.url() }); });
   await page.route('https://fonts.googleapis.com/**', route => route.abort());
   await page.route('https://fonts.gstatic.com/**', route => route.abort());
   await require('./browser-login.cjs')(page, base, password);
   for (const row of (only ? cases.filter(row => only.includes(caseLabel(row))) : cases.slice(from === undefined ? 0 : cases.findIndex(row => caseLabel(row) === from)))) await exercise(...row);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({width, height: 1000});
+    await page.goto(base + '/#trade/sales');
+    const history = page.locator('[data-shift-history=cash]');
+    const status = history.getByRole('button', {name: /Стан/});
+    await status.waitFor();
+    await status.click();
+    await page.getByRole('option', {name: 'Закриті', exact: true}).click();
+    assert.equal(await history.locator('select[name=status]').inputValue(), 'closed');
+    const statusRequest = page.waitForResponse(r => new URL(r.url()).pathname === '/api/erp/shifts' && new URL(r.url()).searchParams.get('status') === 'closed');
+    await history.getByRole('button', {name: 'Показати', exact: true}).click();
+    assert.equal((await statusRequest).status(), 200);
+    await page.locator('[data-trade=shift-open]').click();
+    const dialog = page.locator('dialog[open]');
+    const employee = dialog.getByRole('combobox', {name:'Працівник',exact:true});
+    await employee.click();
+    await wait(async () => await page.getByRole('option').count() === 2 && await page.locator('[data-directory-paging]').count() === 0, 'compact employee menu ready');
+    const labels = await page.getByRole('option').allTextContents();
+    assert(labels.every(label => label.includes('магазин №') && label.includes(' · №')), 'Employee identity visible');
+    const menu = page.locator('.tk-popover--directory');
+    const d = await dialog.boundingBox(), m = await menu.boundingBox();
+    assert(m.y >= d.y - 1 && m.y + m.height <= d.y + d.height + 1, 'Menu inside native dialog');
+    assert(m.x >= d.x - 1 && m.x + m.width <= d.x + d.width + 1, 'Menu horizontally inside dialog');
+    await capture('cash-shift-menu-' + width);
+    await employee.press('ArrowDown'); await employee.press('Enter');
+    assert.equal(await dialog.locator('select[name=employee]').inputValue(), (await employee.inputValue()).match(/ · №(\d+)$/)[1]);
+    const selectedEmployee = await dialog.locator('select[name=employee]').inputValue();
+    assert(ids.employees.some(e => String(e.id) === selectedEmployee));
+    await employee.press('ArrowDown'); await wait(async () => await employee.getAttribute('aria-expanded') === 'true', 'menu reopened'); await employee.press('Escape');
+    assert(await dialog.isVisible(), 'Escape closes menu, not form');
+    await dialog.locator('[data-trade=close]').click();
+    await page.locator('dialog[open]').waitFor({state:'hidden'});
+    stages.push('cash shift ' + width + ': compact menu, dialog bounds, employee ID, Escape and status filtering PASS');
+  }
   assert(requests.some(row => row.url.includes('/directories/stores?') && new URL(row.url).searchParams.get('q') === 'Центральний'), 'Actual server store search');
   assert(requests.some(row => row.url.includes('/directories/employees?') && new URL(row.url).searchParams.get('q') === 'Коваленко'), 'Actual server employee search');
   assert(requests.every(row => row.method === 'GET' || row.url.endsWith('/api/login') || row.url.endsWith('/directories/details')), 'No business mutation requests');

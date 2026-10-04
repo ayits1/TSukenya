@@ -112,13 +112,13 @@ print(json.dumps({'linkedReturn':draft.pk,'sourceLine':line.pk}))`));
       assert.equal(await rows().first().locator('[data-line=reference_line]').inputValue(), String(ids.sourceLine));
       assert.equal(await rows().first().locator('[data-line=lot]').getAttribute('readonly'), '');
     } else {
-      await product.fill('Перевірка рядка'); await page.getByRole('option', { name: /Перевірка рядка/ }).waitFor(); await wait(async () => await page.locator('[data-directory-paging] [role=status]').innerText() === '1 записів · 1 / 1', 'fresh search result');
+      await product.fill('Перевірка рядка'); await page.getByRole('option', { name: /Перевірка рядка/ }).waitFor(); await wait(async () => await page.getByRole('option').count() === 1 && await page.locator('[data-directory-paging]').count() === 0, 'fresh search result');
       if (geometryOnly) await page.getByRole('option', { name: /Перевірка рядка/ }).click();
       else {
       await product.press('Escape'); await page.getByRole('listbox').waitFor({ state: 'hidden' });
       assert(await product.evaluate(node => node === document.activeElement), 'Escape returns focus without closing document');
       assert.equal(await rows().first().locator('[data-line=product]').inputValue(), '', 'Search cancel does not commit a product');
-      await product.fill('Перевірка рядка'); await page.getByRole('option', { name: /Перевірка рядка/ }).waitFor(); await wait(async () => await page.locator('[data-directory-paging] [role=status]').innerText() === '1 записів · 1 / 1', 'fresh search result'); await product.press('ArrowDown'); await product.press('Enter');
+      await product.fill('Перевірка рядка'); await page.getByRole('option', { name: /Перевірка рядка/ }).waitFor(); await wait(async () => await page.getByRole('option').count() === 1 && await page.locator('[data-directory-paging]').count() === 0, 'fresh search result'); await product.press('ArrowDown'); await product.press('Enter');
       await wait(async () => await rows().first().locator('[data-line=product]').inputValue() === 'line_layout_product', 'keyboard product commit');
       await page.getByRole('listbox').waitFor({ state: 'hidden' }); await product.press('Tab');
       assert(await rows().first().locator('[data-line=quantity]').evaluate(node => node === document.activeElement), 'Tab goes to quantity');

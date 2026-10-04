@@ -365,6 +365,7 @@ input {
   cursor: pointer;
 }
 .tk-popover {
+  box-sizing: border-box;
   width: var(--trigger-width);
   max-width: calc(100vw - 16px);
   border: 1px solid var(--tk-input-line);
@@ -372,6 +373,9 @@ input {
   background: var(--tk-paper);
   box-shadow: 0 8px 24px #20272c14;
   padding: 4px;
+}
+.tk-popover--directory {
+  min-width: min(20rem, calc(100vw - 64px));
 }
 .tk-popover--paged {
   box-sizing: border-box;
