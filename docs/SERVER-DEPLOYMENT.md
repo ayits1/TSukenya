@@ -363,3 +363,30 @@ Authenticated production UI не перевірявся: потрібний зв
 pre-20261004T114210Z.tar.gz; після healthy web перебудувати worker сумісної
 попередньої версії. БД не відновлювати поверх нових записів; erp0021/0022
 та квитанції після code rollback зберігаються.
+
+## Реліз прийнятих PR #72–73 · 04.10.2026
+
+За дорученням власника сайт оновлено до прийнятого main
+`237ef06f8217950ab3f90d6382d8a3f4a0dfa6ce`. #72 додав видиму deployment-версію
+до оболонки, #73 обмежив матеріалізацію дочірніх рядків історичних звітів,
+зберігши облікові формули. Server/PostgreSQL exact-head CI успішні; UI версії
+має окремі ізольовані layout/keyboard докази. Hidden catalogue, portal collections
+і ABC WIP до архіву не входили. Canonical checkout синхронізовано fast-forward.
+
+Immutable git archive і штатний release.py --check PASS. Scoped stop worker,
+backup/web build/health, потім rebuild/restart worker тієї самої SHA. Нових
+міграцій немає. Compose/env/gateway не замінювали; PostgreSQL `8b74e7132c36`
+не перезапускався. Web `fe6b3b5cca39` та worker `200d7403de2f` healthy;
+внутрішній і публічний health показують SHA, imports available. Сусідній сайт HTTPS200.
+
+Backup: `backups/tsukenya-crm-20261004T122024Z.dump`; checksum і pg_restore --list PASS.
+Попередній код: `releases/pre-20261004T122023Z.tar.gz`. Read-only reconcile exit0/issues0.
+До/після 90 Document, 0 Voucher/StockEntry/CashEntry, 28 AuditEvent, importRuns0;
+JSON digest незмінний `a85eef4aa5063ec958c3a1e0b8e515ef595e4a09e2e9bd319d285e17a16573df`.
+Authenticated production UI не перевіряли; mutation-тестів, повної локальної
+регресії, offsite0.1 чи restore exercise не виконували.
+
+Відкат коду: scoped stop worker; release.py з pre-20261004T122023Z.tar.gz;
+після healthy web перебудувати worker попереднього сумісного коду. БД не
+відновлювати поверх нових записів. Локальні журнали релізу:
+`/tmp/tsukenya-release-237ef06-web.log`, `/tmp/tsukenya-release-237ef06-worker.log`.
