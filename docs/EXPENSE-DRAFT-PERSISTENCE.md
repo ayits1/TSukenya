@@ -6,7 +6,7 @@
 
 | Споживач | Збережені поля | Бізнес-запис |
 | --- | --- | --- |
-| `portal.js` inline amount/category | Raw amount/committed category, original поля/ревізія одного рядка; незалежні units | Чинний one-field PATCH з If-Match; інші поля/рядки не перезаписуються |
+| `portal.js` inline amount/category | Raw amount/committed category, original поля/ревізія одного рядка; незалежні units | Чистий one-field PATCH з If-Match; уже незбережені інші units переходять у спільне явне узгодження та окремий Save |
 | `portal.js` new-name/Create | Raw назва/група, локальний UUID, frozen перші terms/body/order | Чинний POST `/api/expenses`, LegacyCreateReceipt і creator identity |
 | `LegacyEditors.edit/update/reviewCreate` для expenses | Raw name/group/amount/category, original row revision, frozen first intent | Реальний окремий expense діалог; current GET → локальний Apply → окремий Save |
 
@@ -22,7 +22,7 @@ Destructive DELETE і його existing confirm/current-read workflow **не enr
 - First UUID/body durable до fetch; storage/quota failure блокує POST/PATCH. CREATE exact retry повторює лише original UUID/body попри новіше invalid raw. UPDATE unknown не має blind retry: current read/comparison, explicit Apply та новий окремий Save з current revision. Перший expense4xx не має нового no-write proof, тому автоматично intent не звільняється; для корекції UPDATE потрібен current/Apply. Невідома CREATE спроба зберігає immutable intent до identity або явного Discard.
 - Positive creator identity з original snapshot підтверджується durable **до незалежного current GET**. Current503/reload не повертає CREATE CTA. Історичний positive ID без original теж durable блокує CREATE, але не вигадує baseline/revision/three-way comparison; поточне читання лише для перегляду.
 - Strict ACK прив'язаний до submitted intent. Confirmation не є current baseline; matching current ID/revision/terms + відсутність новішого raw прибирає completed record. Новіше invalid raw зберігається. Apply змінює тільки local baseline/raw, не сервер; переходить від створеного запису до його ID без залишкового CREATE alias. Наступне додавання в тій самій групі має новий UUID.
-- Inline amount recovery відкриває лише enrolled unit; інші поля disabled і не потрапляють у PATCH/merged raw. Full editor зберігає чинні atomic financial terms. Known confirmed input очищається тільки коли користувач не замінив його новішим.
+- Inline recovery відкриває enrolled units. Якщо інше enrolled поле вже має незбережений raw, наступна inline правка об’єднує units і вимагає явного current/Apply/Save без auto-PATCH; invalid raw зберігається. Незмінені інші поля disabled і не потрапляють у PATCH/merged raw. Full editor зберігає чинні atomic financial terms. Known confirmed input очищається тільки коли користувач не замінив його новішим.
 - Session401/role/store/epoch зміна застосовує P0 глобальну privacy. Same-session resource403 — тільки denied record; дозволені raw/unknown intent не стираються на503/malformed. Maps перевіряють існування durable record, щоб erased RAM не розкрилася повторно. Cancel/Close/route не приймають late read/ACK/401 та не встановлюють baseline.
 - Close лишає draft для explicit Restore; Restore/Apply не пишуть бізнес-дані. Орphan inline Discard прибирає і durable record, і inline map тільки після успішного storage remove; failure пояснений, raw лишається, panel повторно авторизується. Видалення draft не є серверним rollback.
 
@@ -57,3 +57,58 @@ npm run test --workspace frontend -- src/shared/native/expensePersistence.test.t
 ```
 
 Немає full suite, production/Sheet/VPS mutations, push/PR/deploy. Template count і editable expense fields мають actual enrollment; повний B06/P2/P3 через це не закрито.
+
+
+## Незалежне рев’ю expense `1f2bb428` · виправлення
+
+Власний review checkout `/tmp/tsukenya-expense-review`; frozen author clone не змінено.
+Source review підтвердило whitelist, immutable CREATE/UPDATE intent, creator receipt,
+durable ACK перед current GET, server revision та окремий Save. Знайдені й виправлені
+такі межі:
+
+- Resource preflight тепер прив’язано до **того самого** P0 actor/session для context,
+  current та identity. До виправлення реальний повторний login між P0 check і resource
+  session відкривав raw попереднього сеансу. Negative proof збережено в
+  `/tmp/tsukenya-expense-review-session-before/`; після виправлення старі DOM/storage
+  недоступні, бізнес-записів немає.
+- Inline й manual no-stored opening перевіряють generation після кожного await;
+  збережений authorize результат прив’язаний до конкретного restore signal. Поточний
+  inline resource403 повторно читає P0 actor; obsolete401 після suspend/pagehide не
+  перенаправляє й не стирає інші дозволені чернетки.
+- Invalid amount → category раніше перезаписував units на category, робив суму
+  недоступною і ламав comparison через зайвий `decimals:['amount']`. Negative proof:
+  `/tmp/tsukenya-expense-review-units-before/`. Тепер raw та units зберігаються разом;
+  mixed inline input вимагає явного review, metadata відфільтровано разом із keys.
+- Apply копіює тільки selected units, хоча shared comparison повертає повну server
+  projection. Invalid raw може пройти локальний Apply; грошову валідацію виконує Save.
+  Під час comparison поля заблоковані, тому нове введення не замінюється старим snapshot.
+  Cancel знову дозволяє введення. Local quota failure не встановлює новий baseline/raw.
+- Strict codec відхиляє array/object замість string group, без `String(...)` coercion.
+
+### Вузькі докази review
+
+| Артефакт | Результат |
+| --- | --- |
+| `/tmp/tsukenya-expense-review-session-final/review-session-report.json` | PASS: actual новий login між P0/resource, no private DOM/old storage/no writes |
+| `/tmp/tsukenya-expense-review-generation-final/review-inline-generation-report.json` | PASS: inline obsolete401/pagehide, no-stored opening/suspend, authorized retry, current403 після реальної зміни owner→accountant |
+| `/tmp/tsukenya-expense-review-units-final/review-units-partial.json` | Перші **два завершені сценарії PASS**: чистий amount-only PATCH; mixed invalid raw/union/current/Apply/invalid Save/окремий valid Save. Це partial, не terminal PASS: наступний category fixture стартував до завершення refresh і отримав409; він винесений та перевірений окремо нижче |
+| `/tmp/tsukenya-expense-review-category-final/review-category-report.json` | PASS: category-only committed malformed ACK, frozen exact body, current/Apply без decimal error; unrelated server name/group не замінюють raw і не потрапляють у PATCH{} |
+| `/tmp/tsukenya-expense-review-apply-final/review-apply-report.json` | PASS: comparison lock, keyboard Cancel, quota failure атомарного Apply, retry Apply; zero business writes |
+
+Останні правки після category proof стосуються лише current inline403 та блокування
+полів під час comparison; їхні окремі targets пройшли, уже успішні бізнес-сценарії
+повторно не запускалися. Native reports містять source/dist hashes. Full suite і
+старі сімейні сценарії не запускалися. Backend/postings не змінено, тому прийняті
+server/PG докази лишаються застосовними. Shared controls/CSS не змінено; це не новий
+layout/cross-engine доказ. DELETE і загальне завершення P2/P3 лишаються поза цим пакетом.
+
+TS codec tests **7 PASS**; matching frontend build (включає TypeScript), scoped ESLint,
+Prettier, JS syntax/diff перевірені. Початковий ESLint не знайшов локальний workspace
+`@eslint/js`; після підключення наявних lockfile dependencies scoped lint PASS,
+пакети не оновлювалися. Артефакти `/tmp/tsukenya-expense-review-build.log` і
+`/tmp/tsukenya-expense-review-static.log`.
+
+Незалежні native scopes для full runner реєструються root адитивно: `review-session`,
+`review-inline-generation`, `review-units`, `review-category`, `review-apply` через
+`QA_EXPENSE_DRAFT_FROM` (ця змінна має бути scrubbed перед повним прогоном). Приклад
+вузької команди: `QA_EXPENSE_DRAFT_FROM=review-apply node tests/expense-draft-reload-ui.cjs`.

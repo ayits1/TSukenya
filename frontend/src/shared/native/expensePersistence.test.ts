@@ -31,6 +31,15 @@ describe('Actual expense draft whitelist and accounting units', () => {
     ).toThrow();
     expect(expenseTerms({ ...terms, amount: '00100.0' }).amount).toBe('100.00');
   });
+  it('refuses coerced group enum in baseline and immutable terms', () => {
+    expect(() => expenseTerms({ ...terms, group: ['fixed'] })).toThrow();
+    expect(() =>
+      decodeExpensePayload({
+        ...payload(),
+        baseline: { ...payload().baseline, original: { ...terms, group: ['fixed'] } },
+      }),
+    ).toThrow();
+  });
   it('freezes only original one-field PATCH and never adds unrelated classification', () => {
     const p = {
       ...payload(),

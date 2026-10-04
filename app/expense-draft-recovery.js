@@ -9,6 +9,7 @@
     opening = 0,
     restoring = null,
     inlineReady = false,
+    inlineGeneration = 0,
     preparing = false,
     authorizedSession = null,
     openingController = null;
@@ -131,7 +132,7 @@
       );
     return value;
   }
-  async function context(signal, guard) {
+  async function context(signal, guard, binding) {
     const v = await request(
       "/api/v1/portal/collections/expenses?page=1",
       "GET",
@@ -139,10 +140,11 @@
       undefined,
       signal,
       guard,
+      binding,
     );
     return window.PortalApi.decodeCollection(v, "expenses");
   }
-  async function current(id, signal, guard) {
+  async function current(id, signal, guard, binding) {
     return a().decodeLegacyRecord(
       await request(
         "/api/v1/portal/records/expenses/" + id,
@@ -151,12 +153,13 @@
         undefined,
         signal,
         guard,
+        binding,
       ),
       "expenses",
       id,
     );
   }
-  async function identity(p, signal, guard) {
+  async function identity(p, signal, guard, binding) {
     const s = state(p);
     return window.PortalApi.decodeCreateIdentity(
       await request(
@@ -166,25 +169,26 @@
         undefined,
         signal,
         guard,
+        binding,
       ),
       "expenses",
       s.key,
     );
   }
-  async function authorize(p, actor, signal) {
+  async function authorize(p, actor, signal, guard) {
     const s = state(p);
     if (actor.role !== "owner" || !actor.networkOwner || actor.storeId !== null)
       return false;
     if (s.id)
       try {
-        await current(s.id, signal);
+        await current(s.id, signal, guard, actor);
       } catch (error) {
         if (error.code !== "record_missing") throw error;
-        await context(signal);
+        await context(signal, guard, actor);
       }
-    else await context(signal);
-    if (signal.aborted) throw canceled();
-    authorizedSession = { recordId: s.recordId, actor };
+    else await context(signal, guard, actor);
+    if (signal.aborted || (guard && !guard())) throw canceled();
+    authorizedSession = { recordId: s.recordId, actor, signal };
     return true;
   }
   function savePayload(p) {
@@ -271,6 +275,8 @@
   }
   function hide() {
     inlineReady = false;
+    inlineGeneration++;
+    authorizedSession = null;
     const panel = document.querySelector("[data-expense-private]");
     if (panel) {
       panel.hidden = true;
@@ -384,25 +390,33 @@
     const panel = document.querySelector("[data-expense-private]");
     if (!panel || panel.closest("#catalogBudget")?.hidden) return;
     preparing = true;
-    const route = location.hash;
+    const route = location.hash,
+      token = opening;
+    let guard = null;
     hide();
     try {
       const actor = await f().controller.check(false);
       if (actor.role !== "owner" || !actor.networkOwner)
         throw Object.assign(Error("Недостатньо прав."), { status: 403 });
-      await context(
-        undefined,
-        () =>
-          route === location.hash &&
-          panel.isConnected &&
-          document.visibilityState !== "hidden",
-      );
-      if (route !== location.hash || !panel.isConnected) return;
+      const generation = inlineGeneration;
+      guard = () =>
+        token === opening &&
+        generation === inlineGeneration &&
+        route === location.hash &&
+        panel.isConnected &&
+        document.visibilityState !== "hidden";
+      if (!guard()) throw canceled();
+      await context(undefined, guard, actor);
+      if (!guard()) return;
       inlineReady = true;
       panel.hidden = false;
       panel.previousElementSibling?.matches("[data-expense-access]") &&
         panel.previousElementSibling.remove();
-    } catch {
+    } catch (error) {
+      if (error.status === 403 && guard?.())
+        await f()
+          .controller.check(false)
+          .catch(() => {});
       /* Public retry remains; no baseline or grants adopted. */
     } finally {
       preparing = false;
@@ -466,13 +480,22 @@
       return active.d;
     }
     openingController?.abort();
+    const restoredSignal = signal;
     const localOpening = new AbortController();
     openingController = localOpening;
     signal = signal
       ? AbortSignal.any([signal, localOpening.signal])
       : localOpening.signal;
+    let openingGeneration = null;
     const token = ++opening,
-      route = location.hash;
+      route = location.hash,
+      openingLive = () =>
+        token === opening &&
+        (openingGeneration === null ||
+          openingGeneration === inlineGeneration) &&
+        route === location.hash &&
+        !signal.aborted &&
+        document.visibilityState !== "hidden";
     let p = restored
       ? c().decodeExpensePayload(restored)
       : item
@@ -485,21 +508,42 @@
               : ["name", "group", "amount", "category"],
           )
         : existing(creates, group) || make(null, group);
-    if (!restored)
+    if (!restored) {
+      const before = state(p),
+        mine = raw(p),
+        requested = units || ["name", "group", "amount", "category"],
+        outside = before.units.filter(
+          (key) =>
+            !requested.includes(key) &&
+            mine[key] !== (before.original[key] ?? ""),
+        );
+      // Another inline field can hold invalid raw input. Keep it editable and
+      // require explicit review before expanding a one-field write into a group.
+      needsReview ||= outside.length > 0;
       p = c().decodeExpensePayload({
         ...p,
         baseline: {
-          ...state(p),
-          units: units || ["name", "group", "amount", "category"],
+          ...before,
+          units: [
+            ...new Set([
+              ...requested,
+              ...outside,
+              ...(p.firstIntent || p.confirmation ? before.units : []),
+            ]),
+          ],
+          review: before.review || needsReview,
         },
-        draft: { ...raw(p), ...patch },
+        draft: { ...mine, ...patch },
       });
+    }
     const s = state(p),
       wasStored = f()
         .store.entries()
         .some((e) => e.id === s.recordId);
     if (!restored) {
       const session = await f().controller.check(false);
+      openingGeneration = inlineGeneration;
+      if (!openingLive()) throw canceled();
       if (
         wasStored &&
         !f()
@@ -513,7 +557,10 @@
         );
       }
       try {
-        await authorize(p, session, signal);
+        if (!(await authorize(p, session, signal, openingLive)))
+          throw Object.assign(Error("Редагування витрат недоступне."), {
+            status: 403,
+          });
       } catch (error) {
         if (
           token === opening &&
@@ -526,9 +573,12 @@
             .catch(() => {});
         throw error;
       }
-      if (token !== opening || route !== location.hash || signal?.aborted)
-        throw canceled();
-    } else if (authorizedSession?.recordId !== s.recordId)
+      if (!openingLive()) throw canceled();
+    } else if (
+      authorizedSession?.recordId !== s.recordId ||
+      authorizedSession.signal !== restoredSignal ||
+      restoredSignal?.aborted
+    )
       throw Error("Доступ до чернетки не підтверджено.");
     savePayload(p);
     const d = document.createElement("dialog"),
@@ -629,7 +679,10 @@
         .forEach(
           (el) =>
             (el.disabled =
-              busy || ctx.reading || !state(p).units.includes(el.name)),
+              busy ||
+              ctx.reading ||
+              !!comparison ||
+              !state(p).units.includes(el.name)),
         );
       save.disabled =
         busy || ctx.reading || review || !!p.firstIntent || !!p.confirmation;
@@ -705,7 +758,8 @@
       try {
         const r = await protectedRead(
           ctx,
-          (authorized) => current(target(), authorized),
+          (authorized, actor) =>
+            current(target(), authorized, undefined, actor),
           controller.signal,
         );
         if (!live(ctx) || n !== sequence) return;
@@ -749,6 +803,7 @@
             .map((field) => ({
               ...field,
               keys: field.keys.filter((k) => units.includes(k)),
+              decimals: field.decimals?.filter((k) => units.includes(k)),
             }))
             .filter((field) => field.keys.length),
           title: "Узгодити статтю витрат",
@@ -763,22 +818,17 @@
           onApply: (merged) => {
             if (!live(ctx) || n !== sequence) return;
             try {
+              // The comparison returns a full server projection. Only the
+              // selected units may replace raw input; Save validates money.
               const rawMerged = {
                 ...values(),
-                ...merged,
-                category: Object.hasOwn(merged, "category")
-                  ? (merged.category ?? "")
-                  : values().category,
-              };
-              c().expenseTerms({
-                ...server,
                 ...Object.fromEntries(
-                  state(p).units.map((k) => [
-                    k,
-                    k === "category" ? rawMerged[k] || null : rawMerged[k],
+                  units.map((key) => [
+                    key,
+                    key === "category" ? (merged[key] ?? "") : merged[key],
                   ]),
                 ),
-              });
+              };
               p = confirm(p, "apply", r, rawMerged);
               ctx.p = p;
               ctx.stop();
@@ -811,7 +861,7 @@
       try {
         const found = await protectedRead(
           ctx,
-          (authorized) => identity(p, authorized),
+          (authorized, actor) => identity(p, authorized, undefined, actor),
           controller.signal,
         );
         if (!live(ctx) || n !== sequence) return;
@@ -981,7 +1031,7 @@
         controller = new AbortController();
         const latest = await protectedRead(
           ctx,
-          (authorized) => current(r.id, authorized),
+          (authorized, actor) => current(r.id, authorized, undefined, actor),
           controller.signal,
         );
         if (!live(ctx)) return;
@@ -1025,6 +1075,9 @@
     document.body.append(d);
     d.showModal();
     fill();
+    if (needsReview)
+      status.textContent =
+        "Залишилося незбережене введення в інших полях. Порівняйте всі зміни з поточною версією; збереження — окрема дія.";
     sync();
     try {
       ctx.protected = true;
@@ -1032,13 +1085,7 @@
         authorizedSession?.recordId === s.recordId
           ? authorizedSession.actor
           : null;
-      if (
-        signal?.aborted ||
-        token !== opening ||
-        route !== location.hash ||
-        !live(ctx)
-      )
-        throw canceled();
+      if (!openingLive() || !live(ctx)) throw canceled();
       if (!actor) throw Error("Доступ до форми не підтверджено.");
       ctx.protected = false;
       reveal(ctx);

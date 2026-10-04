@@ -46,14 +46,15 @@ export function expenseTerms(v: unknown, empty = false): ExpenseTerms {
     typeof r.name !== 'string' ||
     r.name.length > 250 ||
     (!empty && !r.name.trim()) ||
-    !['fixed', 'variable'].includes(String(r.group)) ||
+    typeof r.group !== 'string' ||
+    !['fixed', 'variable'].includes(r.group) ||
     !(r.category === null || (typeof r.category === 'string' && categories.includes(r.category)))
   )
     fail();
   const [whole, fraction] = legacyMoney(r.amount).split('.');
   return {
     name: r.name as string,
-    group: String(r.group),
+    group: r.group as string,
     amount: String(BigInt(whole!)) + '.' + fraction,
     category: r.category as string | null,
   };
