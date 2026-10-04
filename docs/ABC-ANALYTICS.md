@@ -69,3 +69,13 @@ Harness очищає connection/credential/settings variables до password help
 серверу і чекає його зупинки. Full registry містить base+layout (late/recovery
 вже входять до base), очищає QA_ABC_FROM/PORT. Syntax і dryrun перевірені;
 фактичного test:full, production чи Sheet змін не було.
+
+
+Root follow-up після прийнятого #76: merge конфлікт стосувався лише списку
+очищених QA flags у full registry, усі hidden/collections/ABC stages збережені.
+Source diff ABC backend/API/component/harness/contracts порівняно з976ea3a порожній.
+Оскільки #76 змінив глобальний metadata runtime, виконано тільки affected actual
+native late/privacy tail: PASS, `tsukenya-abc-proof-iAywYG` у системному tmp.
+Збережений shell період, late401 після leave не перенаправляє, актуальна role403
+очищає private results; тільки GET, без page errors. Решту proofs повторно
+використано. Dryrun full-plan PASS, фактичний full не запускався.
