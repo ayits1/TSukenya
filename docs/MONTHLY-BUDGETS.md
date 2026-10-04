@@ -65,3 +65,11 @@ Runtime decoder перевіряє UUID/revision, десяткові рядки,
 Перед initialGET використано validated `GET /api/v1/promotions/context`. Scoped owner відкриває свій магазин, не бачить network option/чужі stores або мережеву каталогну вкладку; пояснення scope не редагується. Це вузька UIboundary: старий server legacy globalOwnerDTO не переписано, його фінансовий scope є окремою B02 перевіркою.
 
 Новий targeted `tests/monthly-budget-recovery-ui.cjs` перевірив commit→lostACK→спробу змінити заблоковану форму→exact retry для бюджету, committed malformed200 для budget/category, один запис/audit, відкидання wrong-context/missing-fields/NaN/missing-categoryID на GET. Scoped owner tail пройшов окремо (`--scope-only`): initial ownstore,320px, прихована мережева вкладка, сервер403 для мережі й реального чужого магазину. Старі успішні UIсценарії без змінених inputs не проганялись повторно; основний budgetUIhelper адаптовано до explicitretrybutton.
+
+### Точні копійки у великих підсумках
+
+Відображення budget-only сум використовує BigInt цілої частини через Intl.NumberFormat і окремий рядок копійок; money value не перетворюється на Number. Це зберігає `.98`/`.99` у великих агрегатах, навіть коли багато дозволених документів/рядків дали підсумок понад1e14. InputMAX у чинному services.dec залишається999999999999; цей fix не збільшує ліміт запису.
+
+ACK порівнює точні нормалізовані десяткові значення: гроші2/rate3, з еквівалентними `100`/`100.00`, trailingzero, scientific spelling і signedzero, які не змінюють серверний Decimal. Зайві ненульові знаки відхиляються. Preview ставки використовує ті самі цілі одиниці, але остаточний бюджет і округлення лишаються на Django.
+
+`node tests/monthly-budget-decimal.cjs` PASS: aggregate99999999999999.99 проти.98, від’ємний факт і−0.01, точний ACKcomparison, ставка1.234 проти1.235, exponent/trailingzero/negativezero та некоректні values. Цей pureVM тест не запускає браузер/DB/мережу; runtime функції експоновані тільки у тестовій копії source. Browser matrix повторно не запускався.
