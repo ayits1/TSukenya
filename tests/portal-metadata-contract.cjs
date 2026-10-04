@@ -5,6 +5,14 @@ const publicSummary={catalogCount:1,noPriceCount:0,stalePriceCount:0,exampleCoun
 assert.equal(api.decodeState(legacyState(1)).data.tasks.length,1);for(const change of [v=>v.data.products=[],v=>delete v.contract,v=>v.contract='legacy',v=>v.data.tasks[0].data=null,v=>v.networkOwner='true',v=>v.csrf='',v=>v.stateVersions.products='bad']){const bad=legacyState(1);change(bad);assert.throws(()=>api.decodeState(bad));}
 for(const bad of [{role:'owner',csrf:''},{role:'unknown',csrf:'x'},{role:'owner',csrf:null}])assert.throws(()=>api.decodeSession(bad));const examples={items:[{id:'p',name:'P',hidden:false,revision:'a'.repeat(64)}],total:1,page:1,pages:1,limit:30};assert.equal(api.decodeExamples(examples).total,1);assert.throws(()=>api.decodeExamples({...examples,total:2}));assert.throws(()=>api.decodeExamples({...examples,items:[]}));
 assert.equal(api.money('99999999999999.99'),'99 999 999 999 999,99');assert.equal(api.money('-100.25'),'-100,25');assert.throws(()=>api.decodeCleanup({}, {items:[],idempotencyKey:'id'}));
+const range={basis:'catalogue_margin_extrema',minPercent:'25.00',maxPercent:'50.00',nonpositiveCount:0,monthlyLow:'2000.00',monthlyHigh:'4000.00',reason:'bounded'};
+assert.deepEqual(api.decodeMarginRange(range,2,false),range);
+for(const patch of [{minPercent:'-1.00'},{maxPercent:'101.00'},{monthlyLow:'4001.00'},{monthlyLow:2000},{monthlyHigh:null},{minPercent:'51.00'},{nonpositiveCount:1},{reason:'unbounded'},{extra:true},{maxPercent:undefined}])assert.throws(()=>api.decodeMarginRange({...range,...patch},2,false));
+api.decodeMarginRange({...range,minPercent:'0.00',nonpositiveCount:1,monthlyHigh:null,reason:'unbounded'},2,false);
+api.decodeMarginRange({...range,minPercent:null,maxPercent:null,monthlyLow:null,monthlyHigh:null,reason:'no_coverage'},0,false);
+api.decodeMarginRange({...range,monthlyLow:'0.00',monthlyHigh:'0.00',reason:'no_expenses'},2,true);
+api.decodeMarginRange({...range,minPercent:'0.00',maxPercent:'0.00',monthlyLow:'10000000000000.00',monthlyHigh:'10000000000000.00'},1,false);
+assert.throws(()=>api.decodeMarginRange({...range,nonpositiveCount:3},2,false));
 const window=new EventTarget(),queue=[],calls=[],intervals=[];window.PortalApi=api;const etag=n=>'"tsukenya-portal-v2-'+String(n).repeat(64)+'"';
 const state=n=>({...legacyState(n),contract:'portal-metadata-v2',scopeStore:null,data:{'settings/main':{chainName:'T'+n},'project/state':{}},stateVersions:Object.fromEntries(domains.map(d=>[d,(d==='tasks'||d==='settings/main'?String(n):'a').repeat(64)]))});
 const reply=(status,value,tag)=>({status,ok:status===200,headers:{get:()=>tag||''},json:async()=>structuredClone(value)});

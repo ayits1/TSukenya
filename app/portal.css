@@ -261,3 +261,13 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:90vh;border:1px solid var(
 }
 
 .managed-alert-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;min-width:0}.managed-alert-actions .btn{min-height:44px;max-width:100%;white-space:normal}
+
+/* Catalogue scenarios remain readable with long exact amounts and enlarged text. */
+.catalogue-range-values{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.catalogue-range-details{margin-top:16px}
+.catalogue-range-details>summary{min-height:44px;display:list-item;align-content:center;cursor:pointer;font-weight:600}
+.be>.be-fact:first-child{border-top:0;margin-top:0;padding-top:0}
+
+.be>h3{margin:12px 0 6px}
+[data-catalogue-range] p+p{margin-top:8px}
+.catalogue-range-details [data-catalogue-range]{padding-top:8px}

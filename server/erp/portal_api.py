@@ -14,7 +14,7 @@ from django.utils import timezone
 from .models import Document
 from .catalog import defaults, decimal, plain, regular_price, revision
 from .catalog_access import revalidate_actor
-from .services import require, ledger_lock
+from .services import require, ledger_lock, current_actor
 from .historical_reports import read_snapshot
 from .financial_scope import require_network_owner, network_owner
 from .browsing import positive_integer
@@ -65,12 +65,15 @@ def summary(user, *, model=False):
     if model:require_network_owner(user)
     now=timezone.now()
     with read_snapshot(strict=False),localcontext() as context:
+        user=current_actor(user)
+        if model:require_network_owner(user)
         context.prec=40
         config=defaults();settings=Document.objects.filter(pk='settings/main').first()
         data=settings.data if settings else {}
         days=legacy_stale_days(data)
         counts={'catalogCount':0,'noPriceCount':0,'stalePriceCount':0,'exampleCount':0,'allExampleCount':0}
         total_margin=Decimal(0);coverage=0;next_change=None
+        minimum=maximum=None;nonpositive=0
         for product in Document.objects.filter(path__startswith='products/').order_by('path').iterator(chunk_size=200):
             p=product.data
             if p.get('example'):counts['allExampleCount']+=1
@@ -90,7 +93,12 @@ def summary(user, *, model=False):
                     if threshold is not None and (next_change is None or threshold<next_change):next_change=threshold
             if model:
                 cost=legacy_number(p.get('cost'))
-                if cost>0 and price>0:coverage+=1;total_margin+=(price-cost)/price
+                if cost>0 and price>0:
+                    margin=(price-cost)/price
+                    coverage+=1;total_margin+=margin
+                    minimum=margin if minimum is None else min(minimum,margin)
+                    maximum=margin if maximum is None else max(maximum,margin)
+                    nonpositive+=margin<=0
         result={**counts,'generatedAt':now.isoformat(),'nextChangeAt':(next_change+timedelta(milliseconds=1)).isoformat() if next_change else None,
                 'priceBasis':'legacy_product_promotion','staleBasis':'elapsed_24h_strict_greater'}
         if model or network_owner(user):
@@ -102,6 +110,9 @@ def summary(user, *, model=False):
                 else:variable+=amount
             result['plannedExpenses']=format(fixed+variable,'.2f')
         if model:
+            from .catalogue_range import catalogue_range
+            result['marginRange']=catalogue_range(minimum=minimum,maximum=maximum,coverage=coverage,
+                nonpositive=nonpositive,expenses=fixed+variable)
             average=total_margin/coverage if coverage else Decimal(0)
             from .budget import budget_count
             needed=(fixed+variable)/average if average>0 else None

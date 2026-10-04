@@ -538,9 +538,17 @@
     }).catch(()=>{if(S[key]===r)r.state='error';}).finally(()=>{if(S[key]===r&&(tab==='overview'&&!model||tab==='expenses'&&model))render();});
   }
   function serverModelFormula(m){
-    if(!m)return portalReadStatus('portalModel');const money=window.PortalApi.money;
-    if(m.breakEvenRevenue!==null&&num(m.breakEvenRevenue)>0)return `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div><div class="big num">${money(m.breakEvenRevenue)} грн на місяць</div><p class="muted">≈ ${money(m.breakEvenDaily)} грн на день${m.budgetStores>1?` · ≈ ${money(m.breakEvenPerStore)} грн на день з кожного магазину`:''}. Рівна частка товарів: ${esc(m.marginPercent)}% маржі. Враховано ${m.coverage} із ${m.catalogCount} товарів. Ціна — звичайна або акційна ціна самого товару; магазинні кампанії не входять у цю модель.</p>`;
-    return num(m.fixed)+num(m.variable)===0?'<p>План витрат дорівнює нулю.</p>':m.reason==='no_coverage'?'<p>Недостатньо даних: потрібні закупівельна ціна та ціна продажу.</p>':'<p>Середня маржа нульова або від’ємна. Продажі за таких цін не покриють планові витрати.</p>';
+    if(!m)return portalReadStatus('portalModel');
+    const money=window.PortalApi.money,r=m.marginRange;
+    let body;
+    if(r.reason==='no_expenses')body='<p>План витрат дорівнює нулю. Введіть суми, щоб оцінити потрібний виторг.</p>';
+    else if(r.reason==='no_coverage')body='<p>Недостатньо даних: потрібні закупівельна ціна та ціна продажу.</p>';
+    else if(r.reason==='nonpositive_margin')body='<p>Маржа всіх врахованих товарів нульова або від’ємна. Продажі цих товарів не покриють планові витрати.</p>';
+    else if(r.reason==='unbounded')body=`<p class="catalogue-range-values">Виторг для покриття плану — від <strong>${money(r.monthlyLow)} грн на місяць</strong>. Скінченної верхньої межі немає.</p><p>Товарів із нульовою або від’ємною маржею: ${r.nonpositiveCount}. Залежно від їхньої частки продажі можуть не покрити витрати.</p>`;
+    else body=`<p class="catalogue-range-values">Виторг для покриття плану: <strong>${money(r.monthlyLow)}${r.monthlyLow===r.monthlyHigh?'':' – '+money(r.monthlyHigh)} грн на місяць</strong>.</p>`;
+    const range=r.minPercent===null?'':`<p>Маржа товарів: приблизно ${money(r.minPercent)}${r.minPercent===r.maxPercent?'':' – '+money(r.maxPercent)}%. Межі залежать від частки кожного товару у виторгу.</p>`;
+    const contents=`<div data-catalogue-range>${body}${range}<p class="muted">Враховано ${m.coverage} із ${m.catalogCount} товарів.${m.coverage<m.catalogCount?' Без повних цін решта товарів не входить у діапазон.':''} Це сценарії за поточними цінами, а не прогноз продажів. Закупівлю враховано в маржі; план витрат додається окремо. Магазинні кампанії не входять у цю модель.</p></div>`;
+    return S.salesFacts?.state==='ready'&&S.salesFacts.reason!=='no_sales'?`<details class="catalogue-range-details"><summary>Сценарії за каталогом</summary>${contents}</details>`:`<h3>Діапазон за каталогом</h3>${contents}`;
   }
   function serverOverview(){
     loadPortalRead('portalOverview');const r=S.portalOverview,data=r?.state==='ready'?r.data:null,taskRead=collectionSummary('operations'),taskData=taskRead.value,current=taskData?.nearest.map(window.PortalCollections.flatten)||[];
@@ -1630,12 +1638,12 @@
         ${block("Постійні","Платите щомісяця, навіть якщо продажів мало",fx,"fixed",t.fixed)}
         ${block("Змінні","Залежать від обсягу закупівель і продажів",vr,"variable",t.variable)}
       </div>
-      <div class="be">${window.TSUKENYA_SERVER?serverModelFormula(t.model):t.be ? `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div>
+      <div class="be">${!window.TSUKENYA_SERVER||window.MonthlyBudgets?.catalogVisible()?salesFactsHtml(t):''}${window.TSUKENYA_SERVER?serverModelFormula(t.model):t.be ? `<div class="muted">Щоб покрити всі витрати, мережі треба продати на</div>
         <div class="big num">${money0(t.be)} грн на місяць</div>
         <div class="muted">≈ ${money0(t.be/30)} грн на день${stores>1?` · ≈ ${money0(t.be/30/stores)} грн на день з кожного магазину`:""}. Орієнтовний розрахунок за рівною часткою товарів: ${Math.round(t.avgM*100)}% маржі. Враховано ${t.coverage} із ${t.total} товарів. Це модель каталогу; фактична точка беззбитковості потребує структури продажів і змінних витрат.</div>`
         : t.fixed+t.variable===0 ? '<div>План витрат дорівнює нулю. Введіть суми, щоб оцінити потрібний виторг.</div>'
         : !t.coverage ? '<div>Недостатньо даних для розрахунку. Потрібен хоча б один товар із закупівельною ціною та ціною продажу.</div>'
-        : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}${!window.TSUKENYA_SERVER||window.MonthlyBudgets?.catalogVisible()?salesFactsHtml(t):''}${examplesNotice(t)}</div>
+        : '<div>Середня маржа товарів нульова або від’ємна: за таких цін продажі не покриють планові витрати. Перегляньте закупівельні ціни та ціни продажу.</div>'}${examplesNotice(t)}</div>
     </section>${!window.TSUKENYA_SERVER||window.MonthlyBudgets?.catalogVisible()?budgetFactHtml():''}`;
     return window.MonthlyBudgets?.shell(legacy)||legacy;
   }

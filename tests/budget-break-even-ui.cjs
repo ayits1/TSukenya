@@ -45,9 +45,10 @@ const products=()=>page.evaluate(async()=>(await(await fetch('/api/state')).json
  const facts=(await be.locator('.be-fact').innerText()).replace(/\s+/g,' ');
  assert.match(facts,/виторг 30 000,00 грн, валова маржа 30%, у середньому 1 000,00 грн на день/);
  assert.match(facts,/потрібно ≈ 111,11 грн на день/);
- assert.match(facts,/запас ≈ 888,89 грн на день/);
+ assert.match(facts,/План покривається; відхилення -888,89 грн на день/);
+ await be.getByText('Сценарії за каталогом',{exact:true}).click();
  const text=(await be.innerText()).replace(/\s+/g,' ');
- assert.match(text,/50% маржі/,'margin uses real products only, not the 90% examples');
+ assert.match(text,/Маржа товарів: приблизно 50,00%/,'margin uses real products only, not the 90% examples');
  assert.match(text,/Враховано 2 із 2 товарів/,'coverage counts real products only');
  assert.match(text,/2 000,00 грн на місяць/,'break-even is 1000 / 0.5');
  assert.match(text,/2 товарів-прикладів/,'budget explains excluded examples');
