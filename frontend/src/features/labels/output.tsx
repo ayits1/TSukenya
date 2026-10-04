@@ -1,9 +1,9 @@
 import { flushSync } from 'react-dom';
 import { csv } from '../../shared/csv';
-import { createRoot } from 'react-dom/client';
 import { Label, PrintPages } from './Label';
+import { RasterPdf } from './rasterPdf';
+import { hiddenHost, assertActive, abortable, loadFonts, assertFits } from './outputDom';
 import {
-  clippedLabel,
   formatLabelMoney,
   formatPer100,
   hasPromotionPrice,
@@ -46,7 +46,7 @@ type CapturedLabel = {
     strikeWidth: number;
   }[];
 };
-type PdfPage = { bytes: Uint8Array<ArrayBuffer>; w: number; h: number };
+const CAPTURE_CACHE_LIMIT = 32;
 
 function assertSnapshot(snapshot: LabelOutputSnapshot) {
   if (!snapshot.products.length) throw new Error('Виберіть товари для друку.');
@@ -61,46 +61,6 @@ function assertSnapshot(snapshot: LabelOutputSnapshot) {
   if (snapshot.products.some((product) => product.promotion && !hasPromotionPrice(product)))
     throw new Error('Задайте окрему акційну ціну або вимкніть акцію перед друком.');
 }
-function hiddenHost() {
-  const host = document.createElement('div');
-  host.style.cssText =
-    'position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none;zoom:1;transform:none';
-  document.body.append(host);
-  const root = createRoot(host);
-  return {
-    host,
-    root,
-    remove: () => {
-      root.unmount();
-      host.remove();
-    },
-  };
-}
-function assertActive(signal?: AbortSignal) {
-  if (signal?.aborted) throw new DOMException('Підготовку скасовано.', 'AbortError');
-}
-/** Font loading and canvas encoding continue in the browser, but never retain the output root. */
-function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
-  assertActive(signal);
-  if (!signal) return promise;
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => {
-      signal.removeEventListener('abort', abort);
-      reject(new DOMException('Підготовку скасовано.', 'AbortError'));
-    };
-    signal.addEventListener('abort', abort, { once: true });
-    promise.then(
-      (value) => {
-        signal.removeEventListener('abort', abort);
-        resolve(value);
-      },
-      (error: unknown) => {
-        signal.removeEventListener('abort', abort);
-        reject(error);
-      },
-    );
-  });
-}
 function progress(options: LabelOutputOptions, value: LabelOutputProgress) {
   assertActive(options.signal);
   options.onProgress?.(value);
@@ -108,22 +68,8 @@ function progress(options: LabelOutputOptions, value: LabelOutputProgress) {
 }
 async function readyFonts(host: HTMLElement, options: LabelOutputOptions) {
   progress(options, { stage: 'fonts', completed: 0, total: 1 });
-  const fonts = new Set(
-    [...host.querySelectorAll<HTMLElement>('[data-field]')].map((field) => {
-      const style = getComputedStyle(field);
-      return `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-    }),
-  );
-  await abortable(
-    Promise.all([...fonts].map((font) => document.fonts.load(font, 'Абвґєіїй 0123456789'))),
-    options.signal,
-  );
-  await abortable(document.fonts.ready, options.signal);
+  await loadFonts(host, options);
   progress(options, { stage: 'fonts', completed: 1, total: 1 });
-}
-function assertFits(host: HTMLElement) {
-  if ([...host.querySelectorAll<HTMLElement>('.tk-label')].some(clippedLabel))
-    throw new Error('Текст не вміщується на ціннику. Зменште шрифт або приховайте зайві поля.');
 }
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob),
@@ -279,58 +225,6 @@ function draw(
   }
   context.restore();
 }
-function pdfFromJpegs(pages: PdfPage[]): Blob {
-  const encoder = new TextEncoder(),
-    parts: Uint8Array<ArrayBuffer>[] = [],
-    offsets: number[] = [];
-  let length = 0;
-  const put = (value: string | Uint8Array<ArrayBuffer>) => {
-    const bytes = typeof value === 'string' ? encoder.encode(value) : value;
-    parts.push(bytes);
-    length += bytes.length;
-  };
-  const width = 595.28,
-    height = 841.89,
-    count = pages.length;
-  put('%PDF-1.4\n');
-  offsets[1] = length;
-  put('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
-  offsets[2] = length;
-  put(
-    `2 0 obj\n<< /Type /Pages /Count ${count} /Kids [${pages.map((_, i) => `${3 + 3 * i} 0 R`).join(' ')}] >>\nendobj\n`,
-  );
-  pages.forEach((page, i) => {
-    const pageId = 3 + 3 * i,
-      contentId = pageId + 1,
-      imageId = pageId + 2,
-      content = `q ${width} 0 0 ${height} 0 0 cm /Im0 Do Q`;
-    offsets[pageId] = length;
-    put(
-      `${pageId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Resources << /XObject << /Im0 ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>\nendobj\n`,
-    );
-    offsets[contentId] = length;
-    put(
-      `${contentId} 0 obj\n<< /Length ${content.length} >>\nstream\n${content}\nendstream\nendobj\n`,
-    );
-    offsets[imageId] = length;
-    put(
-      `${imageId} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${page.w} /Height ${page.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${page.bytes.length} >>\nstream\n`,
-    );
-    put(page.bytes);
-    put('\nendstream\nendobj\n');
-  });
-  const total = 3 + 3 * count,
-    xref = length;
-  put(
-    `xref\n0 ${total}\n0000000000 65535 f \n${offsets
-      .slice(1)
-      .map((offset) => String(offset).padStart(10, '0') + ' 00000 n \n')
-      .join('')}`,
-  );
-  put(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
-  return new Blob(parts, { type: 'application/pdf' });
-}
-
 /** Raster capture keeps the existing 300 dpi PDF contract and supports every label font. */
 export async function exportPdf(
   snapshot: LabelOutputSnapshot,
@@ -340,61 +234,71 @@ export async function exportPdf(
   assertSnapshot(snapshot);
   const output = hiddenHost();
   let canvas: HTMLCanvasElement | undefined;
+  let pdf: RasterPdf | undefined;
   try {
-    const unique = [...new Map(snapshot.products.map((product) => [product.id, product])).values()];
-    flushSync(() =>
-      output.root.render(
-        unique.map((product) => (
-          <Label
-            key={product.id}
-            product={product}
-            config={snapshot.config}
-            settings={snapshot.settings}
-            date={snapshot.date}
-          />
-        )),
-      ),
-    );
-    await readyFonts(output.host, options);
-    assertFits(output.host);
     const geometry = pageGeometry(snapshot.config);
+    const total = Math.ceil(snapshot.products.length / geometry.perSheet);
+    const uniqueCount = new Set(snapshot.products.map((product) => product.id)).size;
+    const seen = new Set<string>();
+    const layouts = new Map<string, CapturedLabel>();
+    const knownFonts = new Set<string>();
+    pdf = new RasterPdf(total);
     canvas = document.createElement('canvas');
     canvas.width = Math.round(geometry.pageWidth * PX_MM);
     canvas.height = Math.round(geometry.pageHeight * PX_MM);
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Браузер не підтримує створення PDF.');
-    const labels = [...output.host.querySelectorAll<HTMLElement>('.tk-label')];
-    const layouts = new Map<string | undefined, CapturedLabel>();
-    progress(options, { stage: 'capture', completed: 0, total: labels.length });
-    let captured = 0;
-    while (captured < labels.length) {
-      // Keep the browser responsive for batches of distinct products without changing capture.
-      await abortable(
-        new Promise<void>((resolve) => window.setTimeout(resolve, 0)),
-        options.signal,
-      );
-      const started = performance.now();
-      do {
-        assertActive(options.signal);
-        const label = labels[captured]!;
-        layouts.set(label.dataset.product, capture(label, context));
-        captured++;
-      } while (captured < labels.length && performance.now() - started < 16);
-      progress(options, { stage: 'capture', completed: captured, total: labels.length });
-    }
-    const pages: PdfPage[] = [];
-    const total = Math.ceil(snapshot.products.length / geometry.perSheet);
-    progress(options, { stage: 'pages', completed: 0, total });
+    progress(options, { stage: 'capture', completed: 0, total: uniqueCount });
+    let pages = 0;
     for (let start = 0; start < snapshot.products.length; start += geometry.perSheet) {
-      // A task boundary lets the cancel control respond even when encoding finishes quickly.
       await abortable(
         new Promise<void>((resolve) => window.setTimeout(resolve, 0)),
         options.signal,
       );
-      assertActive(options.signal);
+      const products = snapshot.products.slice(start, start + geometry.perSheet);
+      const unique = [...new Map(products.map((product) => [product.id, product])).values()];
+      // Only this physical A4 is mounted: <=21 DOM labels, not every distinct SKU in the job.
+      flushSync(() =>
+        output.root.render(
+          unique.map((product) => (
+            <Label
+              key={product.id}
+              product={product}
+              config={snapshot.config}
+              settings={snapshot.settings}
+              date={snapshot.date}
+            />
+          )),
+        ),
+      );
+      if (start === 0) progress(options, { stage: 'fonts', completed: 0, total: 1 });
+      await loadFonts(output.host, options, knownFonts);
+      if (start === 0) progress(options, { stage: 'fonts', completed: 1, total: 1 });
+      assertFits(output.host);
+      const labels = [...output.host.querySelectorAll<HTMLElement>('.tk-label')];
+      let captured = 0;
+      while (captured < labels.length) {
+        await abortable(
+          new Promise<void>((resolve) => window.setTimeout(resolve, 0)),
+          options.signal,
+        );
+        const started = performance.now();
+        do {
+          assertActive(options.signal);
+          const label = labels[captured++]!;
+          const id = label.dataset.product!;
+          const layout = layouts.get(id) || capture(label, context);
+          // Touch both reused and new entries; one whole A4 fits within the bounded LRU.
+          layouts.delete(id);
+          layouts.set(id, layout);
+          if (layouts.size > CAPTURE_CACHE_LIMIT) layouts.delete(layouts.keys().next().value!);
+          seen.add(id);
+        } while (captured < labels.length && performance.now() - started < 16);
+        progress(options, { stage: 'capture', completed: seen.size, total: uniqueCount });
+      }
       context.fillStyle = '#fff';
       context.fillRect(0, 0, canvas.width, canvas.height);
-      snapshot.products.slice(start, start + geometry.perSheet).forEach((product, index) => {
+      products.forEach((product, index) => {
         const layout = layouts.get(product.id);
         if (!layout) throw new Error('Не вдалося сформувати цінник.');
         draw(
@@ -405,6 +309,7 @@ export async function exportPdf(
           snapshot.config,
         );
       });
+      progress(options, { stage: 'pages', completed: pages, total });
       const blob = await abortable(
         new Promise<Blob>((resolve, reject) =>
           canvas!.toBlob(
@@ -416,18 +321,16 @@ export async function exportPdf(
         ),
         options.signal,
       );
-      pages.push({
-        bytes: new Uint8Array(await abortable(blob.arrayBuffer(), options.signal)),
-        w: canvas.width,
-        h: canvas.height,
-      });
-      progress(options, { stage: 'pages', completed: pages.length, total });
+      pdf.append(blob, canvas.width, canvas.height);
+      pages++;
     }
-    const pdf = pdfFromJpegs(pages);
+    progress(options, { stage: 'pages', completed: pages, total });
+    const result = pdf.finish();
     progress(options, { stage: 'download', completed: 0, total: 1 });
-    download(pdf, filename(snapshot.date, 'pdf'));
+    download(result, filename(snapshot.date, 'pdf'));
     options.onProgress?.({ stage: 'download', completed: 1, total: 1 });
   } finally {
+    pdf?.dispose();
     if (canvas) {
       canvas.width = 0;
       canvas.height = 0;

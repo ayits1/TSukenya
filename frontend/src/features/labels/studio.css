@@ -622,3 +622,19 @@ html:has(#react-labels .tk-studio) {
   white-space: normal;
   scroll-margin-block: 8px;
 }
+
+.tk-studio-proof-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+.tk-studio-proof-navigation > .tk-field {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.tk-studio-proof-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

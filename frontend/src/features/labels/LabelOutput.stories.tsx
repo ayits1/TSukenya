@@ -270,3 +270,62 @@ export const CancelMaximumDistinctCapture: Story = {
     });
   },
 };
+
+export const PageBoundedPromotionalOutput: Story = {
+  play: async () => {
+    await interceptDownloads(async (blobs) => {
+      const originalEncode = HTMLCanvasElement.prototype.toBlob;
+      let largestHost = 0;
+      HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+        largestHost = Math.max(
+          largestHost,
+          document.querySelectorAll('[style*="-10000px"] .tk-label').length,
+        );
+        originalEncode.call(
+          this,
+          (value) => {
+            if (value)
+              value.arrayBuffer = () => {
+                throw new Error('JPEG copies must stay Blob-backed');
+              };
+            callback(value);
+          },
+          type,
+          quality,
+        );
+      };
+      try {
+        const promotion = {
+          ...snapshot.products[0]!,
+          id: 'promo-repeated',
+          name: 'Кава мелена',
+          promotion: true,
+          regularPrice: 129.99,
+          salePrice: 99.99,
+          unit: 'кг',
+        };
+        await exportPdf({
+          ...snapshot,
+          config: { ...snapshot.config, size: 'l', per100: true },
+          products: [
+            promotion,
+            ...Array.from({ length: 3 }, (_, index) => ({
+              ...snapshot.products[0]!,
+              id: `page-sku-${index}`,
+            })),
+            promotion,
+          ],
+        });
+        expect(largestHost).toBe(4);
+        expect(blobs).toHaveLength(1);
+        const pdf = await blobs[0]!.text();
+        expect(pdf).toContain('/Type /Pages /Count 2 ');
+        expect(pdf.match(/\/MediaBox \[0 0 595\.28 841\.89\]/g)).toHaveLength(2);
+        expect(pdf.match(/\/Width 2480 \/Height 3508/g)).toHaveLength(2);
+        cleanOutput();
+      } finally {
+        HTMLCanvasElement.prototype.toBlob = originalEncode;
+      }
+    });
+  },
+};
