@@ -120,6 +120,14 @@ class ProductionVersionTests(ApiFixture):
         reservation.refresh_from_db();self.assertEqual(reservation.used,0);self.assertEqual(reservation.released,2)
         self.assertEqual(StockLot.objects.get(product=self.p).quantity,10)
 
+    def test_non_owner_cannot_silently_remove_saved_owner_expiry_decision(self):
+        version,_=self.approve()
+        draft=self.production(version,expiryOverride={'date':(date.fromisoformat(self.today)+timedelta(days=1)).isoformat(),'reason':'Технологічне рішення власника'})
+        self.u.profile.role='warehouse';self.u.profile.save()
+        body={'kind':'production','store':self.store.pk,'warehouse':self.wh.pk,'date':self.today,'revision':draft.revision,'lines':[{'product':'output','quantity':'8'}],'payload':{'production':{'recipeVersion':version['id'],'plannedOutput':'10','varianceReason':'Незмінне відхилення'}}}
+        with self.assertRaisesMessage(BusinessError,'Власник має редагувати'):save_voucher(self.u,body,draft.pk)
+        draft.refresh_from_db();self.assertEqual(draft.payload['production']['expiryOverride']['reason'],'Технологічне рішення власника')
+
 from django.test import TransactionTestCase,RequestFactory
 import json
 from django.db import connection,connections,close_old_connections

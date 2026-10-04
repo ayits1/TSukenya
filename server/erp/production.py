@@ -29,6 +29,8 @@ def freeze_production(user,v,payload,previous):
     require(dec(v.payload.get('additional_cost',0))==ZERO,'Додаткові виробничі витрати не підтримуються. Приберіть суму з чернетки; зарплату й накладні витрати обліковуйте окремо.')
     if dec(previous.get('additional_cost',0))!=ZERO:
         require(user.profile.role=='owner' and 'additional_cost' in payload and dec(payload['additional_cost'])==ZERO,'Власник має явно прибрати непідтримувані додаткові виробничі витрати з чернетки.')
+    if previous.get('production',{}).get('expiryOverride'):
+        require(user.profile.role=='owner','Чернетка має затверджену власником ручну дату. Власник має редагувати або прибрати це технологічне рішення.')
     lines=list(v.lines.select_related('product'))
     require(len(lines)==1,'Виробництво оформлюється для одного готового товару.')
     output=lines[0]
