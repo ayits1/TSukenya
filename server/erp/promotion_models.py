@@ -20,6 +20,9 @@ class PromotionCampaign(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [models.Index(fields=['ends_on','starts_on'],condition=models.Q(active=True,archived=False),name='state_current_campaign_dates')]
+
 
 class PromotionPrice(models.Model):
     campaign = models.ForeignKey(PromotionCampaign, on_delete=models.CASCADE, related_name='prices')

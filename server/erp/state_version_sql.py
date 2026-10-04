@@ -68,41 +68,32 @@ BEGIN
   IF TG_OP<>'DELETE' THEN keys:=array_append(keys,'store:'||NEW.id); END IF;
   PERFORM tsukenya_state_bump(keys); RETURN NULL;
 END $$;
-CREATE FUNCTION tsukenya_state_campaign_keys(campaign_id uuid, area text, enabled boolean, archived boolean, starts date, ends date) RETURNS text[] LANGUAGE plpgsql AS $$
-DECLARE today date := (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Kyiv')::date; keys text[] := ARRAY[]::text[];
-BEGIN
-  IF NOT enabled OR archived OR starts>today OR ends<today THEN RETURN keys; END IF;
-  IF area='network' THEN RETURN ARRAY['promotion_network']; END IF;
-  SELECT coalesce(array_agg('promotion:'||store_id),ARRAY[]::text[]) INTO keys FROM erp_promotioncampaign_stores WHERE promotioncampaign_id=campaign_id;
-  RETURN keys;
-END $$;
+CREATE FUNCTION tsukenya_state_campaign_keys(campaign_id uuid) RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
+  SELECT ARRAY['campaign:'||campaign_id::text]
+$$;
 CREATE FUNCTION tsukenya_state_campaign() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE keys text[] := ARRAY[]::text[];
 BEGIN
   IF TG_OP='UPDATE' AND OLD IS NOT DISTINCT FROM NEW THEN RETURN NULL; END IF;
-  IF TG_OP<>'INSERT' THEN keys:=keys||tsukenya_state_campaign_keys(OLD.id,OLD.scope,OLD.active,OLD.archived,OLD.starts_on,OLD.ends_on); END IF;
-  IF TG_OP<>'DELETE' THEN keys:=keys||tsukenya_state_campaign_keys(NEW.id,NEW.scope,NEW.active,NEW.archived,NEW.starts_on,NEW.ends_on); END IF;
+  IF TG_OP<>'INSERT' THEN keys:=keys||tsukenya_state_campaign_keys(OLD.id); END IF;
+  IF TG_OP<>'DELETE' THEN keys:=keys||tsukenya_state_campaign_keys(NEW.id); END IF;
   PERFORM tsukenya_state_bump(keys); RETURN NULL;
 END $$;
 CREATE FUNCTION tsukenya_state_promotionprice() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE c record; identifier uuid; keys text[] := ARRAY[]::text[];
 BEGIN
   IF TG_OP='UPDATE' AND OLD IS NOT DISTINCT FROM NEW THEN RETURN NULL; END IF;
-  FOR identifier IN SELECT DISTINCT v FROM unnest(ARRAY[CASE WHEN TG_OP<>'INSERT' THEN OLD.campaign_id END,CASE WHEN TG_OP<>'DELETE' THEN NEW.campaign_id END]) v WHERE v IS NOT NULL LOOP
-    SELECT * INTO c FROM erp_promotioncampaign WHERE id=identifier;
-    IF FOUND THEN keys:=keys||tsukenya_state_campaign_keys(c.id,c.scope,c.active,c.archived,c.starts_on,c.ends_on); END IF;
-  END LOOP;
-  PERFORM tsukenya_state_bump(keys); RETURN NULL;
+  PERFORM tsukenya_state_bump(ARRAY[
+    CASE WHEN TG_OP<>'INSERT' THEN 'campaign:'||OLD.campaign_id::text END,
+    CASE WHEN TG_OP<>'DELETE' THEN 'campaign:'||NEW.campaign_id::text END]);
+  RETURN NULL;
 END $$;
 CREATE FUNCTION tsukenya_state_campaignstores() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE item record; c record; keys text[] := ARRAY[]::text[]; today date := (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Kyiv')::date;
 BEGIN
   IF TG_OP='UPDATE' AND OLD IS NOT DISTINCT FROM NEW THEN RETURN NULL; END IF;
-  FOR item IN SELECT cid,sid FROM (VALUES(CASE WHEN TG_OP<>'INSERT' THEN OLD.promotioncampaign_id END,CASE WHEN TG_OP<>'INSERT' THEN OLD.store_id END),(CASE WHEN TG_OP<>'DELETE' THEN NEW.promotioncampaign_id END,CASE WHEN TG_OP<>'DELETE' THEN NEW.store_id END)) v(cid,sid) WHERE cid IS NOT NULL LOOP
-    SELECT * INTO c FROM erp_promotioncampaign WHERE id=item.cid;
-    IF FOUND AND c.scope='stores' AND c.active AND NOT c.archived AND c.starts_on<=today AND c.ends_on>=today THEN keys:=array_append(keys,'promotion:'||item.sid); END IF;
-  END LOOP;
-  PERFORM tsukenya_state_bump(keys); RETURN NULL;
+  PERFORM tsukenya_state_bump(ARRAY[
+    CASE WHEN TG_OP<>'INSERT' THEN 'campaign:'||OLD.promotioncampaign_id::text END,
+    CASE WHEN TG_OP<>'DELETE' THEN 'campaign:'||NEW.promotioncampaign_id::text END]);
+  RETURN NULL;
 END $$;
 CREATE FUNCTION tsukenya_state_ideaproject() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE keys text[] := ARRAY['idea_links']; row record;
@@ -136,17 +127,7 @@ def pg_install(connection):
         for table in TABLES:
             func = {'promotioncampaign': 'campaign', 'promotionprice': 'promotionprice',
                     'promotioncampaign_stores': 'campaignstores'}.get(table, table)
-            timing = 'BEFORE' if table == 'promotioncampaign' else 'AFTER'
-            # Campaign delete must see its M2M rows before cascade; return row for BEFORE.
-            if table == 'promotioncampaign':
-                cursor.execute("ALTER FUNCTION tsukenya_state_campaign() RENAME TO tsukenya_state_campaign_changes")
-                cursor.execute("""CREATE FUNCTION tsukenya_state_campaign() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
-                    PERFORM tsukenya_state_bump(CASE WHEN TG_OP='DELETE' THEN tsukenya_state_campaign_keys(OLD.id,OLD.scope,OLD.active,OLD.archived,OLD.starts_on,OLD.ends_on) ELSE ARRAY[]::text[] END);
-                    IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF; END $$""")
-                cursor.execute(f'CREATE TRIGGER tsukenya_state_{table}_delete BEFORE DELETE ON erp_{table} FOR EACH ROW EXECUTE FUNCTION tsukenya_state_campaign()')
-                cursor.execute(f'CREATE TRIGGER tsukenya_state_{table} AFTER INSERT OR UPDATE ON erp_{table} FOR EACH ROW EXECUTE FUNCTION tsukenya_state_campaign_changes()')
-            else:
-                cursor.execute(f'CREATE TRIGGER tsukenya_state_{table} {timing} INSERT OR UPDATE OR DELETE ON erp_{table} FOR EACH ROW EXECUTE FUNCTION tsukenya_state_{func}()')
+            cursor.execute(f'CREATE TRIGGER tsukenya_state_{table} AFTER INSERT OR UPDATE OR DELETE ON erp_{table} FOR EACH ROW EXECUTE FUNCTION tsukenya_state_{func}()')
 
 
 def pg_uninstall(connection):
@@ -154,5 +135,5 @@ def pg_uninstall(connection):
         for table in TABLES:
             cursor.execute(f'DROP TRIGGER IF EXISTS tsukenya_state_{table} ON erp_{table}')
         cursor.execute('DROP TRIGGER IF EXISTS tsukenya_state_promotioncampaign_delete ON erp_promotioncampaign')
-        for func, args in [('document',''),('store',''),('campaign',''),('campaign_changes',''),('promotionprice',''),('campaignstores',''),('ideaproject',''),('projecttask',''),('campaign_keys','uuid,text,boolean,boolean,date,date'),('task','jsonb,boolean'),('projection','jsonb,text[]'),('bump','text[]')]:
+        for func, args in [('document',''),('store',''),('campaign',''),('campaign_changes',''),('promotionprice',''),('campaignstores',''),('ideaproject',''),('projecttask',''),('campaign_keys','uuid'),('campaign_keys','uuid,text,boolean,boolean,date,date'),('task','jsonb,boolean'),('projection','jsonb,text[]'),('bump','text[]')]:
             cursor.execute(f'DROP FUNCTION IF EXISTS tsukenya_state_{func}({args})')

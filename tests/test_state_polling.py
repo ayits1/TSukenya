@@ -185,3 +185,76 @@ class StatePollingTests(TransactionTestCase):
         self.assertEqual([i['id'] for i in response.json()['data']['tasks']],['B'])
         before=response['ETag'];PortalSession.objects.filter(user=self.user).update(expires=int(time.time())-1)
         self.assertNotEqual(self.get(before).status_code,304)
+
+    def test_pg_campaign_commit_crossing_midnight_keeps_next_day_cache_fresh(self):
+        if connection.vendor!='postgresql':self.skipTest('PostgreSQL uncommitted write/MVCC boundary')
+        from concurrent.futures import ThreadPoolExecutor
+        from django.db import connections
+        from django.test import Client
+        today=kyiv_day();next_day=today+timedelta(days=1)
+        campaign=PromotionCampaign.objects.create(name='Next-day campaign',scope='network',starts_on=next_day,ends_on=next_day,author=self.user)
+        PromotionPrice.objects.create(campaign=campaign,product_id='products/p0',price=5)
+        today_tag=self.get()['ETag']
+        # A future campaign's durable key is deliberately invisible today.
+        PromotionCampaign.objects.filter(pk=campaign.pk).update(name='Future edit')
+        self.assertEqual(self.get(today_tag).status_code,304)
+        def next_day_read():
+            try:
+                client=Client();client.cookies['ts_session']='polling-token'
+                response=client.get('/api/state')
+                return response['ETag'],response.json()['data']['products'][0]['data']['salePrice']
+            finally:connections['default'].close()
+        with patch('server.erp.state_polling.kyiv_day',return_value=next_day):
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Kyiv')::date")
+                    self.assertEqual(cursor.fetchone()[0],today,'writer is still in prior-day transaction')
+                # Write before midnight. Reader crosses midnight before COMMIT:
+                # it must see committed oldprice5 and cache its next-day validator.
+                PromotionPrice.objects.filter(campaign=campaign).update(price=4)
+                with ThreadPoolExecutor(max_workers=1) as pool:old_tag,old_price=pool.submit(next_day_read).result(timeout=10)
+                self.assertEqual(old_price,'5.00')
+            # COMMIT occurs after that reader's new-day snapshot. Triggers must
+            # have persisted a bump even though their write date was prior day.
+            response=self.get(old_tag);self.assertEqual(response.status_code,200)
+            self.assertEqual(response.json()['data']['products'][0]['data']['salePrice'],'4.00')
+        # Store-scoped future campaign edits have the same commit-safe contract.
+        scoped=PromotionCampaign.objects.create(name='Scoped future',scope='stores',starts_on=next_day,ends_on=next_day,author=self.user)
+        scoped.stores.add(self.a);PromotionPrice.objects.create(campaign=scoped,product_id='products/p1',price=3)
+        with patch('server.erp.state_polling.kyiv_day',return_value=next_day):
+            before=self.get()['ETag']
+            with transaction.atomic():
+                PromotionCampaign.objects.filter(pk=scoped.pk).update(name='New name after boundary')
+                # Cache before commit on another connection.
+                with ThreadPoolExecutor(max_workers=1) as pool:old_tag,_=pool.submit(next_day_read).result(timeout=10)
+                self.assertEqual(old_tag,before)
+            response=self.get(old_tag);self.assertEqual(response.status_code,200)
+            row=next(i for i in response.json()['data']['products'] if i['id']=='p1')
+            self.assertEqual(row['data']['effectivePromotion']['name'],'New name after boundary')
+
+    def test_visible_campaign_missing_counter_delete_and_future_privacy(self):
+        today=kyiv_day()
+        current=PromotionCampaign.objects.create(name='Current',scope='network',starts_on=today,ends_on=today,author=self.user)
+        PromotionPrice.objects.create(campaign=current,product_id='products/p0',price=5)
+        # Pre-migration/no-register baseline still includes an explicit ID+0.
+        StateVersion.objects.filter(key__startswith='campaign:').delete()
+        before=self.get()['ETag'];self.assertEqual(self.get().json()['data']['products'][0]['data']['salePrice'],'5.00')
+        current.delete();response=self.get(before);self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['data']['products'][0]['data']['salePrice'],'13.00')
+        before=response['ETag']
+        future=PromotionCampaign.objects.create(name='Future',scope='network',starts_on=today+timedelta(days=2),ends_on=today+timedelta(days=3),author=self.user)
+        PromotionPrice.objects.create(campaign=future,product_id='products/p0',price=4)
+        self.assertTrue(StateVersion.objects.filter(key__startswith='campaign:').exists(),'durable counter exists even when currently hidden')
+        self.assertEqual(self.get(before).status_code,304)
+        PromotionPrice.objects.filter(campaign=future).update(price=3);self.assertEqual(self.get(before).status_code,304)
+
+    def test_scoped_inactive_store_price_and_unscoped_invisibility(self):
+        today=kyiv_day()
+        campaign=PromotionCampaign.objects.create(name='Own inactive store',scope='stores',starts_on=today,ends_on=today,author=self.user)
+        campaign.stores.add(self.a);PromotionPrice.objects.create(campaign=campaign,product_id='products/p0',price=5)
+        Store.objects.filter(pk=self.a.pk).update(active=False)
+        before=self.get()['ETag'];PromotionPrice.objects.filter(campaign=campaign).update(price=4)
+        response=self.get(before);self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['data']['products'][0]['data']['salePrice'],'4.00','legacy own context permits inactive own store')
+        self.role('cashier',None);before=self.get()['ETag'];PromotionPrice.objects.filter(campaign=campaign).update(price=3)
+        response=self.get(before);self.assertEqual(response.status_code,304,'inactive store campaign is hidden from unscoped active-store map')

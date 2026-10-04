@@ -22,4 +22,4 @@ class Migration(migrations.Migration):
     operations = [migrations.CreateModel(name='StateVersion', fields=[
         ('key', models.CharField(max_length=160, primary_key=True, serialize=False)),
         ('revision', models.PositiveBigIntegerField(default=1)),
-    ]), migrations.RunPython(install, uninstall)]
+    ]), migrations.AddIndex(model_name='promotioncampaign',index=models.Index(fields=['ends_on','starts_on'],condition=models.Q(active=True,archived=False),name='state_current_campaign_dates')), migrations.RunPython(install, uninstall)]

@@ -12,12 +12,17 @@ from django.contrib.auth.models import User
 from django.db import connection,connections
 from django.test import Client
 from django.test.utils import setup_databases,teardown_databases
-from server.erp.models import Store,Profile,PortalSession,Document
+from server.erp.models import Store,Profile,PortalSession,Document,PromotionCampaign,PromotionPrice
+from server.erp.promotion_prices import kyiv_day
 old=setup_databases(verbosity=0,interactive=False)
 try:
     store=Store.objects.create(name='Synthetic polling store')
     Document.objects.create(path='settings/main',data={'defaultMarkup':30,'rounding':.5})
     Document.objects.bulk_create([Document(path=f'products/p{i}',data={'name':f'Synthetic {i}','cost':10,'markup':30}) for i in range(500)])
+    author=User.objects.create(username='synthetic-campaign-author')
+    campaign=PromotionCampaign.objects.create(name='Synthetic current campaign',scope='stores',starts_on=kyiv_day(),ends_on=kyiv_day(),author=author)
+    campaign.stores.add(store)
+    PromotionPrice.objects.bulk_create([PromotionPrice(campaign=campaign,product_id=f'products/p{i}',price=5) for i in range(50)])
     clients=[]
     for i in range(10):
         user=User.objects.create(username=f'poll-cashier-{i}');Profile.objects.create(user=user,role='cashier',store=store)
@@ -43,7 +48,7 @@ try:
         return rows
     with ThreadPoolExecutor(max_workers=10) as pool:rows=[row for group in pool.map(reads,clients) for row in group]
     times=sorted(r['elapsed_ms'] for r in rows)
-    result={'baseline':'9c04dad2b48ac59b1b544ec44e4857e273147de6','sku':500,'cashiers':10,'samples':50,'status':304,
+    result={'baseline':'9c04dad2b48ac59b1b544ec44e4857e273147de6','sku':500,'current_campaigns':1,'promotion_positions':50,'cashiers':10,'samples':50,'status':304,
         'queries':sorted(set(r['queries'] for r in rows)),'raw_body_bytes':sorted(set(r['raw_bytes'] for r in rows)),
         'median_ms':round(statistics.median(times),3),'p95_ms':round(times[int(len(times)*.95)],3),
         'method':'Django Client + 10 threads, 5 waves, isolated PostgreSQL; no product scan; not wire traffic or production capacity'}

@@ -4,8 +4,6 @@ A deterministic key callback only reads related rows; trigger SQL owns all write
 Registered on every SQLite connection, including connections opened by test workers.
 """
 import json
-from datetime import datetime
-from zoneinfo import ZoneInfo
 from .state_version_sql import PUBLIC, PRICING, SYNC, TABLES
 
 
@@ -22,14 +20,6 @@ def register(connection):
     def spelling(value):return json.dumps(value,sort_keys=True,separators=(',',':'))
     def related(query, values):
         return raw.execute(query, values).fetchall()
-    def campaign_keys(c):
-        today = datetime.now(ZoneInfo('Europe/Kyiv')).date().isoformat()
-        if not c or not c['active'] or c['archived'] or not c['starts_on'] <= today <= c['ends_on']: return []
-        if c['scope']=='network': return ['promotion_network']
-        return ['promotion:'+str(row[0]) for row in related('SELECT store_id FROM erp_promotioncampaign_stores WHERE promotioncampaign_id=?',(c['id'],))]
-    def campaign(identifier):
-        rows=related('SELECT id,scope,active,archived,CAST(starts_on AS TEXT),CAST(ends_on AS TEXT) FROM erp_promotioncampaign WHERE id=?',(identifier,))
-        return dict(zip(('id','scope','active','archived','starts_on','ends_on'),rows[0])) if rows else None
     def keys(table, old, new):
         old=json.loads(old) if old else None; new=json.loads(new) if new else None
         if old==new:return '[]'
@@ -56,15 +46,11 @@ def register(connection):
             if old and new and all(old[k]==new[k] for k in ('id','name','active')):return '[]'
             result=['stores_all']+['store:'+str(r['id']) for r in rows]
         elif table=='promotioncampaign':
-            for row in rows:result+=campaign_keys(row)
+            result+=['campaign:'+str(row['id']) for row in rows]
         elif table=='promotionprice':
-            for row in rows:result+=campaign_keys(campaign(row['campaign_id']))
+            result+=['campaign:'+str(row['campaign_id']) for row in rows]
         elif table=='promotioncampaign_stores':
-            for row in rows:
-                c=campaign(row['promotioncampaign_id'])
-                if c and c['scope']=='stores' and campaign_keys(c):result.append('promotion:'+str(row['store_id']))
-                # Deleted final M2M row must still invalidate its old store.
-                elif c and c['scope']=='stores' and c['active'] and not c['archived'] and c['starts_on']<=datetime.now(ZoneInfo('Europe/Kyiv')).date().isoformat()<=c['ends_on']:result.append('promotion:'+str(row['store_id']))
+            result+=['campaign:'+str(row['promotioncampaign_id']) for row in rows]
         elif table=='ideaproject':
             if old and new and all(old[k]==new[k] for k in ('id','idea_id','store_id')):return '[]'
             result=['idea_links','task_links']
@@ -93,8 +79,7 @@ def install(connection):
                     return "json_object("+','.join("'%s',%s.%s"%(c,prefix,c) for c in columns)+")"
                 old=row('OLD') if op!='INSERT' else 'NULL'
                 new=row('NEW') if op!='DELETE' else 'NULL'
-                # BEFORE DELETE preserves campaign's attached stores before cascades.
-                timing='BEFORE' if table=='promotioncampaign' and op=='DELETE' else 'AFTER'
+                timing='AFTER'
                 cursor.execute(f'''CREATE TRIGGER tsukenya_state_{table}_{op.lower()} {timing} {op} ON erp_{table} BEGIN
                     INSERT INTO erp_stateversion(key,revision) SELECT value,1 FROM json_each(tsukenya_state_keys('{table}',{old},{new})) WHERE true
                     ON CONFLICT(key) DO UPDATE SET revision=revision+1;

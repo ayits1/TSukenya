@@ -8,11 +8,11 @@ import hmac
 import json
 from django.conf import settings
 from django.db import connection
-from django.db.models import Q, Subquery, Value, CharField
-from django.db.models.functions import Cast, Concat
+from django.db.models import Q, Subquery, OuterRef, Value, CharField
+from django.db.models.functions import Cast, Concat, Coalesce
 from django.http import HttpResponse, JsonResponse
 from .historical_reports import read_snapshot
-from .models import StateVersion, Store, Document
+from .models import StateVersion, Document, PromotionCampaign
 from .promotion_prices import kyiv_day
 
 DOMAINS = ('products', 'references', 'tasks', 'ideas', 'expenses', 'settings/main', 'project/state')
@@ -20,14 +20,13 @@ DOMAINS = ('products', 'references', 'tasks', 'ideas', 'expenses', 'settings/mai
 
 def selection(user):
     role, store = user.profile.role, user.profile.store_id
-    exact = {'catalog','references','labels','pricing','promotion_network'}
+    exact = {'catalog','references','labels','pricing'}
     prefixes = []
     if store is None:
         exact.add('stores_all')
-        active = Store.objects.filter(active=True).annotate(key=Concat(Value('promotion:'),Cast('pk',CharField()))).values('key')
-        query = Q(key__in=Subquery(active))
+        query = Q()
     else:
-        exact |= {'store:'+str(store),'promotion:'+str(store)}
+        exact.add('store:'+str(store))
         query = Q()
     if role == 'owner':
         exact |= {'owner_tasks','owner_ideas','owner_sync','project_state'}
@@ -50,13 +49,23 @@ def selection(user):
 
 def versions(user, csrf, day):
     rows = dict(StateVersion.objects.filter(selection(user)).order_by('key').values_list('key','revision'))
+    # Mutation-time date predicates cannot survive a commit crossing midnight.
+    # Always bump per campaign; select only currently visible headers here. Keep
+    # explicit ID/revision0 when no register row exists, so deletion cannot leave
+    # an unchanged validator for a pre-migration campaign. This SELECT is inside
+    # the same RR snapshot as the full body and never reads PromotionPrice.
+    area = Q(scope='network') | (Q(scope='stores',stores__active=True) if user.profile.store_id is None else Q(scope='stores',stores=user.profile.store_id))
+    current = PromotionCampaign.objects.filter(area,active=True,archived=False,starts_on__lte=day,ends_on__gte=day).annotate(
+        state_key=Concat(Value('campaign:'),Cast('pk',CharField()))).annotate(
+        state_revision=Coalesce(Subquery(StateVersion.objects.filter(pk=OuterRef('state_key')).values('revision')[:1]),Value(0))).order_by('state_key').values_list('state_key','state_revision').distinct()
+    rows.update(current)
     identity = ['legacy-state-v1',user.pk,user.profile.role,user.profile.store_id,csrf,day.isoformat()]
     def sign(value):
         return hmac.new(settings.SECRET_KEY.encode(),json.dumps(value,sort_keys=True,separators=(',',':')).encode(),hashlib.sha256).hexdigest()
     domains = {name:{} for name in DOMAINS}
     role=user.profile.role
     for key,value in rows.items():
-        if key=='catalog' or key=='pricing' or key.startswith(('promotion','store')):domains['products'][key]=value
+        if key=='catalog' or key=='pricing' or key.startswith(('campaign:','store')):domains['products'][key]=value
         if key=='references':domains['references'][key]=value
         if key.startswith(('owner_tasks','ops_tasks','owner_due:','finance_due:','task_links')):domains['tasks'][key]=value
         if key.startswith(('owner_ideas','ops_ideas','idea_links')):domains['ideas'][key]=value
