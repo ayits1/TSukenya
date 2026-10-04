@@ -6,11 +6,11 @@ const stage=process.env.ENTITY_CREATE_STAGE;assert(['primary','tail','layout'].i
 const root=path.resolve(__dirname,'..'),python=process.env.PYTHON_BIN||'python3',data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-entity-create-'));
 const port=Number(process.env.QA_PORT||18514),base='http://localhost:'+port,password='isolated-entity-create-password',output=process.env.QA_OUTPUT_DIR||'/tmp/tsukenya-entity-create-proof';
 fs.mkdirSync(output,{recursive:true});
-const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-entity-create-password"))'],{cwd:root,encoding:'utf8'}).trim();
-const env={...process.env,HOST:'127.0.0.1',PORT:String(port),DATA_DIR:data,ERP_DB_PATH:path.join(data,'test.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash,DJANGO_SECRET_KEY:'isolated-entity-create-ui-secret-not-production-fifty-characters'};
-for(const key of Object.keys(env))if(/^DB_|^PG/.test(key)||key==='TSUKENYA_REQUIRE_POSTGRES')delete env[key];
-const log=fs.openSync(path.join(output,'server.log'),'w'),server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:['ignore',log,log]});let browser,page;
-const wait=async f=>{for(let i=0;i<120;i++){if(await f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
+const env={...process.env,HOST:'127.0.0.1',PORT:String(port),DATA_DIR:data,ERP_DB_PATH:path.join(data,'test.sqlite3'),OWNER_USERNAME:'tester',DJANGO_SECRET_KEY:'isolated-entity-create-ui-secret-not-production-fifty-characters'};
+for(const key of Object.keys(env))if(/^DB_|^PG/.test(key)||['TSUKENYA_REQUIRE_POSTGRES','DATABASE_URL','POSTGRES_URL','DJANGO_SETTINGS_MODULE','OWNER_PASSWORD','OWNER_PASSWORD_HASH'].includes(key))delete env[key];
+env.DJANGO_SETTINGS_MODULE='server.settings';env.OWNER_PASSWORD_HASH=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-entity-create-password"))'],{cwd:root,env,encoding:'utf8'}).trim();
+const log=fs.openSync(path.join(output,'server.log'),'w'),server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:['ignore',log,log]});fs.closeSync(log);let browser,page;
+const wait=async f=>{for(let i=0;i<120;i++){if(server.exitCode!==null)throw Error('Disposable entity server exited');if(await f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
 const py=code=>execFileSync(python,['-c',"import os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings');import django;django.setup();"+code],{cwd:root,env,encoding:'utf8'}).trim();
 (async()=>{
  await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
@@ -66,4 +66,4 @@ const py=code=>execFileSync(python,['-c',"import os;os.environ.setdefault('DJANG
   await page.keyboard.press('Space');const before=writes.length;await btn('Застосувати узгоджені зміни').press('Enter');assert.equal(writes.length,before);assert.equal(await btn('Зберегти').evaluate(el=>el===document.activeElement),true);checks.push('focused actual employee atomic choice at320/1440 with no horizontal overflow, Space/Enter Apply and focus return; no POST Apply');
  }
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(output,stage==='primary'?'report.json':stage+'-report.json'),JSON.stringify({passed:true,checks,writeCount:writes.length,resources:['employees','stores','warehouses','accounts','parties'],isolated:true},null,2));console.log('PASS entity create recovery '+output);
-})().catch(async error=>{if(page){await page.screenshot({path:path.join(output,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(output,'failure.txt'),error.stack);}console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill('SIGTERM');await new Promise(resolve=>server.once('exit',resolve));fs.rmSync(data,{recursive:true,force:true});fs.closeSync(log);});
+})().catch(async error=>{if(page){await page.screenshot({path:path.join(output,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(output,'failure.txt'),error.stack);}console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();if(server.exitCode===null){const stopped=new Promise(resolve=>server.once('exit',resolve));server.kill('SIGTERM');await stopped;}fs.rmSync(data,{recursive:true,force:true});});

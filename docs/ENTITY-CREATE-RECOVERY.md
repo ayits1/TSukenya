@@ -35,3 +35,11 @@
 ## Межі доказу
 
 Intent зберігається в пам’яті відкритої форми; перезавантаження браузера не має durable local draft/UUID persistence. Серверний receipt незмінний і зберігається. Немає full regression, VPS, production/Sheet mutation, load-capacity чи screen-reader claims. Старі UPDATE recovery fixtures не переписані під новий CREATE контракт; доданий цільовий script охоплює CREATE й наступний explicit UPDATE у фактичній формі. Реєстрація script у загальному explicit full entrypoint належить інтеграції root.
+
+## Root integration · 04.10.2026
+
+Source1ad4c318 зведено поверх accepted main66 зі збереженням voucher/recipe/legacy/workshift exports, story states та static loaders. Незалежне read-only source review receipt/current-policy/UUID+ID/native intent blockers не знайшло. Неблокуюча UX межа: exact replay вже видаленого original підтвердить ID, а поточне manage читання відмовить; явне «видалено» доступне через readonly identity. No resurrection/Save bypass.
+
+Root combined TypeScript/Vite build, affected stories lint/format, node syntax/diff PASS. Два інтегровані PostgreSQL18 targets identity RR/READONLY/CSRF та current private-policy у manage snapshot — PASS (0.345s). Actual layout stage після integration — PASS: frozen employee create retry, shared payroll choice1440/320, label44/visible bounds, Space/Enter localApply безPOST та focusSave. Proof `/tmp/tsukenya-root-entity-create/layout-report.json`; `employee-choice-320.png` переглянуто. Решту matching author7PG/6unit/Story1/native primary/tail доказів reused; не заявляється новий all run.
+
+Harness pins isolated Django settings/secret, видаляє DB_/PG*/DATABASE_URL, ловить ранній server exit і очікує teardown. Один full entrypoint запускає штатні primary/tail/layout, очищає ENTITY_CREATE_STAGE та common QA output/port flags. `test:full -- --plan` тільки dry-run, full local regression/VPS не виконані.
