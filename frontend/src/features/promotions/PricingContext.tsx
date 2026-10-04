@@ -120,7 +120,7 @@ export function PricingContext({
   const selectedStore = selected === undefined ? current.storeId : selected;
   return (
     <>
-      <section className={contextClass} aria-label="Контекст цін">
+      <section className={contextClass} aria-label="Контекст цін" data-blocked={blocked}>
         <Select
           label="Ціни та друк для"
           value={selectedStore === null ? 'network' : String(selectedStore)}
@@ -149,10 +149,21 @@ export function PricingContext({
             </Button>
           </div>
         ) : null}
-        <p className="tk-help tk-pricing-context-confirmed">
-          Підтверджений контекст: {current.storeName || 'Мережа — загальні ціни'}. Чинність акцій:{' '}
-          {current.effectiveDay}. Друк використовує назву підтвердженого магазину з обліку.
-        </p>
+        {layout === 'toolbar' ? (
+          <details className="tk-pricing-context-info">
+            <summary aria-label="Пояснення контексту цін">ⓘ</summary>
+            <p className="tk-help tk-pricing-context-confirmed">
+              Підтверджений контекст: {current.storeName || 'Мережа — загальні ціни'}. Чинність
+              акцій: {current.effectiveDay}. Друк використовує назву підтвердженого магазину з
+              обліку.
+            </p>
+          </details>
+        ) : (
+          <p className="tk-help tk-pricing-context-confirmed">
+            Підтверджений контекст: {current.storeName || 'Мережа — загальні ціни'}. Чинність акцій:{' '}
+            {current.effectiveDay}. Друк використовує назву підтвердженого магазину з обліку.
+          </p>
+        )}
       </section>
       <div className="tk-pricing-workspace" inert={blocked} aria-busy={blocked}>
         {children(catalog, current.storeId, current, api, { adopt, guard })}
