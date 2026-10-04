@@ -187,3 +187,17 @@ Playwright headless; виробничих записів і повної рег�
 каси, спільними Aria controls, серверною пагінацією та scalar DTO. Native
 редактори й облікові дії збережені. Storybook `Trading/Sales`, focused native
 підтвердження та межа перенесення — [REACT-SALES.md](REACT-SALES.md).
+
+## Межі асинхронних відповідей
+
+Для приватних екранів перевіряти generation/route/live visibility/abort та
+підтверджений session binding після останнього awaited session, після fetch
+і декодування, до глобальної401, показу даних чи прийняття ACK. У catch
+також відсікати obsolete response до повторної авторизації. Поточний403
+повинен приховувати private UI і запускати свіжу перевірку actor/resource.
+Зміна сеансу між P0 перевіркою та business/current GET не дозволяє прийняти
+чужий результат. Unknown write зберігає frozen intent для явного відновлення.
+Apply змінює raw, baseline і intent одним атомарним storage replacement;
+quota failure зберігає попередню цілу чернетку. Для повторних дефектів
+перевіряти реальні delayed-response та revoked-access сценарії, окремо
+від звичайного happy path; не замінювати їх лише strict DTO unit-тестом.
