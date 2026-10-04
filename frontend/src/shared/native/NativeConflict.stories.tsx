@@ -1,3 +1,4 @@
+import { recipeFields } from './recipe';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { NativeConflict } from './NativeConflict';
@@ -168,5 +169,40 @@ export const LegacyExpenseTerms: Story = {
     await userEvent.keyboard(' ');
     await userEvent.click(c.getByRole('button', { name: 'Застосувати узгоджені зміни' }));
     await expect(args.onApply).toHaveBeenCalledWith(args.mine);
+  },
+};
+
+const recipeBase = {
+  components: '[{"product":"flour","quantity":"2.000"}]',
+  outputQuantity: '10.000',
+  expiryPolicy: 'components_min',
+  shelfLifeDays: null,
+  reason: '',
+};
+const recipeMine = {
+  ...recipeBase,
+  outputQuantity: '12.000',
+  reason: 'Окрема причина нового затвердження',
+};
+const recipeServer = { ...recipeBase, components: '[{"product":"flour","quantity":"3.000"}]' };
+export const RecipeTerms: Story = {
+  args: {
+    base: recipeBase,
+    mine: recipeMine,
+    server: recipeServer,
+    fields: recipeFields([recipeBase, recipeMine, recipeServer], { flour: 'Борошно контрольне' }),
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText('Інгредієнти: Борошно контрольне: 3.000', { exact: false }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' }),
+    ).toBeDisabled();
+    await userEvent.tab();
+    await userEvent.keyboard(' ');
+    await userEvent.click(canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' }));
+    await expect(args.onApply).toHaveBeenCalledWith(recipeMine);
   },
 };

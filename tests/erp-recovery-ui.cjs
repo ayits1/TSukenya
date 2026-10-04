@@ -103,18 +103,19 @@ print(json.dumps([v.pk for v in rows]))`).toString());
  }
  if(['all','tail','recipe'].includes(from)){
   await go('stock');await page.locator('[data-trade=recipe]').click();let prompts=0;
-  const choose=async(value,accept)=>{const handle=native=>{prompts++;return accept?native.accept():native.dismiss();};page.once('dialog',handle);await dialog().locator('[name=product]').selectOption(value);page.removeListener('dialog',handle);};
-  await dialog().locator('[name=product]').selectOption('recovery_a');await wait(async()=>await dialog().locator('[data-recipe=quantity]').count()===1&&await dialog().locator('[data-recipe=quantity]').inputValue()==='1','fresh recipe A');assert.equal(prompts,0);await dialog().locator('[data-recipe=quantity]').fill('3');
+  const selectProduct=async value=>{await dialog().getByRole('combobox',{name:'Готовий товар',exact:true}).fill(value==='recovery_a'?'Готовий A':'Готовий B');await page.getByRole('option',{name:value==='recovery_a'?'Готовий A · шт':'Готовий B · шт',exact:true}).click();};
+  const choose=async(value,accept)=>{const handle=native=>{prompts++;return accept?native.accept():native.dismiss();};page.once('dialog',handle);await selectProduct(value);page.removeListener('dialog',handle);};
+  await selectProduct('recovery_a');await wait(async()=>await dialog().locator('[data-recipe=quantity]').count()===1&&await dialog().locator('[data-recipe=quantity]').inputValue()==='1.000','fresh recipe A');assert.equal(prompts,0);await dialog().locator('[data-recipe=quantity]').fill('3');
   await choose('recovery_b',false);assert.equal(await dialog().locator('[name=product]').inputValue(),'recovery_a');assert.equal(await dialog().locator('[data-recipe=quantity]').inputValue(),'3');
-  await choose('recovery_b',true);await wait(async()=>await dialog().locator('[data-recipe=quantity]').count()===1&&await dialog().locator('[data-recipe=quantity]').inputValue()==='2'&&await dialog().locator('[type=submit]').isEnabled(),'fresh recipe B');assert.equal(await dialog().locator('[data-recipe=quantity]').inputValue(),'2');assert.equal(prompts,2);
+  await choose('recovery_b',true);await wait(async()=>await dialog().locator('[data-recipe=quantity]').count()===1&&await dialog().locator('[data-recipe=quantity]').inputValue()==='2.000'&&await dialog().locator('[type=submit]').isEnabled(),'fresh recipe B');assert.equal(await dialog().locator('[data-recipe=quantity]').inputValue(),'2.000');assert.equal(prompts,2);
   assert.equal(await dialog().locator('[data-recipe=product] option[value=recovery_b]').count(),0);
   await dialog().locator('[data-trade=add-recipe]').click();await choose('recovery_a',false);assert.equal(await dialog().locator('.trade-payment-row').count(),2);assert.equal(await dialog().locator('[name=product]').inputValue(),'recovery_b');
   await dialog().locator('[data-trade=remove-recipe]').last().click();
   const longError='Товар '+('Д'.repeat(230))+': недостатньо придатного залишку.';
   await page.route('**/api/erp/recipes',route=>response(route,{error:longError},503));await dialog().locator('[type=submit]').click();await dialog().locator('#tradeFormError').filter({hasText:longError}).waitFor();
-  await noOverflow();assert.equal(await dialog().locator('#tradeFormError').evaluate(e=>e===document.activeElement),true);assert.equal(await dialog().locator('[data-recipe=quantity]').inputValue(),'2');assert.equal(await dialog().locator('[type=submit]').isEnabled(),true);
+  await noOverflow();assert.equal(await dialog().locator('#tradeFormError').evaluate(e=>e===document.activeElement),true);assert.equal(await dialog().locator('[data-recipe=quantity]').inputValue(),'2.000');assert.equal(await dialog().locator('[type=submit]').isEnabled(),false);assert.equal(await dialog().getByRole('button',{name:'Порівняти з поточною версією',exact:true}).isEnabled(),true);
   await page.screenshot({path:path.join(os.tmpdir(),'tsukenya-recovery-error-320.png')});await page.unroute('**/api/erp/recipes');page.once('dialog',native=>native.accept());await page.keyboard.press('Escape');
-  results.push('recipe first selection, dirty cancel/accept/add row, self excluded, POST error draft/focus/submit/long token 320px: PASS');
+  results.push('recipe first selection, dirty cancel/accept/add row, self excluded, unknown POST result preserves draft/focus and blocks Save pending readonly comparison; long token 320px: PASS');
  }
  if(['all','tail','customers'].includes(from)){
   await go('customers');await page.getByRole('searchbox',{name:'Пошук клієнта',exact:true}).fill('Немає такого клієнта');await page.getByText('Клієнтів за цим пошуком не знайдено. Очистіть або змініть пошук.',{exact:true}).waitFor();

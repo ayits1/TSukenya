@@ -230,3 +230,72 @@ Expense numeric adapter збережено; додано valid decimal-string12.
 `portal-metadata-contract.cjs` без captured revision. Фікстура тепер використовує snapshot revision32,
 явно перевіряє відмову без неї та точний If-Match; попередні304/cache/GET-only/confirmed-write-barrier
 assertions збережено. Повторено лише цей VM scenario: PASS; runtime/server guard не змінені.
+
+## Поточна рецептура та нові затверджені версії (B06)
+
+Обидва native редактори використовують один `TradeRecipeEditor` і чинний shared React
+`NativeConflictComparison`. `NativeRecipeEditor` перевіряє фактичний DTO до початкової бази:
+точний товар, UUID версії, номер сторінки, порядок/унікальність версій, зв’язок latest із першою
+сторінкою, 64-символьну revision каталогу, право редагування, кількості, інгредієнти та
+технологічну політику. Неповний або семантично неправильний запис не стає базою форми.
+GET виконується у read-only snapshot із повторним читанням чинного користувача; бізнесових
+записів і аудиту читання не створює.
+
+Інгредієнти, нормативний вихід, політика придатності та її календарні дні порівнюються однією
+атомарною групою. Канонічний JSON інгредієнтів є лише локальним скалярним адаптером існуючого
+three-way helper; у порівнянні відображаються українські назви та кількості. Причина **нового**
+затвердження незалежна; причина старої незмінної версії не підставляється як нова. Якщо
+затверджених версій немає, форма зберігає попередні технічні початкові значення: вихід 1 і
+невизначена технологією придатність. Це не встановлює бізнесовий норматив або строк товару.
+
+- Поточна legacy рецептура — UPDATE `/api/erp/recipes`, із revision та підтвердженням точного
+  товару в ACK. Після 409 або невизначеного результату можливе лише читання й порівняння;
+  автоматичного повтору POST або нового receipt немає. Порожню поточну рецептуру можна
+  зберегти лише з явним підтвердженням. Затверджені версії це не змінює.
+- Затвердження `/api/erp/recipes/versions` створює незмінну версію зі стабільним UUID і frozen
+  payload. Після lost ACK окрема кнопка точно повторює початкові умови, навіть якщо нові
+  обов’язкові поля вже порожні. ACK має підтвердити також початкові інгредієнти, вихід,
+  політику, дні та причину; одного валідного UUID недостатньо. Якщо точний повтор після
+  lost ACK відхилено 4xx, це не спростовує початкове створення: frozen UUID/body збережено
+  для явного читання ідентичності. Повтор POST автоматично не виконується.
+- Після підтвердження початкового створення нове введення зберігається. GET за його точним UUID
+  перевіряє первісну ідентичність/умови, потім GET списку читає поточні умови та `canApprove`.
+  Відмова ролі, 503, malformed DTO або інший товар блокують Save без підхоплення нової revision.
+  Навіть з невалідним новим введенням читання виконується; для Apply треба явно виправити поля.
+
+Apply змінює лише локальну чернетку та її підтверджену базу; наступний Save є окремою дією.
+Однакове поле потребує явного вибору. Другий 409 знову вимагає читання, а Cancel, закриття й
+пізня відповідь не підхоплюють базу та не запускають наступне читання. Під час читання й
+порівняння native поля заблоковані, shared choices доступні. Інший готовий товар обирається
+лише з явним відкиданням незбережених умов; unresolved create не змінює ідентичність товару.
+
+Збережені виробничі документи продовжують використовувати свої заморожені версії. Формули
+собівартості, рухи запасів, політики придатності та серверні семантичні перевірки не змінено.
+Життя чернетки — відкрита форма; відновлення після перезавантаження сторінки не заявляється.
+
+Цільові команди:
+
+```sh
+npm exec --workspace frontend -- vitest run --project unit src/shared/native/recipe.test.ts
+npm exec --workspace frontend -- vitest run --project storybook src/shared/native/NativeConflict.stories.tsx -t 'Recipe Terms'
+python manage.py test tests.test_recipe_recovery --noinput
+QA_RECIPES_FROM=conflict PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
+QA_RECIPES_FROM=read PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
+QA_RECIPES_FROM=validation PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
+QA_RECIPES_FROM=ack PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
+QA_RECIPES_FROM=role PYTHON_BIN=/path/to/python node tests/recipes-ui.cjs
+QA_PRODUCTION_FROM=read PYTHON_BIN=/path/to/python node tests/production-ui.cjs
+```
+
+`recipes-ui.cjs` лишається єдиним recipe entrypoint повної явної перевірки; його `all` послідовно
+виконує п’ять актуальних recovery scopes. Старі destructive reload/submit-retry та приховані
+select selectors замінено фактичними контрактами й видимими ComboBox. Zoom спільних controls
+перевіряється їхніми окремими UI сценаріями; цей пакет має actual keyboard/1440/320 докази.
+Native сценарії створюють власну SQLite та синтетичні дані, використовують локальний Chrome.
+Звіти `report.json`, `read-report.json`, `validation-report.json`, `ack-report.json`, `role-ack-report.json` і comparison
+PNG пишуться до `QA_OUTPUT_DIR` або тимчасового `tsukenya-recipe-conflict-proof`.
+
+Авторські докази: unit 5, affected Storybook 1, нові API 3, чинні legacy GET/stale-update 2 та concurrent winner 1
+пройдено на isolated PostgreSQL; native main/read/validation/ACK/role-ACK і production delayed-read
+і recipe scope чинного ERP recovery harness пройдено. Вдалі результати незмінених scopes повторно використано; повного прогону не було.
+1440/320 PNG переглянуто: горизонтального overflow немає, довгий діалог прокручується вертикально.

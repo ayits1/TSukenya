@@ -3,46 +3,13 @@
 const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value);
 const qty=value=>typeof value==='string'&&/^\d+\.\d{3}$/.test(value);
 const policies={unspecified:'Строк технологією не визначено',components_min:'Найраніший відомий строк усієї сировини',minimum_with_shelf_life:'Мінімум сировини та технологічного строку'};
-function version(raw){
- if(!raw||typeof raw!=='object'||!uuid(raw.id)||!Number.isSafeInteger(raw.version)||raw.version<1||typeof raw.product!=='string'||typeof raw.name!=='string'||typeof raw.unit!=='string'||(!qty(raw.outputQuantity)||Number(raw.outputQuantity)<=0)||!(typeof raw.expiryPolicy==='string'&&Object.hasOwn(policies,raw.expiryPolicy))||!(raw.shelfLifeDays===null||(Number.isSafeInteger(raw.shelfLifeDays)&&raw.shelfLifeDays>0))||!Array.isArray(raw.components)||!raw.components.every(c=>c&&typeof c.product==='string'&&typeof c.name==='string'&&typeof c.unit==='string'&&qty(c.quantity)&&Number(c.quantity)>0)||raw.components.length<1||raw.components.length>100||new Set(raw.components.map(c=>c.product)).size!==raw.components.length||raw.components.some(c=>c.product===raw.product)||(raw.expiryPolicy==='minimum_with_shelf_life'?raw.shelfLifeDays===null:raw.shelfLifeDays!==null)||typeof raw.reason!=='string'||typeof raw.approvedBy!=='string'||typeof raw.approvedAt!=='string')throw Error('Некоректна відповідь про затверджену рецептуру. Чернетку збережено.');
- return raw;
-}
-function list(raw){
- if(!raw||!Array.isArray(raw.items)||typeof raw.catalogRevision!=='string'||!(raw.latestVersion===null||uuid(raw.latestVersion))||typeof raw.canApprove!=='boolean'||!raw.product||typeof raw.product.id!=='string'||!Number.isSafeInteger(raw.page)||!Number.isSafeInteger(raw.pages)||raw.page<1||raw.pages<raw.page||typeof raw.product.name!=='string'||typeof raw.product.unit!=='string')throw Error('Некоректна відповідь довідника рецептур. Чернетку збережено.');
- raw.items.forEach(version);return raw;
-}
+function version(raw,product,id){return window.NativeRecipeEditor.decodeVersion(raw,product,id);}
+function list(raw,product,page=1){return window.NativeRecipeEditor.decodeList(raw,product,page);}
 function create({api,esc,field,input,num,select,modal,markDirty,busyDialog,formError,getState,onSaved}){
  const button=(text,action,extra='')=>`<button type="button" class="btn soft" data-production="${action}" ${extra}>${text}</button>`;
  const options=selected=>selected?`<option value="${esc(selected)}" selected>Завантажуємо вибраний товар…</option>`:'';
  const productionSnapshot=(form)=>form.closest('dialog')?.dataset.dirty==='1';
- function recipeForm(){
-  const d=modal('Затвердити нову версію рецептури',`<form id="recipeVersionForm"><div class="trade-form-grid">${field('Готовий товар',`<select name="product" required><option value="">Оберіть товар</option>${options('')}</select>`,'wide')}${field('Нормативний вихід',num('outputQuantity','1.000','0.001','required min="0.001"'))}${field('Технологічна політика придатності',select('expiryPolicy',Object.entries(policies).map(([id,name])=>({id,name})),'unspecified',true))}${field('Технологічний строк, календарних днів',num('shelfLifeDays','','1','min="1" max="3650" disabled'))}${field('Причина затвердження',input('reason','','text','required maxlength="500"'),'wide')}</div><p class="trade-caption">Норматив — на вказаний вихід, кожен інгредієнт у власній одиниці обліку. Затверджені версії незмінні; збереження створює нову. Строк не вигадується із картки товару.</p><p data-production-status role="status" aria-live="polite"></p><div data-production-ingredients></div><div class="trade-production-actions">${button('Додати інгредієнт','ingredient')}${button('Завантажити актуальні умови','reload')}</div></form>`,`<button class="btn" type="submit" form="recipeVersionForm">Затвердити версію</button>`);
-  const form=d.querySelector('form'),host=d.querySelector('[data-production-ingredients]'),status=d.querySelector('[data-production-status]'),save=d.querySelector('[type=submit]');
-  let baseline=null,pending=false,blocked=true,controller,token=0,intent=null,lastProduct='';
-  const controls=()=>{for(const control of form.querySelectorAll('input,select,button'))control.disabled=pending;save.disabled=pending||blocked;form.elements.shelfLifeDays.disabled=form.elements.expiryPolicy.value!=='minimum_with_shelf_life';};
-  const row=(c={})=>`<div class="trade-production-component">${field('Інгредієнт',`<select data-component="product" required><option value="">Оберіть інгредієнт</option>${options(c.product||'',form.elements.product.value)}</select>`)}${field('Кількість на нормативний вихід',`<input data-component="quantity" type="number" step="0.001" min="0.001" value="${esc(c.quantity||'')}" required>`)}${button('Прибрати інгредієнт','remove')}</div>`;
-  async function read(){
-   const id=form.elements.product.value;if(!id){blocked=true;baseline=null;controls();return;}
-   const current=++token;controller?.abort();controller=new AbortController();pending=true;blocked=true;status.textContent='Завантажуємо затверджені версії…';controls();
-   try{const data=list(await api('recipes/versions?'+new URLSearchParams({product:id}),'GET',undefined,controller.signal));if(!d.open||current!==token)return;
-    baseline=data;lastProduct=id;const last=data.items[0];form.elements.outputQuantity.value=last?.outputQuantity||'1.000';form.elements.expiryPolicy.value=last?.expiryPolicy||'unspecified';form.elements.shelfLifeDays.value=last?.shelfLifeDays??'';host.innerHTML=(last?.components||data.legacyRecipe||[]).map(row).join('');
-    status.textContent=last?`Остання затверджена версія № ${last.version}. Новий норматив не змінить збережені виробничі документи.`:'Затверджених версій ще немає. Перевірте норматив перед затвердженням.';blocked=false;intent=null;d.dataset.dirty='';d.querySelector('#tradeFormError').textContent='';
-   }catch(error){if(error.name!=='AbortError'&&current===token&&d.open){formError(error,d);status.textContent='Чернетку збережено. Повторіть завантаження умов.';}}
-   finally{if(current===token&&d.open){pending=false;controls();}}
-  }
-  form.addEventListener('change',event=>{if(event.target.name==='product'){if(lastProduct&&lastProduct!==event.target.value&&productionSnapshot(form)&&!confirm('Замінити введений норматив умовами іншого товару?')){event.target.value=lastProduct;return;}void read();}controls();});
-  form.addEventListener('click',event=>{const action=event.target.closest('[data-production]')?.dataset.production;if(action==='ingredient'){if(!pending){host.insertAdjacentHTML('beforeend',row());window.TradeDirectories.focus(host.lastElementChild.querySelector('select'));markDirty(d);}}if(action==='remove'&&!pending){const row=event.target.closest('.trade-production-component'),focus=row.previousElementSibling||row.nextElementSibling;row.remove();window.TradeDirectories.focus(focus?.querySelector('select')||form.querySelector('[data-production=ingredient]'));markDirty(d);}if(action==='reload'&&!pending){if(!productionSnapshot(form)||confirm('Завантажити актуальні умови замість введеної чернетки?'))void read();}});
-  form.onsubmit=async event=>{event.preventDefault();if(pending||blocked||!baseline)return;let finish;
-   try{const body={idempotencyKey:crypto.randomUUID(),product:baseline.product.id,expectedVersion:baseline.latestVersion,catalogRevision:baseline.catalogRevision,outputQuantity:form.elements.outputQuantity.value,components:[...host.querySelectorAll('.trade-production-component')].map(r=>({product:r.querySelector('[data-component=product]').value,quantity:r.querySelector('[data-component=quantity]').value})),expiryPolicy:form.elements.expiryPolicy.value,shelfLifeDays:form.elements.expiryPolicy.value==='minimum_with_shelf_life'?Number(form.elements.shelfLifeDays.value):null,reason:form.elements.reason.value};
-    const key=JSON.stringify({...body,idempotencyKey:undefined});if(!intent)intent={body,key};pending=true;controls();finish=busyDialog(d,'Затверджуємо незмінну версію…');if(!finish)return;
-    const saved=version(await api('recipes/versions','POST',intent.body));if(!d.open)return;
-    if(key!==intent.key){baseline={...baseline,latestVersion:saved.id};intent=null;formError(Error('Первісну версію затверджено. Нове введення лишається чернеткою; затвердьте його окремим збереженням.'),d);return;}
-    intent=null;d.dataset.dirty='';d.close();await onSaved();
-   }catch(error){if(error.status>=400&&error.status<500){intent=null;if(error.status===409)blocked=true;}formError(error,d);}
-   finally{pending=false;finish?.();if(d.open)controls();}
-  };
-  d.addEventListener('close',()=>{++token;controller?.abort();},{once:true});controls();return d;
- }
+ function recipeForm(){return window.TradeRecipeEditor.open({mode:'version',api,esc,field,input,num,select,modal,markDirty,busyDialog,formError,onSaved});}
  function attach(form,host,v){
   let controller,token=0,pending=false,ready=false,selected=null,items=[],page=1,pages=1,lastProduct='',current=v.payload?.production||null,clearedCost=false,legacy=!!v.id&&(!v.payload?.production||v.payload.production.source==='legacy');
   const output=()=>form.querySelector('[data-line=product]')?.value||'';
@@ -58,10 +25,10 @@ function create({api,esc,field,input,num,select,modal,markDirty,busyDialog,formE
    if(selected&&lastProduct===output()&&form.elements.plannedOutput)current={terms:selected,plannedOutput:form.elements.plannedOutput.value,components:facts(),varianceReason:form.elements.varianceReason.value,expiryOverride:form.elements.ownerExpiry?.value?{date:form.elements.ownerExpiry.value,reason:form.elements.ownerExpiryReason.value}:null};
    const restoreFocus=host.contains(document.activeElement);const id=output();const request=++token;controller?.abort();ready=false;pending=true;controller=new AbortController();host.disabled=true;if(!id){host.textContent='Оберіть готовий товар.';pending=false;host.disabled=false;return;}
    host.setAttribute('aria-busy','true');let status=host.querySelector('[data-production-read-status]');if(!status){status=document.createElement('p');status.dataset.productionReadStatus='';status.setAttribute('role','status');host.prepend(status);}status.textContent='Завантажуємо версії. Збереження виробництва призупинено.';
-   try{const data=list(await api('recipes/versions?'+new URLSearchParams({product:id,page:String(requestPage)}),'GET',undefined,controller.signal));if(!form.isConnected||!form.closest('dialog').open||request!==token||output()!==id)return;
+   try{const data=list(await api('recipes/versions?'+new URLSearchParams({product:id,page:String(requestPage)}),'GET',undefined,controller.signal),id,requestPage);if(!form.isConnected||!form.closest('dialog').open||request!==token||output()!==id)return;
     items=data.items;page=data.page;pages=data.pages;
     if(id!==lastProduct){selected=null;lastProduct=id;}
-    if(current?.terms?.product===id&&current.terms.id&&!items.some(r=>r.id===current.terms.id))items=[version(current.terms),...items];
+    if(current?.terms?.product===id&&current.terms.id&&!items.some(r=>r.id===current.terms.id))items=[version(current.terms,id,current.terms.id),...items];
     selected=items.find(r=>r.id===selected?.id)||items.find(r=>r.id===current?.terms?.id)||items[0]||null;render(true);form.closest('dialog').querySelector('#tradeFormError').textContent='';if(restoreFocus){host.disabled=false;host.querySelector('[name=productionVersion]')?.focus();}
    }catch(error){if(error.name!=='AbortError'&&request===token&&form.isConnected){status.textContent='Не вдалося завантажити версії. Чернетку збережено.';formError(error,form.closest('dialog'));if(!host.querySelector('[data-production=retry]'))host.insertAdjacentHTML('beforeend',button('Повторити версії','retry'));}}
    finally{if(request===token&&form.isConnected){pending=false;host.disabled=false;host.removeAttribute('aria-busy');}}

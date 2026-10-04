@@ -69,7 +69,9 @@ def create_version(request,user):
 def handle_versions(request,user):
     if request.method=='GET':
         from .historical_reports import read_snapshot
-        with read_snapshot():return _handle_versions(request,user)
+        with read_snapshot():
+            from .services import current_actor
+            return _handle_versions(request,current_actor(user))
     return _handle_versions(request,user)
 
 def _handle_versions(request,user):

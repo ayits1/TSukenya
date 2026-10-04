@@ -498,7 +498,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/monthly-budget.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/runtime.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/erp-reports.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
         if manifest_file.exists():
             manifest=json.loads(manifest_file.read_text())
@@ -545,7 +545,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/runtime.js','/legacy-record-editor.js','/portal-api.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/runtime.js','/legacy-record-editor.js','/portal-api.js','/managed-alerts.js','/csv.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/erp-reports.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -603,9 +603,12 @@ def handle(request):
         require(user.profile.role in {'owner','manager','warehouse'},'Недостатньо прав для рецептур.')
         from .catalog import revision
         if request.method=='GET':
-            product=Document.objects.filter(pk='products/'+str(request.GET.get('product',''))).first()
-            if product is None:return response({'error':'Готовий товар: запис не знайдено.'},404)
-            return response({'product':{'id':product.path.split('/',1)[1],'name':product.data.get('name',''),'unit':product.data.get('unit','шт')},'recipe':product.data.get('recipe',[]),'revision':revision(product)})
+            from .historical_reports import read_snapshot
+            with read_snapshot():
+                user=current_actor(user);require(user.profile.role in {'owner','manager','warehouse'},'Недостатньо прав для рецептур.')
+                product=Document.objects.filter(pk='products/'+str(request.GET.get('product',''))).first()
+                if product is None:return response({'error':'Готовий товар: запис не знайдено.'},404)
+                return response({'product':{'id':product.path.split('/',1)[1],'name':product.data.get('name',''),'unit':product.data.get('unit','шт')},'recipe':product.data.get('recipe',[]),'revision':revision(product),'canEdit':user.profile.role in {'owner','manager','warehouse'}})
         value=body(request)
         require(isinstance(value.get('revision'),str) and value['revision'],'Оновіть рецептуру перед збереженням: потрібна версія товару.')
         with transaction.atomic():
@@ -616,7 +619,7 @@ def handle(request):
             require(len({str(row.get('product')) for row in data['recipe']})==len(data['recipe']),'Інгредієнт не може повторюватись.')
             product.data=data;product.save(update_fields=['data']);audit(user,'recipe_saved',product.pk,{'recipe':data['recipe']})
             saved_revision=revision(product)
-        return response({'ok':True,'revision':saved_revision})
+        return response({'ok':True,'product':value['product'],'revision':saved_revision})
     if path=='/api/erp/replenishment' and request.method=='GET':
         from .replenishment import replenishment
         return response(replenishment(user))
