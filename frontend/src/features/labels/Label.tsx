@@ -84,15 +84,23 @@ export function Label({
             {field('store')}
           </div>
         )}
-        {field('promo', 't-promo')}
         {field('custom', 't-cu')}
         {field('name', 'nm')}
         {field('pack', 't-pk')}
         {field('psize', 't-size')}
       </div>
       <div className="t-bottom">
-        {field('oldPrice', 't-old-price')}
-        {field('price', 'pr', !config.unit && <small>грн</small>)}
+        {parts.promo || parts.oldPrice ? (
+          <div className="t-promotion-price">
+            <div className="t-promotion-meta">
+              {field('promo', 't-promo')}
+              {field('oldPrice', 't-old-price')}
+            </div>
+            {field('price', 'pr', !config.unit && <small>грн</small>)}
+          </div>
+        ) : (
+          field('price', 'pr', !config.unit && <small>грн</small>)
+        )}
         {field('unit', 'un')}
         {field('per100', 'per100')}
         {(parts.category || parts.date) && (
