@@ -213,19 +213,32 @@ function Canvas({
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [width] = LABEL_SIZES[config.size];
+  const [width, height] = LABEL_SIZES[config.size];
   useEffect(() => {
     const element = container.current;
     if (!element) return;
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setZoom(Math.min(1.65, (entry.contentRect.width - 12) / ((width * 96) / 25.4)));
+      if (entry) {
+        const physicalWidth = (width * 96) / 25.4,
+          physicalHeight = (height * 96) / 25.4;
+        setZoom(
+          Math.max(
+            0.2,
+            Math.min(
+              1.65,
+              (entry.contentRect.width - 16) / physicalWidth,
+              (entry.contentRect.height - 16) / physicalHeight,
+            ),
+          ),
+        );
+      }
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [width]);
+  }, [width, height]);
   return (
     <div className="tk-studio-canvas" ref={container}>
-      <div style={{ zoom: Math.max(0.5, zoom) }}>
+      <div style={{ zoom }}>
         <Label
           product={product}
           config={config}
@@ -284,142 +297,124 @@ export function StudioView(props: StudioViewProps) {
     label: product.name,
   }));
   return (
-    <section className="tk-root tk-studio" aria-label="Студія цінників">
-      {props.operationReview}
+    <section className="tk-root tk-studio" data-view={selectedTab} aria-label="Студія цінників">
       <Tabs
+        className="tk-studio-frame"
         ref={tabsRef}
         selectedKey={selectedTab}
         onSelectionChange={(key) =>
           key === 'review' ? props.onReview() : props.onTabChange(String(key) as StudioTab)
         }
       >
-        <TabList className="tk-studio-tabs" aria-label="Етапи підготовки цінників">
-          <Tab className="tk-studio-tab" id="design" isDisabled={props.outputBusy}>
-            Макет
-          </Tab>
-          <Tab className="tk-studio-tab" id="products" isDisabled={props.outputBusy}>
-            Товари для друку{quantities.length ? ` · ${quantities.length}` : ''}
-          </Tab>
-          <Tab className="tk-studio-tab" id="review" isDisabled={props.outputBusy}>
-            Перевірка перед друком
-          </Tab>
-        </TabList>
-        <header className="tk-studio-heading">
-          <div className="tk-studio-save">
-            <span
-              role="status"
-              className={
-                saveStatus === 'error' || saveStatus === 'conflict' ? 'tk-error' : 'tk-studio-note'
-              }
-            >
-              {SAVE_LABELS[saveStatus]}
-            </span>
-            {canEdit ? (
+        <div className="tk-studio-commandbar">
+          <TabList className="tk-studio-tabs" aria-label="Етапи підготовки цінників">
+            <Tab className="tk-studio-tab" id="design" isDisabled={props.outputBusy}>
+              Макет
+            </Tab>
+            <Tab className="tk-studio-tab" id="products" isDisabled={props.outputBusy}>
+              Товари для друку{quantities.length ? ` · ${quantities.length}` : ''}
+            </Tab>
+            <Tab className="tk-studio-tab" id="review" isDisabled={props.outputBusy}>
+              Перевірка перед друком
+            </Tab>
+          </TabList>
+          <header className="tk-studio-heading">
+            <div className="tk-studio-history">
               <Button
-                variant="primary"
-                onPress={props.onSave}
-                isDisabled={
-                  saveStatus === 'saved' ||
-                  saveStatus === 'saving' ||
-                  saveStatus === 'conflict' ||
-                  props.outputBusy
-                }
+                aria-label="Скасувати зміну"
+                onPress={() => props.onUndo?.()}
+                isDisabled={locked || !props.canUndo}
               >
-                Зберегти макет
+                ↶
               </Button>
-            ) : (
-              <span className="tk-studio-note">Перегляд без редагування</span>
-            )}
-          </div>
-        </header>
-        {props.error || saveStatus === 'conflict' ? (
-          <div className="tk-studio-alert" role="alert">
-            {props.error ||
-              'Збережений макет змінився. Завантажте актуальний макет перед збереженням.'}
-            {saveStatus === 'conflict' ? (
-              <>
-                {props.onCompare ? (
-                  <Button
-                    onPress={(event) => {
-                      if (event.target instanceof HTMLButtonElement)
-                        props.onCompare?.(event.target);
-                    }}
-                    isDisabled={!!(props.outputBusy || props.preparing || props.comparisonBusy)}
-                  >
-                    {props.comparisonBusy ? 'Завантажуємо для порівняння…' : 'Порівняти зміни'}
-                  </Button>
-                ) : null}
-                <Button
-                  onPress={props.onReload}
-                  isDisabled={!!(props.outputBusy || props.preparing || props.comparisonBusy)}
-                >
-                  Завантажити збережений макет
-                </Button>
-              </>
-            ) : null}
-            {props.onRetryProducts ? (
               <Button
-                onPress={props.onRetryProducts}
-                isDisabled={props.retryingProducts || props.outputBusy}
+                aria-label="Повторити зміну"
+                onPress={() => props.onRedo?.()}
+                isDisabled={locked || !props.canRedo}
               >
-                {props.retryingProducts ? 'Завантажуємо товари…' : 'Завантажити товари повторно'}
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-        {props.comparison}
-        <TabPanel id="design">
-          <div className="tk-studio-toolbar">
-            <Select
-              label="Формат цінника"
-              options={Object.entries(LABEL_SIZES).map(([id, dimensions]) => ({
-                id,
-                label: `${dimensions[0]} × ${dimensions[1]} мм`,
-              }))}
-              selectedKey={config.size}
-              onSelectionChange={(key) => change({ size: String(key) as LabelConfig['size'] })}
-              isDisabled={locked}
-            />
-            <Select
-              label="Рамка"
-              options={[
-                { id: 'dash', label: 'Пунктир для різання' },
-                { id: 'solid', label: 'Суцільна' },
-                { id: 'none', label: 'Без рамки' },
-              ]}
-              selectedKey={config.border}
-              onSelectionChange={(key) => change({ border: String(key) as LabelConfig['border'] })}
-              isDisabled={locked}
-            />
-            <div className="tk-studio-preview-picker">
-              <ComboBox
-                search="server"
-                label="Товар для перегляду"
-                options={previewOptions}
-                selectedOption={
-                  props.previewProduct
-                    ? { id: props.previewProduct.id, label: props.previewProduct.name }
-                    : null
-                }
-                isLoading={!!props.previewLoading}
-                selectedKey={props.previewProduct?.id ?? null}
-                onSelectionChange={(key) => props.onPreviewProductChange(String(key))}
-                onInputChange={props.onPreviewQueryChange}
-                placeholder="Знайдіть товар за назвою"
-                isDisabled={props.outputBusy}
-              />
-              <Button
-                aria-label="Очистити товар для перегляду"
-                onPress={() => props.onPreviewProductChange(null)}
-                isDisabled={!props.previewProduct || props.outputBusy}
-              >
-                ×
+                ↷
               </Button>
             </div>
-          </div>
+            <div className="tk-studio-save">
+              <span
+                role="status"
+                className={
+                  saveStatus === 'error' || saveStatus === 'conflict'
+                    ? 'tk-error'
+                    : 'tk-studio-note'
+                }
+              >
+                {SAVE_LABELS[saveStatus]}
+              </span>
+              {canEdit ? (
+                <Button
+                  variant="primary"
+                  onPress={props.onSave}
+                  isDisabled={
+                    saveStatus === 'saved' ||
+                    saveStatus === 'saving' ||
+                    saveStatus === 'conflict' ||
+                    props.outputBusy
+                  }
+                >
+                  Зберегти макет
+                </Button>
+              ) : (
+                <span className="tk-studio-note">Перегляд без редагування</span>
+              )}
+            </div>
+          </header>
+        </div>
+        <div
+          className="tk-studio-notices"
+          role="region"
+          aria-label="Повідомлення та узгодження змін"
+          tabIndex={0}
+        >
+          {props.operationReview}
+          {props.error || saveStatus === 'conflict' ? (
+            <div className="tk-studio-alert" role="alert">
+              {props.error ||
+                'Збережений макет змінився. Завантажте актуальний макет перед збереженням.'}
+              {saveStatus === 'conflict' ? (
+                <>
+                  {props.onCompare ? (
+                    <Button
+                      onPress={(event) => {
+                        if (event.target instanceof HTMLButtonElement)
+                          props.onCompare?.(event.target);
+                      }}
+                      isDisabled={!!(props.outputBusy || props.preparing || props.comparisonBusy)}
+                    >
+                      {props.comparisonBusy ? 'Завантажуємо для порівняння…' : 'Порівняти зміни'}
+                    </Button>
+                  ) : null}
+                  <Button
+                    onPress={props.onReload}
+                    isDisabled={!!(props.outputBusy || props.preparing || props.comparisonBusy)}
+                  >
+                    Завантажити збережений макет
+                  </Button>
+                </>
+              ) : null}
+              {props.onRetryProducts ? (
+                <Button
+                  onPress={props.onRetryProducts}
+                  isDisabled={props.retryingProducts || props.outputBusy}
+                >
+                  {props.retryingProducts ? 'Завантажуємо товари…' : 'Завантажити товари повторно'}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {props.comparison}
+        </div>
+        <TabPanel id="design">
           <div className="tk-studio-workspace">
             <aside className="tk-studio-layers" aria-label="Елементи цінника">
-              <h3>Елементи</h3>
+              <h3>
+                Елементи <span className="tk-studio-layer-count">{LABEL_FIELDS.length}</span>
+              </h3>
               <div className="tk-studio-layer-list">
                 {LABEL_FIELDS.map(([key, label]) => (
                   <button
@@ -452,13 +447,177 @@ export function StudioView(props: StudioViewProps) {
                   onSelectionChange={(key) => props.onSelectField(String(key) as LabelField)}
                 />
               </div>
+
+              <details className="tk-studio-format tk-studio-advanced">
+                <summary>Формат і рамка</summary>
+                <div className="tk-studio-advanced-content">
+                  <Select
+                    label="Формат цінника"
+                    options={Object.entries(LABEL_SIZES).map(([id, dimensions]) => ({
+                      id,
+                      label: `${dimensions[0]} × ${dimensions[1]} мм`,
+                    }))}
+                    selectedKey={config.size}
+                    onSelectionChange={(key) =>
+                      change({ size: String(key) as LabelConfig['size'] })
+                    }
+                    isDisabled={locked}
+                  />
+                  <Select
+                    label="Рамка"
+                    options={[
+                      { id: 'dash', label: 'Пунктир для різання' },
+                      { id: 'solid', label: 'Суцільна' },
+                      { id: 'none', label: 'Без рамки' },
+                    ]}
+                    selectedKey={config.border}
+                    onSelectionChange={(key) =>
+                      change({ border: String(key) as LabelConfig['border'] })
+                    }
+                    isDisabled={locked}
+                  />
+                </div>
+              </details>
+              <details className="tk-studio-identity tk-studio-advanced">
+                <summary>Параметри шаблону та магазину</summary>
+                <div className="tk-studio-advanced-content">
+                  <div className="tk-studio-identity-fields">
+                    <Select
+                      label="Відображення ціни"
+                      options={[
+                        { id: 'auto', label: 'Без зайвих нулів' },
+                        { id: 'always', label: 'Завжди з копійками' },
+                      ]}
+                      selectedKey={config.kop ? 'always' : 'auto'}
+                      onSelectionChange={(key) => change({ kop: key === 'always' })}
+                      isDisabled={locked}
+                    />
+                    <TextField
+                      label="Назва мережі"
+                      value={settings.chainName}
+                      onChange={(chainName) => props.onSettingsChange({ ...settings, chainName })}
+                      isDisabled={locked}
+                    />
+                    {settings.storeNames.length ? (
+                      <Select
+                        label="Магазин на ціннику"
+                        options={settings.storeNames.map((label, index) => ({
+                          id: String(index),
+                          label: label || `Магазин ${index + 1}`,
+                        }))}
+                        selectedKey={String(config.storeIdx)}
+                        onSelectionChange={(key) => change({ storeIdx: Number(key) })}
+                        isDisabled={locked}
+                      />
+                    ) : null}
+                    {settings.storeNames.map((name, index) => (
+                      <div key={index} className="tk-studio-store-row">
+                        <TextField
+                          label={`Назва магазину ${index + 1}`}
+                          value={name}
+                          onChange={(value) =>
+                            props.onSettingsChange({
+                              ...settings,
+                              storeNames: settings.storeNames.map((item, i) =>
+                                i === index ? value : item,
+                              ),
+                            })
+                          }
+                          isDisabled={locked}
+                        />
+                        <Button
+                          aria-label={`Видалити магазин ${index + 1}`}
+                          onPress={() => {
+                            props.onSettingsChange(
+                              {
+                                ...settings,
+                                storeNames: settings.storeNames.filter((_, i) => i !== index),
+                              },
+                              Math.max(
+                                0,
+                                config.storeIdx > index
+                                  ? config.storeIdx - 1
+                                  : config.storeIdx === index
+                                    ? 0
+                                    : config.storeIdx,
+                              ),
+                            );
+                          }}
+                          isDisabled={locked}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="tk-studio-selection-actions">
+                    <Button
+                      onPress={() =>
+                        props.onSettingsChange({
+                          ...settings,
+                          storeNames: [...settings.storeNames, ''],
+                        })
+                      }
+                      isDisabled={locked || settings.storeNames.length >= 100}
+                    >
+                      Додати магазин
+                    </Button>
+                    <div>
+                      <Select
+                        label="Готове оформлення"
+                        options={[...PRESETS]}
+                        placeholder="Оберіть варіант"
+                        // An action, not a stored setting: after applying or cancelling it shows
+                        // no choice, so the same preset can be applied again.
+                        selectedKey={null}
+                        onSelectionChange={(key) => {
+                          const preset = PRESETS.find((item) => item.id === key);
+                          if (preset) props.onApplyPreset(preset.id);
+                        }}
+                        isDisabled={locked}
+                      />
+                      <Button onPress={props.onResetTemplate} isDisabled={locked}>
+                        Скинути макет
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </details>
             </aside>
             <div className="tk-studio-stage">
+              <div className="tk-studio-canvas-toolbar">
+                {' '}
+                <div className="tk-studio-preview-picker">
+                  <ComboBox
+                    search="server"
+                    label="Товар для перегляду"
+                    options={previewOptions}
+                    selectedOption={
+                      props.previewProduct
+                        ? { id: props.previewProduct.id, label: props.previewProduct.name }
+                        : null
+                    }
+                    isLoading={!!props.previewLoading}
+                    selectedKey={props.previewProduct?.id ?? null}
+                    onSelectionChange={(key) => props.onPreviewProductChange(String(key))}
+                    onInputChange={props.onPreviewQueryChange}
+                    placeholder="Знайдіть товар за назвою"
+                    isDisabled={props.outputBusy}
+                  />
+                  <Button
+                    aria-label="Очистити товар для перегляду"
+                    onPress={() => props.onPreviewProductChange(null)}
+                    isDisabled={!props.previewProduct || props.outputBusy}
+                  >
+                    ×
+                  </Button>
+                </div>
+              </div>
               <div className="tk-studio-stage-head">
                 <span>
                   {width} × {height} мм
                 </span>
-                <span>Збільшений перегляд</span>
+                <span>Масштаб для екрана</span>
               </div>
               {props.previewProduct ? (
                 <Canvas
@@ -491,7 +650,7 @@ export function StudioView(props: StudioViewProps) {
             <aside className="tk-studio-properties" aria-label="Параметри елемента">
               <div className="tk-studio-properties-title">
                 <h3>{fieldName(selectedField)}</h3>
-                <span className="tk-studio-note">Оформлення для всіх товарів у шаблоні</span>
+                <span className="tk-studio-note">Для всіх цінників цього макета</span>
               </div>
               <Check
                 isSelected={fieldVisible(config, selectedField)}
@@ -587,120 +746,8 @@ export function StudioView(props: StudioViewProps) {
               </Button>
             </aside>
           </div>
-          <details className="tk-studio-identity tk-studio-advanced">
-            <summary>Параметри шаблону та магазину</summary>
-            <div className="tk-studio-advanced-content">
-              <div className="tk-studio-identity-fields">
-                <Select
-                  label="Відображення ціни"
-                  options={[
-                    { id: 'auto', label: 'Без зайвих нулів' },
-                    { id: 'always', label: 'Завжди з копійками' },
-                  ]}
-                  selectedKey={config.kop ? 'always' : 'auto'}
-                  onSelectionChange={(key) => change({ kop: key === 'always' })}
-                  isDisabled={locked}
-                />
-                <TextField
-                  label="Назва мережі"
-                  value={settings.chainName}
-                  onChange={(chainName) => props.onSettingsChange({ ...settings, chainName })}
-                  isDisabled={locked}
-                />
-                {settings.storeNames.length ? (
-                  <Select
-                    label="Магазин на ціннику"
-                    options={settings.storeNames.map((label, index) => ({
-                      id: String(index),
-                      label: label || `Магазин ${index + 1}`,
-                    }))}
-                    selectedKey={String(config.storeIdx)}
-                    onSelectionChange={(key) => change({ storeIdx: Number(key) })}
-                    isDisabled={locked}
-                  />
-                ) : null}
-                {settings.storeNames.map((name, index) => (
-                  <div key={index} className="tk-studio-store-row">
-                    <TextField
-                      label={`Назва магазину ${index + 1}`}
-                      value={name}
-                      onChange={(value) =>
-                        props.onSettingsChange({
-                          ...settings,
-                          storeNames: settings.storeNames.map((item, i) =>
-                            i === index ? value : item,
-                          ),
-                        })
-                      }
-                      isDisabled={locked}
-                    />
-                    <Button
-                      aria-label={`Видалити магазин ${index + 1}`}
-                      onPress={() => {
-                        props.onSettingsChange(
-                          {
-                            ...settings,
-                            storeNames: settings.storeNames.filter((_, i) => i !== index),
-                          },
-                          Math.max(
-                            0,
-                            config.storeIdx > index
-                              ? config.storeIdx - 1
-                              : config.storeIdx === index
-                                ? 0
-                                : config.storeIdx,
-                          ),
-                        );
-                      }}
-                      isDisabled={locked}
-                    >
-                      ×
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <div className="tk-studio-selection-actions">
-                <Button
-                  onPress={() =>
-                    props.onSettingsChange({
-                      ...settings,
-                      storeNames: [...settings.storeNames, ''],
-                    })
-                  }
-                  isDisabled={locked || settings.storeNames.length >= 100}
-                >
-                  Додати магазин
-                </Button>
-                <div>
-                  <Select
-                    label="Готове оформлення"
-                    options={[...PRESETS]}
-                    placeholder="Оберіть варіант"
-                    // An action, not a stored setting: after applying or cancelling it shows
-                    // no choice, so the same preset can be applied again.
-                    selectedKey={null}
-                    onSelectionChange={(key) => {
-                      const preset = PRESETS.find((item) => item.id === key);
-                      if (preset) props.onApplyPreset(preset.id);
-                    }}
-                    isDisabled={locked}
-                  />
-                  <Button onPress={props.onResetTemplate} isDisabled={locked}>
-                    Скинути макет
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </details>
+
           <footer className="tk-studio-bottom">
-            <div className="tk-studio-history">
-              <Button onPress={() => props.onUndo?.()} isDisabled={locked || !props.canUndo}>
-                Скасувати зміну
-              </Button>
-              <Button onPress={() => props.onRedo?.()} isDisabled={locked || !props.canRedo}>
-                Повторити зміну
-              </Button>
-            </div>
             <span className="tk-studio-note">
               Шаблон змінює оформлення цінників. Ціни беруться з каталогу.
             </span>
@@ -710,7 +757,7 @@ export function StudioView(props: StudioViewProps) {
           </footer>
         </TabPanel>
         <TabPanel id="products">
-          <div className="tk-studio-content" aria-busy={props.loading}>
+          <div className="tk-studio-content tk-studio-content--products" aria-busy={props.loading}>
             <div className="tk-studio-product-filters">
               <TextField
                 label="Пошук товарів"
@@ -769,86 +816,93 @@ export function StudioView(props: StudioViewProps) {
                 </Button>
               </div>
             </div>
-            {props.products.length ? (
-              <div className="tk-studio-product-list">
-                {props.products.map((product) => {
-                  const quantity = props.selection[product.id] ?? 0;
-                  return (
-                    <div
-                      key={product.id}
-                      className="tk-studio-product-row"
-                      data-selected={quantity > 0}
-                    >
-                      <div>
-                        <Check
-                          isSelected={quantity > 0}
-                          isDisabled={props.loading || props.outputBusy}
-                          onChange={(checked) =>
-                            props.onQuantityChange(product.id, checked ? 1 : 0)
-                          }
-                        >
-                          {product.name}
-                        </Check>
-                        <div className="tk-studio-product-meta">
-                          <span>
-                            {[product.type, product.category].filter(Boolean).join(' · ')}
-                          </span>
-                          {product.promotion ? (
-                            <span className="tk-studio-promo">Акція</span>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className={product.salePrice > 0 ? 'tk-studio-price' : 'tk-error'}>
-                        {product.promotion && (product.regularPrice ?? 0) > product.salePrice ? (
-                          <del aria-label="Звичайна ціна">
-                            {formatLabelMoney(product.regularPrice!)} грн
-                          </del>
-                        ) : null}
-                        {product.salePrice > 0
-                          ? `${formatLabelMoney(product.salePrice)} грн`
-                          : 'Немає ціни'}
-                      </div>
-                      <NumericField
-                        label={`Копій: ${product.name}`}
-                        value={quantity > 0 ? quantity : 1}
-                        min={1}
-                        max={500}
-                        onChange={(number) =>
-                          props.onQuantityChange(product.id, Math.round(number))
-                        }
-                        disabled={quantity === 0 || props.loading || props.outputBusy}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="tk-studio-empty">
-                <h3>{props.loading ? 'Завантажуємо товари…' : 'Товарів не знайдено'}</h3>
-                <p>Змініть пошук або скиньте фільтри.</p>
-              </div>
-            )}
-            <details className="tk-studio-selected-summary tk-studio-advanced">
-              <summary>Усі вибрані товари · {quantities.length}</summary>
-              <div className="tk-studio-selected-list">
-                {props.selectedProducts
-                  .filter((product) => (props.selection[product.id] ?? 0) > 0)
-                  .map((product) => (
-                    <div key={product.id}>
-                      <span>
-                        {product.name} · {props.selection[product.id]} коп.
-                      </span>
-                      <Button
-                        aria-label={`Прибрати з друку: ${product.name}`}
-                        isDisabled={props.outputBusy}
-                        onPress={() => props.onQuantityChange(product.id, 0)}
+            <div
+              className="tk-studio-products-scroll"
+              role="region"
+              aria-label="Список товарів для друку"
+              tabIndex={0}
+            >
+              {props.products.length ? (
+                <div className="tk-studio-product-list">
+                  {props.products.map((product) => {
+                    const quantity = props.selection[product.id] ?? 0;
+                    return (
+                      <div
+                        key={product.id}
+                        className="tk-studio-product-row"
+                        data-selected={quantity > 0}
                       >
-                        Прибрати
-                      </Button>
-                    </div>
-                  ))}
-              </div>
-            </details>
+                        <div>
+                          <Check
+                            isSelected={quantity > 0}
+                            isDisabled={props.loading || props.outputBusy}
+                            onChange={(checked) =>
+                              props.onQuantityChange(product.id, checked ? 1 : 0)
+                            }
+                          >
+                            {product.name}
+                          </Check>
+                          <div className="tk-studio-product-meta">
+                            <span>
+                              {[product.type, product.category].filter(Boolean).join(' · ')}
+                            </span>
+                            {product.promotion ? (
+                              <span className="tk-studio-promo">Акція</span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className={product.salePrice > 0 ? 'tk-studio-price' : 'tk-error'}>
+                          {product.promotion && (product.regularPrice ?? 0) > product.salePrice ? (
+                            <del aria-label="Звичайна ціна">
+                              {formatLabelMoney(product.regularPrice!)} грн
+                            </del>
+                          ) : null}
+                          {product.salePrice > 0
+                            ? `${formatLabelMoney(product.salePrice)} грн`
+                            : 'Немає ціни'}
+                        </div>
+                        <NumericField
+                          label={`Копій: ${product.name}`}
+                          value={quantity > 0 ? quantity : 1}
+                          min={1}
+                          max={500}
+                          onChange={(number) =>
+                            props.onQuantityChange(product.id, Math.round(number))
+                          }
+                          disabled={quantity === 0 || props.loading || props.outputBusy}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="tk-studio-empty">
+                  <h3>{props.loading ? 'Завантажуємо товари…' : 'Товарів не знайдено'}</h3>
+                  <p>Змініть пошук або скиньте фільтри.</p>
+                </div>
+              )}
+              <details className="tk-studio-selected-summary tk-studio-advanced">
+                <summary>Усі вибрані товари · {quantities.length}</summary>
+                <div className="tk-studio-selected-list">
+                  {props.selectedProducts
+                    .filter((product) => (props.selection[product.id] ?? 0) > 0)
+                    .map((product) => (
+                      <div key={product.id}>
+                        <span>
+                          {product.name} · {props.selection[product.id]} коп.
+                        </span>
+                        <Button
+                          aria-label={`Прибрати з друку: ${product.name}`}
+                          isDisabled={props.outputBusy}
+                          onPress={() => props.onQuantityChange(product.id, 0)}
+                        >
+                          Прибрати
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              </details>
+            </div>
             <div className="tk-studio-pagination">
               <span>Знайдено {props.total} товарів</span>
               <div>
@@ -889,7 +943,7 @@ export function StudioView(props: StudioViewProps) {
           </div>
         </TabPanel>
         <TabPanel id="review">
-          <div className="tk-studio-content">
+          <div className="tk-studio-content tk-studio-content--review">
             <div className="tk-studio-review-top">
               <div>
                 <h3>Переддруковий перегляд</h3>
@@ -972,33 +1026,40 @@ export function StudioView(props: StudioViewProps) {
                 {props.outputStatus}
               </p>
             ) : null}
-            {props.validationErrors.length ? (
-              <div role="alert" className="tk-studio-alert">
-                <strong>Перед друком потрібно виправити</strong>
-                <ul>
-                  {props.validationErrors.map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {props.staleProducts.length ? (
-              <div className="tk-studio-alert tk-studio-warning">
-                <strong>Ціни потребують перевірки</strong>
-                <p>{props.staleProducts.join(', ')}</p>
-                <Check
-                  isSelected={props.staleAcknowledged}
-                  onChange={props.onStaleAcknowledged}
-                  isDisabled={props.outputBusy}
-                >
-                  Ціни перевірено, можна друкувати
-                </Check>
-              </div>
-            ) : null}
-            {props.preparing ? (
-              <p role="status">Завантажуємо актуальні ціни та перевіряємо макет…</p>
-            ) : null}
-            <div className="tk-studio-proof">{props.review}</div>
+            <div
+              className="tk-studio-review-scroll"
+              role="region"
+              aria-label="Перегляд аркушів і перевірки"
+              tabIndex={0}
+            >
+              {props.validationErrors.length ? (
+                <div role="alert" className="tk-studio-alert">
+                  <strong>Перед друком потрібно виправити</strong>
+                  <ul>
+                    {props.validationErrors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {props.staleProducts.length ? (
+                <div className="tk-studio-alert tk-studio-warning">
+                  <strong>Ціни потребують перевірки</strong>
+                  <p>{props.staleProducts.join(', ')}</p>
+                  <Check
+                    isSelected={props.staleAcknowledged}
+                    onChange={props.onStaleAcknowledged}
+                    isDisabled={props.outputBusy}
+                  >
+                    Ціни перевірено, можна друкувати
+                  </Check>
+                </div>
+              ) : null}
+              {props.preparing ? (
+                <p role="status">Завантажуємо актуальні ціни та перевіряємо макет…</p>
+              ) : null}
+              <div className="tk-studio-proof">{props.review}</div>{' '}
+            </div>
           </div>
         </TabPanel>
       </Tabs>

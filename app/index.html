@@ -15,20 +15,59 @@
 </head>
 <body class="ui-root">
 <a class="skip-link" href="#main">Перейти до вмісту</a>
-<div class="portal-shell"><aside class="portal-sidebar" id="portalSidebar"><a class="portal-brand" href="#operations/overview">Цукерня<span>Робочий простір</span></a><nav id="tabs" class="portal-navigation" aria-label="Розділи порталу"><div class="portal-nav-group" data-nav-group="operations"><a class="workspace-link" data-workspace="operations" href="#operations/overview"><b>Щоденна робота</b></a><a class="tab" data-tab="overview" href="#operations/overview">Огляд</a><a class="tab" data-tab="products" href="#operations/products">Товари й ціни</a><a class="tab" data-tab="tags" href="#operations/tags">Цінники</a><a class="tab" data-tab="work" href="#operations/work">Поточні задачі</a><a class="tab" data-tab="expenses" href="#operations/expenses">Бюджет витрат</a></div><div class="portal-nav-group" data-nav-group="trade"><a class="workspace-link" data-workspace="trade" href="#trade/purchases"><b>Облік торгівлі</b></a><a class="tab" data-tab="purchases" href="#trade/purchases">Закупівлі</a><a class="tab" data-tab="stock" href="#trade/stock">Склад</a><a class="tab" data-tab="sales" href="#trade/sales">Продажі</a><a class="tab" data-tab="finance" href="#trade/finance">Фінанси</a><a class="tab" data-tab="staff" href="#trade/staff">Команда й зарплата</a><a class="tab" data-tab="customers" href="#trade/customers">Клієнти</a><a class="tab" data-tab="reports" href="#trade/reports">Звіти</a><a class="tab" data-tab="setup" href="#trade/setup">Налаштування</a></div><div class="portal-nav-group" data-nav-group="development"><a class="workspace-link" data-workspace="development" href="#development/devOverview"><b>Розвиток бізнесу</b></a><a class="tab" data-tab="devOverview" href="#development/devOverview">Огляд розвитку</a><a class="tab" data-tab="ideas" href="#development/ideas">Ідеї</a><a class="tab" data-tab="tasks" href="#development/tasks">План реалізації</a></div></nav></aside><div class="wrap">
-  <header class="top"><button class="btn soft nav-toggle" id="navToggle" aria-expanded="false" aria-controls="portalSidebar" type="button">Розділи</button>
-    <div>
-      <p id="chainName" class="portal-chain">Мережа солодощів</p>
-      <p class="sub muted">Бізнес-портал · управління торгівлею та розвитком</p>
+<div class="portal-shell">
+<aside class="portal-sidebar" id="portalSidebar" aria-label="Навігація порталу">
+  <div class="portal-sidebar-head"><a class="portal-brand" href="#operations/overview">Цукерня<span id="chainName">Мережа солодощів</span></a><button type="button" class="btn soft portal-nav-close" id="navClose" aria-label="Закрити навігацію">×</button></div>
+  <nav id="tabs" class="portal-navigation" aria-label="Розділи порталу">
+    <div class="portal-nav-group" data-nav-group="operations">
+      <button class="workspace-link" data-workspace="operations" data-nav-toggle="operations" type="button" aria-expanded="true" aria-controls="nav-operations"><span>Щоденна робота</span><span class="portal-nav-chevron" aria-hidden="true"></span></button>
+      <div id="nav-operations" class="portal-nav-items">
+        <a class="tab" data-tab="overview" href="#operations/overview">Огляд</a>
+        <a class="tab" data-tab="products" href="#operations/products">Товари й ціни</a>
+        <a class="tab" data-tab="tags" href="#operations/tags">Цінники</a>
+        <a class="tab" data-tab="work" href="#operations/work">Поточні задачі</a>
+        <a class="tab" data-tab="expenses" href="#operations/expenses">Бюджет витрат</a>
+      </div>
     </div>
-    <div class="row"><p class="muted sub" id="updated"></p><a class="btn soft" href="/account" id="accountLink" hidden>Обліковий запис</a></div>
-  </header>
-
+    <div class="portal-nav-group" data-nav-group="trade">
+      <button class="workspace-link" data-workspace="trade" data-nav-toggle="trade" type="button" aria-expanded="false" aria-controls="nav-trade"><span>Облік торгівлі</span><span class="portal-nav-chevron" aria-hidden="true"></span></button>
+      <div id="nav-trade" class="portal-nav-items" hidden>
+        <a class="tab" data-tab="purchases" href="#trade/purchases">Закупівлі</a>
+        <a class="tab" data-tab="stock" href="#trade/stock">Склад</a>
+        <a class="tab" data-tab="sales" href="#trade/sales">Продажі</a>
+        <a class="tab" data-tab="finance" href="#trade/finance">Фінанси</a>
+        <a class="tab" data-tab="staff" href="#trade/staff">Команда й зарплата</a>
+        <a class="tab" data-tab="customers" href="#trade/customers">Клієнти</a>
+        <a class="tab" data-tab="reports" href="#trade/reports">Звіти</a>
+        <a class="tab" data-tab="setup" href="#trade/setup">Налаштування</a>
+      </div>
+    </div>
+    <div class="portal-nav-group" data-nav-group="development">
+      <button class="workspace-link" data-workspace="development" data-nav-toggle="development" type="button" aria-expanded="false" aria-controls="nav-development"><span>Розвиток бізнесу</span><span class="portal-nav-chevron" aria-hidden="true"></span></button>
+      <div id="nav-development" class="portal-nav-items" hidden>
+        <a class="tab" data-tab="devOverview" href="#development/devOverview">Огляд розвитку</a>
+        <a class="tab" data-tab="ideas" href="#development/ideas">Ідеї</a>
+        <a class="tab" data-tab="tasks" href="#development/tasks">План реалізації</a>
+      </div>
+    </div>
+  </nav>
+  <footer class="portal-sidebar-footer">
+    <div class="portal-account"><a class="btn soft" href="/account" id="accountLink" hidden>Обліковий запис</a></div>
+    <p class="muted" id="updated"></p>
+  <details class="portal-release" aria-label="Про застосунок">
+    <summary><span>Про застосунок</span><span id="applicationVersion">Локальна версія</span></summary>
+    <p>Під час звернення щодо помилки вкажіть цю версію.</p>
+    <p>Коміт сервера: <code id="applicationCommit">Невідомий</code></p>
+  </details>
+  </footer>
+</aside>
+<button class="portal-nav-backdrop" id="navBackdrop" type="button" aria-label="Закрити навігацію" hidden tabindex="-1"></button>
+<div class="wrap">
   <div id="noDb" class="notice" hidden>Не вдалося завантажити дані. Оновіть сторінку або перевірте з’єднання.</div>
   <section id="refreshNotice" class="notice" hidden aria-label="Оновлення даних"><p id="refreshError" role="alert" tabindex="-1"></p><button id="retryRefresh" class="btn soft" type="button">Оновити дані</button><p id="refreshStatus" role="status" aria-live="polite"></p></section>
 
 
-  <div class="section-heading"><div><p class="eyebrow" id="workspaceLabel"></p><h1 id="pageTitle" tabindex="-1"></h1><p class="muted" id="pageDescription"></p></div></div>
+  <div class="section-heading"><button class="btn soft nav-toggle" id="navToggle" aria-expanded="false" aria-controls="portalSidebar" type="button" aria-label="Відкрити навігацію">☰<span>Розділи</span></button><div><p class="eyebrow" id="workspaceLabel"></p><h1 id="pageTitle" tabindex="-1"></h1><p class="muted" id="pageDescription"></p></div></div>
 
   <section class="path" id="developmentPath" aria-labelledby="pathTitle" hidden>
     <div class="path-head">
@@ -42,11 +81,7 @@
   </section>
 
   <main id="main" tabindex="-1" aria-labelledby="pageTitle"></main>
-  <details class="portal-release" aria-label="Про застосунок">
-    <summary><span>Про застосунок</span><span id="applicationVersion">Локальна версія</span></summary>
-    <p>Під час звернення щодо помилки вкажіть цю версію.</p>
-    <p>Коміт сервера: <code id="applicationCommit">Невідомий</code></p>
-  </details>
+
 </div>
 </div>
 <dialog id="productEditor" aria-labelledby="productDialogTitle"></dialog>

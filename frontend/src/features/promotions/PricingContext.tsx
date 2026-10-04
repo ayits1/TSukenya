@@ -29,6 +29,7 @@ export function PricingContext({
   children,
   api: supplied,
   onState,
+  layout = 'panel',
 }: {
   children: (
     catalog: CatalogApi,
@@ -39,7 +40,9 @@ export function PricingContext({
   ) => ReactNode;
   api?: PromotionApi;
   onState?: (value: { context: PromotionContext | null; blocked: boolean }) => void;
+  layout?: 'panel' | 'toolbar';
 }) {
+  const contextClass = `tk-root tk-pricing-context${layout === 'toolbar' ? ' tk-pricing-context--toolbar' : ''}`;
   const client = useQueryClient();
   const [api] = useState(() => supplied || createPromotionApi());
   const [selected, setSelected] = useState<number | null | undefined>(undefined);
@@ -102,7 +105,7 @@ export function PricingContext({
   };
   if (!confirmed)
     return (
-      <section className="tk-root tk-pricing-context">
+      <section className={contextClass} aria-label="Контекст цін">
         {query.error ? (
           <>
             <p role="alert">{query.error.message}</p>
@@ -117,7 +120,7 @@ export function PricingContext({
   const selectedStore = selected === undefined ? current.storeId : selected;
   return (
     <>
-      <section className="tk-root tk-pricing-context">
+      <section className={contextClass} aria-label="Контекст цін">
         <Select
           label="Ціни та друк для"
           value={selectedStore === null ? 'network' : String(selectedStore)}
@@ -146,7 +149,7 @@ export function PricingContext({
             </Button>
           </div>
         ) : null}
-        <p className="tk-help">
+        <p className="tk-help tk-pricing-context-confirmed">
           Підтверджений контекст: {current.storeName || 'Мережа — загальні ціни'}. Чинність акцій:{' '}
           {current.effectiveDay}. Друк використовує назву підтвердженого магазину з обліку.
         </p>

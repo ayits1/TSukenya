@@ -17,50 +17,63 @@
   font-size: 16px;
   line-height: 1.4;
 }
+.tk-studio-commandbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--tk-line);
+  background: var(--tk-paper);
+  border-radius: 8px 8px 0 0;
+}
 .tk-studio-heading {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
-  gap: 20px;
-  padding: 16px 24px;
+  gap: 12px;
+  min-width: 0;
 }
-.tk-studio-heading p,
 .tk-studio-note {
   color: var(--tk-muted);
   font-size: 12px;
-}
-.tk-studio-heading p {
-  margin-top: 6px;
-  font-size: 14px;
+  line-height: 1.35;
 }
 .tk-studio-save {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  flex-wrap: wrap;
   justify-content: flex-end;
+  min-width: 0;
+}
+.tk-studio-save > [role='status'] {
+  max-width: 150px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.tk-studio-history {
+  display: flex;
+  gap: 4px;
+}
+.tk-studio-history .tk-button {
+  width: 44px;
+  padding: 8px;
+  font-size: 20px;
 }
 .tk-studio-tabs {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--tk-line);
-  border-radius: 8px 8px 0 0;
-  background: var(--tk-paper);
-  box-shadow: 0 2px 4px #20272c0a;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  gap: 2px;
 }
 .tk-studio-tab {
   display: grid;
   place-items: center;
   text-align: center;
   min-width: 0;
-  min-height: 48px;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 8px 12px;
   font: inherit;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   border-bottom: 3px solid transparent;
@@ -81,13 +94,8 @@ html:has(#react-labels .tk-studio) {
   color: var(--tk-brand);
   border-color: var(--tk-brand);
 }
-.tk-studio-toolbar {
-  display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(220px, 2fr);
-  align-items: end;
-  gap: 16px;
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--tk-line);
+.tk-studio-canvas-toolbar {
+  padding-bottom: 16px;
 }
 .tk-studio-preview-picker {
   display: flex;
@@ -101,15 +109,25 @@ html:has(#react-labels .tk-studio) {
 }
 .tk-studio-workspace {
   display: grid;
-  grid-template-columns: 176px minmax(0, 1fr) 260px;
+  grid-template-columns: 220px minmax(0, 1fr) 280px;
 }
 .tk-studio-layers {
-  padding: 20px 12px;
+  min-width: 0;
+  padding: 16px 12px;
+  background: #fafbfa;
   border-right: 1px solid var(--tk-line);
 }
 .tk-studio-layers h3 {
-  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
   margin-bottom: 12px;
+}
+.tk-studio-layer-count {
+  color: var(--tk-muted);
+  font-size: 12px;
+  font-weight: 400;
 }
 .tk-studio-layer-list {
   display: grid;
@@ -124,8 +142,8 @@ html:has(#react-labels .tk-studio) {
   width: 100%;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 5px;
-  padding: 8px 10px;
+  border-radius: 4px;
+  padding: 8px;
   text-align: left;
   cursor: pointer;
 }
@@ -149,8 +167,8 @@ html:has(#react-labels .tk-studio) {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 20px;
-  background: #f3f5f6;
+  padding: 16px 20px;
+  background: #edf0ef;
 }
 .tk-studio-stage-head,
 .tk-studio-stage-foot {
@@ -166,12 +184,15 @@ html:has(#react-labels .tk-studio) {
   display: grid;
   place-items: center;
   flex: 1;
-  min-height: 380px;
-  padding: 24px 0;
+  min-height: 320px;
+  padding: 16px 0;
   min-width: 0;
 }
 .tk-studio-canvas > * {
   max-width: 100%;
+}
+.tk-studio-canvas > :not(.tk-studio-empty) {
+  box-shadow: 0 6px 20px #25352d1a;
 }
 .tk-studio-empty {
   padding: 32px 16px;
@@ -181,10 +202,11 @@ html:has(#react-labels .tk-studio) {
   gap: 8px;
 }
 .tk-studio-properties {
-  padding: 20px;
+  min-width: 0;
+  padding: 16px;
   display: grid;
   align-content: start;
-  gap: 18px;
+  gap: 14px;
   border-left: 1px solid var(--tk-line);
 }
 .tk-studio-properties-title {
@@ -214,6 +236,7 @@ html:has(#react-labels .tk-studio) {
   border-radius: var(--tk-radius);
 }
 .tk-studio-check {
+  position: relative;
   display: flex;
   gap: 10px;
   align-items: center;
@@ -276,21 +299,21 @@ html:has(#react-labels .tk-studio) {
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 16px 24px;
+  padding: 10px 16px;
   border-top: 1px solid var(--tk-line);
 }
 .tk-studio-identity {
-  padding: 0 24px 16px;
+  margin-top: 12px;
 }
 .tk-studio-identity-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
 }
 .tk-studio-content {
-  padding: 24px;
+  padding: 16px;
   display: grid;
-  gap: 20px;
+  gap: 14px;
 }
 .tk-studio-product-filters {
   display: grid;
@@ -321,8 +344,8 @@ html:has(#react-labels .tk-studio) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 110px 88px;
   align-items: center;
-  gap: 20px;
-  padding: 12px 16px;
+  gap: 16px;
+  padding: 10px 14px;
 }
 .tk-studio-product-row + .tk-studio-product-row {
   border-top: 1px solid var(--tk-line);
@@ -395,120 +418,6 @@ html:has(#react-labels .tk-studio) {
 .tk-studio-proof {
   min-width: 0;
 }
-@media (max-width: 1100px) {
-  .tk-studio-workspace {
-    grid-template-columns: 150px minmax(0, 1fr);
-  }
-  .tk-studio-properties {
-    grid-column: 1/-1;
-    border-left: 0;
-    border-top: 1px solid var(--tk-line);
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .tk-studio-properties-title {
-    grid-column: 1/-1;
-  }
-  .tk-studio-product-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 650px) {
-  .tk-studio-heading {
-    padding: 18px 16px;
-    align-items: start;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .tk-studio-save {
-    justify-content: start;
-  }
-  .tk-studio-tabs {
-    padding: 0 8px;
-    gap: 0;
-  }
-  .tk-studio-tab {
-    flex: 1;
-    text-align: center;
-    padding: 10px 6px;
-  }
-  .tk-studio-toolbar {
-    padding: 16px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-  }
-  .tk-studio-preview-picker {
-    grid-column: 1/-1;
-  }
-  .tk-studio-workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .tk-studio-layers {
-    border-right: 0;
-    border-bottom: 1px solid var(--tk-line);
-    padding: 14px 16px;
-  }
-  .tk-studio-layer-list {
-    display: none;
-  }
-  .tk-studio-layers h3 {
-    display: none;
-  }
-  .tk-studio-stage {
-    padding: 16px;
-  }
-  .tk-studio-canvas {
-    min-height: 270px;
-    padding: 24px 0;
-  }
-  .tk-studio-properties {
-    padding: 16px;
-    gap: 16px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .tk-studio-properties
-    > :is(
-      .tk-studio-check,
-      .tk-studio-pair,
-      .tk-studio-advanced,
-      .tk-studio-properties-title,
-      .tk-help,
-      .tk-button
-    ) {
-    grid-column: 1/-1;
-  }
-  .tk-studio-content {
-    padding: 16px;
-    gap: 16px;
-  }
-  .tk-studio-product-filters {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .tk-studio-product-row {
-    grid-template-columns: minmax(0, 1fr) 82px;
-    gap: 12px;
-    padding: 12px;
-  }
-  .tk-studio-product-row > div:first-child {
-    grid-column: 1/-1;
-  }
-  .tk-studio-price {
-    text-align: left;
-  }
-  .tk-studio-bottom {
-    padding: 16px;
-  }
-  .tk-studio-identity {
-    padding: 0 16px 16px;
-  }
-  .tk-studio-identity-fields {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-@media (min-width: 651px) {
-  .tk-studio-mobile-field {
-    display: none;
-  }
-}
 @media (forced-colors: active) {
   .tk-studio-check[data-selected] .tk-studio-check-box {
     background: Highlight;
@@ -546,28 +455,8 @@ html:has(#react-labels .tk-studio) {
   align-items: center;
 }
 
-.tk-studio-history {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
 .tk-story:has(> .tk-studio) {
   max-width: none;
-}
-@media (max-width: 650px) {
-  .tk-studio-tab {
-    font-size: 13px;
-    padding-inline: 4px;
-  }
-}
-@media (max-width: 380px) {
-  .tk-studio-toolbar,
-  .tk-studio-properties {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .tk-studio-properties > * {
-    grid-column: 1/-1;
-  }
 }
 .tk-studio-product-row .tk-studio-number::before {
   content: 'Копій';
@@ -637,4 +526,268 @@ html:has(#react-labels .tk-studio) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* A single frame owns viewport space; each pane owns only its own overflow. */
+.tk-studio-notices:empty {
+  display: none;
+}
+.tk-studio-notices {
+  padding: 12px;
+}
+.tk-studio-notices > * + * {
+  margin-top: 10px;
+}
+.tk-studio-format {
+  margin-top: 16px;
+}
+.tk-studio-advanced summary::after {
+  content: '+';
+  margin-left: auto;
+  color: var(--tk-muted);
+}
+.tk-studio-advanced[open] > summary::after {
+  content: '−';
+}
+.tk-studio-layers .tk-studio-selection-actions,
+.tk-studio-layers .tk-studio-selection-actions > div {
+  display: grid;
+  width: 100%;
+}
+.tk-studio-layers .tk-studio-selection-actions > div {
+  gap: 8px;
+}
+.tk-studio-mobile-field {
+  display: none;
+}
+.tk-studio-products-scroll,
+.tk-studio-review-scroll {
+  min-width: 0;
+}
+.tk-studio-products-scroll:focus-visible,
+.tk-studio-review-scroll:focus-visible,
+.tk-studio-notices:focus-visible {
+  outline: 3px solid var(--tk-focus);
+  outline-offset: -3px;
+}
+.tk-studio-proof {
+  margin-top: 16px;
+}
+@media (min-width: 1200px) and (min-height: 720px) {
+  body[data-layout='studio'] .tk-studio {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout='studio'] .tk-studio > .tk-studio-frame {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+  }
+  body[data-layout='studio'] .tk-studio-commandbar {
+    flex: 0 0 auto;
+  }
+  body[data-layout='studio'] .tk-studio-notices {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 42%;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    scroll-padding-block: 12px;
+  }
+  body[data-layout='studio'] .tk-studio [role='tabpanel'] {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    outline-offset: -3px;
+  }
+  body[data-layout='studio'] .tk-studio-workspace {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout='studio'] :is(.tk-studio-layers, .tk-studio-properties) {
+    min-height: 0;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    scroll-padding-block: 12px;
+    overscroll-behavior: contain;
+  }
+  body[data-layout='studio'] .tk-studio-stage {
+    min-height: 0;
+  }
+  body[data-layout='studio'] .tk-studio-canvas {
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout='studio'] .tk-studio-stage-head,
+  body[data-layout='studio'] .tk-studio-stage-foot,
+  body[data-layout='studio'] .tk-studio-canvas-toolbar {
+    flex: 0 0 auto;
+  }
+  body[data-layout='studio'] .tk-studio-bottom {
+    flex: 0 0 auto;
+  }
+  body[data-layout='studio'] .tk-studio-content--products,
+  body[data-layout='studio'] .tk-studio-content--review {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout='studio'] .tk-studio-content--products > :not(.tk-studio-products-scroll),
+  body[data-layout='studio'] .tk-studio-content--review > :not(.tk-studio-review-scroll) {
+    flex: 0 0 auto;
+  }
+  body[data-layout='studio'] .tk-studio-products-scroll,
+  body[data-layout='studio'] .tk-studio-review-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    scroll-padding-block: 12px;
+    overscroll-behavior: contain;
+  }
+  body[data-layout='studio'] .tk-studio-review-top {
+    gap: 12px;
+  }
+  body[data-layout='studio'] .tk-studio-review-actions {
+    gap: 8px;
+  }
+  body[data-layout='studio'] .tk-studio-output {
+    margin-block: 0;
+    padding: 10px 12px;
+  }
+}
+/* A short or narrow viewport uses page flow; no hidden off-screen inspector. */
+@media (max-width: 1199px), (max-height: 719px) {
+  .tk-studio-commandbar {
+    flex-wrap: wrap;
+  }
+  .tk-studio-tabs {
+    flex: 1 1 100%;
+  }
+  .tk-studio-tab {
+    flex: 1;
+  }
+  .tk-studio-heading {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .tk-studio-workspace {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+  .tk-studio-layers {
+    grid-column: 1/-1;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-right: 0;
+    border-bottom: 1px solid var(--tk-line);
+  }
+  .tk-studio-layers > h3,
+  .tk-studio-layer-list {
+    display: none;
+  }
+  .tk-studio-mobile-field {
+    display: block;
+  }
+  .tk-studio-format,
+  .tk-studio-identity {
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+  }
+  .tk-studio-advanced-content {
+    padding-bottom: 12px;
+  }
+  .tk-studio-product-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .tk-studio-commandbar {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  .tk-studio-tab {
+    font-size: 12px;
+    padding: 8px 4px;
+  }
+  .tk-studio-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tk-studio-save {
+    flex: 1;
+  }
+  .tk-studio-save > [role='status'] {
+    max-width: 110px;
+  }
+  .tk-studio-save > .tk-button {
+    padding-inline: 10px;
+  }
+  .tk-studio-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tk-studio-layers {
+    display: block;
+    padding: 12px;
+  }
+  .tk-studio-format,
+  .tk-studio-identity {
+    margin-top: 10px;
+    border-top: 1px solid var(--tk-line);
+  }
+  .tk-studio-stage {
+    padding: 12px;
+  }
+  .tk-studio-canvas {
+    min-height: 250px;
+  }
+  .tk-studio-properties {
+    border-left: 0;
+    border-top: 1px solid var(--tk-line);
+    padding: 12px;
+  }
+  .tk-studio-content {
+    padding: 12px;
+  }
+  .tk-studio-product-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tk-studio-product-row {
+    grid-template-columns: minmax(0, 1fr) 82px;
+    gap: 12px;
+    padding: 12px;
+  }
+  .tk-studio-product-row > div:first-child {
+    grid-column: 1/-1;
+  }
+  .tk-studio-price {
+    text-align: left;
+  }
+  .tk-studio-bottom {
+    padding: 12px;
+  }
+}
+/* Synthetic workspace story uses the real panes at the shell's desktop content width. */
+.tk-story:has(.tk-desktop-studio-story) {
+  max-width: none;
+}
+@media (min-width: 1200px) and (min-height: 720px) {
+  .tk-desktop-studio-story {
+    display: flex;
+    height: min(696px, calc(100dvh - 24px));
+    width: calc(100% - 192px);
+    margin-left: 192px;
+  }
 }

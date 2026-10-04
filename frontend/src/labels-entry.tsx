@@ -51,7 +51,7 @@ function draw() {
   root?.render(
     <I18nProvider locale="uk-UA">
       <QueryClientProvider client={client}>
-        <PricingContext>
+        <PricingContext layout="toolbar">
           {(catalog, store, context, promotions, controls) => (
             <Studio
               priceStore={store}

@@ -110,7 +110,13 @@ function makeServices(onContext: (store: number | undefined | null) => void) {
     }),
   };
 }
-function Harness({ onContext }: { onContext: (store: number | undefined | null) => void }) {
+function Harness({
+  onContext,
+  layout,
+}: {
+  onContext: (store: number | undefined | null) => void;
+  layout?: 'panel' | 'toolbar';
+}) {
   const [services] = useState(() => makeServices(onContext));
   return (
     <QueryClientProvider client={services.client}>
@@ -118,7 +124,7 @@ function Harness({ onContext }: { onContext: (store: number | undefined | null) 
         <Button onPress={services.fail}>Відповісти помилкою магазину</Button>
         <Button onPress={services.finish}>Підтвердити магазин 2</Button>
       </div>
-      <PricingContext api={services.api}>
+      <PricingContext api={services.api} layout={layout ?? 'panel'}>
         {(_catalog, store, confirmed) => (
           <>
             <p role="status">Поточний контекст Studio: {confirmed.storeName}</p>
@@ -179,3 +185,8 @@ export const FailedStoreRequestKeepsDraft: Story = {
 
 /** Native browser QA drives pending/error/cancel states without the automatic play sequence. */
 export const InteractiveStoreRecovery: Story = {};
+
+export const ToolbarRecovery: Story = {
+  args: { layout: 'toolbar' },
+  play: FailedStoreRequestKeepsDraft.play!,
+};
