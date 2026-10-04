@@ -254,3 +254,15 @@ first body/key, явний exact retry і GET-only receipt identity. Original wh
 [LEGACY-CREATE-IDENTITY-RECOVERY.md](LEGACY-CREATE-IDENTITY-RECOVERY.md).
 Monthly plan/category пакети ще окремо готуються; весь B06 і весь план цим записом
 не оголошено завершеними. Production на main94dece2 — див. SERVER-DEPLOYMENT.md.
+
+
+## B06 — планування й незалежні статті, root інтеграція · 04.10.2026
+
+Місячний план має strict current/ACK/creator identity, frozen exactCREATE й окреме
+localApply/Save. Виторг незалежний; однаковий ordered UUID membership дає atomic
+умови кожного рядка, зміна складу/порядку — явний вибір цілого списку. Стаття працює
+в окремому dialog і не стирає незбережений план. Metadata/history/facts readonly.
+Формули/проводки/рольові правила не змінено. Докази — PLANNING-CATEGORY-RECOVERY.md
+і MONTHLY-BUDGET-RECOVERY.md. Repeated/lostACK/403/503/malformed/cancel/lateGET, max200,
+точні decimals та keyboard/320 перевірені цільово. Післяreload intent неpersisted;
+це відкрита окрема вимога, а не заявлена готовність усього B06/плану.

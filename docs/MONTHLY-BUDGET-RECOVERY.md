@@ -34,3 +34,21 @@ Reload survival не додано: ключі й чернетки живуть �
 - Зачеплений старий `monthly-budget-recovery-ui.cjs` має `--budget-only` для budget ACK/readonly validation, `--scope-only` для scoped owner320/network/foreign403; новий category dialog block доставлено відповідальним агентом. Budget-only та scope-only — PASS на ізольованій SQLite; успішні category/scope stages не повторюються без зміни їхніх inputs.
 
 Серверні creator/currentactor/ledger/RR/concurrency перевірки PostgreSQL та формули/history використані з matching backend пакета; UI не змінює backend. Жодних production/VPS/Google Sheet/full regression дій цей пакет не виконує.
+
+
+## Root інтеграція
+
+Actual plan/category consumer інтегровано разом на accepted main68+legacy69 без QA
+dependency commits. Shared source і formulas не змінено; combined build/types/targetlint/
+Prettier PASS. Авторські unit6/Story2/4native stages і oldbudget/scope proofs повторно
+використані. Root actual policy stage PASS: initial definite budget_exists читає exact
+period/current identity без creatorclaim/revision adoption, Save тільки після Apply;
+current403/lateGET/navigation зберігають cached draft. Артефакт
+`/tmp/tsukenya-root-monthly-plan/report-policy.json`. Exact decimal VM PASS.
+
+Виявлено QA coverage gap: колишній default all не виконував policy branch. Default
+entry тепер один wrapper чотирьох focused stages independent/tail/create/policy;
+невідомий stage відхиляється. Explicit full registry очищає MONTHLY_PLAN_STAGE/PROOF_DIR
+і викликає wrapper один раз. Harness прибирає inherited POSTGRES_URL/owner password,
+помічає ранній exit, очікує teardown й залишає report поза disposable data.
+Syntax/dryrun PASS; весь full локально не запускався.

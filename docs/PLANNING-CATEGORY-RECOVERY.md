@@ -53,3 +53,19 @@ Scoped tail PASS: власник одного магазину створює sh
 Артефакти: `/private/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-planning-category-proof/`: `report.json`, `scope-report.json`, `ack-repeat-report.json`, `category-comparison-1440.png`, `category-comparison-320.png`. Обидва PNG переглянуті; горизонтального обрізання немає, labels вибору≥44 px. Storybook2 PASS. Попередні два Storybook attempts не зібрали жодної історії через зовнішній symlink setup URL; після приватної копії залежностей виконані саме ці дві історії, не весь набір.
 
 `tests/monthly-budget-recovery-ui.cjs` змінено лише category block: assertions one record/audit/exact body збережені; решту monthly cases адаптує власник plan package. Дев’ять старих сімейств або повна регресія цим доказом не оголошуються виконаними. Physical deletion/creator/rollback/RR перевірені серверними цільовими тестами; реальна фізична роздруківка, screen reader та capacity не перевірялися.
+
+
+## Root інтеграція planning/category/monthly
+
+Root переніс лише own1416155/f43f82b/f8089f4 та ownmonthly a69d02b поверх main68/legacy69.
+Конфлікт entry/routes вирішено additive: budget-template, entity, recipe, voucher namespaces
+та script loaders залишені. 0022 залежить від справжньої0021. Backend source збігається
+з delivery. Root independent PostgreSQL2 PASS0.418s: atomic receipt rollback/audit і actual
+RR READ ONLY identity. Незмінені author PostgreSQL7/unit3/Story2 докази використані повторно.
+Combined tsc/Vite build, targeted lint/Prettier/syntax PASS. Actual combined category consumer
+primary PASS: lostACK/edited exact409/identity-only/current503/name-active merge, keyboard
+Apply(noPUT)/separateSave, план777.77 не втрачений; canceledGET/wrongsemanticACK такожPASS.
+`/tmp/tsukenya-root-planning-category/report.json`; actual320 PNG переглянуто.
+Harness pins isolated settings/password helper, scrubs DB/PG/URL/owner credentials, closes
+log FD, detects earlyexit і awaitsclean teardown. Explicit full registry включає primary/
+scope-only/ack-repeat-only по одному разу; його --plan перевірено, full не запускався.
