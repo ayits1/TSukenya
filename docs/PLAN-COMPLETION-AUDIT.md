@@ -40,6 +40,11 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B24 stock/assortment:** #52 MERGED, exact-head server/PostgreSQL CI успішні. Full E/P bootstrap, selected directory controls, detail/posting measurements залишаються активною роботою.
 - **B21 jobs/history:** backend e3c8402 + fresh-index/cache followup1efac7c та UI88df72f інтегровані для PR/CI. Root PostgreSQL3:1001-row/restart/audit, once-per-step refs, migration0017 forward/backfill/reverse успішні; VM/runtime/parser/types/generated contract та final-native partial100/101/320 proof успішні. [CATALOG-IMPORT-UI.md](CATALOG-IMPORT-UI.md). CLI worker перевірений; production scheduler/service і capacity100000 не підтверджені, VPS/deployment/full/0.1 не виконані.
 
+## Після прийняття #54 · main2043bb6 · 04.10.2026
+
+- **B24 document detail:** #54 MERGED, exact-head0498cf6 server/PostgreSQL CI успішні. DTO receipt lineage/remaining aggregates збережені;100-row detail309–409→10 SQL. Початковий старий multilot тест виправлено до line_key→PK identity без SQL ordering припущення. Production SLA, весь E/P bootstrap та global runtime snapshot не зараховано завершеними.
+- **B25 journal/closed periods:** пакет0a72e9c інтегрований для PR/CI. Root real PostgreSQL3 та strict DTO PASS, actual native320/1440 переглянуті; нові read-only сценарії зареєстровано в явному full entrypoint. Scheduler activation, retention й recovery/backup0.1 залишаються окремими межами. [RECONCILIATION-JOURNAL.md](RECONCILIATION-JOURNAL.md).
+
 ## Позначення
 
 Оновлення після main95d42c0: **#53 MERGED**, exact-head frontend/server/PostgreSQL CI успішні; B21 operational worker/service й production capacity залишаються відкритими. Наступний B24 document-detail пакет інтегрований для PR/CI: bounded DTO aggregates/receipt lineage, independent parity/security/retry checks, PostgreSQL root3+agent6 та local1/5/10 posting evidence. [B24-DOCUMENT-POSTING.md](B24-DOCUMENT-POSTING.md). Це не закриває решту bootstrap/migration або release/full/0.1.
