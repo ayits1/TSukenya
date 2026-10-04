@@ -21,11 +21,11 @@ def observation_key(document, store):
     return document.path + ':' + (str(store.pk) if store else 'network')
 
 
-def observe_prices(user, documents, source, reason, *, seed=False, config=None, scoped=False):
+def observe_prices(user, documents, source, reason, *, seed=False, config=None, scoped=False, product_paths=None):
     """Caller holds ledger_lock. Seed captures the genuine pre-write state, not a fake history row."""
     count = 0
     for store in contexts(user if scoped else None):
-        resolver = PriceResolver(config, store)
+        resolver = PriceResolver(config, store, product_paths=product_paths)
         for document in documents:
             value = terms(resolver.resolve(document))
             key = observation_key(document, store)

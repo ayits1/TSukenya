@@ -215,3 +215,5 @@ from .production_models import RecipeVersion, RecipeComponent, ProductionInput
 from .idea_models import IdeaProject, ProjectTask, ProjectExpense, ProjectOperation
 from .alert_models import AlertTaskAction
 from .state_version_models import StateVersion
+
+from .import_models import CatalogImportRun, CatalogImportRow, CatalogImportChunk, CatalogImportIndex, CatalogNameIndex, CatalogRecipeIndex, CatalogIndexDirty

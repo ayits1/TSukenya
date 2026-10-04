@@ -35,6 +35,11 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 
 Історичні рядки матриці нижче описують попередній зріз; ці оновлення не підтверджують VPS deployment, production SLA або повну регресію.
 
+## Після прийняття #52 · main432e2c2 · 04.10.2026
+
+- **B24 stock/assortment:** #52 MERGED, exact-head server/PostgreSQL CI успішні. Full E/P bootstrap, selected directory controls, detail/posting measurements залишаються активною роботою.
+- **B21 jobs/history:** backend e3c8402 + fresh-index/cache followup1efac7c та UI88df72f інтегровані для PR/CI. Root PostgreSQL3:1001-row/restart/audit, once-per-step refs, migration0017 forward/backfill/reverse успішні; VM/runtime/parser/types/generated contract та final-native partial100/101/320 proof успішні. [CATALOG-IMPORT-UI.md](CATALOG-IMPORT-UI.md). CLI worker перевірений; production scheduler/service і capacity100000 не підтверджені, VPS/deployment/full/0.1 не виконані.
+
 ## Позначення
 
 - **C — завершено узгоджену реалізацію:** правило є в authoritative source, matching цільове покриття й опис результату існують. Явні implementation defaults не є новими рішеннями власника.

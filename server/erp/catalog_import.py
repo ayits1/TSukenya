@@ -160,6 +160,9 @@ def commit_import(request, user):
         if previous.data.get('owner') != user.pk or previous.data.get('payloadHash') != digest:
             return response({'error': 'Ключ повтору вже використано для іншого імпорту.', 'code': 'idempotency_conflict'}, 409)
         return response(previous.data['result'])
+    from .import_models import CatalogImportRun
+    if CatalogImportRun.objects.filter(pk=payload['idempotencyKey']).exists():
+        return response({'error': 'Ключ повтору вже використано для іншого імпорту.', 'code': 'idempotency_conflict'}, 409)
     preview_payload = {key: value for key, value in payload.items() if key in {'entries', 'defaultMarkup'}}
     result, prepared = plan(preview_payload, user)
     if not hmac.compare_digest(payload['snapshot'], result['snapshot']):
@@ -186,5 +189,7 @@ def commit_import(request, user):
         saved.append({'line': entry['line'], 'action': entry['action'], 'id': product['id'], 'revision': product['revision']})
     committed = {'ok': True, 'idempotencyKey': payload['idempotencyKey'], 'counts': result['counts'], 'entries': saved}
     Document.objects.create(path=run_path, data={'owner': user.pk, 'payloadHash': digest, 'result': committed})
+    from .import_jobs import mirror_atomic
+    mirror_atomic(user, uuid.UUID(payload['idempotencyKey']), digest, committed)
     audit(user, 'catalog_imported', run_path, result['counts'])
     return response(committed)
