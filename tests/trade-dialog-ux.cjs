@@ -76,7 +76,7 @@ module.exports = async function tradeDialogUX(page, base, wait) {
     if(route.request().method() !== 'POST') return route.continue();
     requests++;
     await gate;
-    await route.fulfill({status:400, contentType:'application/json', body:JSON.stringify({error:'Тестова помилка збереження'})});
+    await route.fulfill({status:503, contentType:'application/json', body:JSON.stringify({error:'Тестова помилка збереження'})});
   };
   await page.route(entityURL, entityHandler);
   await active().locator('button[type=submit]').click();
@@ -101,23 +101,23 @@ module.exports = async function tradeDialogUX(page, base, wait) {
 
   // Reporting failures preserve editable filters and the last successful report.
   await go('reports');
-  const previousReport = await page.locator('#tradeReportResult').innerText();
+  await page.locator('#boundedReportRows tbody tr').waitFor();const previousReport = await page.locator('[data-report-summary]').innerText();
   let releaseReport;
   const reportGate = new Promise(resolve => releaseReport = resolve);
-  const reportURL = '**/api/erp/report?*';
+  const reportURL = '**/api/v1/trading/reports/summary?*';
   const reportHandler = async route => {
     await reportGate;
-    await route.fulfill({status:400, contentType:'application/json', body:JSON.stringify({error:'Тестова помилка звіту'})});
+    await route.fulfill({status:503, contentType:'application/json', body:JSON.stringify({error:'Тестова помилка звіту'})});
   };
   await page.route(reportURL, reportHandler);
-  await page.locator('#tradeReportForm button[type=submit]').click();
-  await wait(async () => await page.locator('#tradeReportForm').getAttribute('aria-busy') === 'true');
-  assert.equal(await page.locator('#tradeReportForm [name=from]').isDisabled(), true);
+  await page.locator('[data-report-form] button[type=submit]').click();
+  await wait(async () => await page.locator('[data-report-form]').getAttribute('aria-busy') === 'true');
+  assert.equal(await page.locator('[data-report-form] [name=from]').isDisabled(), true);
   releaseReport();
-  await wait(async () => await page.locator('#tradeReportForm').getAttribute('aria-busy') !== 'true');
-  assert.equal(await page.locator('#tradeReportResult').innerText(), previousReport);
-  assert.equal(await page.locator('#tradeReportError').innerText(), 'Тестова помилка звіту');
-  assert.equal(await page.locator('#tradeReportForm [name=from]').isDisabled(), false);
+  await wait(async () => await page.locator('[data-report-form]').getAttribute('aria-busy') !== 'true');
+  assert.equal(await page.locator('[data-report-summary]').innerText(), previousReport);
+  assert.equal(await page.locator('[data-report-error]').innerText(), 'Не вдалося прочитати звіт. Повторіть запит.');assert.match(await page.locator('[data-report-status]').innerText(),/попередній підтверджений/);assert.equal(await page.locator('[data-report-export][href]').count(),0);assert.equal(await page.locator('[data-report-source]:not([disabled])').count(),0);
+  assert.equal(await page.locator('[data-report-form] [name=from]').isDisabled(), false);
   await page.unroute(reportURL, reportHandler);
   const zeroEmployee = (await ok('entities/employees','POST',{name:'Нульовий відсоток',store,shift_rate:400,bonus_percent:0,bonus_basis:'store'})).id;
   const workShift = (await ok('work-shifts','POST',{employee:zeroEmployee,date:today,units:1,shift_rate:400,bonus_percent:0,bonus_basis:'store'})).id;
