@@ -65,3 +65,21 @@ Existing layout command: `TEMPLATE_STAGE=layout TEMPLATE_QA_PORT=18284 TEMPLATE_
 Переглянуто всі виклики `request()`. Гілка warm без запису тепер перевіряє generation, маршрут, видимість та actor binding первісного opening перед будь-якою обробкою відповіді; якщо binding ще немає, виконується нове guarded opening. Restore передає ephemeral session тільки з matching `authorize(signal, recordId)` у власний opening GET. Ці дані не записуються в codec payload. Повторне відкриття чекає завершення close lifecycle, щоб попередній dialog не інвалідував новий `openingId`.
 
 Окремий `QA_TEMPLATE_DRAFT_FROM=review-opening` PASS: `/tmp/tsukenya-template-count-opening-retry-proof/review-opening-report.json`, лог `/tmp/tsukenya-template-count-opening-retry-proof.log`. Чотири вузькі докази: запізнілий warm JSON401 після наступного suspend; public retry після initial GET503; відмова changed-actor warm до resource GET; bound restored-opening із збереженим raw та наступним успішним explicit Restore без PATCH. Перший запуск `/tmp/tsukenya-template-count-opening-proof.log` зупинився у fixture: mode перемкнувся до завершення initial503 і retry був закономірно disabled. Fixture тепер очікує завершений503, потім виконує delayed warm сценарій. Решту count перевірок не повторювали; production source бізнес-операцій і codec не змінено.
+
+## Інтеграція в прийнятий портал · 05.10.2026
+
+Власний count commit2cdbdc4 та review50b4dba/1165984 перенесено на main3fd6a6f.
+Збережено чинні monthly/category/recipe/workShift bridges та React sales.
+Matching TypeScript/Vite build, node syntax і git diff --check PASS.
+Цільовий integrated review-opening PASS: відкладений401 після suspend,
+повтор відкриття після503, зміна actor між перевірками та read-only Restore
+із прив’язкою до session/signal/id. Доказ: локальний
+`/tmp/tsukenya-count-integrated-opening/review-opening-report.json`; writes0.
+Перший запуск не зміг відкрити localhost у sandbox до виконання сценарію;
+повторено лише цей сценарій із дозволеним localhost. Незмінені codec/backend
+та попередні review/layout докази використано повторно.
+
+У full-check зареєстровано primary і сім окремих recovery/review scopes;
+QA_TEMPLATE_DRAFT_FROM очищається на вході. Виконано тільки --plan,
+повну регресію й production mutation-тести не запускали. Цей реліз
+охоплює кількість магазинів; відновлення статей витрат розробляється окремо.
