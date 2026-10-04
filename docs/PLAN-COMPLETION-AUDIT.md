@@ -166,3 +166,11 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B24 directories:** full native consumer пакет, strict page/details, scope guard та delayed opening/overlay fixes інтегровано для PR/CI поверх metadata/shared conflict entries. Root actual layout320/200% PASS; bounded metadata не є totals/повним catalogue cache. [B24-BOUNDED-DIRECTORIES.md](B24-BOUNDED-DIRECTORIES.md).
 - **B24 reports:** read-only мапа підтвердила full arrays у legacy report та browser CSV; наступний цілісний пакет summary/pages/server export розпочато. Authoritative accounting і current debts/drilldown helpers зберігаються.
 - VPS, повний regression, зовнішні сервіси й виключений0.1 не виконані.
+
+
+## Після прийняття #59 · main82bc3ed · 04.10.2026
+
+- **B24 directories:** #59 MERGED, exact headdcc9bd7 frontend/server/PostgreSQL CI успішні. Root overlay320/Chrome200% PNG та scope proofs перевірені. Початковий CI зупинився на застарілій Node ERP price fixture; production fallback не повернуто, тест переведено на authoritative Decimal DTO. Канонічний локальний clone синхронізований fast-forward до82bc3ed.
+- **B06 existing entities:** редактори наявних магазинів, складів, рахунків, контрагентів і працівників інтегровані для PR/CI. Shared comparison, frozen revision, local Apply/separate Save, strict required payterms та immutable identity. Author targeted unit/story/PostgreSQL/native докази; root source review й перегляд actual320/1440 PNG. [NATIVE-CONFLICT-RECOVERY.md](NATIVE-CONFLICT-RECOVERY.md). Створення довідників, workshift, vouchers/payments, рецептури й legacy edits залишаються окремими незавершеними пакетами.
+- **B24 reports:** backend інтегрований на окремій гілці рев’ю; root ізольовані PostgreSQL3 PASS, включно з виправленим N+1 1vs65. Native pages/export і final proof ще не прийняті.
+- VPS, повний regression, зовнішні сервіси й виключений0.1 не виконані.
