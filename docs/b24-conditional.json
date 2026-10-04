@@ -1,0 +1,16 @@
+{
+  "baseline": "9c04dad2b48ac59b1b544ec44e4857e273147de6",
+  "sku": 500,
+  "cashiers": 10,
+  "samples": 50,
+  "status": 304,
+  "queries": [
+    2
+  ],
+  "raw_body_bytes": [
+    0
+  ],
+  "median_ms": 5.779,
+  "p95_ms": 23.471,
+  "method": "Django Client + 10 threads, 5 waves, isolated PostgreSQL; no product scan; not wire traffic or production capacity"
+}

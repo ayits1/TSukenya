@@ -264,7 +264,19 @@ function StudioWorkspace({
     staleTime: 15_000,
   });
   useEffect(() => {
-    const refresh = () => {
+    const refresh = (event: Event) => {
+      const detail: unknown = event instanceof CustomEvent ? event.detail : null;
+      if (
+        detail &&
+        typeof detail === 'object' &&
+        'domains' in detail &&
+        Array.isArray(detail.domains) &&
+        detail.domains.every((name: unknown) => typeof name === 'string') &&
+        !detail.domains.some((name: unknown) =>
+          ['products', 'settings/main'].includes(String(name)),
+        )
+      )
+        return;
       void client.invalidateQueries({ queryKey: ['label-products'] });
       void client.invalidateQueries({ queryKey: ['label-preview'] });
       void client.invalidateQueries({ queryKey: ['label-preview-detail'] });
