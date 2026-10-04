@@ -38,3 +38,21 @@ Django `LegacyCreateReceipt` зберігає UUID, автора, колекці
 ## Межі перевірки
 
 Intent зберігається лише в пам’яті вкладки; persistence після reload залишається окремою відкладеною роботою. Це не нова фінансова формула, lifecycle проєктів або зміна accounting. Full suite, screen reader, production/Google Sheet, VPS, backup і deployment не запускалися.
+
+
+## Root інтеграція
+
+Доставлено лише три власні commits поверх прийнятого main #68; dependency merge не перенесено.
+Конфлікт portal.openapi.json розв’язано як додавання нових paths/schema: чинний budget-template
+GET/PATCH і його схеми збережені. Усі локальні $ref перевірені. Backend snapshot/tests та
+runtime/ACK/shared legacy adapter збігаються з перевіреним delivery; portal.js має лише
+прийняті незалежні template зміни. Root PostgreSQL 2 PASS (0.438s): початковий магазин,
+історична unknown identity/current actor і справжній READ ONLY snapshot/nested guard.
+Root VM runtime-create-key/runtime-recovery/legacy-create-identity/portal-metadata-contract PASS.
+
+Майбутній explicit full entrypoint містить один wrapper чотирьох native stages і standalone
+identity unit; очищає LEGACY_CREATE_STAGE/FROM. Перевірено лише --plan, не full.
+Harness задає ізольований Django settings до password helper, прибирає DB/PG/URL й
+успадковані owner credentials, перевіряє ранній exit; teardown очікує власний процес.
+Actual native layout root на зведеному коді PASS:1440/320, клавіатура/44px/no overflow, Apply без PATCH.
+Артефакт `/tmp/tsukenya-root-legacy-create/layout-report.json`; receipt320 PNG переглянуто.

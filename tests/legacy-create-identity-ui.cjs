@@ -4,10 +4,10 @@ const root=path.resolve(__dirname,'..'),python=process.env.PYTHON_BIN||'python3'
 if(!stage){for(const value of ['primary','tail','layout','boundary'])execFileSync(process.execPath,[__filename],{cwd:root,env:{...process.env,LEGACY_CREATE_STAGE:value,LEGACY_CREATE_FROM:''},stdio:'inherit'});process.exit(0);}
 assert(['primary','tail','layout','boundary'].includes(stage),'Unknown legacy CREATE stage');
 const data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-legacy-identity-')),port=18516,base='http://localhost:'+port,password='isolated-legacy-password',output=process.env.QA_OUTPUT_DIR||'/tmp/tsukenya-legacy-create-proof';fs.mkdirSync(output,{recursive:true});
-const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-legacy-password"))'],{cwd:root,encoding:'utf8'}).trim();
-const env={...process.env,HOST:'127.0.0.1',PORT:String(port),DATA_DIR:data,ERP_DB_PATH:path.join(data,'qa.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash,DJANGO_SETTINGS_MODULE:'server.settings',DJANGO_SECRET_KEY:'isolated-legacy-identity-only-secret-at-least-fifty-characters'};for(const k of Object.keys(env))if(/^DB_|^PG/.test(k)||['DATABASE_URL','TSUKENYA_REQUIRE_POSTGRES'].includes(k))delete env[k];
+const env={...process.env,HOST:'127.0.0.1',PORT:String(port),DATA_DIR:data,ERP_DB_PATH:path.join(data,'qa.sqlite3'),OWNER_USERNAME:'tester',DJANGO_SETTINGS_MODULE:'server.settings',DJANGO_SECRET_KEY:'isolated-legacy-identity-only-secret-at-least-fifty-characters'};for(const k of Object.keys(env))if(/^DB_|^PG/.test(k)||['DATABASE_URL','POSTGRES_URL','TSUKENYA_REQUIRE_POSTGRES','OWNER_PASSWORD','OWNER_PASSWORD_HASH'].includes(k))delete env[k];
+const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-legacy-password"))'],{cwd:root,env,encoding:'utf8'}).trim();env.OWNER_PASSWORD_HASH=hash;
 const server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});let browser,page;const checks=[];
-const wait=async f=>{for(let i=0;i<150;i++){if(await f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
+const wait=async f=>{for(let i=0;i<150;i++){if(server.exitCode!==null||server.signalCode!==null)throw Error('Disposable legacy server exited');if(await f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
 const py=code=>execFileSync(python,['-c',"import os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','server.settings');import django;django.setup();"+code],{cwd:root,env,encoding:'utf8'}).trim();
 (async()=>{
  await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
