@@ -1,7 +1,9 @@
 """Explicit counterparty settlements. No automatic FIFO allocation or payroll netting."""
 from collections import defaultdict
+from contextlib import closing
 from copy import copy
 from decimal import Decimal
+from itertools import islice
 from django.db.models import Prefetch
 from .models import PaymentAllocation, Voucher
 
@@ -51,6 +53,23 @@ def prefetched_sources(query):
     return query.prefetch_related(
         Prefetch('voucher_set', queryset=Voucher.objects.filter(status='posted',kind__in=['customer_return','supplier_return','payment']),to_attr='browse_settlements'),
         Prefetch('settlement_allocations',queryset=PaymentAllocation.objects.filter(settlement__status='posted',payment__status='posted').select_related('settlement','payment','source'),to_attr='browse_allocations'))
+
+
+def current_source_obligations(query):
+    """Read posted sources in fixed batches without materializing their child collections.
+
+    Reuse the report scalar reader with no date cutoff: current obligations include
+    every posted child, including future-dated legacy records. Posting adapters
+    above keep their existing contract; callers own authorization and read_snapshot.
+    Headers omit the full payload, so consumers must use its scalar projections.
+    """
+    from . import report_children as children
+    query = children.headers(query.filter(status='posted', kind__in=SOURCE_KINDS))
+    with closing(query.iterator(chunk_size=children.CHUNK)) as sources:
+        while batch := list(islice(sources, children.CHUNK)):
+            amounts = children.obligations(batch, None)
+            for source in batch:
+                yield source, amounts[source.pk]
 
 
 def direction(payment):

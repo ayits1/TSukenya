@@ -386,3 +386,29 @@ reconcile/backup checksum+list PASS, business digest незмінний. Canonic
 Health/worker/backup/read-only reconcile успішні, дані до/після збігаються.
 Історичний Artifact, P1–P3 recovery, price-package2/receipt review та React Stock
 мають окреме подальше приймання.0.1 виключено.
+
+
+## Продовження після #99–100 · maincdf163f · 05.10.2026
+
+Історичні рядки матриці вище не змінюють стан наступних прийнятих пакетів:
+
+- **#99 / B06 entity reload:** чернетки п’яти довідників підключені до P0;
+  raw input, незмінний CREATE, confirmed GET barrier та READ privacy.
+  Незалежне рев’ю,22 unit, actual isolated READ/CREATE й CI успішні.
+  [ENTITY-DRAFT-PERSISTENCE.md](ENTITY-DRAFT-PERSISTENCE.md).
+- **#100 / накладна → ціни → Studio:** явне джерело закупівельної ціни,
+  signed preview/commit, immutable receipt і окремий handoff. Actual isolated
+  browser1440/320/context та CI успішні; попередні незмінені PG/story докази
+  використано повторно. [RECEIPT-CATALOG-REVIEW.md](RECEIPT-CATALOG-REVIEW.md).
+- Обидва пакети опубліковані на VPS; accepted health, worker та scoped release
+  звірені, контроль облікових даних до/після незмінний. Production mutation
+  тестів і повної регресії не запускали.
+- **B24 CRM child reads:** інтегровано наступний пакет для PR/CI:
+  [B24-CRM-SETTLEMENT-READS.md](B24-CRM-SETTLEMENT-READS.md).
+  Це не завершення інших legacy `with_settlements` consumers або cross-device polling.
+
+B06 workShift/recipe/planningCategory/monthlyBudget/budgetTemplate, P2/P3 та
+наступні торговельні React-модулі залишаються відкритими. B22 потребує
+серверного доступу до визначеної Google-таблиці; B23 — провайдерів та API;
+B26 loyalty — правил балів і каналів. Ці входи не блокують решту автономних
+пакетів. Пункт0.1 виключений із роботи. Повний план не оголошується завершеним.

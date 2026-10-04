@@ -114,14 +114,14 @@ class CustomerFactsTests(TransactionTestCase):
         self.assertEqual(handle_customers(RequestFactory().get('/api/v1/crm/unknown'), self.u).status_code, 404)
 
     def test_queries_are_batched_and_reads_do_not_mutate(self):
-        # Query budget for one <=200 invoice batch; no per-invoice settlement SQL.
+        # One <=200 source batch, fresh actor and scalar child streams; no per-invoice SQL.
         Voucher.objects.bulk_create([Voucher(kind='sale', store=self.store, party=self.customer, created_by=self.u,
                                              status='posted', date=self.today, total=1, payload={}) for _ in range(100)])
         with CaptureQueriesContext(connection) as queries:
             result = self.facts()
         self.assertEqual((result['purchases']['checks'], result['debt']['outstanding']), (100, '100.00'))
-        selects = [row['sql'] for row in queries if row['sql'].lstrip().upper().startswith('SELECT')]
-        self.assertLessEqual(len(selects), 8, selects)
+        selects = [row['sql'] for row in queries if row['sql'].lstrip().upper().startswith(('SELECT', 'DECLARE'))]
+        self.assertLessEqual(len(selects), 12, selects)
         if connection.vendor == 'postgresql':
             self.assertTrue(any('REPEATABLE READ, READ ONLY' in row['sql'] for row in queries))
         self.assertFalse(any(row['sql'].lstrip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')) for row in queries))
