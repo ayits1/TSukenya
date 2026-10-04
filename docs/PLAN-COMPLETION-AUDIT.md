@@ -204,3 +204,11 @@ B21 jobs/history та versioned CRM/trading migration не завершені. D
 - **B06 tasks/ideas/legacy expenses:** #63 MERGED, exact heada7cf175 frontend/server/PostgreSQL CI SUCCESS. Independent root review виправило Apply/layout/isolation та старі compatibility fixtures, не послаблюючи If-Match. Targeted PG2+PG4/ACK/layout/metadataVM PASS, author matching proofs reused. Повний B06 не завершено.
 - **Shared directory optional empty UX:** інтегровано для PR/CI. Єдиний ComboBox показує caption порожнього фільтра з native option або React prop без підміни committed ID чи q. Author six stories/types/lint/build/native320+1440 PASS; root source/PNG review і affected isolated native/build PASS. [DIRECTORY-EMPTY-QA.md](DIRECTORY-EMPTY-QA.md).
 - Voucher/payment/recipe consumers тривають окремо. Full local regression, deployment, production capacity, external integrations та0.1 не виконані; статус усього GitHub-плану не підвищується до complete.
+
+
+## Після прийняття #64 · main4e13204 · 04.10.2026
+
+- **Shared optional directory captions:** #64 MERGED, exact headc9e3ae8 frontend/server/PostgreSQL CI SUCCESS; canonical clone fast-forward4e13204 clean. Shared caption не підміняє committed ID, query або required control state. [DIRECTORY-EMPTY-QA.md](DIRECTORY-EMPTY-QA.md).
+- **B06 recipes:** інтегровано для PR/CI. Frozen first approval UUID/body, exact retry після lost ACK, current-policy readonly comparison, local Apply/separate Save, immutable saved versions. Root review виправило inconsistent pagination, phone ingredient geometry та isolated harness lifecycle. Targeted unit/build/lint/PG2/native paging/layout PASS; author compatibility та незмінені API/concurrency/story/native докази звірено й перевикористано. [NATIVE-CONFLICT-RECOVERY.md](NATIVE-CONFLICT-RECOVERY.md).
+- **B06 voucher/payment:** independent review знайшло втрату першого intent після ambiguous retry4xx, semantic ACK binding, aggregate Decimal bounds і production UUID binding; comprehensive fix проходить повторне вузьке рев’ю. Monthly/template recovery, entity creation receipt та legacy creation identity ще не прийняті. Reload survival не заявляється поточними recovery пакетами.
+- Повний regression, deployment, production capacity, зовнішні інтеграції та виключений0.1 не виконані. Увесь GitHub-план не завершено.

@@ -101,3 +101,8 @@
 }
 
 @layer legacy { .legacy-record-recovery { display:grid; gap:12px; margin-top:16px; } .legacy-record-recovery p:empty,.legacy-record-recovery .row:not(:has(button:not([hidden]))),.legacy-record-recovery [data-comparison]:empty { display:none; } }
+
+/* A recipe ingredient needs the full narrow row; quantity and remove stay together. */
+@layer legacy {
+@media(max-width:600px){.trade-recipe-row{grid-template-columns:minmax(0,1fr) 44px}.trade-recipe-row>:first-child{grid-column:1/-1}.trade-recipe-row>*{min-width:0}}
+}

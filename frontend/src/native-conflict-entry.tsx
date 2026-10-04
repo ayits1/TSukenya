@@ -13,11 +13,13 @@ import {
 import './shared/ui/controls.css';
 import * as entityEditor from './shared/native/entity';
 import * as legacyEditor from './shared/native/legacy';
+import * as recipeEditor from './shared/native/recipe';
 
 declare global {
   interface Window {
     NativeEntityEditor?: typeof entityEditor;
     NativeLegacyEditor?: typeof legacyEditor;
+    NativeRecipeEditor?: typeof recipeEditor;
     NativeWorkShiftEditor?: {
       captureWorkShiftDraft: typeof captureWorkShiftDraft;
       decodeWorkShift: typeof decodeWorkShift;
@@ -33,6 +35,7 @@ declare global {
 }
 window.NativeEntityEditor = entityEditor;
 window.NativeLegacyEditor = legacyEditor;
+window.NativeRecipeEditor = recipeEditor;
 window.NativeWorkShiftEditor = {
   captureWorkShiftDraft,
   decodeWorkShift,

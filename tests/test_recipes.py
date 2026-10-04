@@ -8,14 +8,14 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.db import close_old_connections, connection, connections
-from django.test import Client, TestCase, TransactionTestCase
+from django.test import Client, TransactionTestCase
 
 from server.erp.catalog import revision
 from server.erp.models import AuditEvent, Document, LedgerLock, PortalSession, Profile
 from server.erp.services import BusinessError
 
 
-class RecipeEndpointTests(TestCase):
+class RecipeEndpointTests(TransactionTestCase):
     endpoint = '/api/erp/recipes'
 
     def setUp(self):
@@ -61,7 +61,7 @@ class RecipeEndpointTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
             'product': {'id': 'cake', 'name': 'Кекс', 'unit': 'шт'},
-            'recipe': self.original['recipe'], 'revision': revision(self.product),
+            'recipe': self.original['recipe'], 'revision': revision(self.product), 'canEdit': True,
         })
         catalogue = self.client.get('/api/state').json()['data']['products']
         self.assertEqual(next(row['revision'] for row in catalogue if row['id'] == 'cake'), response.json()['revision'])
@@ -90,7 +90,7 @@ class RecipeEndpointTests(TestCase):
         first = self.save_recipe(first_recipe, first_version)
         self.assertEqual(first.status_code, 200)
         self.product.refresh_from_db()
-        self.assertEqual(first.json(), {'ok': True, 'revision': revision(self.product)})
+        self.assertEqual(first.json(), {'ok': True, 'product': 'cake', 'revision': revision(self.product)})
         self.assertNotEqual(first.json()['revision'], first_version)
         stale = self.save_recipe([{'product': 'milk', 'quantity': '0.300'}], second_version,
                                  client=second_client, headers=second_headers)
@@ -271,7 +271,7 @@ class RecipeConcurrencyTests(TransactionTestCase):
         self.assertEqual(loser['body']['code'], 'revision_conflict')
         self.product.refresh_from_db()
         self.assertEqual(self.product.data, {**self.original, 'recipe': winner['recipe']})
-        self.assertEqual(winner['body'], {'ok': True, 'revision': revision(self.product)})
+        self.assertEqual(winner['body'], {'ok': True, 'product': 'cake', 'revision': revision(self.product)})
         self.assertNotEqual(winner['body']['revision'], snapshots[0]['revision'])
         event = AuditEvent.objects.get()
         self.assertEqual((event.user_id, event.action, event.subject),
