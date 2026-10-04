@@ -85,4 +85,6 @@ Django discovery `manage.py test tests` у server/postgres CI та явному 
 
 ## Root інтеграція
 
+Початковий GitHub CI: SQLite server успішний; PostgreSQL виявив нестабільне припущення старого multilot-тесту про порядок SELECT без ORDER BY. Перевірку посилено до точного зіставлення line_key→PK після перестановки рядків; бухгалтерський код не змінено. Виправлений сценарій окремо пройшов на ізольованій PostgreSQL (1 PASS). Повторний CI належить новому head; попередній успіх не є його доказом.
+
 Own commits f3136ad/593cf97/f6689d0/4030d28/2ab3145 інтегровано поверх main95d42c0. Перед перенесенням root перевірив, що reporting.py/services.py на accounting baselinebe48a4a та acceptedmain95d42c0 мають ідентичні Git blobs; posting baseline тому не потребує нового прогону. Root переглянув scope batch queries, amount/quantity aggregate parity, точну receipt_source(strict=False) семантику та opt-in QA database isolation. На інтегрованому коді PostgreSQL **3 PASS**:1/30/100-row actual receipts/sales DTO/query bounds, legacy ambiguous/negative/reversal receipt origins, HTTP create/post/exact retries. Інші незмінені agent proofs використані повторно. Python syntax і git diff-check успішні; нової UI поведінки чи міграцій цей пакет не вводить.
