@@ -102,6 +102,17 @@ class TradingDirectoryTests(TransactionTestCase):
         self.assertEqual(exact['total'],1);self.assertEqual(exact['items'][0]['salePrice'],'13.00')
         self.assertEqual(self.get('products/lookup?mode=fuzzy&q=QA').status_code,400)
 
+    def test_archived_store_historical_selection_and_stock_labels_remain_readable(self):
+        self.store.active=False;self.store.save()
+        self.u.profile.role='manager';self.u.profile.store=self.store;self.u.profile.save()
+        result=self.details({'ids':[{'type':'products','id':'p'}],'store':self.store.pk,'purpose':'sale'})
+        self.assertEqual(result.status_code,200);self.assertEqual(result.json()['items'][0]['id'],'p')
+        self.assertEqual(self.get(f'directories/products?store={self.store.pk}&purpose=filter').status_code,200)
+        self.assertEqual(self.get(f'directories/products?store={self.store.pk}&purpose=sale').status_code,400)
+        self.assertEqual(self.get(f'products/lookup?store={self.store.pk}&mode=barcode&q=QA').status_code,400)
+        self.u.profile.role='warehouse';self.u.profile.save()
+        self.assertEqual(self.get('directories/cash_shifts').status_code,403)
+
     def test_pg_page_count_and_rows_share_readonly_snapshot(self):
         if connection.vendor!='postgresql':self.skipTest('PostgreSQL snapshot interleaving')
         for i in range(31):Counterparty.objects.create(name=f'QA snapshot {i:03}',kind='customer')

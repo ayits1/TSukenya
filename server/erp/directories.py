@@ -38,6 +38,7 @@ def identifier(value, resource):
 def parameters(user, resource, params):
     require(user.profile.role in ROLES and resource in MODELS, 'Довідник недоступний.')
     if resource == 'expense_categories':require(user.profile.role in {'owner','manager','accountant'},'Статті витрат недоступні.')
+    if resource == 'cash_shifts':require(user.profile.role in {'owner','manager','cashier','accountant'},'Касові зміни недоступні.')
     purpose = params.get('purpose', 'browse')
     require(purpose in PURPOSES, 'Невідоме призначення вибору.')
     if purpose in KINDS: require(purpose in ROLE_KINDS[user.profile.role], 'Ваша роль не дозволяє цю операцію.')
@@ -134,13 +135,19 @@ def item(user, resource, obj, additional=None, resolver=None):
     return result
 
 
-def serialized(user, resource, objects, purpose, store=None):
+def serialized(user, resource, objects, purpose, store=None, *, selected=False):
     extra=extras(user,resource,objects,purpose)
     resolver=None
     if resource == 'products':
         from .catalog import defaults
         from .promotion_prices import PriceResolver,context_store
-        resolver=PriceResolver(defaults(),context_store(user,str(store) if store else None),product_paths=[obj.pk for obj in objects])
+        # Historical selection/stock labels remain readable when the store is archived.
+        # Scope is already checked by parameters(); new-operation choice pricing keeps its guard.
+        if store is not None and (selected or purpose in {'label','browse','filter'}):
+            pricing_store=Store.objects.filter(pk=store).first()
+            require(pricing_store is not None,'Магазин недоступний.')
+        else:pricing_store=context_store(user,str(store) if store else None)
+        resolver=PriceResolver(defaults(),pricing_store,product_paths=[obj.pk for obj in objects])
     return [item(user,resource,obj,extra.get(obj.pk,{}) if purpose in {'finance','manage'} else None,resolver) for obj in objects]
 
 
@@ -170,7 +177,7 @@ def details(user, value):
             params={key:str(value[key]) for key in ('store','purpose') if value.get(key) is not None}
             purpose,_,store=parameters(user,resource,params)
             found=list(query_for(user,resource,params,selected=True).filter(pk__in=ids).order_by('pk'))
-            result += [{'type':resource,**row} for row in serialized(user,resource,found,purpose,store)]
+            result += [{'type':resource,**row} for row in serialized(user,resource,found,purpose,store,selected=True)]
             available={obj.pk for obj in found}
             missing += [{'type':resource,'id':str(pk).split('/',1)[1] if resource=='products' else str(pk)} for pk in ids if pk not in available]
     return {'items':result,'unavailable':missing}
