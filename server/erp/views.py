@@ -656,6 +656,13 @@ def handle(request):
             require(len(rows)<=200,'В одному документі може бути не більше 200 товарів.')
         require(rows,'У CSV немає товарних рядків.')
         return response({'lines':rows})
+    if path=='/api/erp/recipes/recovery-context' and request.method=='GET':
+        from .recipe_drafts import recovery_context
+        return response(recovery_context(user,request.GET))
+    if path=='/api/erp/recipes/versions/identity':
+        if request.method!='POST':return response({'error':'Метод недоступний.','code':'method_not_allowed'},405)
+        from .recipe_drafts import identity
+        return response(identity(user,body(request)))
     if path.startswith('/api/erp/recipes/versions'):
         from .recipes_versions import handle_versions
         return handle_versions(request,user)
