@@ -19,7 +19,7 @@ async function check(condition,message){for(let i=0;i<80;i++){if(await condition
  page.on('pageerror',e=>errors.push(e.message));
  await require('./browser-login.cjs')(page,base,password);
  const state=()=>page.evaluate(async()=> (await (await fetch('/api/state')).json()).data);
- const go=async(route)=>{await page.goto(base+'/#'+route);if(route==='trade/purchases')await waitForTradingRoute(page,'purchases');else await page.waitForSelector(route==='operations/products'?'.tk-catalog':route==='operations/tags'?'.tk-studio':'#main .panel');if(route==='operations/tags')await page.getByRole('combobox',{name:'Товар для перегляду',exact:true}).waitFor();};
+ const go=async(route)=>{await page.goto(base+'/#'+route);if(['trade/purchases','trade/sales'].includes(route))await waitForTradingRoute(page,route.split('/')[1]);else await page.waitForSelector(route==='operations/products'?'.tk-catalog':route==='operations/tags'?'.tk-studio':'#main .panel');if(route==='operations/tags')await page.getByRole('combobox',{name:'Товар для перегляду',exact:true}).waitFor();};
  await go('operations/products');await check(async()=>await page.locator('.tk-product-table tbody tr').count()===20,'catalog initial page');
  await page.getByRole('button',{name:'Далі',exact:true}).click();await check(async()=>/21–40/.test(await page.locator('.tk-catalog-pagination').innerText()),'page two');
  await page.getByRole('searchbox',{name:'Пошук товару'}).fill('Американо');await check(async()=>await page.locator('.tk-product-table tbody tr').count()===1,'search');

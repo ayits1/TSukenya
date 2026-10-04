@@ -27,7 +27,7 @@ module.exports = async function tradeDialogUX(page, base, wait) {
   if(process.env.QA_TRADE_FROM==='price'){await priceAndCashier();console.log('ERP price and scoped cashier tail passed');return;}
   if(process.env.QA_TRADE_FROM==='stock'){await filteredStockAndCsv();console.log('React Stock scoped rows, full-filter values/lots and CSV passed');return;}
   await go('sales');
-  const newSale = page.locator('[data-trade=new-voucher][data-kind=sale]');
+  const newSale = page.getByRole('button',{name:'+ Продаж',exact:true});
   await newSale.click();
   await page.locator('#tradeVoucherForm').waitFor();
   await active().locator('[data-trade=remove-line]').click();
@@ -161,7 +161,7 @@ module.exports = async function tradeDialogUX(page, base, wait) {
   const secondWarehouse=(await ok('entities/warehouses','POST',{name:'Інший тестовий склад',store:secondStore})).id;
   const foreignEmployee=(await ok('entities/employees','POST',{name:'Працівник іншого магазину',store:secondStore,shift_rate:0,bonus_percent:0,bonus_basis:'store'})).id;
   await go('sales');
-  await page.locator('[data-trade=shift-open]').click();
+  await page.getByRole('tab',{name:'Касові зміни',exact:true}).click();await page.getByRole('button',{name:'Відкрити зміну',exact:true}).click();
   await active().locator('[name=account]').selectOption(String(cash));
   const offeredEmployees=await active().locator('[name=employee] option').evaluateAll(options=>options.map(o=>o.value));
   assert.equal(offeredEmployees.includes(String(foreignEmployee)),false,'Cash employees follow selected cash account store');
@@ -239,9 +239,9 @@ module.exports = async function tradeDialogUX(page, base, wait) {
     await cashierPage.route('https://fonts.googleapis.com/**',route=>route.abort());
     await cashierPage.route('https://fonts.gstatic.com/**',route=>route.abort());
     await cashierPage.goto(base+'/#trade/sales',{waitUntil:'domcontentloaded'});
-    await cashierPage.locator('[data-trade=shift-open]').waitFor();
-    assert.equal(await cashierPage.locator('[data-trade=shift-close]').count(),0,'Cashier cannot close another cashier shift');
-    await cashierPage.locator('[data-trade=new-voucher][data-kind=sale]').click();
+    await cashierPage.getByRole('tab',{name:'Касові зміни',exact:true}).click();await cashierPage.getByRole('heading',{name:'Касові зміни',exact:true}).waitFor();
+    assert.equal(await cashierPage.getByRole('button',{name:/Закрити зміну №/}).count(),0,'Cashier cannot close another cashier shift');
+    await cashierPage.getByRole('tab',{name:'Документи',exact:true}).click();await cashierPage.getByRole('button',{name:'+ Продаж',exact:true}).click();
     await cashierPage.locator('#tradeVoucherForm').waitFor();
     assert.equal(await cashierPage.locator('[name=shift] option:not([value=""])').count(),0,'Other cashier shift unavailable for new sale');
     await cashierPage.locator('.trade-dialog [data-trade=close]').click();

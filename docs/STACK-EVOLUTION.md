@@ -43,3 +43,11 @@
 поповнення з lazy деталями та явними частинами до 200 рядків. Чинні native
 редактори/деталі/проведення й receipt → price review працюють через callbacks.
 Контракт, цільові докази та межа — [REACT-PURCHASES.md](REACT-PURCHASES.md).
+
+## Продажі та каса: фактичний React workspace
+
+`#trade/sales` має React/TypeScript вкладки журналу документів і касових змін:
+по 30 scalar headers, server search/scope/date filters та strict OpenAPI.
+Native редагування/проведення, пов'язані продажі й повернення та касові дії
+залишені чинними callbacks; серверні облікові правила збережено. Точна межа,
+цільові докази та обмеження — [REACT-SALES.md](REACT-SALES.md).

@@ -538,7 +538,7 @@ def handle(request):
                 entry=manifest.get(key,{})
                 styles.update(entry.get('css',[]))
                 for chunk in entry.get('imports',[]): collect_styles(chunk)
-            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx','src/native-conflict-entry.tsx','src/trading-entry.tsx','src/abc-entry.tsx','src/stock-entry.tsx','src/purchases-entry.tsx','src/receipt-pricing-entry.tsx']:
+            for key in ['src/catalog-entry.tsx','src/labels-entry.tsx','src/customers-entry.tsx','src/native-conflict-entry.tsx','src/trading-entry.tsx','src/abc-entry.tsx','src/stock-entry.tsx','src/purchases-entry.tsx','src/sales-entry.tsx','src/receipt-pricing-entry.tsx']:
                 collect_styles(key)
                 if manifest.get(key,{}).get('file'): scripts.append('<script type="module" src="/frontend/'+manifest[key]['file']+'" onerror="window.dispatchEvent(new CustomEvent(\'tsukenya:module-unavailable\',{detail:\''+key.split('/')[1].split('-')[0]+'\'}))"></script>')
             html=html.replace('</head>',''.join('<link rel="stylesheet" href="/frontend/'+name+'">' for name in sorted(styles))+'</head>').replace('</body>',''.join(scripts)+'</body>')
@@ -569,6 +569,10 @@ def handle(request):
     if match and request.method=='POST':
         from .entity_receipts import identity
         return response(identity(user,match[1],body(request)))
+    if path in {'/api/v1/trading/sales/documents','/api/v1/trading/sales/cash-shifts'}:
+        from . import sales_reads
+        if request.method!='GET': return response({'error':'Метод недоступний.'},405)
+        return response((sales_reads.documents if path.endswith('/documents') else sales_reads.cash_shifts)(user,request.GET))
     if path in {'/api/v1/trading/purchases/documents','/api/v1/trading/purchases/replenishment','/api/v1/trading/purchases/replenishment/lines','/api/v1/trading/purchases/replenishment/draft'}:
         from . import purchases_reads
         if request.method!='GET': return response({'error':'Метод недоступний.'},405)

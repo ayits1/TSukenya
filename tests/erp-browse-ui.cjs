@@ -107,7 +107,7 @@ module.exports=async function browseUX(page,base,wait){
   const stockHeaders=await cashierPrimary().locator('details th').allTextContents();
   assert.deepEqual(stockHeaders,['Склад','Партія','Кількість']);
   await cashierPrimary().locator('[data-trade=close]').click();
-  await p.locator('[data-trade=new-voucher][data-kind=customer_return]').click();
+  await p.getByRole('button',{name:'+ Повернення покупця',exact:true}).click();
   await cashierPrimary().locator('[data-trade=choose-reference]').click();
   await wait(async()=>(await cashierPicker().locator('[data-browse-results]').getAttribute('aria-busy'))!=='true');
   await cashierPicker().locator('[name=q]').fill(String(paidSale.id));

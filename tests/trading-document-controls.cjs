@@ -9,6 +9,7 @@ function newDocumentButton(page,kind){
  return labels[kind]?native.or(page.getByRole('button',{name:'+ '+labels[kind],exact:true})):native;
 }
 async function waitForTradingRoute(page,tab){
+ if(tab==='sales'){await page.locator('[data-react-sales]').waitFor();await page.waitForFunction(()=>{const host=document.querySelector('[data-react-sales]');return host&&host.querySelector('.sales-create button:not(:disabled)')&&![...host.querySelectorAll('[role=status]')].some(el=>el.textContent.includes('Завантаження продажів'));});return;}
  if(tab!=='purchases'){await page.locator('#main .panel').first().waitFor();return;}
  await page.locator('[data-react-purchases]').waitFor();
  await page.waitForFunction(()=>{const host=document.querySelector('[data-react-purchases]');return host&&host.querySelector('.purchases-create button:not(:disabled)')&&![...host.querySelectorAll('[role=status]')].some(el=>el.textContent.includes('Завантаження закупівель'));});
