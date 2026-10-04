@@ -68,7 +68,7 @@ jobs:
       - name: Browser adapter and legacy module scenarios
         run: |
           node scripts/generate-catalog-schema.mjs --check
-          for scenario in sync-sim.js catalog-import-parser.cjs catalog-schema.cjs csv-format.cjs runtime-recovery.cjs runtime-create-key.cjs runtime-managed-refresh.cjs portal-metadata-contract.cjs promotion-legacy.cjs monthly-budget-decimal.cjs financial-scope-ui.cjs reconciliation-contract.cjs bounded-reports-contract.cjs cashier-csv.cjs; do
+          for scenario in sync-sim.js catalog-import-parser.cjs catalog-schema.cjs csv-format.cjs runtime-recovery.cjs runtime-create-key.cjs runtime-managed-refresh.cjs portal-metadata-contract.cjs portal-validator.cjs promotion-legacy.cjs monthly-budget-decimal.cjs financial-scope-ui.cjs reconciliation-contract.cjs bounded-reports-contract.cjs cashier-csv.cjs; do
             echo "::group::$scenario"
             node "tests/$scenario"
             echo "::endgroup::"

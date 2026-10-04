@@ -10,6 +10,11 @@
   let loading = null, loadingId = 0, started = 0, polled = 0;
   const roles = new Set(['owner', 'manager', 'cashier', 'warehouse', 'accountant']);
 
+  // Caddy appends the encoding to a strong ETag on compressed 200 responses;
+  // a bodyless 304 can retain the origin tag. Compare the scoped version while
+  // echoing the original wire tag. Unknown tags disable this optimization only.
+  const metadataVersion = value => /^(?:W\/)?"(tsukenya-portal-v2-[a-f0-9]{64})(?:-(?:gzip|zstd|br))?"$/.exec(value || '')?.[1] || '';
+
   function snapshot(path) {
     if (path.includes("/")) {
       const value = data[path];
@@ -27,6 +32,14 @@
     }
   }
 
+  function subscribe(path, callback) {
+    const set = listeners.get(path) || new Set(); set.add(callback); listeners.set(path, set);
+    const unsubscribe = () => { set.delete(callback); if (!set.size) listeners.delete(path); };
+    try { if (data) callback(snapshot(path)); }
+    catch (error) { unsubscribe(); throw error; }
+    return unsubscribe;
+  }
+
   // `after` is the last GET number started before a confirmed write. A GET that
   // began earlier may predate the write, so a fresh one is chained after it.
   async function refresh(after) {
@@ -37,7 +50,7 @@
       const response = await fetch("/api/v1/portal/metadata", { credentials: "same-origin", cache: "no-store", headers: stateETag ? { "If-None-Match": stateETag } : {} });
       if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
       if (response.status === 304) {
-        if (!data || !stateETag || response.headers?.get("ETag") !== stateETag) throw new Error("Invalid database validator");
+        if (!data || !stateETag || metadataVersion(response.headers?.get("ETag")) !== metadataVersion(stateETag)) throw new Error("Invalid database validator");
         window.dispatchEvent(new Event("tsukenya:refresh-succeeded"));
         return;
       }
@@ -49,12 +62,13 @@
         throw new Error('Invalid database response');
       }
       try { window.PortalApi.decodeMetadata(result); } catch (_) { throw new Error('Invalid database response'); }
-      const etag = response.headers?.get("ETag") || "";
+      const wireETag = response.headers?.get("ETag") || "";
       const validVersions = result.stateVersions && typeof result.stateVersions === "object" && !Array.isArray(result.stateVersions) &&
         Object.keys(result.stateVersions).length === domains.length && domains.every(name => typeof result.stateVersions[name] === "string" && /^[a-f0-9]{64}$/.test(result.stateVersions[name]));
-      if (etag && (!/^"tsukenya-portal-v2-[a-f0-9]{64}"$/.test(etag) || !validVersions)) throw new Error("Invalid database validator");
-      const changedPaths = etag && stateVersions ? domains.filter(name => stateVersions[name] !== result.stateVersions[name]) : null;
-      const changed = changedPaths ? changedPaths.length > 0 : JSON.stringify(data) !== JSON.stringify(result.data) || window.TSUKENYA_ROLE !== result.role;
+      const etag = metadataVersion(wireETag) && validVersions ? wireETag : "";
+      const identityChanged = window.TSUKENYA_ROLE !== result.role || window.TSUKENYA_SCOPE_STORE !== result.scopeStore || window.TSUKENYA_NETWORK_OWNER !== result.networkOwner;
+      const changedPaths = etag && stateVersions && !identityChanged ? domains.filter(name => stateVersions[name] !== result.stateVersions[name]) : null;
+      const changed = identityChanged || (changedPaths ? changedPaths.length > 0 : JSON.stringify(data) !== JSON.stringify(result.data));
       data = result.data;
       window.TSUKENYA_ROLE = result.role;
       window.TSUKENYA_NETWORK_OWNER = result.networkOwner === true;
@@ -128,9 +142,7 @@
       delete(options) { return mutate("DELETE", `/api/docs/${path}`, undefined, options); },
       onSnapshot(callback) {
         if(/^(tasks|ideas|expenses)\//.test(path))throw new Error('Record subscription is unavailable; read its current revision explicitly');
-        const set = listeners.get(path) || new Set(); set.add(callback); listeners.set(path, set);
-        if (data) callback(snapshot(path));
-        return () => { set.delete(callback); if (!set.size) listeners.delete(path); };
+        return subscribe(path, callback);
       },
     };
   }
@@ -161,9 +173,7 @@
         },
         onSnapshot(callback) {
           if(['products','tasks','ideas','expenses'].includes(name))throw new Error('Full collection subscription is unavailable; use bounded search or explicit export');
-          const set = listeners.get(name) || new Set(); set.add(callback); listeners.set(name, set);
-          if (data) callback(snapshot(name));
-          return () => { set.delete(callback); if (!set.size) listeners.delete(name); };
+          return subscribe(name, callback);
         },
       };
     },
