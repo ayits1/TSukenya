@@ -69,7 +69,7 @@ const identifier = (raw: unknown) =>
   raw.length <= 120 &&
   !raw.includes('/') &&
   ![...raw].some((char) => char.charCodeAt(0) < 32);
-export function decodeDirectoryItem(raw: unknown): DirectoryItem {
+export function decodeDirectoryItem(raw: unknown, type?: DirectoryType): DirectoryItem {
   const v = object(raw);
   check(Object.keys(v).every((key) => fields.includes(key)) && identifier(v.id) && text(v.name));
   for (const key of ['phone', 'email', 'notes', 'revision', 'unit', 'barcode', 'semantic_key'])
@@ -91,9 +91,20 @@ export function decodeDirectoryItem(raw: unknown): DirectoryItem {
   for (const key of ['regularPrice', 'salePrice', 'shift_rate'])
     if (key in v) check(amount(v[key]));
   for (const key of ['balance', 'payroll_debt']) if (key in v) check(amount(v[key], true));
+  const required: Record<DirectoryType, string[]> = {
+    products: ['unit', 'barcode', 'hidden', 'promotion', 'regularPrice', 'salePrice', 'revision'],
+    stores: ['active'],
+    warehouses: ['store_id'],
+    accounts: ['store_id', 'kind'],
+    employees: ['store_id', 'active'],
+    parties: ['kind', 'active', 'phone', 'email', 'notes'],
+    expense_categories: ['active', 'semantic_key'],
+    cash_shifts: ['store_id', 'account_id'],
+  };
+  if (type) check(required[type].every((key) => Object.hasOwn(v, key)));
   return v as DirectoryItem;
 }
-export function decodeDirectoryPage(raw: unknown): DirectoryPage {
+export function decodeDirectoryPage(raw: unknown, type?: DirectoryType): DirectoryPage {
   const v = object(raw);
   check(
     Array.isArray(v.items) &&
@@ -104,8 +115,14 @@ export function decodeDirectoryPage(raw: unknown): DirectoryPage {
       Number(v.page) <= Number(v.pages) &&
       v.limit === 30,
   );
+  const items = (v.items as unknown[]).map((raw) => decodeDirectoryItem(raw, type));
+  check(
+    v.pages === Math.max(1, Math.ceil(Number(v.total) / 30)) &&
+      items.length === Math.min(30, Math.max(0, Number(v.total) - (Number(v.page) - 1) * 30)) &&
+      new Set(items.map((item) => item.id)).size === items.length,
+  );
   return {
-    items: (v.items as unknown[]).map(decodeDirectoryItem),
+    items,
     total: Number(v.total),
     page: Number(v.page),
     pages: Number(v.pages),
@@ -133,7 +150,7 @@ export function decodeDirectoryDetails(raw: unknown): DirectoryDetails {
     const ref = decodeRef(row);
     const value = { ...row };
     delete value.type;
-    return { ...decodeDirectoryItem(value), type: ref.type };
+    return { ...decodeDirectoryItem(value, ref.type), type: ref.type };
   });
   const unavailable = (v.unavailable as unknown[]).map(decodeRef),
     keys = [...items, ...unavailable].map((row) => row.type + ':' + row.id);
@@ -221,7 +238,11 @@ export function createTradingApi(transport: typeof fetch = fetch) {
       Object.entries(query).forEach(([key, value]) => {
         if (value !== null && value !== undefined) params.set(key, String(value));
       });
-      return request('directories/' + type + '?' + params, decodeDirectoryPage, signal);
+      return request(
+        'directories/' + type + '?' + params,
+        (raw) => decodeDirectoryPage(raw, type),
+        signal,
+      );
     },
     async details(
       ids: DirectoryRef[],
@@ -246,7 +267,7 @@ export function createTradingApi(transport: typeof fetch = fetch) {
     lookup(mode: 'barcode' | 'name', q: string, store: number, signal?: AbortSignal) {
       return request(
         'products/lookup?' + new URLSearchParams({ mode, q, store: String(store) }),
-        decodeDirectoryPage,
+        (raw) => decodeDirectoryPage(raw, 'products'),
         signal,
       );
     },

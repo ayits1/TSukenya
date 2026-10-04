@@ -52,6 +52,29 @@ describe('bounded trading read contracts', () => {
     ).toThrow();
     expect(() => decodeTradingBootstrap({ ...bootstrap, role: ['manager'] })).toThrow();
   });
+  it('rejects inconsistent counts, duplicate IDs and incomplete resource DTOs', () => {
+    const page = { items: [{ id: '1', name: 'QA' }], page: 1, pages: 1, total: 1, limit: 30 };
+    for (const bad of [
+      { ...page, total: 31 },
+      { ...page, items: [] },
+      { ...page, total: 2, items: [page.items[0], page.items[0]] },
+    ])
+      expect(() => decodeDirectoryPage(bad)).toThrow();
+    expect(() => decodeDirectoryPage(page, 'employees')).toThrow();
+    expect(() => decodeDirectoryPage(page, 'products')).toThrow();
+    expect(() =>
+      decodeDirectoryDetails({
+        items: [{ type: 'products', id: 'p', name: 'QA' }],
+        unavailable: [],
+      }),
+    ).toThrow();
+    expect(() =>
+      decodeDirectoryPage(
+        { ...page, items: [{ id: '1', name: 'QA', active: false, store_id: 1 }] },
+        'employees',
+      ),
+    ).not.toThrow();
+  });
   it('bootstraps CSRF without a full legacy read and sends a clearly read-only selected batch', async () => {
     const transport = vi
       .fn<typeof fetch>()
@@ -59,7 +82,20 @@ describe('bounded trading read contracts', () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            items: [{ type: 'products', id: 'p', name: 'QA', salePrice: '13.00' }],
+            items: [
+              {
+                type: 'products',
+                id: 'p',
+                name: 'QA',
+                salePrice: '13.00',
+                regularPrice: '13.00',
+                unit: 'шт',
+                barcode: '',
+                hidden: false,
+                promotion: false,
+                revision: 'v1',
+              },
+            ],
             unavailable: [],
           }),
         ),
@@ -82,7 +118,19 @@ describe('bounded trading read contracts', () => {
     const transport = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
-          items: [{ id: 'p', name: 'QA', salePrice: '10.01', regularPrice: '13.00' }],
+          items: [
+            {
+              id: 'p',
+              name: 'QA',
+              salePrice: '10.01',
+              regularPrice: '13.00',
+              unit: 'шт',
+              barcode: '',
+              hidden: false,
+              promotion: true,
+              revision: 'v1',
+            },
+          ],
           page: 1,
           pages: 1,
           total: 1,
