@@ -491,6 +491,9 @@ def handle(request):
         from .portal_api import handle_portal
         return handle_portal(request,user)
     if path.startswith('/api/v1/'):
+        if path.startswith('/api/v1/trading/'):
+            from .directories import handle as handle_directories
+            return handle_directories(request,user)
         if path.startswith('/api/v1/crm/'):
             from .customers import handle_customers
             return handle_customers(request,user)

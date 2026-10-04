@@ -28,7 +28,7 @@
     "test:visual": "npm run test:visual --workspace frontend",
     "test:visual:update": "npm run test:visual:update --workspace frontend",
     "test:full": "node scripts/full-check.mjs",
-    "generate:api": "npm run generate --workspace @tsukenya/api-contracts && npm exec --workspace frontend -- prettier --write src/shared/api/generated.ts src/shared/api/crm.generated.ts",
+    "generate:api": "npm run generate --workspace @tsukenya/api-contracts && npm exec --workspace frontend -- prettier --write src/shared/api/generated.ts src/shared/api/crm.generated.ts src/shared/api/trading.generated.ts",
     "test:catalog:ui": "node tests/catalog-ui.cjs",
     "test:labels:ui": "node tests/labels-ui.cjs",
     "test:promotion:legacy": "node tests/promotion-legacy.cjs"
