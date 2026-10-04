@@ -1,3 +1,4 @@
+const {documentButton,newDocumentButton}=require('./trading-document-controls.cjs');
 /* Actual document editors; synthetic SQLite fixtures, no document saves or postings. */
 const assert = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path'), crypto = require('node:crypto');
 const { spawn, execFileSync } = require('node:child_process'), { chromium } = require('playwright');
@@ -101,9 +102,9 @@ print(json.dumps({'linkedReturn':draft.pk,'sourceLine':line.pk}))`));
   for (const kind of only) {
     await page.setViewportSize({ width: 1440, height: 1050 });
     await page.goto(base + '/#trade/' + (kind === 'sale' ? 'sales' : kind === 'inventory' ? 'stock' : 'purchases'));
-    if (kind === 'supplier_return') { await page.locator(`[data-trade=view][data-id="${ids.linkedReturn}"]`).click(); await dialog().locator('[data-trade=edit-voucher]').click(); }
+    if (kind === 'supplier_return') { await documentButton(page,ids.linkedReturn).click(); await dialog().locator('[data-trade=edit-voucher]').click(); }
     else if (kind === 'inventory') await page.getByRole('button', { name: '+ Інвентаризація', exact: true }).click();
-    else await page.locator(`[data-trade=new-voucher][data-kind=${kind}]`).click();
+    else await newDocumentButton(page,kind).click();
     await rows().first().getByRole('combobox', { name: 'Товар', exact: true }).waitFor();
     if (!geometryOnly) await inspect(kind, 1440, 'initial', kind === 'receipt');
     const product = rows().first().getByRole('combobox', { name: 'Товар', exact: true });

@@ -1,3 +1,4 @@
+const {documentButton}=require('./trading-document-controls.cjs');
 /* Bounded ERP recovery checks. No production writes or full regression. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process');
@@ -82,7 +83,7 @@ print(json.dumps([v.pk for v in rows]))`).toString());
    await page.route(`**/api/erp/vouchers/${id}`,async route=>{const raw=await route.fetch(),dto=await raw.json();if(posted)dto.status='posted';return response(route,dto);});
    await page.route('**/api/v1/trading/bootstrap',route=>{reads++;return reads===1?response(route,{error:'Список документів тимчасово недоступний'},503):route.continue();});
    if(mode==='existing-post'){
-    await page.locator(`[data-trade=view][data-id="${id}"]`).click();await dialog().locator('[data-trade=post-voucher]').click();
+    await documentButton(page,id).click();await dialog().locator('[data-trade=post-voucher]').click();
    }else{
     await page.locator('[data-trade=new-voucher][data-kind=expense]').click();await dialog().locator('[name=amount]').fill('21.99');await dialog().locator('[name=note]').fill('Збережена чернетка документа');
     assert.equal(await dialog().locator('form').evaluate(form=>form.checkValidity()),true);

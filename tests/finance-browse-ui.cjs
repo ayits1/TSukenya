@@ -1,3 +1,4 @@
+const {documentButton}=require('./trading-document-controls.cjs');
 /* Financial reads against disposable Django fixtures, never a production database. */
 const assert=require('node:assert/strict'),os=require('node:os'),path=require('node:path'),{execFileSync}=require('node:child_process');
 module.exports=async function financeBrowse(page,base,wait,env,python){
@@ -34,7 +35,7 @@ print(json.dumps({'store':store.pk,'other':other.pk,'account':account.pk,'party'
  await next(debts);await next(debts);
  if(!flowOnly){assert.match(await debts.locator('[data-finance-status]').innerText(),/61–65 із 65/);assert.equal(await debts.locator(`[data-trade=pay-debt][data-id="${fixture.oldDebt}"]`).count(),1);assert.equal(await debts.locator('[data-finance-results] button').first().evaluate(el=>el===document.activeElement),true,'pager focuses the new page');}
  await filter(ledger,'q','Фінансова перевірка');await ledger.locator('[name=account]').selectOption(String(fixture.account));await loaded(ledger);await next(ledger);await next(ledger);
- if(!flowOnly){assert.match(await ledger.locator('[data-finance-status]').innerText(),/61–66/);assert.equal(await ledger.locator(`[data-trade=view][data-id="${fixture.oldEntry}"]`).count(),1);}
+ if(!flowOnly){assert.match(await ledger.locator('[data-finance-status]').innerText(),/61–66/);assert.equal(await documentButton(ledger,fixture.oldEntry).count(),1);}
  // Saving a draft redraws finance, retaining independent list filters and pages.
  await debts.locator(`[data-trade=pay-debt][data-id="${fixture.oldDebt}"]`).click();await modal().locator('[name=note]').fill('Чернетка зі старого боргу');
  page.once('dialog',d=>d.dismiss());await modal().locator('[data-trade=close]').click();assert.equal(await modal().locator('[name=note]').inputValue(),'Чернетка зі старого боргу');

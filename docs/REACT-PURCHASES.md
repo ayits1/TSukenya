@@ -126,3 +126,15 @@ Backend/sourcec1054e7 та strict handoff fix604f1b6 інтегровано по
 ## CI SQLite follow-up
 
 Initial7af216b frontend CI PASS; server SQLite CI виявив8 помилок одного SQL source: older SQLite не бачить outer t.warehouse у correlated ORDER BY. PostgreSQL query лишається семантично незмінним. SQLite source тепер COALESCE двох scalar lookups: latest receipt тієї самої warehouse, потім latest receipt store; обидва мають лише local ORDER BY date/id/line. Root isolated3 affected checks PASS `/tmp/tsukenya-purchases-sqlite-ci-fixed.log`: warehouse-first/expiry/reserve/closed order, complete205parts і exact money/unknowncost. No full rerun; фінальний CI ще необхідний.
+
+## Сумісні локатори сценаріїв документів
+
+Журнал React має неактивний `data-document-id`: він не викликає native dispatcher.
+`tests/trading-document-controls.cjs` знаходить документ за цим ID, native ID або
+доступною назвою; створення — за кнопкою відповідного виду. Старі сценарії
+чернеток, конфліктів, замовлень і геометрії рядків використовують цей адаптер.
+
+Цільовий `VOUCHER_QA_FROM=post` для `voucher-conflict-ui.cjs` PASS: реальна
+кнопка закупівлі → Save+post/lost ACK → GET підтверджує проведення, без повторного
+PUT/post. Артефакт: `/tmp/tsukenya-purchases-maintenance-proof/post-partial-report.json`.
+Syntax усіх змінених helpers і frontend build PASS; повну регресію не запускали.

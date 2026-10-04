@@ -144,6 +144,7 @@ function DocumentsPanel({ model }: { model: PurchasesModel }) {
                 <td data-label="Дія">
                   <Button
                     isDisabled={busy || actionBusy}
+                    data-document-id={r.id}
                     aria-label={`Відкрити ${kinds[r.kind]} № ${r.number}`}
                     onPress={() => void model.action(() => model.options?.onViewDocument(r.id))}
                   >

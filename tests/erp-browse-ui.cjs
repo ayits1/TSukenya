@@ -1,3 +1,4 @@
+const {documentButton}=require('./trading-document-controls.cjs');
 /* Source lookup/history and scoped roles, against ui-audit's isolated database. */
 const assert=require('node:assert/strict'),os=require('node:os'),path=require('node:path');
 module.exports=async function browseUX(page,base,wait){
@@ -49,7 +50,7 @@ module.exports=async function browseUX(page,base,wait){
  const secondStore=(await ok('entities/stores','POST',{name:'Другий магазин для перевірки джерел'})).id;
  const openUnavailable=async()=>{
   await go('finance');
-  await page.locator(`[data-trade=view][data-id="${unavailableDraft.id}"]`).click();
+  await documentButton(page,unavailableDraft.id).click();
   await primary().locator('[data-trade=edit-voucher]').click();
   await primary().locator('[data-reference-warning]').waitFor();
   assert.equal(await primary().locator('[name=reference]').inputValue(),String(paidSale.id));
@@ -98,7 +99,7 @@ module.exports=async function browseUX(page,base,wait){
   const p=await cashierContext.newPage(),cashierPrimary=()=>p.locator('.trade-dialog[open]:not(.trade-document-browser)'),cashierPicker=()=>p.locator('.trade-document-browser[open]');
   await p.route('https://fonts.googleapis.com/**',route=>route.abort());await p.route('https://fonts.gstatic.com/**',route=>route.abort());
   await p.goto(base+'/#trade/sales',{waitUntil:'domcontentloaded'});
-  await p.locator(`[data-trade=view][data-id="${paidSale.id}"]`).click();
+  await documentButton(p,paidSale.id).click();
   await cashierPrimary().locator('h2').waitFor();
   assert.equal((await cashierPrimary().innerText()).includes('Собівартість'),false,'No cashier cost summary or line column is rendered');
   await cashierPrimary().locator('details').evaluateAll(nodes=>nodes.forEach(node=>node.open=true));
