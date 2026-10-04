@@ -65,6 +65,10 @@ class LegacyFinancialScopeTests(TestCase):
         from server.erp.managed_alerts import task_revision
         doc=Document.objects.filter(pk=path.removeprefix('/api/docs/')).first() if path.startswith(('/api/docs/tasks/','/api/docs/ideas/','/api/docs/expenses/')) else None
         observed={'HTTP_IF_MATCH':task_revision(doc)} if doc else {}
+        if path=='/api/docs/settings/main' and value and 'budgetStores' in value:
+            from server.erp.budget_template import revision as template_revision
+            data=Document.objects.filter(pk='settings/main').first()
+            observed['HTTP_X_BUDGET_TEMPLATE_REVISION']=template_revision(data.data if data else {})
         return getattr(self.client, method)(path, value, content_type='application/json', **(self.headers | observed | headers))
 
     def test_scoped_owner_read_dto_is_nonmutating_and_shared_catalog_survives(self):

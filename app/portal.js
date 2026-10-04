@@ -207,7 +207,7 @@
   }
   const budgetDrafts = new Map(), budgetSaves = new Set();
   window.addEventListener('tsukenya:legacy-pending',()=>budgetStatus());
-  const budgetFields = '[data-exp],#stores';
+  const budgetFields = window.TSUKENYA_SERVER?'[data-exp]':'[data-exp],#stores';
   const budgetKey = el => el.dataset.exp ? `amount:${el.dataset.exp}` : 'stores';
   const validStoreCount = value => Number.isInteger(value) && value>=1 && value<=1000;
   function budgetStores(){
@@ -424,6 +424,7 @@
 
     const next=SECTIONS[requested] && SECTIONS[requested][0]===parts[0] ? requested : 'overview';
     if(next!==tab && (window.CatalogImport?.pending()||window.CatalogPricing?.pending())){toast("Дочекайтеся завершення збереження.");history.replaceState(null,"","#"+SECTIONS[tab][0]+"/"+tab);return;}
+    if(next!==tab && window.BudgetTemplate && !window.BudgetTemplate.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && tab==='expenses' && window.MonthlyBudgets && !window.MonthlyBudgets.canLeave()){history.replaceState(null,'','#operations/expenses');return;}
     if(next!==tab && window.BusinessInitiatives && !window.BusinessInitiatives.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && window.LegacyEditors&&!window.LegacyEditors.canLeave()){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
@@ -1513,7 +1514,7 @@
       <div class="expense-add"><input type="text" placeholder="Нова стаття" maxlength="250" data-newexp="${g}" aria-label="Нова стаття: ${title}" autocomplete="off"><button class="btn soft" data-act="addExp" data-g="${g}">Додати</button></div>
       <div class="total"><span>Разом на місяць</span><span class="num">${window.TSUKENYA_SERVER&&t.model?window.PortalApi.money(t.model[g]):money(sum)} грн</span></div></div>`;
     const legacy = `<section class="panel expense-budget"><div class="row between gap-lg"><h2>Орієнтир за каталогом</h2>
-      <label class="inl budget-store-count">Планова кількість магазинів <input id="stores" type="number" inputmode="numeric" required min="1" max="1000" step="1" value="${stores}" aria-describedby="budgetSaveError"></label></div>
+      <label class="inl budget-store-count">Планова кількість магазинів <input id="stores" type="number" inputmode="numeric" required min="1" max="1000" step="1" value="${stores}" ${window.TSUKENYA_SERVER?'disabled':''} aria-describedby="budgetSaveError"></label>${window.TSUKENYA_SERVER?'<button class="btn soft" type="button" data-budget-template-edit>Змінити кількість</button>':''}</div>
       <p class="muted gap-lg">Впишіть суми за місяць на всю мережу. Зміни зберігаються, щойно ви перейдете до іншого поля.</p>
       <div class="budget-save-state"><p id="budgetSaveStatus" class="muted" role="status" aria-live="polite"></p><p id="budgetSaveError" class="form-error" role="alert"></p><div id="budgetOrphans"></div><button class="btn soft" data-act="retry-budget" hidden>Повторити збереження</button></div>
       <div class="cols">
@@ -1661,7 +1662,7 @@
     if (el.id==="chainIn"){ const v = el.value.trim(); S.settings.chainName = v; renderPreview(); setDoc("settings/main",{chainName:v||"Мережа солодощів"},"Назву мережі збережено"); return; }
     if (el.dataset.store!==undefined){ const n = storeNames().slice(); n[+el.dataset.store] = el.value.trim(); saveStores(n, "Назву магазину збережено"); return; }
     if (el.id==="rounding" && !(window.TSUKENYA_SERVER&&window.CatalogPricing)){ setDoc("settings/main",{rounding:num(el.value)},"Округлення змінено"); }
-    if (el.id==="stores"){ void saveBudget(el); }
+    if (el.id==="stores"&&!window.TSUKENYA_SERVER){ void saveBudget(el); }
   });
   $('#productEditor').addEventListener('close',()=>{const live=S.productOpener?.isConnected?S.productOpener:document.querySelector('[data-edit-product="'+S.productEditId+'"]');(live||document.querySelector('[data-act=newProduct]'))?.focus({preventScroll:true});});
   $('#productEditor').addEventListener('cancel',e=>{if(S.editDirty){e.preventDefault();closeProduct();}});

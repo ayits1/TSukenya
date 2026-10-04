@@ -221,11 +221,11 @@ class CatalogPricingTests(TestCase):
         # Equal values keep the stored spelling; other settings still save.
         self.assertEqual(write('patch', {'defaultMarkup': '30.00', 'rounding': 0.5, 'chainName': 'Нова мережа'}).status_code, 200)
         self.settings.refresh_from_db()
-        self.assertEqual(self.settings.data, {'defaultMarkup': 30, 'rounding': .5, 'chainName': 'Нова мережа'})
+        self.assertEqual(self.settings.data, {'defaultMarkup': 30, 'rounding': .5, 'chainName': 'Нова мережа', 'budgetStores': 1})
         self.assertEqual(self.client.get('/api/v1/catalog/products/one').json()['revision'], before['revision'])
         self.assertEqual(write('put', {'chainName': 'Без цін'}).status_code, 200)
         self.settings.refresh_from_db()
-        self.assertEqual(self.settings.data, {'defaultMarkup': 30, 'rounding': .5, 'chainName': 'Без цін'})
+        self.assertEqual(self.settings.data, {'defaultMarkup': 30, 'rounding': .5, 'chainName': 'Без цін', 'budgetStores': 1})
         self.settings.data = {'defaultMarkup': 40}
         self.settings.save()
         self.assertEqual(write('put', {'chainName': 'Без цін'}).status_code, 400)

@@ -33,8 +33,8 @@ async function until(check, message) {
   await page.evaluate(async () => {
     const session = await (await fetch('/api/v1/session')).json();
     const state = await (await fetch('/api/state')).json(), settings = state.data['settings/main'];
-    delete settings.budgetStores;
-    const setup = await fetch('/api/docs/settings/main', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf }, body: JSON.stringify({ ...settings, stores: ['ERP A', 'ERP B'], storeNames: ['Цінник A'] }) });
+    const template = await (await fetch('/api/v1/portal/budget-template')).json();
+    const setup = await fetch('/api/docs/settings/main', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf, 'X-Budget-Template-Revision': template.revision }, body: JSON.stringify({ ...settings, budgetStores: 2, stores: ['ERP A', 'ERP B'], storeNames: ['Цінник A'] }) });
     if (!setup.ok) throw new Error('Budget store fixture failed');
     for (const [id, name, group] of [
       ['qa_rent', 'Оренда', 'fixed'],
@@ -115,18 +115,21 @@ async function until(check, message) {
   await until(async()=>await page.evaluate(()=>location.hash==='#operations/expenses'),'pending autosave protects route');
   releaseSave();await page.unroute('**/api/docs/expenses/qa_rent');
   await until(async()=>(await page.locator('#budgetSaveStatus').innerText())==='Усі зміни збережено','pending completed');
-  const count=page.getByRole('spinbutton',{name:'Планова кількість магазинів'});
+  const displayedCount=page.locator('#stores');
+  await page.locator('[data-budget-template-edit]').click();
+  const countDialog=page.locator('dialog[open]'),count=countDialog.locator('[name=budgetStores]');
+  await until(async()=>await count.isEnabled(),'template baseline loaded');
   const before=await page.evaluate(async()=>({state:await(await fetch('/api/state')).json(),erp:await(await fetch('/api/erp/state')).json(),labels:await(await fetch('/api/v1/labels/workspace')).json()}));
-  for(const invalid of ['', '0', '1.5', '1001']){await count.fill(invalid);await count.press('Tab');await until(async()=>await count.getAttribute('aria-invalid')==='true','budget count validation');}
-  await count.fill('7');await count.press('Tab');
-  await until(async()=>(await page.locator('#budgetSaveStatus').innerText())==='Усі зміни збережено','budget count saved');
+  for(const invalid of ['', '0', '1.5', '1001']){await count.fill(invalid);await countDialog.getByRole('button',{name:'Зберегти кількість'}).click();assert.equal(await count.evaluate(el=>el.checkValidity()),false,'count validation does not write');}
+  await count.fill('7');await countDialog.getByRole('button',{name:'Зберегти кількість'}).click();
+  await until(async()=>await page.locator('dialog[open]').count()===0,'budget count saved');
   const after=await page.evaluate(async()=>({state:await(await fetch('/api/state')).json(),erp:await(await fetch('/api/erp/state')).json(),labels:await(await fetch('/api/v1/labels/workspace')).json()}));
   assert.equal(after.state.data['settings/main'].budgetStores,7);
   assert.deepEqual(after.state.data['settings/main'].stores,before.state.data['settings/main'].stores);
   assert.deepEqual(after.state.data['settings/main'].storeNames,before.state.data['settings/main'].storeNames);
   assert.deepEqual(after.erp.stores,before.erp.stores);
   assert.equal(after.labels.revision,before.labels.revision,'budget has no label revision conflict');
-  await page.reload();await page.locator('[data-budget-mode=catalog]').click();await count.waitFor();assert.equal(await count.inputValue(),'7');
+  await page.reload();await page.locator('[data-budget-mode=catalog]').click();await displayedCount.waitFor();assert.equal(await displayedCount.inputValue(),'7');
   // A draft whose source was removed in another session remains visible.
   const orphan=page.locator('[data-exp=qa_long]');
   await page.route('**/api/docs/expenses/qa_long',route=>route.request().method()==='PATCH'?route.fulfill({status:503,json:{error:'Ізольований збій'}}):route.continue());

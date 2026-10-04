@@ -27,6 +27,10 @@ class BudgetTests(TestCase):
     def write(self, method, path, value):
         from server.erp.managed_alerts import task_revision
         document = Document.objects.filter(pk=path.removeprefix('/api/docs/')).first() if path.startswith('/api/docs/expenses/') else None
+        if path=='/api/docs/settings/main' and ('budgetStores' in value or method=='delete'):
+            from server.erp.budget_template import revision as template_revision
+            data=Document.objects.filter(pk='settings/main').first()
+            self.headers['HTTP_X_BUDGET_TEMPLATE_REVISION']=template_revision(data.data if data else {})
         observed = {'HTTP_IF_MATCH': task_revision(document)} if document else {}
         return getattr(self.client, method)(path, value, content_type='application/json', **self.headers, **observed)
 

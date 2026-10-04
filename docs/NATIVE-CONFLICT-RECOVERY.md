@@ -333,3 +333,6 @@ Actual root layout scope PASS, PNG 1440/320 переглянуто: на тел�
 успадковані DB/PG налаштування, задає isolated settings/secret, ловить ранній вихід сервера
 та очікує teardown. Один full entrypoint зберігається, partial recipe flags очищаються.
 Виконано лише `test:full -- --plan`, не повну регресію, не production/Sheet тести або deployment.
+## Бюджетний орієнтир: окрема кількість магазинів
+
+Count має незалежну від Label Studio revision, strict readonly policy DTO та actual native shared comparison. Legacy settings writes не обходять token; Apply лише локально, Save окремий. Деталі API/меж і targeted proofs — [BUDGET-TEMPLATE-RECOVERY.md](BUDGET-TEMPLATE-RECOVERY.md). Місячні плани й статті залишаються наступним окремим пакетом.
