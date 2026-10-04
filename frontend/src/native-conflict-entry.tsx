@@ -1,6 +1,7 @@
 import * as voucherPersistence from './shared/native/voucherPersistence';
 import { createDraftRecovery } from './shared/recovery/bridge';
 import * as monthlyBudgetEditor from './shared/native/monthlyBudget';
+import { mountBudgetPeriod } from './shared/native/budgetPeriod';
 import * as voucherEditor from './shared/native/voucher';
 import { createRoot } from 'react-dom/client';
 import { I18nProvider } from 'react-aria-components';
@@ -27,6 +28,7 @@ declare global {
     NativeDraftRecovery?: ReturnType<typeof createDraftRecovery>;
     NativePlanningCategoryEditor?: typeof planningCategoryEditor;
     NativeMonthlyBudgetEditor?: typeof monthlyBudgetEditor;
+    NativeBudgetPeriodControls?: { mount: typeof mountBudgetPeriod };
     NativeVoucherEditor?: typeof voucherEditor;
     NativeBudgetTemplateEditor?: typeof budgetTemplateEditor;
     NativeEntityEditor?: typeof entityEditor;
@@ -49,6 +51,7 @@ window.NativeVoucherPersistence = voucherPersistence;
 window.NativeBudgetTemplateEditor = budgetTemplateEditor;
 window.NativePlanningCategoryEditor = planningCategoryEditor;
 window.NativeMonthlyBudgetEditor = monthlyBudgetEditor;
+window.NativeBudgetPeriodControls = { mount: mountBudgetPeriod };
 window.NativeEntityEditor = entityEditor;
 window.NativeLegacyEditor = legacyEditor;
 window.NativeRecipeEditor = recipeEditor;

@@ -146,6 +146,48 @@ input {
 .tk-calendar-dialog {
   outline: none;
 }
+.tk-month-popover {
+  box-sizing: border-box;
+  width: min(22rem, calc(100vw - 32px));
+  padding: 12px;
+}
+.tk-month-year {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tk-month-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(6rem, 100%), 1fr));
+  gap: 4px;
+  outline: none;
+}
+.tk-month-option {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--tk-radius);
+  cursor: pointer;
+}
+.tk-month-option[data-hovered] {
+  background: var(--tk-bg);
+}
+.tk-month-option[data-selected] {
+  background: var(--tk-brand);
+  color: #fff;
+}
+.tk-month-option[data-focus-visible] {
+  outline: 2px solid var(--tk-focus);
+  outline-offset: -3px;
+}
+.tk-month-trigger svg {
+  flex-shrink: 0;
+}
 .tk-calendar header {
   display: flex;
   align-items: center;

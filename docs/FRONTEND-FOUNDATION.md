@@ -115,3 +115,24 @@ React bridge позначає замінений native label класом `trad
 синтетичні довідники й bundled headless Chromium; payroll/business POST не виконує.
 Він зареєстрований у full runner; його вузькі FROM/ONLY/PORT/PROOF змінні
 очищаються перед повним режимом. Повна регресія не запускалась.
+
+## Вибір місяця бюджету
+
+`MonthPicker` використовує React Aria Dialog/Popover/ListBox: 12 місяців,
+перемикання року, «Цей місяць», клавіатура, Escape і повернення фокусу.
+Збережені місяці використовують спільний Select та українські назви;
+порожній список недоступний і показує «Ще немає бюджетів».
+
+Адаптер `shared/native/budgetPeriod.tsx` зберігає hidden `month`/`past` та ISO
+`YYYY-MM` для чинної форми. Вибір не читає й не зберігає бюджет автоматично:
+період відкриває кнопка «Відкрити». Legacy sync змінює лише native controls;
+React-контроли отримують disabled через props. React roots прибираються під час
+перемальовування або фактичного видалення форми, не під час `canLeave()`:
+наступний navigation guard ще може скасувати перехід.
+
+Цільові перевірки: `MonthPicker.stories.tsx` та `tests/budget-period-ui.cjs`
+(ізольовані дані,1440/320 і збільшений текст, порожні/збережені місяці,
+ISO/explicit Open, збереження чернетки, Escape/focus і навігація).
+Вузький повтор підтримує `QA_BUDGET_PERIOD_FROM` або `QA_BUDGET_PERIOD_ONLY`;
+ці змінні очищаються у full runner. Чинні бюджетні сценарії використовують
+`tests/browser-month-picker.cjs` для вибору через справжній UI.
