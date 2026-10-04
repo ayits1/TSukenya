@@ -59,7 +59,19 @@ export function Catalog({
     retry: false,
   });
   useEffect(() => {
-    const refresh = () => {
+    const refresh = (event: Event) => {
+      const detail: unknown = event instanceof CustomEvent ? event.detail : null;
+      if (
+        detail &&
+        typeof detail === 'object' &&
+        'domains' in detail &&
+        Array.isArray(detail.domains) &&
+        detail.domains.every((name: unknown) => typeof name === 'string') &&
+        !detail.domains.some((name: unknown) =>
+          ['products', 'references', 'settings/main'].includes(String(name)),
+        )
+      )
+        return;
       void client.invalidateQueries({ queryKey: ['catalog'] });
       void client.invalidateQueries({ queryKey: ['catalog-references'] });
     };

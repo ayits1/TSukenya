@@ -3,6 +3,8 @@
   let data = null;
   let csrf = "";
   let labelRevision = "";
+  let stateETag = "", stateVersions = null;
+  const domains = ["products", "references", "tasks", "ideas", "expenses", "settings/main", "project/state"];
   const listeners = new Map();
   const createIntents = new WeakMap();
   let loading = null, loadingId = 0, started = 0, polled = 0;
@@ -17,8 +19,9 @@
     return { docs: (data[path] || []).map(item => ({ id: item.id, revision: item.revision, initiative: item.initiative, data: () => structuredClone(item.data), permissions: () => structuredClone(item.permissions || {}) })) };
   }
 
-  function notify() {
+  function notify(changedPaths) {
     for (const [path, callbacks] of listeners) {
+      if (changedPaths && !changedPaths.includes(path)) continue;
       const value = snapshot(path);
       for (const callback of callbacks) callback(value);
     }
@@ -31,8 +34,13 @@
     if (loading) return loading.catch(() => {}).then(() => refresh(after));
     const id = loadingId = ++started;
     loading = (async () => {
-      const response = await fetch("/api/state", { credentials: "same-origin", cache: "no-store" });
+      const response = await fetch("/api/state", { credentials: "same-origin", cache: "no-store", headers: stateETag ? { "If-None-Match": stateETag } : {} });
       if (response.status === 401) { location.href = "/"; throw new Error("Session expired"); }
+      if (response.status === 304) {
+        if (!data || !stateETag || response.headers?.get("ETag") !== stateETag) throw new Error("Invalid database validator");
+        window.dispatchEvent(new Event("tsukenya:refresh-succeeded"));
+        return;
+      }
       if (!response.ok) throw new Error("Database unavailable");
       const result = await response.json();
       if (!result || typeof result.data !== 'object' || result.data === null || Array.isArray(result.data) ||
@@ -40,12 +48,19 @@
           (result.labelRevision !== undefined && typeof result.labelRevision !== 'string')) {
         throw new Error('Invalid database response');
       }
-      const changed = JSON.stringify(data) !== JSON.stringify(result.data) || window.TSUKENYA_ROLE !== result.role;
+      const etag = response.headers?.get("ETag") || "";
+      const validVersions = result.stateVersions && typeof result.stateVersions === "object" && !Array.isArray(result.stateVersions) &&
+        Object.keys(result.stateVersions).length === domains.length && domains.every(name => typeof result.stateVersions[name] === "string" && /^[a-f0-9]{64}$/.test(result.stateVersions[name]));
+      if (etag && (!/^"tsukenya-state-v1-[a-f0-9]{64}"$/.test(etag) || !validVersions)) throw new Error("Invalid database validator");
+      const changedPaths = etag && stateVersions ? domains.filter(name => stateVersions[name] !== result.stateVersions[name]) : null;
+      const changed = changedPaths ? changedPaths.length > 0 : JSON.stringify(data) !== JSON.stringify(result.data) || window.TSUKENYA_ROLE !== result.role;
       data = result.data;
       window.TSUKENYA_ROLE = result.role;
       csrf = result.csrf;
       labelRevision = result.labelRevision || "";
-      if (changed) { notify(); window.dispatchEvent(new Event('tsukenya:data-changed')); }
+      stateETag = etag;
+      stateVersions = etag ? result.stateVersions : null;
+      if (changed) { notify(changedPaths); window.dispatchEvent(new CustomEvent('tsukenya:data-changed', { detail: { domains: changedPaths } })); }
       window.dispatchEvent(new Event('tsukenya:refresh-succeeded'));
     })().catch(error => {
       window.dispatchEvent(new CustomEvent('tsukenya:refresh-failed', { detail: {

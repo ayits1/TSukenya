@@ -70,7 +70,7 @@ def owner(user):
 
 CASHIER_PRODUCT_FIELDS={'name','type','category','pack','size','unit','barcode','regularPrice','salePrice','effectivePromotion','storeSalePrices','promotion','promotionPrice','priceAt','minStock','hidden','example'}
 
-def legacy_state(user):
+def legacy_state(user, effective_day=None):
     from .catalog import revision, defaults
     from .task_scope import task_visible, task_permissions
     from .managed_alerts import task_revision
@@ -79,15 +79,15 @@ def legacy_state(user):
     from .promotion_prices import PriceResolver, context_store
     from .models import Store
     price_store=context_store(user)
-    store_query=Store.objects.filter(active=True)
+    store_query=Store.objects.filter(active=True).order_by('pk')
     if user.profile.store_id is not None:store_query=store_query.filter(pk=user.profile.store_id)
-    price_resolver=PriceResolver(catalog_config,price_store)
-    store_resolvers={str(s.pk):PriceResolver(catalog_config,s) for s in store_query}
+    price_resolver=PriceResolver(catalog_config,price_store,effective_day)
+    store_resolvers={str(s.pk):PriceResolver(catalog_config,s,effective_day) for s in store_query}
     from .models import ProjectTask,IdeaProject
     linked_tasks={row['document_id']:row for row in ProjectTask.objects.values('document_id','project_id','project__store_id')} if user.profile.role=='owner' else {}
     linked_ideas={row['idea_id']:row for row in IdeaProject.objects.values('idea_id','id','store_id')} if user.profile.role=='owner' else {}
     data={x:[] for x in COLLECTIONS}|{x:{} for x in SINGLE_DOCS}
-    for d in Document.objects.all():
+    for d in Document.objects.order_by('path'):
         col,_,id=d.path.partition('/')
         if col in COLLECTIONS:
             link=linked_tasks.get(d.path) if col=='tasks' else linked_ideas.get(d.path) if col=='ideas' else None
@@ -484,9 +484,8 @@ def handle(request):
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
-        from .labels import revision as label_revision
-        document=Document.objects.filter(pk='settings/main').first()
-        return response({'data':legacy_state(user),'csrf':request.portal_session.csrf,'role':user.profile.role,'networkOwner':user.profile.role=='owner' and user.profile.store_id is None,'labelRevision':label_revision(document.data if document else {})})
+        from .state_polling import state_response
+        return state_response(request,user,legacy_state)
     if path=='/api/logout' and request.method=='POST':
         request.portal_session.delete();result=response({'ok':True});result.delete_cookie('ts_session');return result
     if path=='/api/account/password' and request.method=='POST':

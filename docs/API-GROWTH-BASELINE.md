@@ -41,7 +41,9 @@ Baseline: main `e0233c64b08ba0a36211dfdfc390dd6ff69a5c9c` (PR37). Python 3.14.7,
 
 `tests/test_voucher_list_batch.py`, PostgreSQL: 5 PASS. Один/30/останній рядок сторінки мають ≤5 SQL; DTO звірено з окремим authoritative serializer. Перевірено paid/partial receipt, embedded paid/partial sale, unused advance (не оплачує борг), explicit allocation, legacy single-reference payment без backfill і opening debt, supplier return, скасування повернення/розподілу/платежу/source, scope касира й приховування cost/payroll. Новий network/polling контракт цими тестами не оголошується реалізованим.
 
-## Наступний additive polling fix — лише план
+## Наступний additive polling fix — історичний план
+
+Conditional GET тепер реалізовано окремим наступним патчем: [контракт, invalidation map і цільові докази](B24-CONDITIONAL-POLLING.md). Нижче збережено початковий план; наведені baseline вимірювання не переписано.
 
 ### Доведений поточний контракт
 
