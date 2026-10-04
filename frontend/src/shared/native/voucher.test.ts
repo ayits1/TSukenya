@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   captureVoucherDraft,
+  decodeVoucherAck,
+  decodeVoucherIdentity,
+  validateVoucherMerge,
   decodeVoucher,
   voucherFromProjection,
   voucherProjection,
@@ -124,6 +127,62 @@ describe('voucher recovery contract', () => {
       },
     });
     expect(voucherProjection(record)).toEqual(voucherProjection(fromForm));
+  });
+  it('binds ACK to exact UUID and normalized writable terms, and separates aggregate output bounds', () => {
+    const request = { ...captureVoucherDraft(raw), idempotency_key: key };
+    expect(decodeVoucherAck({ ...raw, request_key: key }, request).id).toBe(1);
+    for (const changed of [
+      { request_key: 'other' },
+      { note: 'Other' },
+      { lines: [{ ...raw.lines[0], quantity: '3' }] },
+    ])
+      expect(() => decodeVoucherAck({ ...raw, request_key: key, ...changed }, request)).toThrow();
+    const expense = {
+      ...raw,
+      kind: 'expense',
+      lines: [],
+      payload: { expense_scope: 'store' },
+      total: '10.00',
+    };
+    const expenseRequest = { ...captureVoucherDraft(expense), idempotency_key: key };
+    expect(() =>
+      decodeVoucherAck({ ...expense, request_key: key, total: '999.00' }, expenseRequest),
+    ).toThrow();
+    const huge = {
+      ...raw,
+      total: '1999999999998.00',
+      cost: '1999999999998.00',
+      lines: [{ ...raw.lines[0], price: '999999999999.0000', cost: '1999999999998.00' }],
+    };
+    expect(decodeVoucher(huge, { id: 1, kind: 'receipt' }).total).toBe('1999999999998');
+    expect(() => captureVoucherDraft({ ...expense, total: '1000000000000.00' })).toThrow();
+    expect(captureVoucherDraft({ ...expense, kind: 'payroll', total: undefined }).amount).toBe('0');
+  });
+  it('validates identity receipt policy without adopting its current revision or merging closed/local foreign terms', () => {
+    const request = { ...captureVoucherDraft(raw), idempotency_key: key };
+    const identity = {
+      confirmed: true,
+      idempotencyKey: key,
+      id: 1,
+      kind: 'receipt',
+      revision: 3,
+      status: 'draft',
+      store: 1,
+      date: raw.date,
+      editing: { ...raw.editing, canEdit: false, closedThrough: raw.date },
+    };
+    expect(decodeVoucherIdentity(identity, request).confirmed).toBe(true);
+    expect(() =>
+      decodeVoucherIdentity({ ...identity, idempotencyKey: 'other' }, request),
+    ).toThrow();
+    const row = decodeVoucher(
+      { ...raw, editing: { ...raw.editing, storeId: 1, closedThrough: '2026-10-02' } },
+      { id: 1, kind: 'receipt' },
+    );
+    expect(() =>
+      validateVoucherMerge(voucherProjection({ ...request, date: '2026-10-01' }), row),
+    ).toThrow();
+    expect(() => validateVoucherMerge(voucherProjection({ ...request, store: 2 }), row)).toThrow();
   });
   it('preserves stable lineage and validates allocation/source IDs and scale', () => {
     const body = captureVoucherDraft(raw);

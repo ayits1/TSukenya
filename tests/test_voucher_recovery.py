@@ -61,3 +61,38 @@ class VoucherRecoveryTests(TransactionTestCase):
         with patch.object(views,'voucher_json',side_effect=serializer):response=self.client.get(path)
         self.assertEqual(response.status_code,200,response.content);self.assertEqual(result,['repeatable read','on']);self.assertEqual(response.json()['note'],'Original');self.assertIsNone(response.json()['editing']['closedThrough']);self.assertTrue(response.json()['editing']['canEdit'])
         fresh=self.client.get(path).json();self.assertEqual(fresh['note'],'Changed concurrently');self.assertFalse(fresh['editing']['canEdit'])
+
+    def test_identity_lookup_frozen_fingerprint_after_closed_period_and_current_role_denial(self):
+        first=self.call('post','/api/erp/vouchers',self.body).json()
+        self.assertEqual(first['request_key'],self.body['idempotency_key'])
+        count=AuditEvent.objects.count()
+        LedgerLock.objects.filter(pk=1).update(closed_through=self.today)
+        self.assertEqual(self.call('post','/api/erp/vouchers',self.body).status_code,400)
+        path='/api/erp/vouchers/identity'
+        response=self.call('post',path,{'request':self.body});self.assertEqual(response.status_code,200,response.content)
+        row=response.json();self.assertTrue(row['confirmed']);self.assertEqual(row['id'],first['id']);self.assertFalse(row['editing']['canEdit'])
+        changed=self.call('post',path,{'request':{**self.body,'note':'Other request'}});self.assertEqual(changed.status_code,400)
+        Profile.objects.filter(user=self.u).update(role='cashier')
+        self.assertIn(self.call('post',path,{'request':self.body}).status_code,[400,403])
+        self.assertEqual(AuditEvent.objects.count(),count);self.assertEqual(Voucher.objects.count(),1)
+    def test_identity_lookup_is_real_readonly_and_scope_checked_before_confirmation(self):
+        from unittest.mock import patch
+        from server.erp import views
+        row=save_voucher(self.u,self.body);original=views.recovery_editing;seen=[]
+        def policy(*args):
+            if connection.vendor=='postgresql':
+                with connection.cursor() as cursor:
+                    cursor.execute('SHOW transaction_isolation');seen.append(cursor.fetchone()[0]);cursor.execute('SHOW transaction_read_only');seen.append(cursor.fetchone()[0])
+            return original(*args)
+        with patch.object(views,'recovery_editing',side_effect=policy):response=self.call('post','/api/erp/vouchers/identity',{'request':self.body})
+        self.assertEqual(response.status_code,200,response.content)
+        if connection.vendor=='postgresql':self.assertEqual(seen,['repeatable read','on'])
+        foreign=Store.objects.create(name='Foreign');Profile.objects.filter(user=self.u).update(store=foreign)
+        self.assertIn(self.call('post','/api/erp/vouchers/identity',{'request':self.body}).status_code,[400,403])
+
+    def test_save_aggregate_money_output_keeps_server_capacity_without_larger_inputs(self):
+        request={**self.body,'lines':[{'product':'p','quantity':'2','price':'999999999999'}]}
+        response=self.call('post','/api/erp/vouchers',request);self.assertEqual(response.status_code,201,response.content)
+        self.assertEqual(response.json()['total'],'1999999999998.00');self.assertEqual(response.json()['request_key'],request['idempotency_key'])
+        excessive=self.call('post','/api/erp/vouchers',{**self.body,'idempotency_key':'other-key','lines':[{'product':'p','quantity':'2','price':'1000000000000'}]})
+        self.assertEqual(excessive.status_code,400)

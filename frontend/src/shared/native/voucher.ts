@@ -126,10 +126,10 @@ const day = (v: unknown): string => {
     ? s
     : fail();
 };
-const decimal = (v: unknown, places = 2, zero = true): string => {
+const decimal = (v: unknown, places = 2, zero = true, digits = 12): string => {
   const s = String(v).replace(',', '.');
   if (
-    !new RegExp('^\\d{1,12}(?:\\.\\d{1,' + places + '})?$').test(s) ||
+    !new RegExp('^\\d{1,' + digits + '}(?:\\.\\d{1,' + places + '})?$').test(s) ||
     (!zero && !/[1-9]/.test(s))
   )
     return fail();
@@ -186,7 +186,7 @@ export function captureVoucherDraft(value: unknown): VoucherBody {
         product: product(r.product),
         quantity: decimal(r.quantity, 3, kind === 'inventory'),
         price: decimal(r.price ?? '0', 4, !['sale', 'customer_order'].includes(kind)),
-        lot: text(r.lot ?? '', 80),
+        lot: text(r.lot ?? '', 80).trim(),
         expiry: r.expiry ? day(r.expiry) : '',
         line_key: uuid(r.line_key),
         reference_line: identifier(r.reference_line),
@@ -195,7 +195,12 @@ export function captureVoucherDraft(value: unknown): VoucherBody {
     if (!body.lines.length || new Set(body.lines.map((r) => r.line_key)).size !== body.lines.length)
       return fail();
     if (!body.warehouse || (kind === 'production' && body.lines.length !== 1)) return fail();
-  } else body.amount = decimal(raw.amount ?? raw.total, 2, kind === 'payroll');
+  } else
+    body.amount = decimal(
+      raw.amount ?? raw.total ?? (kind === 'payroll' ? '0' : undefined),
+      2,
+      kind === 'payroll',
+    );
   const p = object(raw.payload ?? {});
   for (const key of ['fiscal_ref', 'discount_reason', 'category'])
     if (p[key] !== undefined)
@@ -203,6 +208,8 @@ export function captureVoucherDraft(value: unknown): VoucherBody {
         p[key],
         key === 'fiscal_ref' ? 160 : key === 'discount_reason' ? 300 : 100,
       );
+  if (body.payload.discount_reason)
+    body.payload.discount_reason = String(body.payload.discount_reason).trim();
   if (p.due_date) body.payload.due_date = day(p.due_date);
   if (p.expected_date) body.payload.expected_date = day(p.expected_date);
   if (p.minimum_order_amount !== undefined && p.minimum_order_amount !== '')
@@ -246,7 +253,7 @@ export function captureVoucherDraft(value: unknown): VoucherBody {
         return {
           product: product(c.product),
           quantity: decimal(c.quantity, 3),
-          lot: text(c.lot ?? '', 80),
+          lot: text(c.lot ?? '', 80).trim(),
         };
       });
     if (new Set(components.map((c) => c.product)).size !== components.length) return fail();
@@ -256,12 +263,12 @@ export function captureVoucherDraft(value: unknown): VoucherBody {
       recipeVersion: uuid(r.recipeVersion),
       plannedOutput: decimal(r.plannedOutput, 3, false),
       actualComponents: components,
-      varianceReason: text(r.varianceReason ?? '', 500),
+      varianceReason: text(r.varianceReason ?? '', 500).trim(),
       ...(r.expiryOverride
         ? {
             expiryOverride: {
               date: day(object(r.expiryOverride).date),
-              reason: text(object(r.expiryOverride).reason, 500),
+              reason: text(object(r.expiryOverride).reason, 500).trim(),
             },
           }
         : {}),
@@ -321,7 +328,11 @@ export function voucherBodyFromRecord(value: unknown): VoucherBody {
       payload.recipe = object(r.terms).components;
     }
   }
-  return captureVoucherDraft({ ...raw, amount: raw.total, payload });
+  return captureVoucherDraft({
+    ...raw,
+    amount: raw.kind === 'payroll' && raw.status !== 'draft' ? '0' : raw.total,
+    payload,
+  });
 }
 export function decodeVoucher(
   value: unknown,
@@ -347,10 +358,10 @@ export function decodeVoucher(
       text(line.unit, 30);
       if (line.reference_line !== null) positive(line.reference_line);
       if (typeof line.quantity !== 'string' || typeof line.price !== 'string') return fail();
-      if (line.cost !== undefined) decimal(line.cost);
+      if (line.cost !== undefined) decimal(line.cost, 2, true, 14);
     }
   if (typeof r.total !== 'string') return fail();
-  if (r.cost !== undefined) decimal(r.cost);
+  if (r.cost !== undefined) decimal(r.cost, 2, true, 14);
   for (const key of [
     'note',
     'date',
@@ -378,38 +389,14 @@ export function decodeVoucher(
       decimal(allocation.amount, 2, false);
     }
   const body = voucherBodyFromRecord(r),
-    record = { ...body, id, revision, status: r.status, total: decimal(r.total) } as VoucherRecord;
-  if (policy) {
-    const e = object(r.editing),
-      role = text(e.role, 20),
-      storeId = e.storeId === null ? null : positive(e.storeId),
-      closedThrough = e.closedThrough === null ? null : day(e.closedThrough);
-    if (
-      !(role in roles) ||
-      typeof e.storeActive !== 'boolean' ||
-      typeof e.canEdit !== 'boolean' ||
-      !roles[role]!.includes(kind) ||
-      (storeId !== null && storeId !== body.store) ||
-      (kind === 'expense' &&
-        body.payload.expense_scope === 'network' &&
-        !['owner', 'accountant'].includes(role))
-    )
-      return fail();
-    if (
-      e.canEdit &&
-      (record.status !== 'draft' ||
-        !e.storeActive ||
-        (closedThrough !== null && body.date <= closedThrough))
-    )
-      return fail();
-    record.editing = {
-      role,
-      storeId,
-      closedThrough,
-      storeActive: e.storeActive,
-      canEdit: e.canEdit,
-    };
-  }
+    record = {
+      ...body,
+      id,
+      revision,
+      status: r.status,
+      total: decimal(r.total, 2, true, 14),
+    } as VoucherRecord;
+  if (policy) record.editing = decodeEditing(r.editing, body, record.status);
   return record;
 }
 export function voucherProjection(body: VoucherBody): NativeDraft {
@@ -450,4 +437,85 @@ export function voucherReceipt(value: unknown, expected: { id?: number; kind: st
   )
     return fail();
   return { id, revision };
+}
+
+function decodeEditing(
+  value: unknown,
+  body: VoucherBody,
+  status: VoucherRecord['status'],
+): NonNullable<VoucherRecord['editing']> {
+  const e = object(value),
+    role = text(e.role, 20),
+    storeId = e.storeId === null ? null : positive(e.storeId),
+    closedThrough = e.closedThrough === null ? null : day(e.closedThrough);
+  if (
+    !(role in roles) ||
+    typeof e.storeActive !== 'boolean' ||
+    typeof e.canEdit !== 'boolean' ||
+    !roles[role]!.includes(body.kind) ||
+    (storeId !== null && storeId !== body.store) ||
+    (body.kind === 'expense' &&
+      body.payload.expense_scope === 'network' &&
+      !['owner', 'accountant'].includes(role))
+  )
+    return fail();
+  if (
+    e.canEdit &&
+    (status !== 'draft' || !e.storeActive || (closedThrough !== null && body.date <= closedThrough))
+  )
+    return fail();
+  return {
+    role,
+    storeId,
+    closedThrough,
+    storeActive: e.storeActive,
+    canEdit: e.canEdit,
+  };
+}
+
+export function voucherIdentityReceipt(value: unknown, request: VoucherBody) {
+  const r = object(value);
+  if (r.idempotencyKey !== request.idempotency_key || typeof r.confirmed !== 'boolean')
+    return fail();
+  if (!r.confirmed) return { confirmed: false as const };
+  return { confirmed: true as const, ...voucherReceipt(r, { kind: request.kind }) };
+}
+export function decodeVoucherIdentity(value: unknown, request: VoucherBody) {
+  const receipt = voucherIdentityReceipt(value, request);
+  if (!receipt.confirmed) return receipt;
+  const r = object(value),
+    status = r.status as VoucherRecord['status'],
+    store = positive(r.store),
+    date = day(r.date);
+  return {
+    ...receipt,
+    status,
+    store,
+    date,
+    editing: decodeEditing(r.editing, { ...request, store, date }, status),
+  };
+}
+/** Bind a save response to its exact request key and normalized writable terms; derived posting totals are excluded. */
+export function decodeVoucherAck(value: unknown, request: VoucherBody, id?: number): VoucherRecord {
+  const r = object(value);
+  if (r.request_key !== request.idempotency_key) return fail();
+  const row = decodeVoucher(value, { kind: request.kind, ...(id ? { id } : {}) }, false);
+  if (
+    row.status !== 'draft' ||
+    canonical(voucherProjection(voucherBodyFromRecord(r))) !== canonical(voucherProjection(request))
+  )
+    return fail();
+  return row;
+}
+export function validateVoucherMerge(draft: NativeDraft, row: VoucherRecord): VoucherBody {
+  const body = voucherFromProjection(draft),
+    policy = row.editing;
+  if (
+    !policy?.canEdit ||
+    body.kind !== row.kind ||
+    (policy.storeId !== null && body.store !== policy.storeId) ||
+    (policy.closedThrough !== null && body.date <= policy.closedThrough)
+  )
+    return fail();
+  return body;
 }

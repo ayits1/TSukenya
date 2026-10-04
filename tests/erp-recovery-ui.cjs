@@ -77,7 +77,7 @@ rows=[Voucher.objects.create(kind='expense',date=date.today(),store=store,accoun
 print(json.dumps([v.pk for v in rows]))`).toString());
   for(const [index,mode] of ['draft','save-post','post-reject','existing-post'].entries()){
    await go('finance');const id=documents[index],confirmedDto=await page.evaluate(async id=>(await(await fetch('/api/erp/vouchers/'+id)).json()),id);let saves=0,posts=0,reads=0,posted=false;
-   await page.route('**/api/erp/vouchers',route=>{assert.equal(route.request().method(),'POST');saves++;assert.equal(route.request().postDataJSON().note,'Збережена чернетка документа');return response(route,{...confirmedDto,note:'Збережена чернетка документа'});});
+   await page.route('**/api/erp/vouchers',route=>{assert.equal(route.request().method(),'POST');saves++;assert.equal(route.request().postDataJSON().note,'Збережена чернетка документа');return response(route,{...confirmedDto,note:'Збережена чернетка документа',payload:route.request().postDataJSON().payload,request_key:route.request().postDataJSON().idempotency_key});});
    await page.route(`**/api/erp/vouchers/${id}/post`,route=>{posts++;if(mode==='post-reject')return response(route,{error:'Ізольоване відхилення проведення'},422);posted=true;return response(route,{...confirmedDto,note:'Збережена чернетка документа',status:'posted'});});
    await page.route(`**/api/erp/vouchers/${id}`,async route=>{const raw=await route.fetch(),dto=await raw.json();if(posted)dto.status='posted';return response(route,dto);});
    await page.route('**/api/v1/trading/bootstrap',route=>{reads++;return reads===1?response(route,{error:'Список документів тимчасово недоступний'},503):route.continue();});

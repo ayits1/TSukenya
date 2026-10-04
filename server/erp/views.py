@@ -25,6 +25,12 @@ from .reporting import state, stock, report, voucher_json, scoped
 COLLECTIONS={'tasks','ideas','products','expenses'}
 SINGLE_DOCS={'settings/main','project/state'}
 ROOT=settings.BASE_DIR
+def recovery_editing(user, voucher):
+    closed=LedgerLock.objects.filter(pk=1).values_list('closed_through',flat=True).first()
+    allowed=voucher.status=='draft' and voucher.store.active and (closed is None or voucher.date>closed)
+    if voucher.kind=='production' and user.profile.role!='owner' and (voucher.payload.get('production',{}).get('expiryOverride') or dec(voucher.payload.get('additional_cost',0))!=ZERO):allowed=False
+    return {'role':user.profile.role,'storeId':user.profile.store_id,'closedThrough':closed.isoformat() if closed else None,'storeActive':voucher.store.active,'canEdit':bool(allowed)}
+
 def release_commit():
     # Written by deploy/release.py into the image; a checkout without it reports 'unknown'.
     try:return json.loads((ROOT/'server'/'RELEASE').read_text())['commit']
@@ -710,8 +716,25 @@ def handle(request):
                 order=get(Voucher,order_match[1],'Замовлення');scope(user,order.store);permission(user,order.kind);require(order.kind in ORDER_KINDS,'Це не замовлення.')
                 return response({'id':order.pk,'order':order_json(order,user,page_number(request.GET)),**({'limits':reserve_limits(order,user)} if request.GET.get('purpose')=='reserve' else {})})
         require(request.method=='POST','Метод не підтримується.');return response(mutate(user,order_match[1],body(request)))
+    if path=='/api/erp/vouchers/identity':
+        # POST transports the frozen fingerprint material; this is explicitly a read-only lookup.
+        require(request.method=='POST','Метод не підтримується.')
+        value=body(request);original=value.get('request')
+        require(isinstance(original,dict),'Вкажіть початковий запит.')
+        key=original.get('idempotency_key');kind=original.get('kind')
+        require(isinstance(key,str) and 0<len(key)<=80,'Некоректний ключ початкового запиту.')
+        require(isinstance(kind,str),'Некоректний тип документа.')
+        from .historical_reports import read_snapshot
+        with read_snapshot():
+            user=current_actor(user);permission(user,kind);scope(user,get(Store,original.get('store'),'Магазин'))
+            voucher=Voucher.objects.filter(idempotency_key=key).first()
+            if voucher is None:return response({'confirmed':False,'idempotencyKey':key})
+            scope(user,voucher.store);permission(user,voucher.kind);expense_permission(user,voucher)
+            require(voucher.kind==kind and voucher.request_fingerprint and hmac.compare_digest(voucher.request_fingerprint,request_fingerprint(user,original)),'Початковий запит не підтверджено. Ваше введення збережено.')
+            return response({'confirmed':True,'idempotencyKey':key,'id':voucher.pk,'revision':voucher.revision,'status':voucher.status,'kind':voucher.kind,'store':voucher.store_id,'date':voucher.date.isoformat(),'editing':recovery_editing(user,voucher)})
     if path=='/api/erp/vouchers':
-        if request.method=='POST':return response(voucher_json(save_voucher(user,body(request)),True,user=user),201)
+        if request.method=='POST':
+            value=body(request);v=save_voucher(user,value);result=voucher_json(v,True,user=user);result['request_key']=v.idempotency_key;return response(result,201)
         require(request.method=='GET','Метод не підтримується.')
         from .browsing import page_number, page_bounds, filter_search, positive_integer, PAGE_SIZE
         qs=scoped(Voucher.objects.select_related('created_by'),user)
@@ -742,16 +765,13 @@ def handle(request):
                 user=current_actor(user)
                 v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind);expense_permission(user,v)
                 result=voucher_json(v,True,user=user)
-                # The accounting lock owns the period; do not infer it from browser bootstrap.
-                closed=LedgerLock.objects.filter(pk=1).values_list('closed_through',flat=True).first()
-                allowed=v.status=='draft' and v.store.active and (closed is None or v.date>closed)
-                if v.kind=='production' and user.profile.role!='owner' and (v.payload.get('production',{}).get('expiryOverride') or dec(v.payload.get('additional_cost',0))!=ZERO):allowed=False
-                result['editing']={'role':user.profile.role,'storeId':user.profile.store_id,'closedThrough':closed.isoformat() if closed else None,'storeActive':v.store.active,'canEdit':bool(allowed)}
+                result['editing']=recovery_editing(user,v)
                 return response(result)
         if not action and request.method=='GET':
             expense_permission(user,v)
             return response(voucher_json(v,True,user=user))
-        if not action and request.method=='PUT':return response(voucher_json(save_voucher(user,body(request),pk),True,user=user))
+        if not action and request.method=='PUT':
+            value=body(request);v=save_voucher(user,value,pk);result=voucher_json(v,True,user=user);result['request_key']=value.get('idempotency_key');return response(result)
         if not action and request.method=='DELETE':
             with transaction.atomic():
                 ledger_lock();user=current_actor(user);v.refresh_from_db();scope(user,v.store);permission(user,v.kind);expense_permission(user,v);require(v.status=='draft','Видалити можна тільки чернетку.')
