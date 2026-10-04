@@ -103,3 +103,44 @@ export const ResponsibleNames: Story = {
     await expect(args.onApply).toHaveBeenCalledWith({ responsible: 2 });
   },
 };
+
+export const EmployeePayTerms: Story = {
+  args: {
+    base: { name: 'Олена', shift_rate: '100.00', bonus_percent: '2.000', bonus_basis: 'store' },
+    mine: { name: 'Олена', shift_rate: '125.00', bonus_percent: '2.000', bonus_basis: 'store' },
+    server: {
+      name: 'Нове ім’я іншого редактора',
+      shift_rate: '100.00',
+      bonus_percent: '3.000',
+      bonus_basis: 'profit',
+    },
+    fields: [
+      { id: 'name', label: 'Назва / ім’я', keys: ['name'] },
+      {
+        id: 'payTerms',
+        label: 'Умови оплати праці',
+        keys: ['shift_rate', 'bonus_percent', 'bonus_basis'],
+        decimals: ['shift_rate', 'bonus_percent'],
+        labels: {
+          shift_rate: 'Оплата за зміну, грн',
+          bonus_percent: 'Відсоток, %',
+          bonus_basis: 'База відсотка',
+        },
+        valueLabels: {
+          store: 'Виторг магазину за касову зміну',
+          profit: 'Валовий прибуток за зміну',
+        },
+      },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' }),
+    ).toBeDisabled();
+    await userEvent.tab();
+    await userEvent.keyboard(' ');
+    await userEvent.click(canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' }));
+    await expect(args.onApply).toHaveBeenCalledWith({ ...args.mine, name: args.server.name });
+  },
+};
