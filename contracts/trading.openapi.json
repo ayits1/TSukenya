@@ -562,6 +562,98 @@
           }
         }
       }
+    },
+    "/api/erp/vouchers/recovery-context": {
+      "get": {
+        "operationId": "voucherDraftContext",
+        "description": "Read-only fresh actor/scope authorization. Invalid raw date, closed period or inactive store return canEdit false without denying draft viewing. No write or revision adoption.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expense_scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoucherDraftContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid context"
+          },
+          "403": {
+            "description": "Role/store access denied"
+          }
+        }
+      }
+    },
+    "/api/erp/vouchers": {
+      "post": {
+        "operationId": "createNativeVoucher",
+        "description": "Atomic voucher CREATE remains the legacy contract. A bound 400 proof means this HTTP attempt rolled back; it never proves absence of an earlier request with the same key.",
+        "responses": {
+          "201": {
+            "description": "Legacy user-policy-redacted voucher ACK with request_key"
+          },
+          "400": {
+            "description": "Validation error; optional bound no-write proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "$ref": "#/components/schemas/VoucherCreateRejected"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authorization failure without no-write proof"
+          },
+          "409": {
+            "description": "Conflict without no-write proof"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1355,6 +1447,93 @@
             }
           }
         ]
+      },
+      "VoucherDraftContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "store",
+          "editing"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "editing": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "storeId",
+              "closedThrough",
+              "storeActive",
+              "canEdit"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "manager",
+                  "cashier",
+                  "warehouse",
+                  "accountant"
+                ]
+              },
+              "storeId": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "closedThrough": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "storeActive": {
+                "type": "boolean"
+              },
+              "canEdit": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "VoucherCreateRejected": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error",
+          "write_rejected",
+          "request_key",
+          "kind"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "write_rejected": {
+            "type": "boolean",
+            "const": true
+          },
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          }
+        }
       }
     }
   }

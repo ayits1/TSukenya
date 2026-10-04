@@ -58,7 +58,9 @@ function setup() {
     label: 'Торгова чернетка',
     decode: (value) => value as Payload,
     authorize: async () => true,
-    restore: (value) => restored.push(value),
+    restore: (value) => {
+      restored.push(value);
+    },
     suspend: () => {},
     confirm: (value, ack) => {
       if (ack !== 'strict-confirmed') throw Error('ACK');
@@ -278,5 +280,70 @@ describe('reload draft foundation', () => {
     await pending;
     expect(restored).toHaveLength(0);
     expect(controller.snapshot().entries).toEqual([]);
+  });
+  it('awaits an asynchronous renderer and passes cancellation before mounting a private form', async () => {
+    const { store, codec, restored } = setup();
+    store.save('draft1', 'synthetic', draft);
+    let release: (() => void) | undefined;
+    codec.restore = async (value, signal) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      if (!signal.aborted) restored.push(value);
+    };
+    const controller = new RecoveryController(store, async () => session);
+    const pending = controller.restore('draft1');
+    for (let n = 0; n < 3; n++) await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(release).toBeDefined();
+    expect(restored).toHaveLength(0);
+    controller.dismiss();
+    release?.();
+    await pending;
+    expect(restored).toHaveLength(0);
+    expect(controller.snapshot().entries).toEqual([]);
+  });
+  it('warm verify shares fresh session/resource denial rules without rendering or losing another unknown intent', async () => {
+    for (const status of [401, 403, 503]) {
+      const { store, storage, codec, restored } = setup();
+      store.save('denied', 'synthetic', draft);
+      store.save('other', 'synthetic', intent);
+      const original = storage.getItem(PREFIX + 'other');
+      codec.authorize = async () => {
+        throw Object.assign(Error('race'), { status });
+      };
+      const controller = new RecoveryController(store, async () => session);
+      expect(await controller.verify('denied')).toBeNull();
+      expect(restored).toHaveLength(0);
+      if (status === 401) expect(storage.length).toBe(0);
+      else {
+        expect(storage.getItem(PREFIX + 'other')).toBe(original);
+        expect(storage.getItem(PREFIX + 'denied') === null).toBe(status === 403);
+      }
+    }
+    const { store, storage, codec, restored } = setup();
+    store.save('draft1', 'synthetic', intent);
+    let fail: ((error: Error) => void) | undefined;
+    codec.authorize = () =>
+      new Promise((_resolve, reject) => {
+        fail = reject;
+      });
+    const controller = new RecoveryController(store, async () => session);
+    const verifying = controller.verify('draft1');
+    for (let i = 0; i < 3; i++) await new Promise<void>((r) => queueMicrotask(r));
+    controller.dismiss();
+    fail?.(Object.assign(Error('late403'), { status: 403 }));
+    expect(await verifying).toBeNull();
+    expect(storage.length).toBe(1);
+    expect(restored).toHaveLength(0);
+    codec.authorize = async () => true;
+    expect(await controller.verify('draft1')).toEqual(session);
+    expect(restored).toHaveLength(0);
+    const changed = new RecoveryController(store, async () => ({
+      ...session,
+      role: 'manager',
+      networkOwner: false,
+    }));
+    expect(await changed.verify('draft1')).toBeNull();
+    expect(storage.length).toBe(0);
   });
 });

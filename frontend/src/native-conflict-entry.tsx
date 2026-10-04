@@ -1,3 +1,4 @@
+import * as voucherPersistence from './shared/native/voucherPersistence';
 import { createDraftRecovery } from './shared/recovery/bridge';
 import * as monthlyBudgetEditor from './shared/native/monthlyBudget';
 import * as voucherEditor from './shared/native/voucher';
@@ -22,6 +23,7 @@ import * as recipeEditor from './shared/native/recipe';
 
 declare global {
   interface Window {
+    NativeVoucherPersistence?: typeof voucherPersistence;
     NativeDraftRecovery?: ReturnType<typeof createDraftRecovery>;
     NativePlanningCategoryEditor?: typeof planningCategoryEditor;
     NativeMonthlyBudgetEditor?: typeof monthlyBudgetEditor;
@@ -43,6 +45,7 @@ declare global {
     };
   }
 }
+window.NativeVoucherPersistence = voucherPersistence;
 window.NativeBudgetTemplateEditor = budgetTemplateEditor;
 window.NativePlanningCategoryEditor = planningCategoryEditor;
 window.NativeMonthlyBudgetEditor = monthlyBudgetEditor;
@@ -90,7 +93,6 @@ window.NativeConflictComparison = {
     };
   },
 };
-window.dispatchEvent(new Event('tsukenya:native-conflict-ready'));
 
 if (document.querySelector('#accountLink')) {
   try {
@@ -99,3 +101,4 @@ if (document.querySelector('#accountLink')) {
     /* Unavailable storage must be reported by enrollment before any send. */
   }
 }
+window.dispatchEvent(new Event('tsukenya:native-conflict-ready'));
