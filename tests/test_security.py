@@ -1,11 +1,11 @@
 import os
-from django.test import TestCase, override_settings
+from django.test import TransactionTestCase, override_settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 from server.auth import hash_password
 from server.erp.models import *
 
-class SecurityTests(TestCase):
+class SecurityTests(TransactionTestCase):
     def setUp(self):
         self.u=User.objects.create(username=os.environ.get('OWNER_USERNAME','pavlo'));Profile.objects.create(user=self.u,role='owner');LedgerLock.objects.create(pk=1)
         Setting.objects.create(key='owner_password',value=hash_password('isolated-owner-password'))

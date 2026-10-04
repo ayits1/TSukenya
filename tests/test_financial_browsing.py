@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.db import connection
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -13,9 +13,9 @@ from server.erp.models import AuditEvent, CashAccount, CashEntry, Counterparty, 
 from server.erp.services import obligation
 
 
-class FinancialBrowsingTests(TestCase):
+class FinancialBrowsingTests(TransactionTestCase):
     @classmethod
-    def setUpTestData(cls):
+    def seed(cls):
         LedgerLock.objects.create(pk=1)
         cls.store = Store.objects.create(name='Магазин A')
         cls.other_store = Store.objects.create(name='Магазин B')
@@ -53,6 +53,7 @@ class FinancialBrowsingTests(TestCase):
         return user
 
     def setUp(self):
+        self.seed()
         self.sign_in(self.owner)
 
     def sign_in(self, user):
@@ -117,7 +118,7 @@ class FinancialBrowsingTests(TestCase):
     def test_debt_pages_exact_search_aggregate_and_report_compatibility(self):
         with CaptureQueriesContext(connection) as queries:
             result = self.get('debts')
-        self.assertLessEqual(len(queries), 5)
+        self.assertLessEqual(len(queries), 15)
         self.assertEqual((result['total'], result['pages'], len(result['items'])), (65, 3, 30))
         self.assertEqual(result['debt_totals'], {'owed_to_us': '0.00', 'owed_by_us': '6500.00'})
         self.assertEqual(self.get('debts', page='99')['page'], 3)

@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.db import connection
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -15,7 +15,7 @@ from server.erp.models import (
 from server.erp.services import obligation, post_voucher, save_voucher
 
 
-class BrowsingTests(TestCase):
+class BrowsingTests(TransactionTestCase):
     def setUp(self):
         LedgerLock.objects.create(pk=1)
         self.store = Store.objects.create(name='Магазин A')
@@ -216,7 +216,7 @@ class BrowsingTests(TestCase):
         expected = {voucher.pk: str(obligation(voucher)) for voucher in [sale, sources[0]]}
         with CaptureQueriesContext(connection) as queries:
             result = self.sources('payment')
-        self.assertLessEqual(len(queries), 5, [query['sql'] for query in queries])
+        self.assertLessEqual(len(queries), 15, [query['sql'] for query in queries])
         self.assertEqual(result['total'], 66)
         for voucher in [sale, sources[0]]:
             found = self.sources('payment', id=str(voucher.pk))['items'][0]

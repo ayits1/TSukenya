@@ -1,5 +1,6 @@
 """Current trading permissions after cached authentication and a ledger wait."""
 from django.contrib.auth.models import User
+from django.test import TransactionTestCase
 from server.erp.models import AuditEvent, CashEntry, CashShift, StockEntry, Voucher
 from server.erp.services import BusinessError, post_voucher, reverse_voucher, save_voucher
 from server.erp.views import entity_save, shift_action
@@ -8,9 +9,11 @@ from server.erp.monthly_budgets import save_category
 from tests.test_erp import AccountingFixture
 
 
-class TradingActorRevalidationTests(AccountingFixture):
+class TradingActorRevalidationTests(TransactionTestCase):
+    v = AccountingFixture.v
+
     def setUp(self):
-        super().setUp()
+        AccountingFixture.setUp(self)
         self.payload = {'kind': 'cash_opening', 'store': self.store.pk, 'date': self.today,
                         'account': self.cash.pk, 'amount': '100', 'idempotency_key': 'isolated-trading-actor-create'}
         self.draft = save_voucher(self.u, self.payload)

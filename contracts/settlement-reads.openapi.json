@@ -1,0 +1,535 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya bounded settlement reads",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/settlements/statement": {
+      "get": {
+        "operationId": "settlementStatement",
+        "parameters": [
+          {
+            "name": "party",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current fresh-actor READ ONLY REPEATABLE READ projection. Each page has its own current snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Statement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filters/data"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Current role denied"
+          }
+        }
+      }
+    },
+    "/api/erp/debts/summary": {
+      "get": {
+        "operationId": "debtSummary",
+        "responses": {
+          "200": {
+            "description": "Current fresh-actor READ ONLY REPEATABLE READ projection. Each page has its own current snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebtSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Current role denied"
+          }
+        }
+      }
+    },
+    "/api/erp/party-statement": {
+      "get": {
+        "deprecated": true,
+        "responses": {
+          "410": {
+            "description": "Use /api/v1/trading/settlements/statement; the legacy unbounded transport is retired."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Policy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "store"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "manager",
+              "accountant"
+            ]
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "StatementRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "voucher",
+          "number",
+          "kind",
+          "date",
+          "store",
+          "amount",
+          "reversal",
+          "balance"
+        ],
+        "properties": {
+          "voucher": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sale",
+              "receipt",
+              "debt_opening",
+              "payment",
+              "advance_allocation",
+              "payment_refund",
+              "customer_return",
+              "supplier_return"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "reversal": {
+            "type": "boolean"
+          },
+          "balance": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          }
+        }
+      },
+      "Statement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "party",
+          "party_name",
+          "direction",
+          "from",
+          "to",
+          "basis",
+          "opening_balance",
+          "closing_balance",
+          "debit",
+          "credit",
+          "debt_total",
+          "advance_total",
+          "age",
+          "reconciliation",
+          "contract",
+          "policy",
+          "query"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/StatementRow"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "party": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "party_name": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "supplier"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "basis": {
+            "const": "accounting_dates"
+          },
+          "opening_balance": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "closing_balance": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "debit": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "credit": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "debt_total": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "advance_total": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "age": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "no_due",
+              "not_due",
+              "1_30",
+              "31_60",
+              "61_90",
+              "over_90"
+            ],
+            "properties": {
+              "no_due": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "not_due": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "1_30": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "31_60": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "61_90": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "over_90": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              }
+            }
+          },
+          "reconciliation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "net_documents_and_advances",
+              "matches"
+            ],
+            "properties": {
+              "net_documents_and_advances": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "matches": {
+                "type": "boolean"
+              }
+            }
+          },
+          "contract": {
+            "const": "trading-settlement-statement-v1"
+          },
+          "policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "store"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "manager",
+                  "accountant"
+                ]
+              },
+              "store": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "query": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "party",
+              "store",
+              "from",
+              "to"
+            ],
+            "properties": {
+              "party": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "store": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          }
+        }
+      },
+      "DuePayment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "voucher",
+          "number",
+          "store",
+          "party",
+          "due_date",
+          "amount"
+        ],
+        "properties": {
+          "voucher": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "party": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          }
+        }
+      },
+      "DebtSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "today",
+          "days",
+          "overdue",
+          "payments",
+          "payments_count",
+          "payments_total"
+        ],
+        "properties": {
+          "today": {
+            "type": "string",
+            "format": "date"
+          },
+          "days": {
+            "const": 14
+          },
+          "overdue": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "to_us",
+              "by_us"
+            ],
+            "properties": {
+              "to_us": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "amount",
+                  "count"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              "by_us": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "amount",
+                  "count"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "payments": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/DuePayment"
+            }
+          },
+          "payments_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "payments_total": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          }
+        }
+      }
+    }
+  }
+}

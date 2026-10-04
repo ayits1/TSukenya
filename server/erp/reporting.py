@@ -10,10 +10,10 @@ from .services import money, require, ZERO, net_total, obligation, payroll_debt,
 def number(value):
     return str(value or ZERO)
 
-def voucher_json(v, detail=False, *, user, settlements=None, allocations=None):
+def voucher_json(v, detail=False, *, user, settlements=None, allocations=None, outstanding=None):
     result = {'id':v.pk,'number':f'{v.pk:06d}','kind':v.kind,'status':v.status,'date':v.date.isoformat(),'store':v.store_id,'warehouse':v.warehouse_id,'target':v.target_id,'party':v.party_id,'employee':v.employee_id,'account':v.account_id,'shift':v.shift_id,'reference':v.reference_id,'total':str(v.total),'cost':str(v.cost),'note':v.note,'created_by':v.created_by.username,'created_at':v.created_at.isoformat(),'posted_at':v.posted_at.isoformat() if v.posted_at else None,'revision':v.revision}
     if v.kind in {'receipt','sale','debt_opening'} and v.status=='posted':
-        result['outstanding'] = str(obligation(v, settlements=settlements, allocations=allocations))
+        result['outstanding'] = str(outstanding if outstanding is not None else obligation(v, settlements=settlements, allocations=allocations))
     if detail:
         result['payload']=deepcopy(v.payload)
         if v.kind in {'customer_order','purchase_order'}:
