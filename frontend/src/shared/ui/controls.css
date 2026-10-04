@@ -333,6 +333,9 @@ input {
 }
 .tk-popover--paged {
   box-sizing: border-box;
+  /* Pagination needs room even when its trigger lives in a compact toolbar.
+     Reserve the same viewport gutters used by native-dialog overlays. */
+  min-width: min(20rem, calc(100vw - 64px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
