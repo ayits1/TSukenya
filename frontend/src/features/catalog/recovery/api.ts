@@ -269,7 +269,7 @@ export function createRecoveryApi(transport: typeof fetch = fetch) {
         signal,
       });
       guard();
-      const v: unknown = await s.json();
+      const v: unknown = await s.json().catch(() => null);
       guard();
       if (!s.ok) throw new RecoveryError(s.status, 'Не підтверджено поточний сеанс.');
       if (!sameSession(expectedSession, decodeDraftSession(v)))

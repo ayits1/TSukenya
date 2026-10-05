@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { webcrypto } from 'node:crypto';
+import { isCurrentAuthFailure, throwCurrentAuthFailure } from './authRead';
+import { ApiError } from '../../../shared/api/client';
 import { DraftStore } from '../../../shared/recovery/storage';
 import {
   decodeCatalogPayload,
@@ -304,5 +306,31 @@ describe('Catalogue durable frozen protocol', () => {
     resolve(new Response('{}', { status: 401 }));
     await expect(read).rejects.toMatchObject({ name: 'AbortError' });
     expect(requests).toBe(1);
+  });
+  it('preserves nonJSON last-session401/403 status and sends no business POST', async () => {
+    for (const status of [401, 403]) {
+      let requests = 0;
+      const client = createRecoveryApi((async () => {
+        requests++;
+        return new Response('gateway refusal', { status });
+      }) as typeof fetch);
+      await expect(
+        client.execute(envelope, 'a'.repeat(64), new AbortController().signal, () => true, session),
+      ).rejects.toMatchObject({ status });
+      expect(requests).toBe(1);
+    }
+  });
+  it('only forwards a current auth failure to the P0 read barrier', () => {
+    const error = new ApiError(403, 'current denied');
+    const abort = new AbortController();
+    expect(isCurrentAuthFailure(error, () => true)).toBe(true);
+    expect(isCurrentAuthFailure(error, () => false)).toBe(false);
+    expect(isCurrentAuthFailure(new ApiError(503, 'read retry'), () => true)).toBe(false);
+    expect(() => throwCurrentAuthFailure(error, () => true, abort.signal)).toThrow(error);
+    expect(() =>
+      throwCurrentAuthFailure(new ApiError(401, 'late'), () => false, abort.signal),
+    ).toThrow(/Скасовано/);
+    abort.abort();
+    expect(() => throwCurrentAuthFailure(error, () => true, abort.signal)).toThrow(/Скасовано/);
   });
 });
