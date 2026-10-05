@@ -384,8 +384,20 @@ def entity_save(user,name,value):
     audit(user,'entity_saved',f'{name}/{obj.pk}',{'name':obj.name, **audit_change(before, audit_snapshot('entity', obj), observed=value.get('revision'), reason=value.get('reason'))})
     return response({'id':obj.pk})
 
+def cash_shift_rejected(value):
+    from .cash_shift_recovery import request_key, identifier
+    try:
+        key=request_key(value);mode=value.get('action','open')
+        if mode not in {'open','close'}:return {}
+        selected=identifier(value.get('id' if mode=='close' else 'account'),'Касова зміна')
+        return {'write_rejected':True,'type':'cash_shift','action':mode,'request_key':str(key),'resource':selected}
+    except (BusinessError,TypeError,AttributeError):return {}
+
 @transaction.atomic
 def shift_action(user,value):
+    if isinstance(value,dict) and 'idempotency_key' in value:
+        from .cash_shift_recovery import action
+        return response(action(user,value))
     ledger_lock()
     user=current_actor(user)
     require(user.profile.role in {'owner','manager','cashier'},'Недостатньо прав.')
@@ -526,7 +538,7 @@ def handle(request):
         return result
     if path=='/' and request.method in {'GET','HEAD'}:
         if not request.portal_user:return HttpResponse(LOGIN_HTML)
-        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/settlement-reads.js"></script><script src="/planning-category-persistence.js"></script><script src="/planning-category-editor.js"></script><script src="/monthly-budget-persistence.js"></script><script src="/monthly-budget.js"></script><script src="/expense-draft-recovery.js"></script><script src="/portal-draft-recovery.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-entity-persistence.js"></script><script src="/erp-workshift-persistence.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-draft-persistence.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/receipt-catalog-review.js"></script><script src="/trading-freshness.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
+        html=(ROOT/'app/index.html').read_text().replace('<script src="/portal.js">','<script src="/settlement-reads.js"></script><script src="/planning-category-persistence.js"></script><script src="/planning-category-editor.js"></script><script src="/monthly-budget-persistence.js"></script><script src="/monthly-budget.js"></script><script src="/expense-draft-recovery.js"></script><script src="/portal-draft-recovery.js"></script><script src="/legacy-record-editor.js"></script><script src="/portal.js">',1).replace('<link rel="stylesheet" href="/ui.css">','<link rel="stylesheet" href="/initiatives.css"><link rel="stylesheet" href="/erp.css"><link rel="stylesheet" href="/ui.css">',1).replace('<script src="/ui.js">','<script src="/portal-api.js"></script><script src="/budget-template.js"></script><script src="/runtime.js"></script><script src="/portal-collections.js"></script><script src="/managed-alerts.js"></script><script src="/erp-browse.js"></script><script src="/erp-shifts.js"></script><script src="/erp-finance.js"></script><script src="/erp-draft-persistence.js"></script><script src="/erp-entity-persistence.js"></script><script src="/erp-workshift-persistence.js"></script><script src="/erp-cashshift-persistence.js"></script><script src="/erp-cashshift-editor.js"></script><script src="/erp-voucher-recovery.js"></script><script src="/erp-payments.js"></script><script src="/erp-orders.js"></script><script src="/recipe-draft-persistence.js"></script><script src="/recipe-editor.js"></script><script src="/erp-production.js"></script><script src="/reconciliation.js"></script><script src="/erp-directories.js"></script><script src="/receipt-catalog-review.js"></script><script src="/trading-freshness.js"></script><script src="/erp.js"></script><script src="/initiatives.js"></script><script src="/ui.js">',1)
         if RELEASE!='unknown':
             html=html.replace('id="applicationVersion">Локальна версія','id="applicationVersion">Версія '+RELEASE[:7],1).replace('id="applicationCommit">Невідомий','id="applicationCommit">'+RELEASE,1)
         manifest_file=ROOT/'frontend/dist/.vite/manifest.json'
@@ -595,6 +607,12 @@ def handle(request):
     if path.startswith('/api/v1/receipt-pricing/'):
         from .receipt_pricing import handle as receipt_pricing
         return receipt_pricing(request,user)
+    if path in {'/api/v1/trading/cash-shifts/recovery-context','/api/v1/trading/cash-shifts/current','/api/v1/trading/cash-shifts/identity'}:
+        from . import cash_shift_recovery
+        if path.endswith('/identity') and request.method=='POST':return response(cash_shift_recovery.identity(user,body(request)))
+        if request.method=='GET' and not path.endswith('/identity'):
+            return response(cash_shift_recovery.current(user,request.GET) if path.endswith('/current') else cash_shift_recovery.recovery_context(user,request.GET))
+        return response({'error':'Метод не дозволений.'},405)
     if path in {'/api/v1/trading/work-shifts/recovery-context','/api/v1/trading/work-shifts/current','/api/v1/trading/work-shifts/identity'}:
         from . import work_shift_recovery
         if path.endswith('/identity') and request.method=='POST':return response(work_shift_recovery.identity(user,body(request)))
@@ -624,7 +642,7 @@ def handle(request):
         if not file.is_relative_to(base) or not file.is_file():return HttpResponse(status=404)
         return HttpResponse(file.read_bytes(),content_type='text/css' if file.suffix=='.css' else 'text/javascript')
     if path=='/account':return HttpResponse(ACCOUNT_HTML.replace('Змінити пароль власника','Змінити пароль'))
-    if path in {'/settlement-reads.js','/monthly-budget-persistence.js','/planning-category-persistence.js','/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-draft-recovery.js','/expense-draft-recovery.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-entity-persistence.js','/erp-workshift-persistence.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-draft-persistence.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/receipt-catalog-review.js','/trading-freshness.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
+    if path in {'/settlement-reads.js','/monthly-budget-persistence.js','/planning-category-persistence.js','/planning-category-editor.js','/budget-template.js','/runtime.js','/legacy-record-editor.js','/portal-draft-recovery.js','/expense-draft-recovery.js','/portal-api.js','/portal-collections.js','/managed-alerts.js','/csv.js','/catalog-schema.js','/catalog-import.js','/catalog-import-jobs.js','/catalog-pricing.js','/erp-browse.js','/erp-shifts.js','/erp-finance.js','/erp-draft-persistence.js','/erp-entity-persistence.js','/erp-workshift-persistence.js','/erp-cashshift-persistence.js','/erp-cashshift-editor.js','/erp-voucher-recovery.js','/erp-payments.js','/monthly-budget.js','/erp-orders.js','/recipe-draft-persistence.js','/recipe-editor.js','/erp-production.js','/reconciliation.js','/erp-directories.js','/receipt-catalog-review.js','/trading-freshness.js','/erp.js','/erp.css','/initiatives.js','/initiatives.css','/portal.js','/combobox.js','/portal.css','/ui.js','/ui.css','/workspace.css'} and request.method in {'GET','HEAD'}:
         f=ROOT/('server/runtime.js' if path=='/runtime.js' else 'app'+path)
         return HttpResponse(f.read_bytes(),content_type='text/css' if path.endswith('.css') else 'text/javascript')
     if path=='/api/state' and request.method=='GET':
@@ -925,7 +943,19 @@ def handle(request):
                 proof={'write_rejected':True,'request_key':key,'type':match[1]} if isinstance(key,str) and re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',key) and not value.get('id') else {}
                 return response({'error':message,**proof},400)
             return result
-    if path=='/api/erp/shifts' and request.method=='POST':return shift_action(user,body(request))
+    if path=='/api/erp/shifts' and request.method=='POST':
+        value=body(request)
+        with transaction.atomic():
+            try:
+                with transaction.atomic():result=shift_action(user,value)
+            except Conflict as exc:
+                if exc.code!='revision_conflict':raise
+                proof=cash_shift_rejected(value)
+                return response({'error':str(exc),'code':exc.code,**proof},409)
+            except BusinessError as exc:
+                if any(word in str(exc) for word in ['прав','роль','доступ','не підтверджений']):raise
+                return response({'error':str(exc),**cash_shift_rejected(value)},400)
+        return result
     if path=='/api/erp/work-shifts' and request.method=='POST':
         value=body(request)
         with transaction.atomic():

@@ -1,4 +1,5 @@
 import * as managedAlertPersistence from './shared/native/managedAlertPersistence';
+import * as cashShiftPersistence from './shared/native/cashShiftPersistence';
 import * as workShiftPersistence from './shared/native/workShiftPersistence';
 import * as recipePersistence from './shared/native/recipePersistence';
 import * as portalPersistence from './shared/native/portalPersistence';
@@ -36,6 +37,7 @@ declare global {
     NativeManagedAlertPersistence?: typeof managedAlertPersistence;
     NativeVoucherPersistence?: typeof voucherPersistence;
     NativeEntityPersistence?: typeof entityPersistence;
+    NativeCashShiftPersistence?: typeof cashShiftPersistence;
     NativeWorkShiftPersistence?: typeof workShiftPersistence;
     NativeRecipePersistence?: typeof recipePersistence;
     NativeDraftRecovery?: ReturnType<typeof createDraftRecovery>;
@@ -78,6 +80,7 @@ window.NativeMonthlyBudgetEditor = monthlyBudgetEditor;
 window.NativeBudgetPeriodControls = { mount: mountBudgetPeriod };
 window.NativeEntityEditor = entityEditor;
 window.NativeEntityPersistence = entityPersistence;
+window.NativeCashShiftPersistence = cashShiftPersistence;
 window.NativeWorkShiftPersistence = workShiftPersistence;
 window.NativeRecipePersistence = recipePersistence;
 window.NativeLegacyEditor = legacyEditor;

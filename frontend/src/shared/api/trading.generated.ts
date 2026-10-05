@@ -220,6 +220,71 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/trading/cash-shifts/recovery-context': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['cashShiftRecoveryContext'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/cash-shifts/current': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['cashShiftCurrent'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/cash-shifts/identity': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['cashShiftIdentity'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/erp/shifts': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description One explicit till open or close under the ledger lock. Exact UUID retry checks fresh access then returns immutable receipt before mutable status/activity/revision checks; no repeated writes/audit. Validation/revision proof only describes initial rolled-back attempt, never global absence. */
+    post: operations['cashShiftAction'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -540,6 +605,112 @@ export interface components {
       /** @constant */
       pages: 1;
     };
+    /** @description Optional UUID extension; unkeyed legacy /api/erp/shifts behavior remains unchanged. Close revision binds only CashShift stored fields, never live account balance. */
+    CashShiftActionRequest:
+      | {
+          /** @enum {string} */
+          action: 'open';
+          account: number | string;
+          employee: (number | null) | string;
+          /** Format: uuid */
+          idempotency_key: string;
+        }
+      | {
+          /** @enum {string} */
+          action: 'close';
+          id: number | string;
+          counted: string;
+          note: string;
+          revision: string;
+          /** Format: uuid */
+          idempotency_key: string;
+        };
+    CashShiftActionOriginal:
+      | {
+          /** @enum {string} */
+          action: 'open';
+          account: number;
+          employee: number | null;
+        }
+      | {
+          /** @enum {string} */
+          action: 'close';
+          id: number;
+          counted: string;
+          note: string;
+          revision: string;
+        };
+    CashShiftActionReceipt: {
+      id: number;
+      /** @enum {string} */
+      type: 'cash_shift';
+      /** @enum {string} */
+      action: 'open' | 'close';
+      /** Format: uuid */
+      request_key: string;
+      original: components['schemas']['CashShiftActionOriginal'];
+    };
+    CashShiftRecoveryContext: {
+      /** @enum {string} */
+      type: 'cash_shift';
+      /** @enum {string} */
+      action: 'open' | 'close';
+      id: number | null;
+      account: number | null;
+      store: number | null;
+      /** @enum {string} */
+      role: 'owner' | 'manager' | 'cashier';
+      storeId: number | null;
+      networkOwner: boolean;
+      canWrite: boolean;
+    };
+    CashShiftCurrent: {
+      id: number;
+      store: number;
+      account: number;
+      employee: number | null;
+      openedBy: number;
+      /** Format: date-time */
+      openedAt: string;
+      /** Format: date-time */
+      closedAt: string | null;
+      openingCash: string;
+      expectedCash: string | null;
+      countedCash: string | null;
+      note: string;
+      revision: string;
+      editing: {
+        /** @enum {string} */
+        role: 'owner' | 'manager' | 'cashier';
+        storeId: number | null;
+        networkOwner: boolean;
+        canWrite: boolean;
+      };
+    };
+    /** @description Positive identity binds creator and full normalized frozen request. Missing receipt=false does not authorize clearing an unknown intent; current state/revision is a separate read. */
+    CashShiftActionIdentity:
+      | {
+          /** @enum {boolean} */
+          confirmed: true;
+          id: number;
+          /** @enum {string} */
+          type: 'cash_shift';
+          /** @enum {string} */
+          action: 'open' | 'close';
+          /** Format: uuid */
+          request_key: string;
+          original: components['schemas']['CashShiftActionOriginal'];
+        }
+      | {
+          /** @enum {boolean} */
+          confirmed: false;
+          /** @enum {string} */
+          type: 'cash_shift';
+          /** @enum {string} */
+          action: 'open' | 'close';
+          /** Format: uuid */
+          request_key: string;
+        };
   };
   responses: never;
   parameters: never;
@@ -1181,6 +1352,215 @@ export interface operations {
         content?: never;
       };
       /** @description Read denied or malformed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  cashShiftRecoveryContext: {
+    parameters: {
+      query?: {
+        action?: 'open' | 'close';
+        id?: number;
+        account?: number;
+        store?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized READ ONLY snapshot */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CashShiftRecoveryContext'];
+        };
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  cashShiftCurrent: {
+    parameters: {
+      query: {
+        id: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized READ ONLY snapshot */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CashShiftCurrent'];
+        };
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  cashShiftIdentity: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          request: components['schemas']['CashShiftActionRequest'];
+        };
+      };
+    };
+    responses: {
+      /** @description Authorized READ ONLY snapshot */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CashShiftActionIdentity'];
+        };
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  cashShiftAction: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CashShiftActionRequest'];
+      };
+    };
+    responses: {
+      /** @description Immutable exact acknowledgement */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CashShiftActionReceipt'];
+        };
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed. */
       409: {
         headers: {
           [name: string]: unknown;

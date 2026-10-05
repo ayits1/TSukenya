@@ -83,6 +83,18 @@ class CashShift(models.Model):
     counted_cash = models.DecimalField(max_digits=18, decimal_places=2, null=True)
     note = models.TextField(blank=True)
 
+class CashShiftActionReceipt(models.Model):
+    """An immutable acknowledgement of one explicit till open/close intent."""
+    key = models.UUIDField(primary_key=True, editable=False)
+    author = models.ForeignKey(User, on_delete=models.PROTECT)
+    action = models.CharField(max_length=5)
+    shift = models.ForeignKey(CashShift, on_delete=models.PROTECT)
+    store_id_snapshot = models.PositiveBigIntegerField()
+    fingerprint = models.CharField(max_length=64)
+    original = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class Voucher(models.Model):
     KIND = [('purchase_order','Замовлення постачальнику'),('receipt','Надходження'),('opening','Початкові залишки'),('sale','Продаж'),('customer_return','Повернення покупця'),('supplier_return','Повернення постачальнику'),('transfer','Переміщення'),('writeoff','Списання'),('inventory','Інвентаризація'),('production','Виробництво'),('payment','Платіж / аванс'),('advance_allocation','Використання авансу'),('payment_refund','Повернення авансу'),('expense','Витрата'),('cash_opening','Початкові кошти'),('payroll','Нарахування зарплати'),('payroll_payment','Виплата зарплати / аванс'),('customer_order','Замовлення покупця'),('debt_opening','Початкова заборгованість'),('cash_transfer','Переміщення коштів'),('cash_difference','Касове розходження')]
     kind = models.CharField(max_length=24, choices=KIND)
