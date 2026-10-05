@@ -165,3 +165,15 @@ canceled-directory шлях; matching build оновлено, новий broad/b
 запускався. Optional coordinator лишається непідключеним. Старі native Staff
 consumers усе ще потребують описаної вище test-only адаптації; review не оголошує
 їх перевіреними або весь migration/full matrix завершеним. Push/VPS відсутні.
+
+## Інтеграція з прийнятими Finance/Sales
+
+Адитивна інтеграція зберігає обидва React-маршрути, їхні module leave hooks,
+modal opener contexts, генератори контрактів і loader entries. Matching frontend
+build PASS; ізольований actual `review-directory` в інтегрованій збірці PASS:
+late401 скасованого пошуку не приховує salary table/tabs/actions, Enter/Escape
+повертає фокус на connected opener, бізнес-записів немає.
+Артефакт `/tmp/tsukenya-staff-root-reviewed-directory/review-directory-report.json`.
+JS syntax/diff/browser policy і full runner лише `--plan` PASS.
+Full readiness потребує окремої адаптації старих Staff consumers, яка виконується
+без пропуску бізнес-перевірок.
