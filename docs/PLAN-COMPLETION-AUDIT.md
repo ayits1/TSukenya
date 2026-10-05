@@ -1,18 +1,17 @@
 # Аудит завершення всього плану
 
-## Поточний зріз ·05.10.2026, після PR119
+## Поточний зріз ·05.10.2026, після PR121
 
-- PR116 managed alert recovery прийнято й розгорнуто.
-- PR117 bounded catalogue та PR118 standalone cash open/close прийнято;
-  разом розгорнуто main c64c753. Health, matching sources/assets, backup,
-  before/after accounting і read-only reconcile перевірені.
-- PR119 private catalogue GET cache прийнято як main bcd0fe7;
-  на VPS ще не розгорнуто. Межі: [B24-CATALOGUE-READ-CACHE.md](B24-CATALOGUE-READ-CACHE.md).
-- Три settings consumers інтегровано для окремого review/CI, ще не прийнято:
-  [SETTING-DRAFT-PERSISTENCE.md](SETTING-DRAFT-PERSISTENCE.md).
-- Initiative11, standalone voucher post/reverse/delete, bounded reference/import/
-  export та інші незакриті acceptance залишаються роботою. Whole B06/B24 і
-  повний план не зараховані до завершених.0.1 виключено; full не запускали.
+- PR116–120 прийнято й розгорнуто; VPS main4b0bbeb підтверджений health,
+  matching source/assets, backup і незмінними обліковими даними до/після.
+- PR121 відновлення всіх11 дій ініціатив прийнято як main97f99f9;
+  exact-head frontend/server/PostgreSQL CI успішні. Розгортання перевіряється
+  окремо й цим записом не оголошується завершеним.
+- Standalone voucher post/reverse/delete інтегровано для review/CI;
+  [VOUCHER-ACTION-DRAFT-PERSISTENCE.md](VOUCHER-ACTION-DRAFT-PERSISTENCE.md).
+- Bounded reference/import/export і весь документний viewer, інші B06/B24
+  та зовнішні acceptance залишаються роботою. Whole B06/B24 і повний план
+  не завершені;0.1 виключено; full не запускали.
 
 Нижчі історичні зрізи зберігають докази попередніх станів. Поточні статуси
 наведено вище; вузький PASS не є доказом завершення всього плану.
