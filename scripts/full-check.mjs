@@ -33,6 +33,7 @@ const isolatedEnv = { ...process.env };
 delete isolatedEnv.QA_BOUNDED_CATALOGUE_FROM;
 delete isolatedEnv.QA_CATALOG_DRAFT_FROM;
 delete isolatedEnv.QA_REFERENCE_MANAGEMENT_FROM;
+delete isolatedEnv.QA_CONTACT_TASK_FROM;
 delete isolatedEnv.QA_CUSTOMER_REPORT_FROM;
 delete isolatedEnv.QA_CUSTOMER_REPORT_PORT;
 delete isolatedEnv.CUSTOMER_REPORT_PROOF_DIR;
@@ -269,6 +270,10 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/voucher-conflict-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/entity-create-recovery-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/customers-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/contact-tasks-ui.cjs'], { env: browserEnv });
+    for (const taskStage of ['unknown', 'workflow', 'freshness', 'review']) {
+      await run('node', ['tests/contact-tasks-ui.cjs'], { env: { ...browserEnv, QA_CONTACT_TASK_FROM: taskStage } });
+    }
     await run('node', ['tests/bounded-stock-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/react-stock-ui.cjs'], { env: browserEnv });
     for (const stockStage of ['scope', 'control-late', 'comparison-policy']) {

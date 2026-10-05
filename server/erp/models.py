@@ -276,3 +276,5 @@ from .service_models import ServiceHeartbeat
 from .planning_models import PlanningCreateReceipt
 
 from .trading_version_models import TradingVersion
+
+from .contact_task_models import ContactTask, ContactTaskOperation

@@ -1,0 +1,1048 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Scoped contact work",
+    "version": "1.0.0",
+    "description": "Owner/manager/accountant only. Each read READ ONLY repeatable snapshot. No messages/loyalty. Identity false never proves absence. Immutable customer/store and creator-bound exact normalized receipts."
+  },
+  "paths": {
+    "/api/v1/crm/contact-tasks": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read or creator-bound acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "customer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dueFrom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dueTo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "overdue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read or creator-bound acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bound atomic rollback proof when valid UUID/key present; collision/auth/serializer failures never have this proof.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejection"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Create"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crm/contact-tasks/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read or creator-bound acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Current"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read or creator-bound acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bound atomic rollback proof when valid UUID/key present; collision/auth/serializer failures never have this proof.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejection"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Bound atomic rollback proof when valid UUID/key present; collision/auth/serializer failures never have this proof.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejection"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Update"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crm/contact-tasks/{id}/history": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read or creator-bound acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/History"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/crm/contact-tasks/identity": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read or creator-bound acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Identity"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crm/contact-task-context": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read or creator-bound acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Context"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "customer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/crm/contact-task-assignees": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read or creator-bound acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Assignees"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Terms": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "note",
+          "due_on",
+          "assignee",
+          "status",
+          "archived"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 250
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "due_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["todo", "doing", "done", "cancelled"]
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "customer",
+          "store",
+          "revision",
+          "terms",
+          "customerName",
+          "customerActive",
+          "storeName",
+          "assigneeName",
+          "assigneeActive",
+          "createdAt",
+          "updatedAt",
+          "completedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customer": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "terms": {
+            "$ref": "#/components/schemas/Terms"
+          },
+          "customerName": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "customerActive": {
+            "type": "boolean"
+          },
+          "storeName": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "assigneeName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assigneeActive": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Create": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "request_key", "customer", "store", "terms"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customer": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "terms": {
+            "$ref": "#/components/schemas/Terms"
+          }
+        }
+      },
+      "Update": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_key", "revision", "terms"],
+        "properties": {
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "terms": {
+            "$ref": "#/components/schemas/Terms"
+          }
+        }
+      },
+      "Original": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "customer", "store", "revision", "terms"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customer": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "terms": {
+            "$ref": "#/components/schemas/Terms"
+          }
+        }
+      },
+      "Acknowledgement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resource", "request_key", "action", "original"],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "enum": ["contact_task"]
+          },
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["create", "update"]
+          },
+          "original": {
+            "$ref": "#/components/schemas/Original"
+          }
+        }
+      },
+      "Current": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resource", "record", "permissions"],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "enum": ["contact_task"]
+          },
+          "record": {
+            "$ref": "#/components/schemas/Task"
+          },
+          "permissions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["canEdit"],
+            "properties": {
+              "canEdit": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "Page": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "summary",
+          "scope",
+          "canEdit"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["todo", "doing", "done", "cancelled", "overdue"],
+            "properties": {
+              "todo": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "doing": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "done": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cancelled": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "overdue": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["store", "today"],
+            "properties": {
+              "store": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "today": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          },
+          "canEdit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Context": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resource",
+          "id",
+          "customer",
+          "store",
+          "role",
+          "storeId",
+          "canEdit",
+          "exists"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "enum": ["contact_task"]
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "customer": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "role": {
+            "type": "string",
+            "enum": ["owner", "manager", "accountant"]
+          },
+          "storeId": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "exists": {
+            "type": "boolean",
+            "description": "Target existence for authorization only; never creator receipt confirmation or revision baseline."
+          }
+        }
+      },
+      "IdentityRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action", "id", "request"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["create", "update"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Create"
+              },
+              {
+                "$ref": "#/components/schemas/Update"
+              }
+            ]
+          }
+        }
+      },
+      "Identity": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confirmed",
+              "resource",
+              "request_key",
+              "action",
+              "original"
+            ],
+            "properties": {
+              "confirmed": {
+                "type": "boolean",
+                "enum": [true]
+              },
+              "resource": {
+                "type": "string",
+                "enum": ["contact_task"]
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "action": {
+                "type": "string",
+                "enum": ["create", "update"]
+              },
+              "original": {
+                "$ref": "#/components/schemas/Original"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["confirmed", "resource", "request_key", "action"],
+            "properties": {
+              "confirmed": {
+                "type": "boolean",
+                "enum": [false]
+              },
+              "resource": {
+                "type": "string",
+                "enum": ["contact_task"]
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "action": {
+                "type": "string",
+                "enum": ["create", "update"]
+              }
+            }
+          }
+        ]
+      },
+      "History": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "total", "page", "pages", "resource", "id"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "request_key",
+                "actor",
+                "action",
+                "at",
+                "revision",
+                "terms"
+              ],
+              "properties": {
+                "request_key": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "actor": {
+                  "type": "string",
+                  "maxLength": 150
+                },
+                "action": {
+                  "type": "string",
+                  "enum": ["create", "update"]
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "revision": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "terms": {
+                  "$ref": "#/components/schemas/Terms"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "resource": {
+            "type": "string",
+            "enum": ["contact_task_history"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Assignees": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "total", "page", "pages", "store"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "name"],
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 150
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "Rejection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error",
+          "resource",
+          "write_rejected",
+          "request_key",
+          "action",
+          "id",
+          "code"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "resource": {
+            "const": "contact_task",
+            "type": "string"
+          },
+          "write_rejected": {
+            "const": true,
+            "type": "boolean"
+          },
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["create", "update"]
+          },
+          "code": {
+            "type": "string",
+            "enum": ["validation_error", "revision_conflict"]
+          }
+        }
+      }
+    }
+  }
+}

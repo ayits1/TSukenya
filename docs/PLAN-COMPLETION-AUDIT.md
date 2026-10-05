@@ -1,5 +1,20 @@
 # Аудит завершення всього плану
 
+## Поточний зріз · 05.10.2026, main093c53b
+
+- PR129 і PR131–134 прийнято; VPS093c53b підтверджено public health,
+  matching source/assets та незмінними обліковими контрольними сумами.
+  Включено recovery каталогу/макета, freshness змін і дві мобільні CSS-правки.
+- PR130 прийнято й код scheduler присутній на VPS. Linux unit/calendar verification
+  успішна, але units не активовані й перший scheduler receipt ще не отримано.
+- B26 контактні задачі інтегровано для PR/CI після незалежного review і виправлень.
+  [CONTACT-TASKS.md](CONTACT-TASKS.md): задачі в картці та черга, scope/privacy,
+  receipts/revisions, raw recovery й freshness. Це не завершення всієї B26.
+- Campaign/Assortment recovery, решта B06/B24, capacity і зовнішні acceptance
+  залишаються відкритими. Loyalty/consents/providers потребують правил та вихідних
+  даних.0.1 виключено; full не запускали.
+
+
 ## Поточний зріз ·05.10.2026, після PR121
 
 - PR116–120 прийнято й розгорнуто; VPS main4b0bbeb підтверджений health,
@@ -524,3 +539,7 @@ atomic/durable imports і повний фільтр CSV. Unknown історич�
 - [PR127 — OrderControl actions](https://github.com/ayits1/TSukenya/pull/127) і [PR126 — bounded catalogue references/import/export](https://github.com/ayits1/TSukenya/pull/126) прийняті. Accepted main `a13c99753042f7975129940fa8612699449bd6bd` розгорнуто; root підтвердив public health exactSHA/statusok/importsavailable, відповідність source/assets і read-only перевірки цілісності. Production mutation/full тут не виконували.
 - Наступний Customers/Reports scoped conditional freshness пакет готується окремо; наявність source/proofs не означає merge/deploy. Нові метадані не є financial cursor/cache або доказом 100k SLA.
 - Повний B06/B24/план залишається відкритим. Пункт0.1 виключений; зовнішні інтеграції та решта native persistence families не прирівнюються до виконаних за цими PR.
+
+## B26 контактні задачі · авторська доставка для review
+
+Картка контакту та загальна черга читають scoped сторінки30, повні відфільтровані підсумки й історію; actual редактор має P0 raw/first-intent reload recovery. Django відповідає за права, immutable контекст, ревізії, атомарний аудит і creator receipt. Контракт/інкрементальні докази та межі — [CONTACT-TASKS.md](CONTACT-TASKS.md). Source не є accepted/deployed claim. Воронка/лояльність/провайдери, повний B06/B24/план лишаються відкритими; 0.1 виключений.

@@ -1,0 +1,40 @@
+.contact-task-editor {
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+  min-width: 0;
+  padding: 8px;
+}
+.contact-task-editor h2 {
+  margin: 0;
+}
+.contact-task-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+.contact-task-check input {
+  width: 22px;
+  height: 22px;
+}
+.contact-task-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+}
+.contact-task-list li {
+  border-bottom: 1px solid var(--line, #ddd);
+  padding: 12px 0;
+  overflow-wrap: anywhere;
+}
+.contact-task-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 12px;
+}
+.contact-task-section {
+  min-width: 0;
+  padding-top: 16px;
+}

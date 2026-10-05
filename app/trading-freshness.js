@@ -1,7 +1,7 @@
 /* Independent trading validator namespace. Business writes never enter this module. */
 (function () {
   'use strict';
-  const resources = Object.freeze(['stock','assortment','stock_documents','purchases_documents','replenishment','sales_documents','sales_shifts','finance_accounts','finance_ledger','finance_documents','finance_debts','finance_advances','staff_employees','staff_shifts','staff_documents','directories','policy','customers_contacts','customers_metrics','customers_debts','reports_period','reports_balances','reports_salary','reports_abc']);
+  const resources = Object.freeze(['stock','assortment','stock_documents','purchases_documents','replenishment','sales_documents','sales_shifts','finance_accounts','finance_ledger','finance_documents','finance_debts','finance_advances','staff_employees','staff_shifts','staff_documents','directories','policy','customers_tasks', 'customers_contacts','customers_metrics','customers_debts','reports_period','reports_balances','reports_salary','reports_abc']);
   const roles = ['owner','manager','cashier','warehouse','accountant'];
   const object = value => value && typeof value === 'object' && !Array.isArray(value);
   const exact = (value, keys) => object(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value,key));
