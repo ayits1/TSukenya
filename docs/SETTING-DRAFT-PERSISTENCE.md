@@ -53,3 +53,15 @@ Raw capture дозволяє невалідні новіші рядки. До se
 ## Межі
 
 Пакет не реалізує зовнішнього ПРРО провайдера, credentials persistence, generic settings autosave, initiative actions або окремі standalone voucher post/reverse/delete families. Інші P1/P2/P3 boundary лишаються окремою роботою. Не запускали full regression, load/capacity, production mutations чи deployment. Перезавантаження відновлює чернетки лише в тій самій browser session після чинної авторизації; міжсесійної/міжпристроєвої persistence немає.
+
+
+## Root integration after accepted119
+
+Own c3d8707/96ff314 перенесено окремо від cash dependency commits поверх accepted
+PR118 c64c753, потім accepted PR119 bcd0fe7. Conflicts у scrub array вирішено
+точним union QA_SETTING/QA_FACETS, а manifest зберігає cash і settings сім'ї.
+Існуючі parsed OpenAPI paths/schemas byte-semantically рівні попередньому
+контракту; додано6 paths. Matching frontend build42512 PASS; подальший rebase
+cache119 не змінив frontend inputs. Syntax/diff/plan-only і browser-policy256
+PASS, без нового full прогону. Author actual8 native/PG6+2 affected/codec4/Story1
+результати reused лише для незмінених inputs. Цей пакет ще не accepted/deployed.
