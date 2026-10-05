@@ -83,6 +83,8 @@ print(json.dumps([v.pk for v in rows]))`).toString());
    if(mode==='existing-post')await page.route('**/api/v1/trading/voucher-actions/execute',route=>{posts++;posted=true;return response(route,{contract:'voucher-action-v1',request:route.request().postDataJSON(),outcome:'posted'});});
    await page.route(`**/api/erp/vouchers/${id}/post`,route=>{posts++;if(mode==='post-reject')return response(route,{error:'Ізольоване відхилення проведення'},422);posted=true;return response(route,{...confirmedDto,note:'Збережена чернетка документа',status:'posted'});});
    await page.route(`**/api/erp/vouchers/${id}`,async route=>{const raw=await route.fetch(),dto=await raw.json();if(posted)dto.status='posted';return response(route,dto);});
+   // Mirror the existing mocked POST outcome in both independent bounded reads.
+   await page.route(`**/api/v1/trading/documents/${id}**`,async route=>{const raw=await route.fetch(),dto=await raw.json();if(posted&&dto.document){dto.document.status='posted';dto.document.actions=['reverse'];}return response(route,dto);});
    await page.route('**/api/v1/trading/bootstrap',route=>{reads++;return reads===1?response(route,{error:'Список документів тимчасово недоступний'},503):route.continue();});
    if(mode==='existing-post'){
     await documentButton(page,id).click();await dialog().locator('[data-trade=post-voucher]').click();await require('./voucher-action-navigation.cjs')(page);
@@ -100,7 +102,7 @@ print(json.dumps([v.pk for v in rows]))`).toString());
     await page.locator('[data-trade=refresh-saved]').press('Enter');await page.locator('[data-saved-refresh] [role=status]').filter({hasText:'Список оновлено'}).waitFor();
     assert.equal(reads,2);assert.equal(saves,mode==='existing-post'?0:1);assert.equal(posts,mode==='draft'?0:1,'Each document action has exactly one POST; recovery only reads');
    }
-   for(const url of ['**/api/erp/vouchers',`**/api/erp/vouchers/${id}/post`,`**/api/erp/vouchers/${id}`,'**/api/v1/trading/bootstrap','**/api/v1/trading/voucher-actions/execute'])await page.unroute(url);
+   for(const url of ['**/api/erp/vouchers',`**/api/erp/vouchers/${id}/post`,`**/api/erp/vouchers/${id}`,`**/api/v1/trading/documents/${id}**`,'**/api/v1/trading/bootstrap','**/api/v1/trading/voucher-actions/execute'])await page.unroute(url);
   }
   results.push('documents draft save, save+post, separate post reject draft feedback, existing post action; failed refresh GET-only retry and exact write counts: PASS');
  }

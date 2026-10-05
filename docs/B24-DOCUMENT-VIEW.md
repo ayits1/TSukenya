@@ -135,3 +135,37 @@ freshness, cheap child tokens/counters, capacity/VPS, backup0.1 чи entire B24.
 ReadAt — час окремого snapshot, не version token. Автоматичний polling viewer
 не реєструється поверх workspace coordinator. Немає production перевірок,
 нових mutation algorithms, запуску всіх браузерів або full regression.
+
+## Інтеграція accepted673e84d і тестові споживачі
+
+Rebase зберіг accepted initiative/managed exports, full-runner flags і
+TradeVoucherActions. Matching build PASS:
+`/tmp/tsukenya-document-integrated-build.log`.
+
+Один representative accepted callback tail:
+`QA_VOUCHER_ACTION_FROM=callbacks tests/voucher-action-reload-ui.cjs`
+PASS, `/tmp/tsukenya-document-action-compat.log` і
+`/tmp/tsukenya-document-action-compat/callbacks-report.json`:
+реальний post → current → explicit Done → bounded viewer, рівно1 business write,
+чинна кнопка receipt pricing. Цей результат підтверджує новий scalar action bridge;
+решта post/reverse/delete lifecycle перевикористовує незмінний accepted пакет122.
+
+Підсилено opening/late proof: тестовий fetch **явно ігнорує AbortSignal** для
+versioned document reads. Software fences PASS на integrated source:
+`/tmp/tsukenya-document-opening-ignored-final.log` (A→B + source Escape),
+`/tmp/tsukenya-document-late-ignored-final.log` (mounted close/late401).
+Попередній proof із реальним transport abort не видається за цей сильніший сценарій.
+
+`tests/document-navigation.cjs` очікує готову актуальну сторінку й перемикає
+секцію через public ARIA tab. Старі Purchases/Sales/voucher-action consumers
+використовують цей helper. Detail-only hooks у ERP settings, business audit,
+React Sales/Reports перенесено на versioned header; full editor/source/recovery
+URL залишені. Synthetic erp-recovery mocked post status відображається також у
+нових header/page fixtures. Assertions про business writes, privacy і помилки
+не видалені; current deny допускає повне видалення workspace, перевіряючи весь main.
+
+Синтаксис усіх8 адаптованих test/helper файлів PASS. Повторно **не запускались**
+інші scopes erp-settings, erp-recovery, react-sales/purchases/reports, business-audit
+або entire voucher-action family. Це source-adapted consumers, не нові PASS для
+їхніх сімей. `tests/order-reserves-ui.cjs` належить паралельному order5 пакету:
+його автору передано точний history-tab/helper delta; у цьому commit файл не змінено.
