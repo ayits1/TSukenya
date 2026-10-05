@@ -733,20 +733,54 @@ html:has(#react-labels .tk-studio) {
     padding: 8px 4px;
   }
   .tk-studio-heading {
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 8px;
+  }
+  .tk-studio-history {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+  .tk-studio-history .tk-button {
+    min-width: 44px;
+    padding-inline: 6px;
+    font-size: 12px;
   }
   .tk-studio-save {
-    flex: 1 1 100%;
-    justify-content: space-between;
+    display: contents;
   }
   .tk-studio-save > [role='status'] {
-    max-width: 110px;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    max-width: none;
+    overflow-wrap: normal;
+    word-break: normal;
   }
   .tk-studio-save > .tk-button {
-    flex-shrink: 0;
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
     white-space: nowrap;
-    padding-inline: 10px;
+    padding-inline: 8px;
+    font-size: 13px;
+  }
+  .tk-studio-review-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
+  }
+  .tk-studio-review-actions > .tk-button {
+    min-width: 0;
+    width: 100%;
+    padding-inline: 8px;
+    font-size: 13px;
+    white-space: normal;
+    overflow-wrap: normal;
+  }
+  .tk-studio-review-actions > .tk-button:last-child {
+    grid-column: 1 / -1;
   }
   .tk-studio-workspace {
     grid-template-columns: minmax(0, 1fr);
