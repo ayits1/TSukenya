@@ -54,7 +54,7 @@ export type StockOptions = {
   selectedStore: DirectoryItem | null;
   onStore: (id: number | null) => void;
   onCreateDocument: (kind: string) => void | Promise<void>;
-  onViewDocument: (id: number) => void | Promise<void>;
+  onViewDocument: (id: number, opener?: Element) => void | Promise<void>;
   onLegacyRecipes: () => void | Promise<void>;
   onRecipeVersions: () => void | Promise<void>;
   onControl: () => Promise<void>;

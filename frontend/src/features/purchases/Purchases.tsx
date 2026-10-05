@@ -146,7 +146,9 @@ function DocumentsPanel({ model }: { model: PurchasesModel }) {
                     isDisabled={busy || actionBusy}
                     data-document-id={r.id}
                     aria-label={`Відкрити ${kinds[r.kind]} № ${r.number}`}
-                    onPress={() => void model.action(() => model.options?.onViewDocument(r.id))}
+                    onPress={(event) =>
+                      void model.action(() => model.options?.onViewDocument(r.id, event.target))
+                    }
                   >
                     Відкрити
                   </Button>

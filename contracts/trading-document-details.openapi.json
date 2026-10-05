@@ -1,0 +1,1272 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya bounded document view",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/documents/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Поточний дозволений стан документа. Секції читаються окремими обмеженими сторінками.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Header"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректний запит"
+          },
+          "401": {
+            "description": "Сеанс завершено"
+          },
+          "403": {
+            "description": "Доступ змінився"
+          }
+        }
+      }
+    },
+    "/api/v1/trading/documents/{id}/rows": {
+      "get": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "section",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Section"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [10, 30],
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Поточний дозволений стан документа. Секції читаються окремими обмеженими сторінками.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некоректний запит"
+          },
+          "401": {
+            "description": "Сеанс завершено"
+          },
+          "403": {
+            "description": "Доступ змінився"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Section": {
+        "type": "string",
+        "enum": [
+          "lines",
+          "stock_movements",
+          "cash_movements",
+          "allocations",
+          "payroll_calculation",
+          "production_components",
+          "order_lines",
+          "reservations"
+        ]
+      },
+      "Action": {
+        "type": "string",
+        "enum": [
+          "edit",
+          "post",
+          "delete",
+          "reverse",
+          "receipt",
+          "sale",
+          "customer_return",
+          "supplier_return",
+          "use_advance",
+          "refund_advance",
+          "pay_debt",
+          "receipt_pricing",
+          "order_expire",
+          "order_close",
+          "order_date",
+          "order_reserve"
+        ]
+      },
+      "Caption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "revision",
+          "canManage",
+          "expectedDate",
+          "minimumAmount"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "approved",
+              "partial",
+              "fulfilled",
+              "closed",
+              "cancelled"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "canManage": {
+            "type": "boolean"
+          },
+          "expectedDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minimumAmount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Production": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "version",
+          "outputQuantity",
+          "unit",
+          "plannedOutput",
+          "actualOutput",
+          "lossQuantity",
+          "overrunQuantity",
+          "materialCost",
+          "expiry",
+          "expirySource",
+          "varianceReason",
+          "expiryReason",
+          "expiryApprovedBy"
+        ],
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outputQuantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plannedOutput": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actualOutput": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lossQuantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overrunQuantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "materialCost": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expirySource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "varianceReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiryReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiryApprovedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Document": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "number",
+          "kind",
+          "status",
+          "date",
+          "store",
+          "warehouse",
+          "target",
+          "party",
+          "employee",
+          "account",
+          "shift",
+          "reference",
+          "revision",
+          "total",
+          "cost",
+          "note",
+          "createdBy",
+          "createdAt",
+          "postedAt",
+          "fiscalRef",
+          "expenseScope",
+          "outstanding",
+          "unallocated",
+          "order",
+          "production",
+          "actions"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "purchase_order",
+              "receipt",
+              "opening",
+              "sale",
+              "customer_return",
+              "supplier_return",
+              "transfer",
+              "writeoff",
+              "inventory",
+              "production",
+              "payment",
+              "advance_allocation",
+              "payment_refund",
+              "expense",
+              "cash_opening",
+              "payroll",
+              "payroll_payment",
+              "customer_order",
+              "debt_opening",
+              "cash_transfer",
+              "cash_difference"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "posted", "reversed"]
+          },
+          "date": {
+            "type": "string"
+          },
+          "store": {
+            "$ref": "#/components/schemas/Caption"
+          },
+          "warehouse": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Caption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Caption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "party": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Caption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "employee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Caption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "account": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Caption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shift": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "postedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fiscalRef": {
+            "type": "string"
+          },
+          "expenseScope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["network", "store"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outstanding": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unallocated": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "order": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Order"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "production": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Production"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Action"
+            }
+          }
+        }
+      },
+      "Line": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "lineKey",
+          "referenceLine",
+          "product",
+          "name",
+          "unit",
+          "quantity",
+          "price",
+          "amount",
+          "cost",
+          "lot",
+          "expiry",
+          "originKnown",
+          "remaining",
+          "remainingAmount"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "lineKey": {
+            "type": "string"
+          },
+          "referenceLine": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "price": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lot": {
+            "type": "string"
+          },
+          "expiry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "originKnown": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remainingAmount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "StockMovement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "warehouse",
+          "product",
+          "lot",
+          "line",
+          "quantity",
+          "value",
+          "reversal"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "warehouse": {
+            "$ref": "#/components/schemas/Caption"
+          },
+          "product": {
+            "type": "string"
+          },
+          "lot": {
+            "type": "string"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reversal": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CashMovement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "account", "amount", "reversal"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "account": {
+            "$ref": "#/components/schemas/Caption"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "reversal": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Allocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "source", "number", "amount"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "number": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          }
+        }
+      },
+      "PayrollCalculation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "workShift",
+          "date",
+          "cashShift",
+          "rate",
+          "units",
+          "baseAmount",
+          "percent",
+          "basisAmount",
+          "accrued"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "workShift": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "date": {
+            "type": "string"
+          },
+          "cashShift": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rate": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "units": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "baseAmount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "percent": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "basisAmount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "accrued": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          }
+        }
+      },
+      "ProductionComponent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "product",
+          "name",
+          "unit",
+          "expectedQuantity",
+          "quantity",
+          "lot"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "expectedQuantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "lot": {
+            "type": "string"
+          }
+        }
+      },
+      "OrderLine": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "unit",
+          "quantity",
+          "fulfilled",
+          "remaining",
+          "reserved"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "fulfilled": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "remaining": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "reserved": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          }
+        }
+      },
+      "Reservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "line",
+          "name",
+          "unit",
+          "lot",
+          "code",
+          "lotExpiry",
+          "owner",
+          "createdAt",
+          "expiresOn",
+          "expiresAt",
+          "quantity",
+          "used",
+          "released",
+          "available",
+          "active"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "lot": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "code": {
+            "type": "string"
+          },
+          "lotExpiry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "expiresOn": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "used": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "released": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "available": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Header": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["contract", "context", "document", "sections"],
+        "properties": {
+          "contract": {
+            "type": "string",
+            "enum": ["document-detail-v1"]
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["document", "role", "scopeStore", "store", "readAt"],
+            "properties": {
+              "document": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "manager",
+                  "warehouse",
+                  "cashier",
+                  "accountant"
+                ]
+              },
+              "scopeStore": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "store": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "readAt": {
+                "type": "string"
+              }
+            }
+          },
+          "document": {
+            "$ref": "#/components/schemas/Document"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "total"],
+              "properties": {
+                "key": {
+                  "$ref": "#/components/schemas/Section"
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      "Page": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["contract", "context", "document", "sections", "page"],
+        "properties": {
+          "contract": {
+            "type": "string",
+            "enum": ["document-detail-v1"]
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["document", "role", "scopeStore", "store", "readAt"],
+            "properties": {
+              "document": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "manager",
+                  "warehouse",
+                  "cashier",
+                  "accountant"
+                ]
+              },
+              "scopeStore": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "store": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "readAt": {
+                "type": "string"
+              }
+            }
+          },
+          "document": {
+            "$ref": "#/components/schemas/Document"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "total"],
+              "properties": {
+                "key": {
+                  "$ref": "#/components/schemas/Section"
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "page": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["section", "page", "pages", "limit", "total", "items"],
+            "properties": {
+              "section": {
+                "$ref": "#/components/schemas/Section"
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "enum": [10, 30]
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Line"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StockMovement"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CashMovement"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Allocation"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PayrollCalculation"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ProductionComponent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OrderLine"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Reservation"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

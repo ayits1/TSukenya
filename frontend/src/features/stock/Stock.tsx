@@ -677,7 +677,9 @@ export function Stock({ model }: { model: StockModel }) {
                         <td>{statusLabels[row.status]}</td>
                         <td>
                           <Button
-                            onPress={() => void model.action(() => options.onViewDocument(row.id))}
+                            onPress={(event) =>
+                              void model.action(() => options.onViewDocument(row.id, event.target))
+                            }
                             isDisabled={s.busy}
                           >
                             Відкрити № {row.number}
