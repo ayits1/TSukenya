@@ -1,0 +1,760 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya order action recovery",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/order-actions/execute": {
+      "post": {
+        "description": "Existing exact OrderOperation body/creator/order binding. Bound first-live rollback proof only; auth/collision/postcommit errors never prove no write.",
+        "responses": {
+          "200": {
+            "description": "Strict outcome or context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or bound rolled-back domain rejection"
+          },
+          "401": {
+            "description": "Session expired"
+          },
+          "403": {
+            "description": "Current scope/role denied"
+          },
+          "409": {
+            "description": "Revision/key collision; only order_revision_conflict can include rollback proof"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Request"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/order-actions/identity": {
+      "post": {
+        "description": "READ ONLY RR. confirmed:false never proves absence; historical outcome is not a current revision grant.",
+        "responses": {
+          "200": {
+            "description": "Strict outcome or context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Identity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or bound rolled-back domain rejection"
+          },
+          "401": {
+            "description": "Session expired"
+          },
+          "403": {
+            "description": "Current scope/role denied"
+          },
+          "409": {
+            "description": "Revision/key collision; only order_revision_conflict can include rollback proof"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "request"
+                ],
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/Request"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/order-actions/context": {
+      "get": {
+        "description": "Fresh actor READ ONLY RR. Exact selected reservation independent of history page; canExecute remains a nonpersistent hint.",
+        "responses": {
+          "200": {
+            "description": "Strict outcome or context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Context"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or bound rolled-back domain rejection"
+          },
+          "401": {
+            "description": "Session expired"
+          },
+          "403": {
+            "description": "Current scope/role denied"
+          },
+          "409": {
+            "description": "Revision/key collision; only order_revision_conflict can include rollback proof"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one scalar; reservation required only for release",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one scalar; reservation required only for release",
+            "schema": {
+              "enum": [
+                "customer_order",
+                "purchase_order"
+              ]
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one scalar; reservation required only for release",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one scalar; reservation required only for release",
+            "schema": {
+              "enum": [
+                "reserve",
+                "release",
+                "expire",
+                "close",
+                "expected_date"
+              ]
+            }
+          },
+          {
+            "name": "reservation",
+            "in": "query",
+            "required": false,
+            "description": "Exactly one scalar; reservation required only for release",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Request": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "store",
+          "body"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "enum": [
+              "customer_order",
+              "purchase_order"
+            ]
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "body": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "revision",
+                  "idempotencyKey",
+                  "expires_on",
+                  "lines"
+                ],
+                "properties": {
+                  "action": {
+                    "const": "reserve"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expires_on": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "lines": {
+                    "type": "array",
+                    "maxItems": 200,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "line",
+                        "quantity"
+                      ],
+                      "properties": {
+                        "line": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "quantity": {
+                          "type": "string",
+                          "maxLength": 80
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "revision",
+                  "idempotencyKey",
+                  "reservation",
+                  "quantity",
+                  "reason"
+                ],
+                "properties": {
+                  "action": {
+                    "const": "release"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reservation": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "quantity": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "revision",
+                  "idempotencyKey"
+                ],
+                "properties": {
+                  "action": {
+                    "const": "expire"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "revision",
+                  "idempotencyKey",
+                  "reason"
+                ],
+                "properties": {
+                  "action": {
+                    "const": "close"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "revision",
+                  "idempotencyKey",
+                  "expected_date"
+                ],
+                "properties": {
+                  "action": {
+                    "const": "expected_date"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expected_date": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "Outcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "revision",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "approved",
+              "partial",
+              "fulfilled",
+              "closed",
+              "cancelled"
+            ]
+          }
+        }
+      },
+      "Ack": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract",
+          "request",
+          "outcome"
+        ],
+        "properties": {
+          "contract": {
+            "const": "order-action-v1"
+          },
+          "request": {
+            "$ref": "#/components/schemas/Request"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          }
+        }
+      },
+      "Identity": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "contract",
+              "confirmed",
+              "request"
+            ],
+            "properties": {
+              "contract": {
+                "const": "order-action-v1"
+              },
+              "confirmed": {
+                "const": false
+              },
+              "request": {
+                "$ref": "#/components/schemas/Request"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "contract",
+              "confirmed",
+              "request",
+              "outcome"
+            ],
+            "properties": {
+              "contract": {
+                "const": "order-action-v1"
+              },
+              "confirmed": {
+                "const": true
+              },
+              "request": {
+                "$ref": "#/components/schemas/Request"
+              },
+              "outcome": {
+                "$ref": "#/components/schemas/Outcome"
+              }
+            }
+          }
+        ]
+      },
+      "Line": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "line",
+          "name",
+          "unit",
+          "quantity",
+          "fulfilled",
+          "remaining",
+          "reserved"
+        ],
+        "properties": {
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,3})?$"
+          },
+          "fulfilled": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,3})?$"
+          },
+          "remaining": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,3})?$"
+          },
+          "reserved": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,3})?$"
+          }
+        }
+      },
+      "Limit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "line",
+          "name",
+          "unit",
+          "needed",
+          "available",
+          "max_date",
+          "canReserveFull"
+        ],
+        "properties": {
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "needed": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,3})?$"
+          },
+          "available": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,3})?$"
+          },
+          "max_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "canReserveFull": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Selected": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "line",
+          "name",
+          "code",
+          "expires_on",
+          "unused"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "expires_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "unused": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d{1,3})?$"
+          }
+        }
+      },
+      "Context": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract",
+          "id",
+          "kind",
+          "store",
+          "action",
+          "revision",
+          "state",
+          "date",
+          "canExecute",
+          "expected_date",
+          "lines",
+          "limits",
+          "selected",
+          "role",
+          "storeId"
+        ],
+        "properties": {
+          "contract": {
+            "const": "order-action-context-v1"
+          },
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "enum": [
+              "customer_order",
+              "purchase_order"
+            ]
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "action": {
+            "enum": [
+              "reserve",
+              "release",
+              "expire",
+              "close",
+              "expected_date"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "approved",
+              "partial",
+              "fulfilled",
+              "closed",
+              "cancelled"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "canExecute": {
+            "type": "boolean"
+          },
+          "expected_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "lines": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/Line"
+            }
+          },
+          "limits": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/Limit"
+            }
+          },
+          "selected": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Selected"
+              }
+            ]
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "manager",
+              "cashier",
+              "warehouse"
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -126,3 +126,11 @@ Exact whole contract, кожен terminal/partial proof і scope обмежен�
 [VOUCHER-ACTION-DRAFT-PERSISTENCE.md](VOUCHER-ACTION-DRAFT-PERSISTENCE.md).
 Save+Post редактора залишається окремою попередньою машиною. Це не completion
 усіх destructive legacy actions або всього B06/P2/P3.
+
+## П’ять дій замовлення · окремий пакет
+
+Actual reserve/release/expire/close/expected_date мають raw/frozen reload
+recovery через existing OrderOperation, exact selected reservation, creator
+identity перед current GET та local Apply/окрему дію. Contract/partial+tail
+proofs і межі: [ORDER-ACTION-DRAFT-PERSISTENCE.md](ORDER-ACTION-DRAFT-PERSISTENCE.md).
+Це не означає завершення решти P2/P3.
