@@ -17,6 +17,7 @@ async function request(record,method='GET',patch,signal){
 const pending=new Map();
 const announce=()=>window.dispatchEvent(new Event('tsukenya:legacy-pending'));
 async function update(collection,item,patch,onConfirmed){
+ if(collection==='expenses'&&window.TSUKENYA_SERVER)return window.ExpenseDraftRecovery.update(item,patch,onConfirmed);
  let record;try{record=snapshot(collection,item);}catch(error){openError(error);return false;}
  const key=collection+':'+record.id;if(pending.has(key))return false;pending.set(key,true);announce();
  try{adapter().legacyPatch(record,{...adapter().legacyProjection(record),...patch});await request(record,'PATCH',patch);onConfirmed?.();return true;}
@@ -24,7 +25,7 @@ async function update(collection,item,patch,onConfirmed){
  finally{pending.delete(key);announce();}
 }
 function openError(error){window.alert(error.message);}
-function edit(collection,item,onConfirmed){try{open(snapshot(collection,item),{onConfirmed});}catch(error){openError(error);}}
+function edit(collection,item,onConfirmed){if(collection==='expenses'&&window.TSUKENYA_SERVER){void window.ExpenseDraftRecovery.edit(item,{onConfirmed}).catch(openError);return;}try{open(snapshot(collection,item),{onConfirmed});}catch(error){openError(error);}}
 async function remove(collection,item,onConfirmed){let record;try{record=snapshot(collection,item);}catch(error){openError(error);return false;}if(!record.permissions.canDelete){openError(Error('Видалення цього запису недоступне.'));return false;}if(!confirm('Видалити запис «'+(record.data.title||record.data.name)+'»?'))return false;const key=collection+':'+record.id;if(pending.has(key))return false;pending.set(key,true);announce();try{await request(record,'DELETE');onConfirmed?.();return true;}catch(error){open(record,{deleting:true,needsReview:true,message:error.message,onConfirmed});return false;}finally{pending.delete(key);announce();}}
 function open(record,{patch={},needsReview=false,message='',deleting=false,onConfirmed}={}){
  if(active?.open){active.focus();return;}
@@ -61,5 +62,5 @@ function open(record,{patch={},needsReview=false,message='',deleting=false,onCon
  fill();sync();error.textContent=message;d.showModal();if(review)read.focus();else form.querySelector('input').focus();
 }
 window.addEventListener('beforeunload',event=>{if(pending.size||active?.open&&active.dataset.legacyDirty==='1'){event.preventDefault();event.returnValue='';}});
-window.LegacyEditors={snapshot,edit,update,remove,reviewCreate:(original,patch,onConfirmed)=>{try{const record=adapter().decodeLegacyRecord(original,original.collection,original.id);open(record,{patch,needsReview:true,onConfirmed,message:'Початкове створення підтверджено. Узгодьте новіше введення з актуальним записом; збереження — окрема дія.'});}catch(error){openError(error);}},isPending:(collection,id)=>pending.has(collection+':'+id),pending:()=>pending.size>0||!!active?.open,canLeave:()=>{if(pending.size)return false;if(active?.open){active.querySelector('[data-close]').click();return !active.open;}return true;}};
+window.LegacyEditors={snapshot,edit,update,remove,reviewCreate:(original,patch,onConfirmed)=>{try{const record=adapter().decodeLegacyRecord(original,original.collection,original.id);if(record.collection==='expenses'&&window.TSUKENYA_SERVER){void window.ExpenseDraftRecovery.edit(record,{patch,onConfirmed,needsReview:true}).catch(openError);return;}open(record,{patch,needsReview:true,onConfirmed,message:'Початкове створення підтверджено. Узгодьте новіше введення з актуальним записом; збереження — окрема дія.'});}catch(error){openError(error);}},isPending:(collection,id)=>pending.has(collection+':'+id)||collection==='expenses'&&window.ExpenseDraftRecovery?.isPending(id),pending:()=>pending.size>0||!!active?.open||!!window.ExpenseDraftRecovery?.pending(),canLeave:()=>{if(pending.size)return false;if(active?.open){active.querySelector('[data-close]').click();return !active.open;}return true;}};
 })();

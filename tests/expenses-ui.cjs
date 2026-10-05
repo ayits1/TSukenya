@@ -69,7 +69,7 @@ async function until(check, message) {
     }
   }
   await page.locator('[data-newexp]').evaluateAll(inputs => inputs.forEach(el => el.value=''));
-  const amount = page.getByRole('spinbutton', { name: 'Оренда, грн на місяць', exact: true });
+  const amount = page.getByRole('textbox', { name: 'Оренда, грн на місяць', exact: true });
   await amount.fill('12345.67');
   assert.equal(await amount.evaluate(el => el.checkValidity()), true, 'kopecks are a valid budget amount');
   await amount.press('Tab');
@@ -91,21 +91,27 @@ async function until(check, message) {
   await until(async()=>!(await page.locator('#budgetSaveError').innerText()),'correction clears invalid draft');
   await page.route('**/api/docs/expenses/qa_rent',route=>route.request().method()==='PATCH'?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Сервіс тимчасово недоступний.'})}):route.continue());
   await amount.fill('20000.09');await amount.press('Tab');
-  await until(async()=>(await page.locator('#budgetSaveError').innerText()).includes('Чернетку залишено'),'failed autosave has persistent error');
-  assert.equal(await amount.inputValue(),'20000.09');
-  // Trigger a real data refresh while the failed draft remains on screen.
-  await page.evaluate(async()=>{const s=await(await fetch('/api/state')).json();await fetch('/api/docs/expenses/qa_variable',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify({amount:11.03})});});
-  await until(async()=>await page.locator('[data-exp=qa_variable]').inputValue()==='11.03','refresh rendered another saved expense');
-  assert.equal(await amount.inputValue(),'20000.09','refresh does not discard failed amount');
+  const recovery=page.locator('dialog[aria-labelledby=expenseRecoveryTitle]'),recoveryAmount=recovery.locator('[name=amount]');
+  await until(async()=>(await recovery.locator('[data-error]').innerText()).length>0,'failed autosave has persistent recovery');
+  assert.equal(await recoveryAmount.inputValue(),'20000.09');
+  // Other rows refresh independently; current comparison, Apply and Save are distinct.
+  await page.evaluate(async()=>{const session=await(await fetch('/api/v1/session')).json(),record=await(await fetch('/api/v1/portal/records/expenses/qa_variable')).json();const r=await fetch('/api/docs/expenses/qa_variable',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf,'If-Match':record.revision},body:JSON.stringify({amount:11.03})});if(!r.ok)throw Error('Other row fixture failed');await window.TSUKENYA_REFRESH_AFTER_WRITE();});
+  assert.equal(await recoveryAmount.inputValue(),'20000.09','refresh does not discard failed amount');
   page.once('dialog',dialog=>dialog.dismiss());
   await page.evaluate(()=>location.hash='#operations/work');
   await until(async()=>await page.evaluate(()=>location.hash==='#operations/expenses'),'failed draft protects route');
   await page.unroute('**/api/docs/expenses/qa_rent');
-  await page.getByRole('button',{name:'Повторити збереження',exact:true}).click();
-  await until(async()=>(await page.locator('#budgetSaveStatus').innerText())==='Усі зміни збережено','explicit retry completed');
+  const beforeReadWrites=amountWrites;
+  await recovery.locator('[data-read]').click();
+  await page.getByRole('button',{name:'Застосувати узгоджені зміни',exact:true}).click();
+  assert.equal(amountWrites,beforeReadWrites,'current GET and local Apply never write');
+  await recovery.getByRole('button',{name:'Зберегти статтю',exact:true}).click();
+  await until(async()=>await recovery.count()===0,'separate current-revision Save confirmed');
+  await until(async()=>await page.locator('[data-expense-private]').isVisible(),'authorized inline fields restored');
   assert.equal(await amount.inputValue(),'20000.09');
+  assert.equal(await page.locator('[data-exp=qa_variable]').inputValue(),'11.03','unrelated saved row survives');
   const saved=await page.evaluate(async()=> (await(await fetch('/api/state')).json()).data.expenses.find(e=>e.id==='qa_rent').data.amount);
-  assert.equal(saved,20000.09,'retry saves exact kopecks');
+  assert.equal(saved,20000.09,'separate Save saves exact kopecks');
   let releaseSave;
   await page.route('**/api/docs/expenses/qa_rent',async route=>{if(route.request().method()==='PATCH'){await new Promise(resolve=>releaseSave=resolve);}await route.continue();});
   await amount.fill('20001.10');await amount.press('Tab');
@@ -114,6 +120,7 @@ async function until(check, message) {
   await page.evaluate(()=>location.hash='#operations/work');
   await until(async()=>await page.evaluate(()=>location.hash==='#operations/expenses'),'pending autosave protects route');
   releaseSave();await page.unroute('**/api/docs/expenses/qa_rent');
+  await until(async()=>await recovery.count()===0,'pending acknowledged with independent current read');
   await until(async()=>(await page.locator('#budgetSaveStatus').innerText())==='Усі зміни збережено','pending completed');
   const displayedCount=page.locator('#stores');
   await page.locator('[data-budget-template-edit]').click();
@@ -134,15 +141,16 @@ async function until(check, message) {
   const orphan=page.locator('[data-exp=qa_long]');
   await page.route('**/api/docs/expenses/qa_long',route=>route.request().method()==='PATCH'?route.fulfill({status:503,json:{error:'Ізольований збій'}}):route.continue());
   await orphan.fill('8888.77');await orphan.press('Tab');
-  await until(async()=>(await page.locator('#budgetSaveError').innerText()).includes('Чернетку залишено'),'orphan fixture has failed draft');
+  await until(async()=>(await recovery.locator('[data-error]').innerText()).length>0,'orphan fixture has failed draft');
+  page.once('dialog',dialog=>dialog.accept());await recovery.locator('[data-close]').click();
   await page.unroute('**/api/docs/expenses/qa_long');
-  await page.evaluate(async()=>{const s=await(await fetch('/api/state')).json();await fetch('/api/docs/expenses/qa_long',{method:'DELETE',headers:{'X-CSRF-Token':s.csrf}});});
+  await page.evaluate(async()=>{const s=await(await fetch('/api/v1/session')).json(),record=await(await fetch('/api/v1/portal/records/expenses/qa_long')).json();const r=await fetch('/api/docs/expenses/qa_long',{method:'DELETE',headers:{'X-CSRF-Token':s.csrf,'If-Match':record.revision}});if(!r.ok)throw Error('Delete fixture failed');await window.TSUKENYA_REFRESH_AFTER_WRITE();});
   await until(async()=>await orphan.count()===0,'external deletion refreshed');
   assert.match(await page.locator('#budgetOrphans').innerText(),/8888.77/,'orphan draft amount remains visible');
   assert.equal(await page.getByRole('button',{name:'Повторити збереження',exact:true}).isHidden(),true,'orphan is not sent as a missing record update');
   page.once('dialog',dialog=>dialog.dismiss());await page.evaluate(()=>location.hash='#operations/work');await until(async()=>await page.evaluate(()=>location.hash==='#operations/expenses'),'orphan guards leave');
   await page.getByRole('button',{name:/Відкинути чернетку: Оренда складського/}).click();
-  assert.equal(await page.locator('#budgetOrphans').innerText(),'');assert.equal(await page.locator('#budgetSaveStatus').innerText(),'Усі зміни збережено');
+  await until(async()=>await page.locator('#budgetOrphans').innerText()==='','explicit discard removed raw and orphan');assert.equal(await page.locator('#budgetSaveStatus').innerText(),'Усі зміни збережено');
   // Own deletion blocks duplicate requests and navigation until resolved.
   let releaseDelete,deleteCalls=0;
   await page.route('**/api/docs/expenses/qa_variable',async route=>{if(route.request().method()==='DELETE'){deleteCalls++;await new Promise(resolve=>releaseDelete=resolve);}await route.continue();});
@@ -173,7 +181,7 @@ u=User.objects.create_user(username='budget_manager',password='isolated-budget-p
   }
   page.off('request',onRequest);
   assert.deepEqual(errors, []);
-  console.log('PASS: budget names/amounts separated, short/long names, 44px controls, 1440/1024/768/390/320 in both system themes, autosave 12345.67 and reload; failed/invalid drafts, retry, pending route protection, independent budget count, orphan external deletion, one pending DELETE, owner UI, zero/missing/loss analytical states.');
+  console.log('PASS: budget names/amounts separated, short/long names, 44px controls, 1440/1024/768/390/320 in both system themes, autosave 12345.67 and reload; failed/invalid drafts, currentGET/local Apply/separate Save, pending route protection, independent budget count, orphan external deletion, one pending DELETE, owner UI, zero/missing/loss analytical states.');
 })().catch(async error => {
   if (page) await page.screenshot({ path: path.join(os.tmpdir(), 'tsukenya-budget-failure.png'), fullPage: true }).catch(() => {});
   console.error(error); process.exitCode = 1;

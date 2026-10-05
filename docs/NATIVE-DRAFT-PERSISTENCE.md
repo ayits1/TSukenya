@@ -12,7 +12,7 @@
 | `recipe-editor.js:open`, `erp-production.js:recipeForm` / native recipe | Raw components/approved-version reason/output, old catalog/revision, first key/body | Legacy unknown update readonly compare; approved CREATE exact receipt; Apply без POST | Реалізовано обидва modes; див. `RECIPE-DRAFT-PERSISTENCE.md` |
 | `planning-category-editor.js` / native planningCategory | Mutable name/active, immutable UUID/semantic/aliases, first body/key | Independent category dialog; creator identity підтверджено до currentGET, явний Apply/окремий Save; raw/context privacy | Реалізовано category family; exact coverage у `CATEGORY-DRAFT-PERSISTENCE.md`, monthly/template ще відкриті |
 | `monthly-budget.js` / native monthlyBudget | Month/store/ID, ordered stableUUID rows, raw revenue/amount/rate; original terms/key | Facts/history не editablecache; remove-v-change явно; confirmedGETbarrier | Реалізовано monthly family; exact coverage у `MONTHLY-DRAFT-PERSISTENCE.md`; template/P2/P3 відкриті |
-| `budget-template.js` / native budgetTemplate | Raw count/expense fields, independent count/optional label revision guards, first body | Count revision не label token; current GET, separate Apply/Save | Count-only actual family реалізовано: TEMPLATE-DRAFT-PERSISTENCE.md; expense inline P2 enrollment ще відкритий, всю template сім'ю не закрито |
+| `budget-template.js` / native budgetTemplate | Raw count/expense fields, independent count/optional label revision guards, first body | Count revision не label token; current GET, separate Apply/Save | Count actual family: TEMPLATE-DRAFT-PERSISTENCE.md; inline/new-name/full editable expense поля: EXPENSE-DRAFT-PERSISTENCE.md; destructive DELETE intent і generic P2/P3 відкриті |
 
 ## Спільні переходи, які має довести кожна сім'я
 
@@ -80,3 +80,6 @@ QA_NATIVE_DRAFT_FROM=barriers # or payment/post/privacy/cold/production/validati
 ## Recipe editors · 05.10.2026
 
 Обидва реальні режими спільного `TradeRecipeEditor` підключені до P0. Raw whitelist, stable component UUIDs, frozen approved CREATE, legacy unknown UPDATE comparison, confirmed read barrier та fresh privacy описані з окремими цільовими доказами в [RECIPE-DRAFT-PERSISTENCE.md](RECIPE-DRAFT-PERSISTENCE.md). Це не закриває інші ще відкриті сім’ї B06.
+## Expense editable fields · окремий пакет
+
+Inline amount/category, new-name/Create та LegacyEditors.edit/update/reviewCreate для expenses підключено до P0: exact raw/units/revisions, creator identity, durable confirmation до current GET, local Apply/окремий Save і private read fences. [EXPENSE-DRAFT-PERSISTENCE.md](EXPENSE-DRAFT-PERSISTENCE.md) містить точні partial/terminal proofs, source boundary та наступну відкриту destructive DELETE/generic P2/P3 роботу. Це не змінює історичні scope заяви попередніх delivery.
