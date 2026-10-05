@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const readReferences=require('./reference-pages.cjs');
 const path = require('node:path');
 module.exports = async (page, until, {archiveOnly=false}={}) => {
+ const recoveryTail=process.env.QA_REFERENCE_MANAGEMENT_FROM==='recovery';assert([undefined,'recovery'].includes(process.env.QA_REFERENCE_MANAGEMENT_FROM),'Unknown reference recovery stage');
  const artifacts=process.env.QA_ARTIFACT_DIR || '/tmp/tsukenya-reference-management-proof';fs.mkdirSync(artifacts,{recursive:true});
  const request=async(method,url,body)=>page.evaluate(async({method,url,body})=>{
   const csrf=(await(await fetch('/api/v1/session')).json()).csrf;
@@ -16,7 +17,7 @@ module.exports = async (page, until, {archiveOnly=false}={}) => {
  const pack=await ref('pack','B30 Пакет');
  const create=async(name,category)=>{const result=await request('POST','/api/v1/catalog/products',{name,type:source.value,category,pack:pack.value,unit:'шт',cost:'10.01'});assert.equal(result.status,201,JSON.stringify(result));return result.data;};
  const coffee=await create('B30 Кава контрольна','B30 Кава'),tea=await create('B30 Чай контрольний','B30 Чай');
- const calls=[];page.on('request',r=>{if(new URL(r.url()).pathname==='/api/v1/catalog/references/commit')calls.push(r.postDataJSON());});
+ const calls=[];page.on('request',r=>{if(new URL(r.url()).pathname==='/api/v1/catalog/recovery/execute'&&r.postDataJSON().operation==='reference_commit')calls.push(r.postDataJSON().request);});
  const dialog=page.getByRole('dialog');
  const select=async(label,name)=>{name=name.replace(/ · (Активний|Архівований)$/,'');const input=dialog.getByRole('combobox',{name:new RegExp(label)});if(await input.count()){await until(()=>input.isEnabled(),label+' ready');await input.fill(name);const option=page.getByRole('listbox').getByRole('option').filter({hasText:name});await option.waitFor();assert.equal(await option.count(),1);await option.click();await until(async()=>await input.inputValue()===name||await input.inputValue()===name+' · Архівований',label+' committed');}else{await dialog.getByRole('button',{name:new RegExp(label)}).click();await page.getByRole('option',{name,exact:true}).click();}};
  const open=async()=>{const button=page.getByRole('button',{name:'Довідники',exact:true});await until(()=>button.isEnabled(),'dictionary trigger ready');await button.focus();await page.keyboard.press('Enter');await dialog.waitFor();await until(()=>dialog.getByRole('combobox',{name:/Запис довідника/}).isEnabled(),'dictionary loaded');};
@@ -34,25 +35,26 @@ module.exports = async (page, until, {archiveOnly=false}={}) => {
  };
  let renamed=coffee,renameGeometry=[],mergeGeometry=[];
  if(!archiveOnly){
- await open();await select('Запис довідника',source.value+' · Активний');
+ await open();
+ if(!recoveryTail){await select('Запис довідника',source.value+' · Активний');
  await dialog.getByRole('textbox',{name:'Нова назва'}).fill('B30 Гарячі напої');await preview();assert.equal(calls.length,0,'preview never commits');
  renameGeometry=await geometry('rename-review');
  const current=(await request('GET','/api/v1/catalog/products/'+coffee.id)).data;
  assert.equal((await request('PATCH','/api/v1/catalog/products/'+coffee.id,{revision:current.revision,name:'B30 Кава змінена паралельно'})).status,200);
- await confirm();await dialog.getByRole('alert').filter({hasText:'Перегляньте вплив знову'}).waitFor();
+ await confirm();await dialog.getByRole('alert').filter({hasText:/Вплив.*змінився/}).waitFor();await require('./catalog-recovery-navigation.cjs').access(page);
  assert.equal(await dialog.getByRole('textbox',{name:'Нова назва'}).inputValue(),'B30 Гарячі напої','409 keeps local input');
  assert.equal(await dialog.getByRole('heading',{name:'Перевірений вплив'}).count(),0,'stale review cleared');
  await preview();await confirm();await success();
  renamed=(await request('GET','/api/v1/catalog/products/'+coffee.id)).data;
  assert.equal(renamed.type,'B30 Гарячі напої');assert.equal(renamed.referenceIds.type,source.id);assert.equal(renamed.referenceIds.category,category.id);
- await select('Запис довідника','B30 Гарячі напої · Активний');await select('Дія','Об’єднати');
+ }
+ await select('Запис довідника',(recoveryTail?source.value:'B30 Гарячі напої')+' · Активний');await select('Дія','Об’єднати');
  assert(!await dialog.getByRole('button',{name:'Переглянути вплив'}).isEnabled(),'merge requires explicit target');
  await select('Цільова група',target.value+' · Активний');await preview();
  assert.match(await dialog.locator('.tk-reference-impact').innerText(),/B30 Кава → B30 Подарункові/);
  mergeGeometry=await geometry('merge-review');
- let lost=false;await page.route('**/api/v1/catalog/references/commit',async route=>{if(!lost){lost=true;const response=await route.fetch();assert.equal(response.status(),200);await route.abort('failed');}else await route.continue();});
- await confirm();const retry=dialog.getByRole('button',{name:'Повторити підтвердження'});await retry.waitFor();await retry.focus();await page.keyboard.press('Enter');await success();await page.unroute('**/api/v1/catalog/references/commit');
- assert.deepEqual(calls.at(-1),calls.at(-2),'lost response retry has exact original key/request');
+ let lost=false;await page.route('**/api/v1/catalog/recovery/execute',async route=>{if(!lost){lost=true;const response=await route.fetch();assert.equal(response.status(),200);await route.abort('failed');}else await route.continue();});
+ await confirm();await dialog.getByRole('button',{name:'Повторити саме первісну дію'}).waitFor();await require('./catalog-recovery-navigation.cjs').access(page);const frozen=(await require('./catalog-recovery-navigation.cjs').raw(page))[0].firstIntent.body;const beforeIdentity=calls.length;await dialog.getByRole('button',{name:'Повторити саме первісну дію'}).press('Enter');await dialog.getByRole('button',{name:'Застосувати узгоджені зміни'}).waitFor();assert.equal(calls.length,beforeIdentity,'positive creator identity never repeats committed B30 POST');assert.deepEqual((await require('./catalog-recovery-navigation.cjs').raw(page))[0].confirmation.envelope,frozen);await dialog.getByRole('button',{name:'Застосувати узгоджені зміни'}).click();await page.unroute('**/api/v1/catalog/recovery/execute');
  renamed=(await request('GET','/api/v1/catalog/products/'+coffee.id)).data;
  assert.equal(renamed.type,target.value);assert.equal(renamed.referenceIds.type,target.id);assert.equal(renamed.referenceIds.category,targetCategory.id);
  const teaAfter=(await request('GET','/api/v1/catalog/products/'+tea.id)).data;assert.equal(teaAfter.type,target.value);
@@ -72,6 +74,6 @@ module.exports = async (page, until, {archiveOnly=false}={}) => {
  await open();await select('Довідник','Пакування');await select('Стан записів','Архівований');await select('Запис довідника',pack.value+' · Архівований');await preview();await confirm();await success();
  references=await readReferences(page);assert(references.items.some(item=>item.id===pack.id));
  await page.keyboard.press('Escape');
- fs.writeFileSync(path.join(artifacts,'report.json'),JSON.stringify({checks:[...(!archiveOnly?['read-only preview','stable group/category IDs after rename','stale snapshot preserves input','explicit target group/coalesced category','lost response exact idempotent retry']:[]),'archive suppresses legacy selection','unchanged archived editor save','restore keeps ID','keyboard Enter/Space/Escape/focus restoration'],archiveOnly,renameGeometry,mergeGeometry,archiveGeometry,commitRequests:calls.length},null,2));
- console.log(archiveOnly?'PASS: B30 affected archive/unchanged editor/restore keyboard tail.':'PASS: B30 stable references, reviewed atomic actions, 409/retry/archive/restore and 1440/320 keyboard/layout proof.');
+ fs.writeFileSync(path.join(artifacts,'report.json'),JSON.stringify({checks:[...(!archiveOnly&&!recoveryTail?['read-only preview','stable group/category IDs after rename','stale snapshot preserves input','explicit target group/coalesced category','lost response exact idempotent retry']:[]),'archive suppresses legacy selection','unchanged archived editor save','restore keeps ID','keyboard Enter/Space/Escape/focus restoration'],archiveOnly,recoveryTail,renameGeometry,mergeGeometry,archiveGeometry,commitRequests:calls.length},null,2));
+ console.log(recoveryTail?'PASS: B30 merge/lostACK/creator identity/archive/unchanged editor/restore keyboard tail.':archiveOnly?'PASS: B30 affected archive/unchanged editor/restore keyboard tail.':'PASS: B30 stable references, reviewed atomic actions, 409/retry/archive/restore and 1440/320 keyboard/layout proof.');
 };

@@ -1,3 +1,6 @@
+import { takeCatalogRestore } from './recovery/session';
+import type { CatalogPayload } from './recovery/codec';
+import { createCatalogApi } from './api';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../shared/ui/Button';
@@ -39,6 +42,8 @@ export function Catalog({
   const [editing, setEditing] = useState<{
     product?: Product;
     activatePromotion?: boolean;
+    deactivatePromotion?: boolean;
+    restoredPayload?: CatalogPayload;
     defaultMarkup: string;
   } | null>(null);
   const exportRequest = useRef<AbortController | null>(null),
@@ -84,6 +89,26 @@ export function Catalog({
   };
   const [message, setMessage] = useState('');
   const [managingReferences, setManagingReferences] = useState(false);
+  const [managerRestore, setManagerRestore] = useState<CatalogPayload | undefined>();
+  const [restoredApi, setRestoredApi] = useState<CatalogApi | null>(null);
+  useEffect(() => {
+    const restore = () => {
+      const payload = takeCatalogRestore();
+      if (!payload) return;
+      if (payload.baseline.kind === 'product') {
+        const restoredClient = createCatalogApi(payload.baseline.store);
+        setRestoredApi(restoredClient);
+        void restoredClient.session().catch(() => {});
+        setEditing({ defaultMarkup: payload.baseline.defaultMarkup, restoredPayload: payload });
+      } else {
+        setManagerRestore(payload);
+        setManagingReferences(true);
+      }
+    };
+    window.addEventListener('tsukenya:catalog-draft-restore', restore);
+    restore();
+    return () => window.removeEventListener('tsukenya:catalog-draft-restore', restore);
+  }, []);
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(filters.q), 250);
     return () => clearTimeout(timer);
@@ -135,10 +160,15 @@ export function Catalog({
     [client, onChanged],
   );
   const promotion = useMutation({
-    mutationFn: (product: Product) =>
-      api.save({ revision: product.revision, promotion: false }, product.id),
+    mutationFn: async (product: Product) => {
+      setRestoredApi(null);
+      setEditing({
+        product,
+        defaultMarkup: result.data?.defaultMarkup || '0',
+        deactivatePromotion: true,
+      });
+    },
     retry: false,
-    onSuccess: saved,
   });
   const error = session.error || result.error || promotion.error;
   return (
@@ -196,7 +226,10 @@ export function Catalog({
             showVisibility={false}
             data={result.data}
             {...(api.exportCsv ? { onExport: () => void download() } : {})}
-            onReferences={() => setManagingReferences(true)}
+            onReferences={() => {
+              setManagerRestore(undefined);
+              setManagingReferences(true);
+            }}
             filters={filters}
             onFilters={(value) => {
               setMessage('');
@@ -227,7 +260,13 @@ export function Catalog({
         </>
       )}
       {managingReferences ? (
-        <ReferenceManager onClose={() => setManagingReferences(false)} onChanged={onChanged} />
+        <ReferenceManager
+          key={managerRestore?.baseline.recordId || 'new_reference_manager'}
+          {...(managerRestore ? { restoredPayload: managerRestore } : {})}
+          store={managerRestore?.baseline.store ?? priceStore ?? null}
+          onClose={() => setManagingReferences(false)}
+          onChanged={onChanged}
+        />
       ) : null}
       {promotions && priceContext && (priceContext.canManage || priceContext.canViewHistory) ? (
         <CampaignManager
@@ -243,8 +282,9 @@ export function Catalog({
       ) : null}
       {editing ? (
         <ProductEditor
+          key={editing.restoredPayload?.baseline.recordId || editing.product?.id || 'new_product'}
           {...editing}
-          api={api}
+          api={editing.restoredPayload && restoredApi ? restoredApi : api}
           onClose={() => {
             setProductDirty(false);
             setEditing(null);

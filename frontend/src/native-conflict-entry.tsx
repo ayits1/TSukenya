@@ -1,3 +1,4 @@
+import { installCatalogRecovery } from './features/catalog/recovery/session';
 import * as documentView from './features/document-details/bridge';
 import * as orderAction from './shared/native/orderAction';
 import * as settingPersistence from './shared/native/settingPersistence';
@@ -144,6 +145,7 @@ window.NativeConflictComparison = {
 if (document.querySelector('#accountLink')) {
   try {
     window.NativeDraftRecovery = createDraftRecovery(window);
+    installCatalogRecovery();
   } catch {
     /* Unavailable storage must be reported by enrollment before any send. */
   }

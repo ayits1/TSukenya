@@ -85,7 +85,7 @@ module.exports = async (page, until) => {
   await dialog.getByRole('button', { name: 'Закрити редактор' }).click();
   const promotion = page.getByRole('button', { name: 'Акція: ' + product.name, exact: true });
   const noPromotion = page.getByRole('button', { name: 'Без акції: ' + product.name, exact: true });
-  await promotion.click();
+  await promotion.click();await dialog.getByRole('textbox',{name:'Назва товару'}).waitFor();await until(()=>dialog.getByRole('button',{name:'Зберегти товар'}).isEnabled(),'explicit promotion save ready');await dialog.getByRole('button',{name:'Зберегти товар'}).click();
   await until(async () => await noPromotion.count() === 1, 'promotion disabled');
   const inactive = await page.evaluate(async id => (await (await fetch('/api/v1/catalog/products/' + id)).json()), product.id);
   assert.equal(inactive.salePrice, '21.09', 'disabling promotion restores regular price');

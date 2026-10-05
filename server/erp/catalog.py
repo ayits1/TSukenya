@@ -434,6 +434,9 @@ def normalise_legacy(value, old, path):
 def handle_catalog(request, user):
     from .views import response
     path = request.path.rstrip('/')
+    if path in {'/api/v1/catalog/recovery/execute', '/api/v1/catalog/recovery/identity', '/api/v1/catalog/recovery/context'}:
+        from .catalog_recovery import handle
+        return handle(request, user)
     collection = '/api/v1/catalog/products'
     if path in {'/api/v1/catalog/selection/page', '/api/v1/catalog/selection/facets'} and request.method == 'GET':
         from .catalog_selection import handle

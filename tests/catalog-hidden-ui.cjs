@@ -21,7 +21,8 @@ async function until(fn,label){for(let i=0;i<120;i++){if(server.exitCode!==null|
  const api=async(method,url,body)=>{const response=await page.request.fetch(base+url,{method,headers,...(body?{data:body}:{})});assert.equal(response.status(),200,url+': '+await response.text());return response.json();};
  const created=await page.request.post(base+'/api/v1/catalog/products',{headers,data:{name:'Синтетичний товар видимості',cost:'10',manualPrice:true,price:'21.99'}});assert.equal(created.status(),201);const first=await created.json(),url='/api/v1/catalog/products/'+first.id;
  await page.goto(base+'/#operations/products');await page.getByRole('searchbox',{name:'Пошук товару'}).fill(first.name);
- await page.getByRole('button',{name:first.name,exact:true}).click();const dialog=page.getByRole('dialog'),name=dialog.getByRole('textbox',{name:'Назва товару'});
+ await page.getByRole('button',{name:first.name,exact:true}).click();const dialog=page.getByRole('dialog'),name=dialog.getByRole('textbox',{name:'Назва товару'}),recovery=require('./catalog-recovery-navigation.cjs');
+ const compare=()=>recovery.compare(page),currentRead=()=>recovery.confirmedCurrent(page),rawName=async()=>(await recovery.raw(page))[0].draft.values.name;
  await name.fill('Моя незбережена назва');
  if(process.env.QA_HIDDEN_STAGE==='layout'){
   await page.setViewportSize({width:320,height:850});
@@ -38,44 +39,42 @@ async function until(fn,label){for(let i=0;i<120;i++){if(server.exitCode!==null|
   let current=await api('PATCH',url+'/visibility',{revision:first.revision,hidden:true});
   current=await api('PATCH',url,{revision:current.revision,name:'Серверна назва',barcode:'server-1'});
   await dialog.getByRole('button',{name:'Приховати товар',exact:true}).click();
-  await until(async()=>await dialog.getByRole('button',{name:'Порівняти зміни',exact:true}).count()===1,'external visibility409');
+  await dialog.getByRole('alert').filter({hasText:/змінено/}).waitFor();await recovery.access(page);
   assert.equal(await name.inputValue(),'');assert(await dialog.getByRole('button',{name:'Зберегти товар',exact:true}).isDisabled());
   let malformed=true;
   await page.route('**'+url+'?includeHidden=true',async route=>{if(malformed){malformed=false;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({...current,id:'unrelated'})});}return route.continue();});
-  await dialog.getByRole('button',{name:'Порівняти зміни',exact:true}).click();await dialog.getByText('Сервер повернув дані невідомого формату.',{exact:true}).waitFor();assert.equal(await name.inputValue(),'');
-  await dialog.getByRole('button',{name:'Порівняти зміни',exact:true}).click();await dialog.getByText(/Поточний стан на сервері: прихований/).waitFor();
+  await compare();await dialog.getByText('Сервер повернув дані невідомого формату.',{exact:true}).waitFor();await recovery.assertHidden(page);assert.equal(await rawName(),'');
+  await compare();await dialog.getByText(/Поточний стан на сервері: прихований/).waitFor();
   assert(await dialog.getByRole('button',{name:'Застосувати узгоджені зміни',exact:true}).isDisabled());
   const mine=dialog.getByRole('radio',{name:'Залишити мої зміни'});await mine.focus();await page.keyboard.press('Space');
   await dialog.getByRole('button',{name:'Застосувати узгоджені зміни',exact:true}).click();assert.equal(await name.inputValue(),'');assert.equal(await dialog.getByRole('textbox',{name:'Штрихкод'}).inputValue(),'server-1');
   current=await api('PATCH',url+'/visibility',{revision:current.revision,hidden:false});
   current=await api('PATCH',url,{revision:current.revision,barcode:'server-2'});
-  await dialog.getByRole('button',{name:'Відновити товар',exact:true}).click();await dialog.getByRole('button',{name:'Порівняти зміни',exact:true}).click();
+  await dialog.getByRole('button',{name:'Відновити товар',exact:true}).click();await dialog.getByRole('alert').filter({hasText:/змінено/}).waitFor();await compare();
   await dialog.getByText(/Поточний стан на сервері: активний/).waitFor();await dialog.getByRole('button',{name:'Застосувати узгоджені зміни',exact:true}).click();assert.equal(await name.inputValue(),'');assert.equal(await dialog.getByRole('textbox',{name:'Штрихкод'}).inputValue(),'server-2');
   mark('external hide while open + metadata409; malformed unrelated GET rejected; same-name conflict explicit keyboard choice; invalid newer name retained; second external restore409 safely reread/apply');
   // Current permissions are authoritative even when the modal opened with owner rights.
   execFileSync(python,['manage.py','shell','-c',"from server.erp.models import Profile;Profile.objects.filter(user__username='tester').update(role='cashier')"],{cwd:root,env,stdio:'ignore'});
-  await dialog.getByRole('button',{name:'Приховати товар',exact:true}).click();await dialog.getByRole('button',{name:'Порівняти зміни',exact:true}).click();
-  await dialog.getByText('Поточні права не дозволяють редагувати товар. Чернетку збережено.',{exact:true}).waitFor();
-  assert.equal(await name.inputValue(),'');assert(await dialog.getByRole('button',{name:'Зберегти товар',exact:true}).isDisabled());assert(await dialog.getByRole('button',{name:'Приховати товар',exact:true}).isDisabled());
-  mark('current revoked role rejects metadata write; latest readonly canEdit=false blocks Apply/Save and keeps invalid draft');
+  await dialog.getByRole('button',{name:'Приховати товар',exact:true}).click();await recovery.assertHidden(page);await until(async()=>await page.evaluate(()=>window.NativeDraftRecovery.store.entries().length===0),'revoked role clears private records');assert.equal(await name.count(),0);
+  mark('current revoked role rejects metadata write; P0 hides private fields and erases revoked-session raw, no Apply/Save');
   assert.deepEqual(errors,[]);fs.writeFileSync(path.join(output,'report-tail.json'),JSON.stringify({status:'PASS',proof},null,2));return;
  }
 
  let payload,visibilityWrites=0;
- await page.route('**'+url+'/visibility',async route=>{if(route.request().method()!=='PATCH')return route.continue();visibilityWrites++;payload=route.request().postDataJSON();await route.fetch();await route.abort('failed');});
- await dialog.getByRole('button',{name:'Приховати товар',exact:true}).click();await until(async()=>await dialog.getByRole('button',{name:'Порівняти зміни',exact:true}).count()===1,'lost ACK recovery');
+ await page.route('**/api/v1/catalog/recovery/execute',async route=>{const e=route.request().postDataJSON();if(e.operation!=='product_visibility')return route.continue();visibilityWrites++;payload=e.request;await route.fetch();await route.abort('failed');});
+ await dialog.getByRole('button',{name:'Приховати товар',exact:true}).click();await dialog.getByRole('button',{name:'Повторити саме первісну дію',exact:true}).waitFor();await recovery.access(page);
  assert.deepEqual(payload,{revision:first.revision,hidden:true});assert.equal(await name.inputValue(),'Моя незбережена назва');assert(await dialog.getByRole('button',{name:'Зберегти товар',exact:true}).isDisabled());
  let current=await api('GET',url+'?includeHidden=true');assert(current.hidden);assert.equal(current.name,first.name);assert.equal(current.cost,first.cost);
  current=await api('PATCH',url,{revision:current.revision,barcode:'external-barcode'});
  let failRead=true;
  await page.route('**'+url+'?includeHidden=true',async route=>{if(failRead){failRead=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Тимчасово недоступно'})});}return route.continue();});
- await dialog.getByRole('button',{name:'Порівняти зміни',exact:true}).click();await dialog.getByText('Тимчасово недоступно',{exact:true}).waitFor();assert.equal(await name.inputValue(),'Моя незбережена назва');
- await dialog.getByRole('button',{name:'Порівняти зміни',exact:true}).click();await dialog.getByText(/Поточний стан на сервері: прихований/).waitFor();
+ await dialog.getByRole('button',{name:'Повторити саме первісну дію',exact:true}).click();await dialog.getByText('Тимчасово недоступно',{exact:true}).waitFor();await recovery.assertHidden(page);assert.equal(await rawName(),'Моя незбережена назва');
+ await currentRead();await dialog.getByText(/Поточний стан на сервері: прихований/).waitFor();
  await dialog.getByRole('button',{name:'Повернутися до чернетки',exact:true}).click();assert.equal(await name.inputValue(),'Моя незбережена назва');assert(await dialog.getByRole('button',{name:'Зберегти товар',exact:true}).isDisabled());
- await dialog.getByRole('button',{name:'Порівняти зміни',exact:true}).click();await dialog.getByRole('button',{name:'Застосувати узгоджені зміни',exact:true}).click();
+ await currentRead();await dialog.getByRole('button',{name:'Застосувати узгоджені зміни',exact:true}).click();
  assert.equal(await name.inputValue(),'Моя незбережена назва');assert.equal(await dialog.getByRole('textbox',{name:'Штрихкод'}).inputValue(),'external-barcode');assert.equal(visibilityWrites,1);
  mark('lost ACK -> real committed hidden; readonly503/retry/cancel/localApply keeps dirty name + unrelated barcode; no implicit save');
- await page.unroute('**'+url+'/visibility');await dialog.getByRole('button',{name:'Відновити товар',exact:true}).click();await dialog.getByRole('button',{name:'Приховати товар',exact:true}).waitFor();
+ await page.unroute('**/api/v1/catalog/recovery/execute');await dialog.getByRole('button',{name:'Відновити товар',exact:true}).click();await dialog.getByRole('button',{name:'Застосувати узгоджені зміни',exact:true}).click();await dialog.getByRole('button',{name:'Приховати товар',exact:true}).waitFor();
  assert.equal(await name.inputValue(),'Моя незбережена назва');current=await api('GET',url);assert.equal(current.name,first.name);assert.equal(current.cost,first.cost);assert.equal(current.hidden,false);
  await page.setViewportSize({width:320,height:850});await page.screenshot({path:path.join(output,'editor-320.png')});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await dialog.getByRole('button',{name:'Зберегти товар',exact:true}).click();await dialog.waitFor({state:'hidden'});current=await api('GET',url);assert.equal(current.name,'Моя незбережена назва');assert.equal(current.barcode,'external-barcode');mark('confirmed restore preserves draft; only explicit Save commits draft; narrow editor no overflow');
