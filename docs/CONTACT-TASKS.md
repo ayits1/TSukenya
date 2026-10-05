@@ -1,7 +1,8 @@
 # Контактні операційні задачі · B26
 
-Інтегровано на main093c53b для PR/CI після незалежного review; merge/deploy
-цього пакета та завершення всієї B26 ще не оголошені.
+Прийнято PR135 як main78c24e7 після незалежного review та успішних
+exact-head frontend/server/PostgreSQL CI. На VPS ще не розгорнуто;
+це не оголошує завершення всієї B26.
 Залежність — прийнятий Customers/Reports freshness і `0029_customer_report_versions`;
 власна міграція `0030_contact_tasks`. Фінансових проводок, loyalty/provider правил
 та воронки продажів цей пакет не створює.

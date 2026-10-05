@@ -67,3 +67,19 @@ Actual isolated native harness `tests/campaign-draft-reload-ui.cjs`, `QA_CAMPAIG
 - Unit7 `/tmp/tsukenya-campaign-followup-unit.log`, scoped lint і matching TypeScript/Vite build PASS `/tmp/tsukenya-campaign-followup-{lint,build}.log`; harness syntax/diff guard PASS.
 
 Перший delayed CREATE assertion помилково очікував blank decimal після очищення лише гривень за наявних `00` копійок (чинний MoneyField правильно дає `0.00`). Failure artifact лишився; fixture тепер явно вводить invalid `0.00`, лише цей affected stage повторено. Cleanup звільняє held route і при failure. Старі вісім prefixes/stories/server proofs вище reuse; whole wrapper/full/production не запускались. Нові три stages додані до майбутнього explicit family wrapper, незмінний flag `QA_CAMPAIGN_DRAFT_FROM`.
+
+## Закриття review та інтеграція
+
+Незалежне closing review frozen8e737e6: усі три findings pending raw capture,
+синхронного private DOM hide і strict scope закрито. Exact creator/legacy binding,
+ACK-before-current, unresolved Apply gate та obsolete response fences збережені.
+Runtime кампаній після інтеграції byte-equal reviewed source; спільні entrypoint
+та generator конфлікти розв’язано як union Catalog/ContactTasks/Campaign.
+Root matching combined types/Vite build, entry lint, syntax і diff checks PASS.
+Попередні цільові server/unit/story/native докази reuse для незмінених inputs;
+11 distinct saved terminal reports перевірені, не повторювалися як новий full.
+
+Явний full runner викликає default family wrapper із усіма11 named scopes;
+QA_CAMPAIGN_DRAFT_FROM очищується з inherited env. Виконано лише node syntax та
+`npm run test:full -- --plan`, без тестів/контейнерів/БД. Merge/CI/deployment пакета
+ще потребують окремих підтверджень. Весь B06/B24 і весь план не завершені.
