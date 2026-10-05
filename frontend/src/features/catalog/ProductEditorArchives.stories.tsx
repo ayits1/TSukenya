@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from './referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within, waitFor } from 'storybook/test';
@@ -19,6 +20,11 @@ const api: CatalogApi = {
   remove: async () => true,
   visibility: async (product, hidden) => ({ ...product, hidden }),
   previewPrice: async (input) => fixturePricePreview(input),
+  referenceDirectory: fixtureReferenceDirectory(async () => ({
+    ...catalogReferences,
+    items: catalogReferences.items.filter((item) => item.id !== archivedPack.id),
+    archivedItems: [archivedPack],
+  })),
   references: async () => ({
     ...catalogReferences,
     items: catalogReferences.items.filter((item) => item.id !== archivedPack.id),
@@ -96,6 +102,14 @@ export const NewProductRequiresActiveUnit: Story = {
   args: {
     api: {
       ...api,
+      referenceDirectory: fixtureReferenceDirectory(async () => ({
+        ...catalogReferences,
+        items: [
+          ...catalogReferences.items.filter((item) => item.id !== unit.id),
+          { id: 'unit_kg', field: 'unit', value: 'кг', parentType: '' },
+        ],
+        archivedItems: [unit],
+      })),
       references: async () => ({
         ...catalogReferences,
         items: [
@@ -119,7 +133,7 @@ export const NewProductRequiresActiveUnit: Story = {
     await expect(args.api.save).not.toHaveBeenCalled();
     await userEvent.clear(ui().getByRole('combobox', { name: 'Одиниця' }));
     await userEvent.type(ui().getByRole('combobox', { name: 'Одиниця' }), 'кг');
-    await userEvent.click(within(document.body).getByRole('option', { name: 'кг' }));
+    await userEvent.click(await within(document.body).findByRole('option', { name: 'кг' }));
     await waitFor(() => expect(ui().getByRole('button', { name: 'Зберегти товар' })).toBeEnabled());
   },
 };

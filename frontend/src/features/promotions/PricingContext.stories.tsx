@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from '../catalog/referenceDirectoryFixtures';
 import { useMemo, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
@@ -103,6 +104,7 @@ function makeServices(onContext: (store: number | undefined | null) => void) {
       previewPrice: fixturePricePreview,
       save: async () => product,
       remove: async () => true,
+      referenceDirectory: fixtureReferenceDirectory(async () => catalogReferences),
       references: async () => catalogReferences,
       createReference: async () => {
         throw new Error('Not used');

@@ -20,7 +20,8 @@ class CatalogReferenceTests(TransactionTestCase):
         Document.objects.create(path='products/orphan', data={'name': 'Історичний', 'category': 'Без групи'})
 
     def references(self):
-        return self.client.get('/api/v1/catalog/references').json()['items']
+        from tests.reference_pages import read_references
+        return [{key:item[key] for key in ('id','field','value','parentType')} for item in read_references(self.client)]
 
     def create(self, field, value, **kwargs):
         return self.client.post('/api/v1/catalog/references', {'field': field, 'value': value, **kwargs}, content_type='application/json', **self.headers)
@@ -91,15 +92,15 @@ class CatalogReferenceTests(TransactionTestCase):
     def test_roles_csrf_and_auth_are_enforced(self):
         for role in ['owner', 'manager', 'warehouse']:
             self.user.profile.role = role; self.user.profile.save()
-            self.assertTrue(self.client.get('/api/v1/catalog/references').json()['canEdit'])
+            self.assertTrue(self.client.get('/api/v1/catalog/references/page',{'field':'pack'}).json()['canEdit'])
             self.assertEqual(self.create('size', role).status_code, 201)
         self.user.profile.role = 'cashier'; self.user.profile.save()
-        self.assertFalse(self.client.get('/api/v1/catalog/references').json()['canEdit'])
+        self.assertFalse(self.client.get('/api/v1/catalog/references/page',{'field':'pack'}).json()['canEdit'])
         self.assertEqual(self.create('size', 'secret').status_code, 403)
         self.user.profile.role = 'owner'; self.user.profile.save()
         self.assertEqual(self.client.post('/api/v1/catalog/references', {'field': 'size', 'value': 'x'}, content_type='application/json').status_code, 403)
         self.client.cookies.clear()
-        self.assertEqual(self.client.get('/api/v1/catalog/references').status_code, 401)
+        self.assertEqual(self.client.get('/api/v1/catalog/references/page',{'field':'pack'}).status_code, 401)
 
     def test_v1_saves_require_choices_and_preserve_unchanged_orphan(self):
         self.assertEqual(self.patch('coffee', pack='Unknown').status_code, 400)

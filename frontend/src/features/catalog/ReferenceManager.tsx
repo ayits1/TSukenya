@@ -6,6 +6,8 @@ import { Select } from '../../shared/ui/Select';
 import { TextField } from '../../shared/ui/TextField';
 import { ApiError } from '../../shared/api/client';
 import { referenceFields, referenceKey, type ReferenceField } from './api';
+import { ReferencePicker } from './ReferencePicker';
+import { referenceQuery, type ImpactSection } from './referenceDirectoryApi';
 import {
   createReferenceManagementApi,
   type ReferenceManagementApi,
@@ -30,8 +32,6 @@ const operations = {
   archive: 'Архівувати',
   restore: 'Відновити',
 };
-const caption = (item: ManagedReference) =>
-  `${item.value}${item.parentType ? ` · ${item.parentType}` : ''} · ${states[item.state]}`;
 
 export function ReferenceManager({
   onClose,
@@ -44,17 +44,20 @@ export function ReferenceManager({
 }) {
   const [api] = useState(() => injectedApi || createReferenceManagementApi());
   const client = useQueryClient();
+  const [field, setField] = useState<ReferenceField>('type');
+  const [recordState, setRecordState] = useState<ManagedReference['state']>('active');
+  const [source, setSource] = useState<ManagedReference | null>(null);
+  const [target, setTarget] = useState<ManagedReference | null>(null);
+  const sourceQuery = referenceQuery(field, { state: recordState });
   const data = useQuery({
-    queryKey: ['catalog-reference-management'],
-    queryFn: ({ signal }) => api.list(signal),
+    queryKey: ['catalog-reference-management', sourceQuery],
+    queryFn: ({ signal }) => api.list(sourceQuery, 1, signal),
     retry: false,
     staleTime: 0,
   });
-  const [field, setField] = useState<ReferenceField>('type');
-  const [sourceId, setSourceId] = useState('');
   const [operation, setOperation] = useState<ReferenceMutation['operation']>('rename');
   const [name, setName] = useState('');
-  const [targetId, setTargetId] = useState('');
+  const targetId = target?.id || '';
   const [reviewed, setReviewed] = useState<{
     key: string;
     impact: ReferenceImpact;
@@ -66,17 +69,6 @@ export function ReferenceManager({
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
-  const source = data.data?.items.find((item) => item.id === sourceId);
-  const choices = (data.data?.items || []).filter((item) => item.field === field);
-  const targets = choices.filter(
-    (item) =>
-      item.id !== sourceId &&
-      item.state === 'active' &&
-      (field !== 'category' ||
-        (item.parentId === source?.parentId &&
-          referenceKey(item.parentType) === referenceKey(source?.parentType || ''))),
-  );
-  const target = targets.find((item) => item.id === targetId);
   const request: ReferenceMutation | null =
     source && source.state !== 'merged'
       ? {
@@ -105,7 +97,14 @@ export function ReferenceManager({
     source.state !== 'merged' &&
     (operation === 'restore' ? source.state === 'archived' : source.state === 'active') &&
     (operation !== 'rename' || !!name.trim()) &&
-    (operation !== 'merge' || !!target);
+    (operation !== 'merge' ||
+      (!!target &&
+        target.id !== source?.id &&
+        target.state === 'active' &&
+        target.field === source.field &&
+        (field !== 'category' ||
+          (target.parentId === source.parentId &&
+            referenceKey(target.parentType) === referenceKey(source.parentType)))));
   const invalidate = () => {
     generation.current += 1;
     controller.current?.abort();
@@ -120,9 +119,9 @@ export function ReferenceManager({
     retry: false,
     onSuccess: () => {
       setReviewed(null);
-      setSourceId('');
+      setSource(null);
       setName('');
-      setTargetId('');
+      setTarget(null);
       setOperation('rename');
       setNotice('Зміну довідника збережено. Каталог і цінники оновлено.');
       void client.invalidateQueries({ queryKey: ['catalog-reference-management'] });
@@ -211,24 +210,38 @@ export function ReferenceManager({
                   onSelectionChange={(value) => {
                     invalidate();
                     setField(value as ReferenceField);
-                    setSourceId('');
-                    setTargetId('');
+                    setSource(null);
+                    setTarget(null);
                     setName('');
                     setOperation('rename');
                   }}
                 />
                 <Select
-                  label="Запис довідника"
-                  options={choices.map((item) => ({ id: item.id, label: caption(item) }))}
-                  selectedKey={sourceId || null}
+                  label="Стан записів"
+                  options={Object.entries(states).map(([id, label]) => ({ id, label }))}
+                  selectedKey={recordState}
                   isDisabled={commit.isPending}
-                  onSelectionChange={(value) => {
+                  onSelectionChange={(key) => {
                     invalidate();
-                    const item = choices.find((item) => item.id === value);
-                    setSourceId(String(value));
-                    setName(item?.value || '');
-                    setTargetId('');
-                    setOperation(item?.state === 'archived' ? 'restore' : 'rename');
+                    setRecordState(String(key) as ManagedReference['state']);
+                    setSource(null);
+                    setTarget(null);
+                    setName('');
+                  }}
+                />
+                <ReferencePicker
+                  api={api.directory}
+                  query={sourceQuery}
+                  label="Запис довідника"
+                  selected={source}
+                  value={source?.value || ''}
+                  disabled={commit.isPending || data.isPending || !!data.error}
+                  onCommit={(item) => {
+                    invalidate();
+                    setSource(item);
+                    setName(item.value);
+                    setTarget(null);
+                    setOperation(item.state === 'archived' ? 'restore' : 'rename');
                   }}
                 />
               </div>
@@ -239,12 +252,7 @@ export function ReferenceManager({
                 </p>
               ) : null}
               {source?.state === 'merged' ? (
-                <p>
-                  Запис об’єднано з «
-                  {data.data.items.find((item) => item.id === source.mergedInto)?.value ||
-                    source.mergedInto}
-                  ». Для нових значень виберіть цільовий активний запис.
-                </p>
+                <p>Запис об’єднано. Для нових значень виберіть цільовий активний запис.</p>
               ) : null}
               {source && source.state !== 'merged' && data.data.canEdit ? (
                 <>
@@ -263,7 +271,7 @@ export function ReferenceManager({
                       onSelectionChange={(value) => {
                         invalidate();
                         setOperation(value as ReferenceMutation['operation']);
-                        setTargetId('');
+                        setTarget(null);
                       }}
                     />
                     {operation === 'rename' ? (
@@ -279,14 +287,25 @@ export function ReferenceManager({
                       />
                     ) : null}
                     {operation === 'merge' ? (
-                      <Select
+                      <ReferencePicker
+                        api={api.directory}
+                        query={referenceQuery(
+                          field,
+                          field === 'category'
+                            ? {
+                                parentId: source.parentId,
+                                parentType: source.parentId ? null : source.parentType,
+                              }
+                            : {},
+                        )}
                         label={field === 'type' ? 'Цільова група' : 'Цільовий запис'}
-                        options={targets.map((item) => ({ id: item.id, label: caption(item) }))}
-                        selectedKey={targetId || null}
-                        isDisabled={commit.isPending}
-                        onSelectionChange={(value) => {
+                        selected={target}
+                        value={target?.value || ''}
+                        disabled={commit.isPending}
+                        onCommit={(item) => {
+                          if (item.id === source.id) return;
                           invalidate();
-                          setTargetId(String(value));
+                          setTarget(item);
                         }}
                       />
                     ) : null}
@@ -373,6 +392,15 @@ export function ReferenceManager({
                       </ul>
                     </>
                   ) : null}
+                  {reviewed && request ? (
+                    <ImpactDetails api={api} request={request} impact={impact} />
+                  ) : null}
+                  {impact.coalescedCount > impact.coalescedCategories.length ? (
+                    <p className="tk-help">
+                      Показано приклади: {impact.coalescedCategories.length} із{' '}
+                      {impact.coalescedCount}. Усі об’єднання доступні в деталях впливу.
+                    </p>
+                  ) : null}
                   {impact.warnings.map((warning, index) => (
                     <p key={index}>{warning}</p>
                   ))}
@@ -418,5 +446,97 @@ export function ReferenceManager({
         </Dialog>
       </Modal>
     </ModalOverlay>
+  );
+}
+
+function ImpactDetails({
+  api,
+  request,
+  impact,
+}: {
+  api: ReferenceManagementApi;
+  request: ReferenceMutation;
+  impact: ReferenceImpact;
+}) {
+  const [section, setSection] = useState<ImpactSection>('products'),
+    [page, setPage] = useState(1),
+    [open, setOpen] = useState(false);
+  const result = useQuery({
+    queryKey: ['catalog-reference-impact', impact.snapshot, section, page],
+    queryFn: ({ signal }) => api.directory.impact(request, impact.snapshot, section, page, signal),
+    enabled: open,
+    retry: false,
+    staleTime: 0,
+  });
+  const labels: Record<ImpactSection, string> = {
+    products: 'Усі товари',
+    references: 'Усі записи довідника',
+    coalesced: 'Усі об’єднання категорій',
+    blocked: 'Усі блокування',
+  };
+  return (
+    <section aria-label="Деталі повного впливу">
+      <Button onPress={() => setOpen((value) => !value)}>
+        {open ? 'Згорнути деталі впливу' : 'Показати весь вплив'}
+      </Button>
+      {open ? (
+        <>
+          <Select
+            label="Розділ впливу"
+            options={Object.entries(labels).map(([id, label]) => ({ id, label }))}
+            selectedKey={section}
+            onSelectionChange={(key) => {
+              setSection(String(key) as ImpactSection);
+              setPage(1);
+            }}
+          />
+          {result.isFetching ? (
+            <p role="status">Читаємо сторінку впливу…</p>
+          ) : result.error ? (
+            <div role="alert">
+              <p>{result.error.message}</p>
+              <Button onPress={() => void result.refetch()}>Повторити читання впливу</Button>
+            </div>
+          ) : result.data ? (
+            <>
+              <ul>
+                {result.data.items.map((row, index) => {
+                  if ('before' in row)
+                    return (
+                      <li key={row.before.id}>
+                        {row.before.value} → {row.after.value}
+                        {row.after.parentType ? ` · ${row.after.parentType}` : ''} ·{' '}
+                        {states[row.after.state]}
+                      </li>
+                    );
+                  if ('name' in row) return <li key={row.id}>{row.name}</li>;
+                  if ('reason' in row) return <li key={row.id}>{row.reason}</li>;
+                  return (
+                    <li key={index}>
+                      {row.value} → {impact.target?.value}
+                    </li>
+                  );
+                })}
+              </ul>
+              <p role="status">
+                Сторінка {result.data.page} із {result.data.pages} · {result.data.total} записів
+              </p>
+              <Button
+                isDisabled={result.data.page <= 1}
+                onPress={() => setPage((value) => value - 1)}
+              >
+                Попередня сторінка впливу
+              </Button>
+              <Button
+                isDisabled={result.data.page >= result.data.pages}
+                onPress={() => setPage((value) => value + 1)}
+              >
+                Наступна сторінка впливу
+              </Button>
+            </>
+          ) : null}
+        </>
+      ) : null}
+    </section>
   );
 }

@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from './referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within, waitFor } from 'storybook/test';
@@ -25,6 +26,7 @@ const api: CatalogApi = {
   previewPrice: fixturePricePreview,
   save: fn(async () => product),
   remove: fn(async () => true),
+  referenceDirectory: fixtureReferenceDirectory(async () => catalogReferences),
   references: async () => catalogReferences,
   createReference: async () => {
     throw new Error('Не використовується');

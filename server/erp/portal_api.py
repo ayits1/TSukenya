@@ -200,50 +200,8 @@ def delete_examples(request,user):
 
 
 def catalogue_csv(user,params):
-    require(set(params)<= {'includeHidden','store'},'Невідомий параметр експорту.')
-    hidden=params.get('includeHidden','false');require(hidden in {'true','false'},'Некоректний параметр прихованих товарів.')
-    require(hidden!='true' or user.profile.role=='owner','Приховані товари доступні для експорту лише власнику.')
-    from .promotion_prices import context_store
-    context_store(user,params.get('store'))
-    def generate():
-        from .promotion_prices import PriceResolver,context_store
-        buffer=io.StringIO(newline='');writer=csv.writer(buffer,delimiter=';',quoting=csv.QUOTE_ALL,lineterminator='\r\n')
-        def row(values):
-            buffer.seek(0);buffer.truncate(0);writer.writerow([('\t'+str(value)) if guarded(str(value)) else str(value) for value in values]);return buffer.getvalue()
-        # Generator owns the snapshot until consumed/closed; SQL cursor is bounded.
-        with read_snapshot():
-            user.refresh_from_db(fields=['is_active']);user.profile.refresh_from_db()
-            require(user.is_active,'Обліковий запис вимкнено.')
-            require(hidden!='true' or user.profile.role=='owner','Приховані товари доступні для експорту лише власнику.')
-            private=user.profile.role!='cashier';config=defaults();store=context_store(user,params.get('store'))
-            query=Document.objects.filter(path__startswith='products/').order_by('path')
-            if hidden=='false':query=query.filter(Q(data__hidden__isnull=True)|~Q(data__hidden=True))
-            from .catalog_schema import columns, schema
-            export_fields=columns(private=private)
-            headers=[field['label'] for field in export_fields]
-            headers[0]+=schema()['marker']+MARKER
-            yield '\ufeff'+row(headers)
-            iterator=query.iterator(chunk_size=100)
-            from itertools import islice
-            while batch:=list(islice(iterator,100)):
-                resolver=PriceResolver(config,store,product_paths=[d.path for d in batch])
-                for document in batch:
-                    p=document.data;prices=resolver.resolve(document)
-                    values={k:p.get(k,'') or '' for k in ('name','type','category','pack','size','unit','barcode')}
-                    values.update(cost=format(decimal(p['cost']),'.2f') if p.get('cost') is not None else '',markup=plain(decimal(p['markup'])) if p.get('markup') is not None else '',
-                        manualPrice='Ручна' if p.get('manualPrice') else 'Автоматична',
-                        price=format(decimal(p.get('price')),'.2f') if p.get('manualPrice') and p.get('price') is not None else '',
-                        promotion='Так' if p.get('promotion') else 'Ні',
-                        promotionPrice=format(decimal(p.get('promotionPrice')),'.2f') if p.get('promotionPrice') is not None else '',
-                        regularPrice=prices['regularPrice'],salePrice=prices['salePrice'],
-                        effectivePromotion='Так' if prices['effectivePromotion'] else 'Ні',
-                        per100=format((decimal(prices['salePrice'])/10).quantize(Decimal('.01'),rounding=ROUND_HALF_UP),'.2f') if p.get('unit')=='кг' else '',
-                        priceAt=p.get('priceAt') or '',hidden='Так' if p.get('hidden') else 'Ні',id=document.path.split('/',1)[1])
-                    yield row([values[field['key']] for field in export_fields])
-    from django.db.models import Q
-    result=StreamingHttpResponse(generate(),content_type='text/csv; charset=utf-8')
-    result['Content-Disposition']='attachment; filename="catalogue.csv"';result['Cache-Control']='private, no-store'
-    return result
+    from .catalog_export import catalogue_csv as export
+    return export(user,params)
 
 
 def handle_portal(request,user):

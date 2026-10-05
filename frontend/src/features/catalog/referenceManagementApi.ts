@@ -1,3 +1,4 @@
+import { createReferenceDirectoryApi, type ReferenceQuery } from './referenceDirectoryApi';
 import { createApiClient } from '../../shared/api/client';
 import type { components } from '../../shared/api/generated';
 import { decodeReference } from './api';
@@ -51,7 +52,13 @@ export function decodeImpact(value: unknown): ReferenceImpact {
   if (!token(data.snapshot) || !operation(data.operation)) throw new Error('Invalid impact');
   decodeManagedReference(data.source);
   if (data.target !== null) decodeManagedReference(data.target);
-  for (const name of ['productCount', 'usageCount', 'referenceCount', 'blockedCount'])
+  for (const name of [
+    'productCount',
+    'usageCount',
+    'referenceCount',
+    'blockedCount',
+    'coalescedCount',
+  ])
     if (!Number.isSafeInteger(data[name]) || Number(data[name]) < 0)
       throw new Error('Invalid count');
   for (const name of ['warnings', 'blocked'])
@@ -87,13 +94,11 @@ export function decodeCommitResult(value: unknown): ReferenceCommitResult {
 export function createReferenceManagementApi() {
   let csrf: string | undefined;
   const client = createApiClient({ getCsrf: () => csrf });
+  const directory = createReferenceDirectoryApi(() => csrf);
   return {
-    async list(signal?: AbortSignal) {
-      const result = await client.get(
-        '/api/v1/catalog/references/manage',
-        decodeManagement,
-        signal,
-      );
+    directory,
+    async list(query: ReferenceQuery, page = 1, signal?: AbortSignal) {
+      const result = await directory.page(query, page, signal);
       csrf = result.csrf;
       return result;
     },

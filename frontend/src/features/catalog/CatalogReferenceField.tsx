@@ -1,8 +1,12 @@
 import type { Ref } from 'react';
-import { ComboBox } from '../../shared/ui/ComboBox';
+import { ReferencePicker } from './ReferencePicker';
+import type {
+  ReferenceDirectoryApi,
+  ReferenceQuery,
+  ManagedReference,
+} from './referenceDirectoryApi';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
-import { referenceKey, type ReferenceItem } from './api';
 
 export type ReferenceCreation = {
   value: string;
@@ -17,7 +21,9 @@ export type ReferenceCreation = {
 export function CatalogReferenceField({
   label,
   value,
-  options,
+  api,
+  query,
+  selected,
   onChange,
   onAdd,
   canAdd,
@@ -30,7 +36,9 @@ export function CatalogReferenceField({
 }: {
   label: string;
   value: string;
-  options: ReferenceItem[];
+  api: ReferenceDirectoryApi;
+  query: ReferenceQuery;
+  selected: ManagedReference | null;
   onChange: (value: string) => void;
   onAdd: () => void;
   canAdd: boolean;
@@ -41,25 +49,17 @@ export function CatalogReferenceField({
   addButtonRef?: Ref<HTMLButtonElement>;
   archived?: boolean;
 }) {
-  const selected = options.find((item) => referenceKey(item.value) === referenceKey(value));
-  // Preserve an unchanged historical value even when its parent has no current option.
-  const choices =
-    selected || !value
-      ? options
-      : [{ id: 'historical', value: archived ? `${value} · Архівований` : value }, ...options];
   return (
     <div className="tk-reference-field">
-      <ComboBox
+      <ReferencePicker
+        api={api}
+        query={query}
+        selected={selected}
         label={label}
-        options={choices.map((item) => ({ id: item.id, label: item.value }))}
-        selectedKey={selected?.id || (value ? 'historical' : null)}
-        onSelectionChange={(key) => {
-          const item = options.find((option) => option.id === key);
-          if (item) onChange(item.value);
-        }}
-        isDisabled={isDisabled}
-        isRequired={isRequired}
-        placeholder="Виберіть або знайдіть"
+        value={value}
+        onCommit={(item) => onChange(item.value)}
+        disabled={isDisabled}
+        required={isRequired}
         {...(description ? { description } : {})}
       />
       {archived ? (

@@ -83,7 +83,7 @@ module.exports = async (page, until) => {
   await page.getByRole('searchbox', { name: 'Пошук товару' }).fill(product.name);
   await until(async () => await page.locator('.tk-product-link').count() === 1, 'created product');
   await page.locator('.tk-product-link').click(); await ready();
-  const chosenPack = await page.evaluate(async () => (await (await fetch('/api/v1/catalog/references')).json()).items.find((item) => item.field === 'pack' && item.value).value);
+  const chosenPack = (await require('./reference-pages.cjs')(page)).items.find(item=>item.field==='pack' && item.value).value;
   const pack = editor.getByRole('combobox', { name: 'Пакування', exact: true });
   await pack.fill(chosenPack); await page.getByRole('option', { name: chosenPack, exact: true }).click();
   await competing(product.id, { name: 'B29 змінено на сервері' }); await save.click();

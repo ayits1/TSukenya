@@ -145,7 +145,8 @@ def create_reference(request, user):
     text = clean(text)
     parent = payload.get('parentType', '')
     require(isinstance(parent, str) and len(parent) <= 160, 'Некоректна група категорії.')
-    records = reference_records()
+    from .catalog_reference_index import ReferenceIndex
+    records = ReferenceIndex()
     if field == 'category':
         match = find_reference(records, 'type', parent)
         require(match is not None and match['state'] == 'active', 'Спочатку виберіть наявну групу для категорії.')

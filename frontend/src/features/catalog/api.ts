@@ -1,4 +1,5 @@
-import { createApiClient } from '../../shared/api/client';
+import { createReferenceDirectoryApi } from './referenceDirectoryApi';
+import { createApiClient, ApiError } from '../../shared/api/client';
 import type { components } from '../../shared/api/generated';
 
 export type ProductPricePreviewRequest = components['schemas']['ProductPricePreviewRequest'];
@@ -260,6 +261,7 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
   let csrf: string | undefined = csrfToken;
   const client = createApiClient({ getCsrf: () => csrf });
   return {
+    referenceDirectory: createReferenceDirectoryApi(() => csrf),
     async session(signal?: AbortSignal) {
       const result = await client.get('/api/v1/session', decodeSession, signal);
       csrf = result.csrf;
@@ -305,6 +307,54 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
         },
         signal,
       );
+    },
+    async exportCsv(filters: Filters, signal?: AbortSignal) {
+      const query = {
+        q: filters.q,
+        type: filters.type,
+        category: filters.category,
+        pack: filters.pack,
+        promotion: filters.promotion,
+      };
+      const params = new URLSearchParams(
+        Object.entries({ ...query, visibility: filters.visibility || 'active' }).map(
+          ([key, value]) => [key, String(value)],
+        ),
+      );
+      let response: Response;
+      try {
+        response = await fetch(contextual('/api/v1/portal/catalogue.csv?' + params), {
+          ...(signal ? { signal } : {}),
+          credentials: 'same-origin',
+          cache: 'no-store',
+          redirect: 'error',
+        });
+      } catch (cause) {
+        if (cause instanceof Error && cause.name === 'AbortError') throw cause;
+        throw new ApiError(0, 'Не вдалося завантажити CSV. Повторіть читання.');
+      }
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      if (!response.ok) {
+        const data: unknown = await response.json().catch(() => null);
+        const error =
+          data && typeof data === 'object' && 'error' in data && typeof data.error === 'string'
+            ? data.error
+            : 'Не вдалося прочитати експорт.';
+        throw new ApiError(response.status, error);
+      }
+      const length = response.headers.get('Content-Length');
+      if (
+        !response.headers.get('Content-Type')?.startsWith('text/csv') ||
+        !length ||
+        !/^\d+$/.test(length) ||
+        Number(length) > 256 * 1024 * 1024
+      )
+        throw new Error('Некоректний файл експорту.');
+      const file = await response.blob();
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      if (file.size !== Number(length) || !file.size)
+        throw new Error('Файл експорту отримано не повністю. Повторіть читання.');
+      return file;
     },
     references(signal?: AbortSignal) {
       return client.get('/api/v1/catalog/references', decodeReferences, signal);
@@ -379,6 +429,7 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
     },
   };
 }
-export type CatalogApi = Omit<ReturnType<typeof createCatalogApi>, 'facets'> & {
+export type CatalogApi = Omit<ReturnType<typeof createCatalogApi>, 'facets' | 'exportCsv'> & {
   facets?: FacetApi;
+  exportCsv?: ReturnType<typeof createCatalogApi>['exportCsv'];
 };

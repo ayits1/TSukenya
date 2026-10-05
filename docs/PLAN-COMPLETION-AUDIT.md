@@ -504,3 +504,18 @@ regression. Template count/expense enrollment та інші родини B06 з�
 - PR123 deferred policy/filter refresh і post-read Reports grants прийнятий: frontend51s, SQLite2m51s, PostgreSQL7m23s PASS. Обидві локальні копії синхронізовані, main105e2e3 опубліковано. Exact source/assets/health і import-worker підтверджені; backup читаний, before/after облік однаковий, read-only reconcile без розбіжностей.
 - B24 bounded document viewer інтегровано для PR/CI: один actual React viewer, 8 page sections, fresh actor/read-only RR, exact Decimal display та окремий full B06 recovery GET. Докази й відкриті межі — [B24-DOCUMENT-VIEW.md](B24-DOCUMENT-VIEW.md).
 - B06 order actions і bounded catalogue references/import/export ще в роботі. Повний B06/B24/план не завершений; 0.1 виключений.
+
+## B24: catalogue dictionaries/import/export whole workflow · own delivery
+
+Пакет розроблено від main673e84d (#122) та перебазовано на прийнятий
+main105e2e3 (#123) для root review:
+фактичні5 fields ProductEditor + ReferenceManager сторінками/selected IDs, B30
+повний impact30 та атомарна зміна всіх відповідних записів, scalar-preserving
+atomic/durable imports і повний фільтр CSV. Unknown історичний JSON/recipe metadata
+збережено SQL merge; product revision відповідає старому canonical HMAC. SQLite
+0028 (після0027) прибирає full product/ref envelopes із callback transport;
+історичні інші сім’ї unchanged. [B24-BOUNDED-CATALOGUE-WORKFLOW.md](B24-BOUNDED-CATALOGUE-WORKFLOW.md)
+містить exact protocol, old-oracle/resource proofs та чесні prefix/tail результати.
+Це авторська реалізація, не accepted/deployed claim і не completion всієї B24:
+повні сканування O(N), DB temp/statement time/global quotas/capacity та інші
+залишки цільового плану не замінюються 30-row pagination.

@@ -140,11 +140,13 @@ class CatalogImportIndexTests(ImportJobsFixture,TestCase):
         Document.objects.bulk_create([Document(path=f'catalog_refs/pack-{i:04}',data={'field':'pack','value':f'Пакування {i}'}) for i in range(1000)])
         key=self.create([self.row(i,pack=f'Пакування {i}') for i in range(1,11)]);self.post('runs/'+key+'/seal',{})
         self.assertTrue(process_one(uuid.UUID(key)))  # Empty catalogue index -> validating.
-        with CaptureQueriesContext(connection) as queries,patch.object(module,'reference_records',wraps=module.reference_records) as built:
+        with CaptureQueriesContext(connection) as queries,patch.object(module,'ReferenceIndex',wraps=module.ReferenceIndex) as built:
             self.assertTrue(process_one(uuid.UUID(key)));self.assertEqual(built.call_count,1)
-        self.assertEqual(sum('catalog_refs/' in q['sql'].replace('\\','') for q in queries),1)
+        self.assertEqual(sum('catalog_refs/' in q['sql'].replace('\\','') for q in queries),2)
+        self.assertFalse(any('SELECT \"erp_document\".\"data\"' in q['sql'] for q in queries))
         self.assertEqual(self.get('runs/'+key).json()['planned']['create'],10);self.approve(key)
-        with CaptureQueriesContext(connection) as queries,patch.object(module,'reference_records',wraps=module.reference_records) as built:
+        with CaptureQueriesContext(connection) as queries,patch.object(module,'ReferenceIndex',wraps=module.ReferenceIndex) as built:
             self.assertTrue(process_one(uuid.UUID(key)));self.assertEqual(built.call_count,1)
-        self.assertEqual(sum('catalog_refs/' in q['sql'].replace('\\','') for q in queries),1)
+        self.assertEqual(sum('catalog_refs/' in q['sql'].replace('\\','') for q in queries),2)
+        self.assertFalse(any('SELECT \"erp_document\".\"data\"' in q['sql'] for q in queries))
         self.assertEqual(self.get('runs/'+key).json()['counts']['created'],10)

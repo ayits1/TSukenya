@@ -29,6 +29,9 @@ def plain(value):
 
 def revision(document, config=None):
     config = defaults() if config is None else config
+    if getattr(document, '_catalog_projection', False):
+        from .catalog_projection import document_revision
+        return document_revision(document.path, config)
     material = {'path': document.path, 'data': document.data,
         'pricing': {key: plain(value) for key, value in config.items()}}
     return hmac.new(settings.SECRET_KEY.encode(), json.dumps(material, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode(), hashlib.sha256).hexdigest()
@@ -39,8 +42,8 @@ def pricing_config(data):
 
 
 def defaults():
-    document = Document.objects.filter(pk='settings/main').first()
-    return pricing_config(document.data if document else {})
+    from .catalog_projection import pricing_settings
+    return pricing_config(pricing_settings())
 
 
 def pricing_revision(config=None):
@@ -79,9 +82,15 @@ def duplicate_name(data, old, path):
     key = name_key(data.get('name'))
     if not key or old.get('name') and key == name_key(old.get('name')):
         return False  # Existing duplicates stay editable until renamed.
-    # Whole documents decode names alike on every backend (SQLite turns "123" into a number).
-    documents = Document.objects.filter(path__startswith='products/').exclude(pk=path).values_list('data', flat=True)
-    return any(isinstance(item, dict) and name_key(item.get('name')) == key for item in documents.iterator(chunk_size=200))
+    from .catalog_selection import scalar_rows
+    from .catalog_budget import check
+    rows=scalar_rows(Document.objects.filter(path__startswith='products/').exclude(pk=path),('name',)).iterator(chunk_size=200)
+    try:
+        for _,item in rows:
+            check();require(item is not None,'Назва товару перевищує ліміт 64 КіБ.')
+            if name_key(item.get('name'))==key:return True
+        return False
+    finally:rows.close()
 
 
 DUPLICATE_NAME = {'error': 'Товар із такою назвою вже є в каталозі. Змініть назву або відкрийте наявний товар.', 'code': 'duplicate_name'}
@@ -235,6 +244,9 @@ def _list_products(request, user):
         'visibility': visibility, 'canEdit': user.profile.role in EDIT_ROLES, 'defaultMarkup': format(config['markup'], 'f')})
 
 
+from .catalog_budget import bounded
+
+@bounded
 @transaction.atomic
 def save_product(request, user, identifier=None):
     from .views import body, response
@@ -247,7 +259,8 @@ def save_product(request, user, identifier=None):
         return response({'error': 'Налаштування ціни вже змінено. Оновіть попередній розрахунок перед збереженням.', 'code': 'pricing_revision_conflict'}, 409)
     before = None
     if identifier:
-        document = Document.objects.filter(pk='products/' + identifier).first()
+        from .catalog_projection import projected_document
+        document = projected_document('products/' + identifier,config=config,with_recipe=request.method!='DELETE')
         if document is None: return response({'error': 'Товар не знайдено.', 'code': 'not_found'}, 404)
         if not isinstance(value.get('revision'), str) or value['revision'] != revision(document, config):
             return response({'error': 'Товар уже змінено з іншого пристрою. Оновіть дані перед збереженням.', 'code': 'revision_conflict'}, 409)
@@ -279,17 +292,23 @@ def save_product(request, user, identifier=None):
         subject = document.path; document.delete(); audit(user, 'catalog_changed', subject, {'method': 'DELETE', 'contract': 'v1', **audit_change(before, None, observed=value.get('revision'))})
         return response({'ok': True})
     old = dict(data)
-    data = normalise_product({key: item for key, item in value.items() if key not in {'revision', 'pricingRevision'}}, old, document.path, config=config, old_config=config, legacy_recipe_lookup=legacy_recipe_lookup)
+    from .catalog_reference_index import ReferenceIndex
+    with ReferenceIndex() as references:
+        data = normalise_product({key: item for key, item in value.items() if key not in {'revision', 'pricingRevision'}}, old, document.path, config=config, old_config=config, references=references,legacy_recipe_lookup=legacy_recipe_lookup)
     if indexed_duplicate(data, old, document.path): return response(DUPLICATE_NAME, 409)
     from .promotion_history import observe_prices
-    if old.get('name'):observe_prices(user,[document],'catalog','Редагування товару',seed=True)
-    document.data = data; document.save()
-    observe_prices(user,[document],'catalog','Редагування товару')
+    if old.get('name'):observe_prices(user,[document],'catalog','Редагування товару',seed=True,product_paths=[document.path])
+    if getattr(document,'_catalog_projection',False):
+        from .catalog_projection import save_projection
+        save_projection(document,data,config=config)
+    else:document.data = data; document.save()
+    observe_prices(user,[document],'catalog','Редагування товару',product_paths=[document.path])
     audit(user, 'catalog_changed', document.path, {'method': request.method, 'contract': 'v1', **audit_change(before, audit_snapshot('product', data), observed=value.get('revision'))})
     from .promotion_prices import PriceResolver, context_store
     return response(serialize(document, user, config, resolver=PriceResolver(config, context_store(user, request.GET.get('store')), product_paths=[document.path])), 200 if old.get('name') else 201)
 
 
+@bounded
 @transaction.atomic
 def save_visibility(request, user, identifier):
     """Only catalogue visibility changes; drafts/prices/history are never replayed here."""
@@ -298,14 +317,16 @@ def save_visibility(request, user, identifier):
     ledger_lock(); revalidate_actor(user, EDIT_ROLES, 'Недостатньо прав для редагування товарів.')
     value = body(request)
     require(set(value) == {'revision', 'hidden'} and type(value['hidden']) is bool, 'Передайте лише версію та логічний стан приховування.')
-    document = Document.objects.filter(pk='products/' + identifier).first()
+    config=defaults()
+    from .catalog_projection import projected_document
+    document = projected_document('products/' + identifier,config=config)
     if document is None: return response({'error':'Товар не знайдено.', 'code':'not_found'}, 404)
-    config = defaults()
     if not isinstance(value['revision'], str) or value['revision'] != revision(document, config):
         return response({'error':'Товар змінено з іншого пристрою. Прочитайте поточні дані перед зміною видимості.', 'code':'revision_conflict'}, 409)
     old = dict(document.data)
     if (old.get('hidden') is True) != value['hidden']:
-        document.data = {**old, 'hidden': value['hidden']}; document.save()
+        from .catalog_projection import merge_document
+        merge_document(document.path,{'hidden':value['hidden']});document.data = {**old,'hidden':value['hidden']}
         audit(user, 'catalog_changed', document.path, {'method':'PATCH', 'contract':'v1-visibility', **audit_change(audit_snapshot('product',old),audit_snapshot('product',document.data),observed=value['revision'])})
     from .promotion_prices import PriceResolver, context_store
     return response(serialize(document,user,config,resolver=PriceResolver(config,context_store(user,request.GET.get('store')),product_paths=[document.path])))
@@ -325,8 +346,8 @@ def unit_in_use(path, data, *, legacy_recipe_lookup=None):
     identifier = path.split('/', 1)[1]
     if legacy_recipe_lookup is not None:
         return 'товар використовується як інгредієнт у рецептурі' if legacy_recipe_lookup(identifier,path) else None
-    recipes = Document.objects.filter(path__startswith='products/').exclude(pk=path).values_list('data', flat=True)
-    if any(isinstance(item, dict) and isinstance(item.get('recipe'), list) and any(isinstance(row, dict) and str(row.get('product')) == identifier for row in item['recipe']) for item in recipes.iterator(chunk_size=200)):
+    from .catalog_projection import recipe_usage
+    if recipe_usage(identifier,path):
         return 'товар використовується як інгредієнт у рецептурі'
     return None
 
@@ -409,6 +430,7 @@ def normalise_legacy(value, old, path):
     return normalise_product(value, dict(old), path, validate_references=False)
 
 
+@bounded
 def handle_catalog(request, user):
     from .views import response
     path = request.path.rstrip('/')
@@ -424,6 +446,9 @@ def handle_catalog(request, user):
     if result_match and request.method == 'GET':
         from .catalog_price_results import read_result
         return read_result(request, user, *result_match.groups())
+    if path in {'/api/v1/catalog/references/page','/api/v1/catalog/references/details','/api/v1/catalog/references/impact-page'}:
+        from .catalog_reference_reads import handle
+        return handle(request,user)
     if path in {'/api/v1/catalog/references/manage', '/api/v1/catalog/references/preview', '/api/v1/catalog/references/commit'}:
         from .catalog_reference_management import handle
         return handle(request, user)
@@ -437,8 +462,8 @@ def handle_catalog(request, user):
         from .catalog_import import preview_import, commit_import
         return preview_import(request, user) if path.endswith('/preview') else commit_import(request, user)
     if path == '/api/v1/catalog/references':
-        from .catalog_references import get_references, create_reference
-        if request.method == 'GET': return get_references(user)
+        from .catalog_references import create_reference
+        if request.method == 'GET': return response({'error':'Повний довідник замінено сторінками та вибраними ID.','code':'bounded_read_required'},410)
         if request.method == 'POST': return create_reference(request, user)
     if path == '/api/v1/session' and request.method == 'GET':
         from .draft_sessions import session_reply
@@ -461,10 +486,12 @@ def handle_catalog(request, user):
             with read_snapshot():
                 user = current_actor(user)
                 query = Document.objects.filter(path__startswith='products/') if include_hidden == 'true' else base_query()
-                document = query.filter(pk='products/' + match[1]).first()
-                if document is None: return response({'error':'Товар не знайдено.','code':'not_found'},404)
+                selected=query.filter(pk='products/' + match[1]).exists()
+                if not selected: return response({'error':'Товар не знайдено.','code':'not_found'},404)
                 from .promotion_prices import PriceResolver, context_store
                 config = defaults()
+                from .catalog_projection import projected_document
+                document=projected_document('products/'+match[1],config=config)
                 return response(serialize(document,user,config,resolver=PriceResolver(config,context_store(user,request.GET.get('store')),product_paths=[document.path])))
         if request.method in {'PATCH', 'DELETE'}: return save_product(request, user, match[1])
     return response({'error': 'Метод або маршрут не підтримується.', 'code': 'unsupported_route'}, 405)

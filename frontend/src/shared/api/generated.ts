@@ -485,7 +485,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Active persistent choices and compatible legacy product values; explicit archive/merge tombstones suppress old values and defaults. archivedItems supports readable unchanged historical selections. */
+    /**
+     * @deprecated
+     * @description Retired whole-dictionary GET. Use references/page and selected-ID references/details; no silent first-page compatibility.
+     */
     get: {
       parameters: {
         query?: never;
@@ -495,15 +498,6 @@ export interface paths {
       };
       requestBody?: never;
       responses: {
-        /** @description Reference dictionaries */
-        200: {
-          headers: {
-            [name: string]: unknown;
-          };
-          content: {
-            'application/json': components['schemas']['ReferenceData'];
-          };
-        };
         /** @description Error */
         400: {
           headers: {
@@ -524,6 +518,15 @@ export interface paths {
         };
         /** @description Error */
         403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description bounded_read_required */
+        410: {
           headers: {
             [name: string]: unknown;
           };
@@ -997,7 +1000,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Current stable dictionaries including explicit archived/merged entries; read only. */
+    /**
+     * @deprecated
+     * @description Retired whole-dictionary GET. Use references/page and selected-ID references/details; no silent first-page compatibility.
+     */
     get: {
       parameters: {
         query?: never;
@@ -1007,15 +1013,6 @@ export interface paths {
       };
       requestBody?: never;
       responses: {
-        /** @description Result */
-        200: {
-          headers: {
-            [name: string]: unknown;
-          };
-          content: {
-            'application/json': components['schemas']['ReferenceManagement'];
-          };
-        };
         /** @description Error */
         400: {
           headers: {
@@ -1045,6 +1042,15 @@ export interface paths {
         };
         /** @description Error */
         409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description bounded_read_required */
+        410: {
           headers: {
             [name: string]: unknown;
           };
@@ -2876,6 +2882,7 @@ export interface components {
       blocked: string[];
       blockedCount: number;
       warnings: string[];
+      coalescedCount: number;
     };
     ReferenceCommit: {
       sourceId: string;
@@ -2911,6 +2918,7 @@ export interface components {
       warnings: string[];
       /** @constant */
       ok: true;
+      coalescedCount: number;
     };
     PriceContext: {
       storeId: number | null;

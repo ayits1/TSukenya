@@ -149,8 +149,9 @@ def validate_product(data, path=None, config=None, check_promotion=True):
     require(isinstance(recipe,list) and len(recipe)<=100,'Некоректна рецептура.')
     for row in recipe:
         require(isinstance(row,dict),'Некоректний інгредієнт.')
-        ingredient=get(Document,'products/'+str(row.get('product')),'Інгредієнт')
-        require(not path or ingredient.pk!=path,'Готовий товар не може бути власним інгредієнтом.')
+        ingredient_path='products/'+str(row.get('product'))
+        require(Document.objects.filter(pk=ingredient_path).exists(),'Інгредієнт не знайдено.')
+        require(not path or ingredient_path!=path,'Готовий товар не може бути власним інгредієнтом.')
         dec(row.get('quantity'),'Кількість інгредієнта',QTY,minimum=QTY)
 
 def legacy_create_fingerprint(value):

@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.test import TransactionTestCase
 from server.erp.models import AuditEvent, Document
 from tests import test_catalog_references as fixtures
+from tests.reference_pages import read_references
 
 
 class ReferenceManagementTests(TransactionTestCase):
@@ -13,7 +14,7 @@ class ReferenceManagementTests(TransactionTestCase):
     patch = fixtures.CatalogReferenceTests.patch
     # Reuse authentication fixture only; base behaviours run in their own class.
     def managed(self, field, text, parent=''):
-        return next(item for item in self.client.get('/api/v1/catalog/references/manage').json()['items'] if item['field'] == field and item['value'] == text and item['parentType'] == parent)
+        return next(item for item in read_references(self.client,states=('active','archived','merged')) if item['field'] == field and item['value'] == text and item['parentType'] == parent)
 
     def proposal(self, source, operation='rename', **extra):
         return {'sourceId': source['id'], 'revision': source['revision'], 'operation': operation, **extra}
@@ -166,7 +167,7 @@ class ReferenceManagementTests(TransactionTestCase):
         self.create('type', 'Подарунки'); self.create('category', 'Кава', parentType='Подарунки')
         group, target = self.managed('type', 'Гарячі'), self.managed('type', 'Подарунки')
         self.assertEqual(self.commit(self.proposal(group, 'merge', targetId=target['id']))[0].status_code, 200)
-        category = next(item for item in self.client.get('/api/v1/catalog/references/manage').json()['items'] if item['id']==child['id'])
+        category = next(item for item in read_references(self.client,states=('active','archived','merged')) if item['id']==child['id'])
         self.assertEqual((category['state'], category['parentType']), ('archived', 'Подарунки'))
         self.assertEqual(self.patch('coffee', name='Збережена архівована категорія').status_code, 200)
         self.assertEqual(Document.objects.get(pk='products/coffee').data['referenceIds']['category'], child['id'])
@@ -208,7 +209,7 @@ class ReferenceConcurrentTests(TransactionTestCase):
     setUp = fixtures.CatalogReferenceTests.setUp
 
     def test_only_one_concurrent_commit_of_same_review_can_change_and_audit(self):
-        source = next(item for item in self.client.get('/api/v1/catalog/references/manage').json()['items'] if item['field']=='pack')
+        source = next(item for item in read_references(self.client,states=('active','archived','merged')) if item['field']=='pack')
         payload = {'sourceId':source['id'], 'revision':source['revision'], 'operation':'rename', 'value':'Банка'}
         reviewed = self.client.post('/api/v1/catalog/references/preview', payload,content_type='application/json',**self.headers).json()
         barrier = Barrier(2)

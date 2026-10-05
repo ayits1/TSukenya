@@ -377,3 +377,21 @@
     padding: 16px;
   }
 }
+
+.tk-reference-picker {
+  min-width: 0;
+}
+.tk-reference-paging {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tk-reference-paging > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tk-reference-paging .tk-button {
+  min-height: 44px;
+}
