@@ -29,7 +29,7 @@
     "test:visual": "npm run test:visual --workspace frontend",
     "test:visual:update": "npm run test:visual:update --workspace frontend",
     "test:full": "node scripts/full-check.mjs",
-    "generate:api": "npm run generate --workspace @tsukenya/api-contracts && npm exec --workspace frontend -- prettier --write src/shared/api/generated.ts src/shared/api/crm.generated.ts src/shared/api/trading.generated.ts src/shared/api/abc.generated.ts src/shared/api/stock.generated.ts src/shared/api/receipt-pricing.generated.ts src/shared/api/purchases.generated.ts src/shared/api/sales.generated.ts src/shared/api/finance.generated.ts src/shared/api/staff.generated.ts src/shared/api/reports.generated.ts src/shared/api/tradingFreshness.generated.ts",
+    "generate:api": "npm run generate --workspace @tsukenya/api-contracts && npm exec --workspace frontend -- prettier --write src/shared/api/generated.ts src/shared/api/crm.generated.ts src/shared/api/trading.generated.ts src/shared/api/abc.generated.ts src/shared/api/stock.generated.ts src/shared/api/receipt-pricing.generated.ts src/shared/api/purchases.generated.ts src/shared/api/sales.generated.ts src/shared/api/finance.generated.ts src/shared/api/staff.generated.ts src/shared/api/reports.generated.ts src/shared/api/tradingFreshness.generated.ts src/shared/api/documentDetails.generated.ts",
     "test:catalog:ui": "node tests/catalog-ui.cjs",
     "test:labels:ui": "node tests/labels-ui.cjs",
     "test:promotion:legacy": "node tests/promotion-legacy.cjs"

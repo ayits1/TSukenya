@@ -1,3 +1,4 @@
+import * as documentView from './features/document-details/bridge';
 import * as settingPersistence from './shared/native/settingPersistence';
 import * as voucherAction from './shared/native/voucherAction';
 import * as managedAlertPersistence from './shared/native/managedAlertPersistence';
@@ -38,6 +39,7 @@ import * as recipeEditor from './shared/native/recipe';
 declare global {
   interface Window {
     NativeVoucherAction?: typeof voucherAction;
+    NativeDocumentView?: typeof documentView;
     NativeManagedAlertPersistence?: typeof managedAlertPersistence;
     NativeVoucherPersistence?: typeof voucherPersistence;
     NativeEntityPersistence?: typeof entityPersistence;
@@ -74,6 +76,7 @@ declare global {
   }
 }
 window.NativeVoucherAction = voucherAction;
+window.NativeDocumentView = documentView;
 window.NativeManagedAlertPersistence = managedAlertPersistence;
 window.NativeVoucherPersistence = voucherPersistence;
 window.NativeBudgetTemplateEditor = budgetTemplateEditor;

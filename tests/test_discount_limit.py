@@ -6,10 +6,10 @@ import uuid
 from decimal import Decimal
 from server.erp.models import *
 from server.erp.services import *
-from tests.test_unit_and_drafts import ApiFixture
+from tests.test_unit_and_drafts import ApiFixture, TransactionApiFixture
 
 
-class DiscountBase(ApiFixture):
+class DiscountMixin:
     def setUp(self):
         super().setUp()
         self.p.data = {'name': 'Product', 'unit': 'шт', 'cost': '100', 'markup': 30}; self.p.save()  # catalogue price 130.00
@@ -31,6 +31,10 @@ class DiscountBase(ApiFixture):
 
     def set_limit(self, percent):
         response = self.call('post', '/api/erp/discount-limit', {'percent': percent}); self.assertEqual(response.status_code, 200, response.content)
+
+
+class DiscountBase(DiscountMixin, ApiFixture):
+    pass
 
 
 class DiscountLimitTests(DiscountBase):
@@ -194,7 +198,8 @@ class DiscountBoundaryTests(DiscountBase):
         self.assertEqual(Voucher.objects.get(pk=posted.pk).payload, before)
 
 
-class DiscountApiTests(DiscountBase):
+class DiscountApiTests(DiscountMixin, TransactionApiFixture):
+    # HTTP detail reads own a fresh read-only RR, outside a writable TestCase transaction.
     def session(self, user, token):
         self.client.cookies['ts_session'] = token
         PortalSession.objects.create(token_hash=hashlib.sha256(token.encode()).hexdigest(), user=user, csrf='b-csrf', expires=int(time.time()) + 3600)

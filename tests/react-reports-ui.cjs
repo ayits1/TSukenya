@@ -110,10 +110,10 @@ VoucherLine.objects.filter(product_id='products/w1').update(name='<img src=x one
     pythonRun(`from server.erp.models import Profile,Voucher;v=Voucher.objects.get(pk=${Number(id)});Profile.objects.filter(user__username='tester').update(role='cashier',store=v.store)`);
     const readable=await page.context().request.get(base+'/api/erp/vouchers/'+id); assert.equal(readable.status(),200);
     const sale=await readable.json(); assert.equal(sale.kind,'sale');assert.equal(Object.hasOwn(sale,'cost'),false);
-    const before=requests.filter(r=>new URL(r.url).pathname==='/api/erp/vouchers/'+id).length;
+    const before=requests.filter(r=>new URL(r.url).pathname==='/api/v1/trading/documents/'+id).length;
     await document.press('Enter');await workspace.getByRole('alert').waitFor();
     assert.equal(await workspace.locator('[data-report-summary],[data-report-current-debts],[data-report-export]').count(),0);assert.equal(await page.locator('dialog[open]').count(),0);
-    assert.equal(requests.filter(r=>new URL(r.url).pathname==='/api/erp/vouchers/'+id).length,before);
+    assert.equal(requests.filter(r=>new URL(r.url).pathname==='/api/v1/trading/documents/'+id).length,before);
     pass('source revalidates Reports grant: readable cashier SALE200/redacted, no native fetch/modal, private report cleared');
     pythonRun("from server.erp.models import Profile;Profile.objects.filter(user__username='tester').update(role='owner',store=None)");
     await page.goto('about:blank');await page.goto(base+'/#trade/reports');await ready();
@@ -133,12 +133,12 @@ VoucherLine.objects.filter(product_id='products/w1').update(name='<img src=x one
     await mode('period'); await workspace.locator('.trade-report-source-actions summary').press('Enter');
     await workspace.locator('[data-report-source][data-metric=revenue]').press('Enter');
     const sources=page.locator('[data-report-sources]'), document=sources.locator('[data-source-voucher]').first();await document.waitFor();
-    const id=await document.getAttribute('data-source-voucher'), url='**/api/erp/vouchers/'+id;let held;
+    const id=await document.getAttribute('data-source-voucher'), url='**/api/v1/trading/documents/'+id;let held;
     await page.route(url,route=>{held=route;});await document.press('Enter');await wait(()=>!!held);
     pythonRun(`from server.erp.models import Profile,Voucher;v=Voucher.objects.get(pk=${Number(id)});Profile.objects.filter(user__username='tester').update(role='cashier',store=v.store)`);
-    const response=await page.context().request.get(base+'/api/erp/vouchers/'+id);assert.equal(response.status(),200);const sale=await response.json();assert.equal(sale.kind,'sale');assert.equal(Object.hasOwn(sale,'cost'),false);
-    await held.fulfill({status:200,contentType:'application/json',body:JSON.stringify(sale)});await workspace.getByRole('alert').waitFor();
-    assert.equal(await workspace.locator('[data-report-summary],[data-report-current-debts],[data-report-export]').count(),0);assert.equal(await page.locator('dialog[open]').count(),0);
+    const response=await page.context().request.get(base+'/api/v1/trading/documents/'+id);assert.equal(response.status(),200);const sale=await response.json();assert.equal(sale.document.kind,'sale');assert.equal(sale.document.cost,null);assert.equal(sale.context.role,'cashier');
+    await held.fulfill({status:200,contentType:'application/json',body:JSON.stringify(sale)});await page.locator('#main').getByRole('alert').waitFor();
+    assert.equal(await page.locator('[data-report-summary],[data-report-current-debts],[data-report-export]').count(),0);assert.equal(await page.locator('dialog[open]').count(),0);
     await page.unroute(url);pass('post-SALEGET fresh Reports grant: owner preflight, cashier real200/redacted after heldGET, no private native DOM');
     pythonRun("from server.erp.models import Profile;Profile.objects.filter(user__username='tester').update(role='owner',store=None)");
     if(stage==='all'){await page.goto('about:blank');await page.goto(base+'/#trade/reports');await ready();}

@@ -8,7 +8,7 @@ export type Options = {
   selectedStore: DirectoryItem | null;
   onStore: (id: number | null) => void;
   onCreateDocument: (kind: string) => void | Promise<void>;
-  onViewDocument: (id: number) => void | Promise<void>;
+  onViewDocument: (id: number, opener?: Element) => void | Promise<void>;
   onOpenShift: () => void | Promise<void>;
   onCloseShift: (id: number) => void | Promise<void>;
   onRefresh: () => Promise<void>;

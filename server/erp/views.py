@@ -564,6 +564,11 @@ def handle(request):
     if path.startswith('/api/v1/portal/'):
         from .portal_api import handle_portal
         return handle_portal(request,user)
+    document_read=re.fullmatch(r'/api/v1/trading/documents/([0-9]{1,12})(/rows)?',path)
+    if document_read:
+        require(request.method=='GET','Метод не підтримується.')
+        from .document_reads import read
+        return response(read(user,int(document_read[1]),request.GET,page=bool(document_read[2])))
     if path == '/api/v1/trading/versions' and request.method == 'GET':
         from .trading_versions import response as version_response
         return version_response(request, user)
@@ -877,7 +882,9 @@ def handle(request):
             from .historical_reports import read_snapshot
             from .browsing import page_number
             with read_snapshot():
-                order=get(Voucher,order_match[1],'Замовлення');scope(user,order.store);permission(user,order.kind);require(order.kind in ORDER_KINDS,'Це не замовлення.')
+                user=current_actor(user)
+                from .document_reads import readable_document
+                order=readable_document(user,order_match[1]);require(order.kind in ORDER_KINDS,'Це не замовлення.')
                 return response({'id':order.pk,'order':order_json(order,user,page_number(request.GET)),**({'limits':reserve_limits(order,user)} if request.GET.get('purpose')=='reserve' else {})})
         require(request.method=='POST','Метод не підтримується.');return response(mutate(user,order_match[1],body(request)))
     if path=='/api/erp/vouchers/recovery-context' and request.method=='GET':
@@ -921,23 +928,21 @@ def handle(request):
         return response(vouchers(user,request.GET))
     match=re.fullmatch(r'/api/erp/vouchers/(\d+)(?:/(post|reverse))?',path)
     if match:
-        pk,action=match.groups();v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind)
+        pk,action=match.groups()
+        if not action and request.method=='GET':
+            from .historical_reports import read_snapshot
+            from .document_reads import readable_document
+            with read_snapshot():
+                user=current_actor(user);v=readable_document(user,pk)
+                result=voucher_json(v,True,user=user)
+                if request.GET.get('purpose')=='recovery':result['editing']=recovery_editing(user,v)
+                return response(result)
+        v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind)
         if action=='post' and request.method=='POST':
             value=body(request)
             observed={'expected_revision':value['revision']} if 'revision' in value else {}
             return response(voucher_json(post_voucher(user,pk,**observed),True,user=user))
         if action=='reverse' and request.method=='POST':return response(voucher_json(reverse_voucher(user,pk,body(request).get('reason','')),True,user=user))
-        if not action and request.method=='GET' and request.GET.get('purpose')=='recovery':
-            from .historical_reports import read_snapshot
-            with read_snapshot():
-                user=current_actor(user)
-                v=get(Voucher,pk,'Документ');scope(user,v.store);permission(user,v.kind);expense_permission(user,v)
-                result=voucher_json(v,True,user=user)
-                result['editing']=recovery_editing(user,v)
-                return response(result)
-        if not action and request.method=='GET':
-            expense_permission(user,v)
-            return response(voucher_json(v,True,user=user))
         if not action and request.method=='PUT':
             value=body(request);v=save_voucher(user,value,pk);result=voucher_json(v,True,user=user);result['request_key']=value.get('idempotency_key');return response(result)
         if not action and request.method=='DELETE':

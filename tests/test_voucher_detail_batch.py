@@ -8,6 +8,7 @@ from decimal import Decimal
 from datetime import timedelta
 from django.db import connection
 from django.db.models import Sum
+from django.test import TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from tests.test_erp import AccountingFixture
@@ -60,9 +61,16 @@ def legacy_voucher_json(v, detail=False, *, user, settlements=None, allocations=
     return result
 
 
-class VoucherDetailBatchTests(AccountingFixture):
+class VoucherDetailBatchTests(TransactionTestCase):
+    v = AccountingFixture.v
+    sale = AccountingFixture.sale
+    cash_start = AccountingFixture.cash_start
+
     def setUp(self):
-        super().setUp()
+        # HTTP snapshot reads must begin outside the fixture write transaction.
+        from tests.catalog_index_fixture import clear_flushed_catalogue_tombstones
+        clear_flushed_catalogue_tombstones()
+        AccountingFixture.setUp(self)
         token='isolated-b24-detail'
         PortalSession.objects.create(token_hash=hashlib.sha256(token.encode()).hexdigest(),
             user=self.u,csrf='b24-csrf',expires=int(time.time())+3600)
