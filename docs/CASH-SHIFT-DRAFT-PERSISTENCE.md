@@ -77,3 +77,13 @@ reload першої ненадісланої форми actual rolledback400 п�
 `/tmp/tsukenya-cash-raw-rejection-fixed-v2/raw-rejection-report.json` — raw reload,
 first400 correction, close explicit Apply без POST, separate close first bound400.
 Усього2 спроби POST; закриття й cash movements не створені. Backend не змінено.
+
+Unknown counterpart `open` PASS на зміненому renderer:
+`/tmp/tsukenya-cash-ambiguity-guard-final/open-report.json` — lost ACK, newer invalid
+raw, later400 не звільняє intent, positive identity перед current503, reload GET
+only, keyboard і геометрія1440/320. Успішні незмінені server/codec результати
+використано повторно; full не запускали.
+
+PR117 прийнято як9cbd49d. Касовий пакет перенесено поверх нього; конфлікт scrub
+array вирішено з точною перевіркою об’єднання QA_FACETS_FROM/QA_CASH_DRAFT_FROM,
+без втрати stages. Це нова база для matching build і фінального CI.
