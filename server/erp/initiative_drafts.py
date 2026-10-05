@@ -189,6 +189,10 @@ def recovery_context(user, params):
                 can_write = can_write and source is not None and source['available']
         return {'contract': 'initiative-recovery-context-v1', 'role': user.profile.role,
                 'storeId': user.profile.store_id, 'networkOwner': user.profile.store_id is None,
+                'selection': {'project': params.get('project'), 'idea': params.get('idea'),
+                              'task': params.get('task'),
+                              'voucher': query_id(params['voucher']) if 'voucher' in params else None,
+                              'store': query_id(params['store']) if params.get('store') else None},
                 'action': operation, 'project': project, 'idea': idea, 'source': source,
                 'canWrite': bool(can_write),
                 'reason': '' if can_write else 'Поточний стан не дозволяє цю дію. Введення збережено.'}

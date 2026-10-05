@@ -204,6 +204,24 @@ class InitiativeDraftTests(TransactionApiFixture):
         with self.assertRaises(PermissionDenied):
             drafts.recovery_context(self.u, {'action': 'edit', 'project': str(project.pk)})
 
+    def test_context_exact_selection_survives_absent_sources_and_separates_actor_scope(self):
+        create = self.context(action='create').json()
+        self.assertEqual(create['selection'], {'project': None, 'idea': 'source', 'task': None,
+                                             'voucher': None, 'store': self.store.pk})
+        self.assertIsNone(create['storeId'])
+        project = self.create()
+        for action, source in [('task_link', {'task': 'missing'}),
+                               ('expense_attach', {'voucher': '999999'})]:
+            response = self.context(project, action, **source)
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(response.json()['selection'], {
+                'project': str(project.pk), 'idea': None, 'store': None,
+                'task': source.get('task'),
+                'voucher': int(source['voucher']) if 'voucher' in source else None,
+            })
+            self.assertIsNone(response.json()['source'])
+            self.assertFalse(response.json()['canWrite'])
+
     def test_postgresql_fresh_actor_and_project_use_one_readonly_snapshot(self):
         if connection.vendor != 'postgresql':
             self.skipTest('PostgreSQL snapshot proof')

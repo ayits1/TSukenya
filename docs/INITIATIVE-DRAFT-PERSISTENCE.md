@@ -24,6 +24,9 @@ ProjectOperation уже містить достатній actor/project/key/fing
   exact project revision або idea/task token64 і selected source, canWrite/reason.
   Source missing/ineligible лишає primary project доступним із canWrite=false.
   Foreign scope/недоступний primary повертає403. Закритий стан не є втратою grant.
+  Exact `selection` envelope повертає requested project/idea/task/voucher/store;
+  selected create store відділений від actor storeId. Missing source не стирає
+  expected ID, тому consumer може відхилити відповідь для іншої вибірки.
 - `POST /api/erp/initiatives/operation-identity`: **тільки читання**,
   `{project: null|canonicalUUID, request: exact frozen body}`. Existing serializer
   `sha256(json.dumps([project_id,value],sort_keys=True,separators=(',',':'),
@@ -64,3 +67,9 @@ KPI three-way merge, source terms, quota, cold/warm privacy та last-await fenc
 Ordinary task adapter не використовується для initiative mutation bypass.
 Options all-active users/stores та інші B24 оптимізації цим пакетом не оголошуються
 вирішеними. Actual consumer proofs буде додано після реалізації.
+
+Additive exact-selection follow-up: лише
+`test_context_exact_selection_survives_absent_sources_and_separates_actor_scope`
+**PostgreSQL PASS1, 0.193s**;
+`/tmp/tsukenya-initiative-drafts-selection-pg.log`. Request store відділений від
+actor store, missing task/voucher залишають exact selection. Попередні PG6 reused.
