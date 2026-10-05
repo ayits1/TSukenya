@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { isCurrentAuthFailure, throwCurrentAuthFailure } from './authRead';
 import type { Json } from '../../../shared/recovery/storage';
 import {
@@ -129,6 +130,25 @@ export function useCampaignRecovery(
     value.current = { ...value.current, draft: structuredClone(rawRef.current) };
     f.store.save(id, codecName, encodePayload(value.current));
   };
+  const captureRaw = (draft: CampaignPayload['draft']) => {
+    rawRef.current = draft;
+    if (
+      !enabled ||
+      !lifecycle.current.prepared ||
+      !state.private ||
+      !live(lifecycle.current.generation)
+    )
+      return;
+    try {
+      capture();
+      if (state.blocked) show({ blocked: false, error: '' });
+    } catch (error) {
+      show({
+        blocked: true,
+        error: error instanceof Error ? error.message : 'Не вдалося записати чернетку.',
+      });
+    }
+  };
   const stop = () => {
     lifecycle.current.generation++;
     window.NativeDraftRecovery?.controller.dismiss();
@@ -169,7 +189,9 @@ export function useCampaignRecovery(
     void prepare();
   });
   const hide = useEffectEvent(() => {
-    show({ private: false });
+    // Foundation revocation runs before redirect/beforeunload: erase private DOM now.
+    if (state.private) flushSync(() => show({ private: false }));
+    else show({ private: false });
     if (!lifecycle.current.protected) lifecycle.current.generation++;
   });
   useEffect(() => {
@@ -186,7 +208,7 @@ export function useCampaignRecovery(
     };
   }, [id, enabled]); // The record keeps its opening baseline across renders.
   const persistRaw = useEffectEvent(() => {
-    if (!enabled || !lifecycle.current.prepared || !state.private || state.busy) return;
+    if (!enabled || !lifecycle.current.prepared || !state.private) return;
     try {
       capture();
       if (state.blocked) show({ blocked: false, error: '' });
@@ -343,6 +365,8 @@ export function useCampaignRecovery(
             session,
           );
           if (!live(generation, signal)) throw new DOMException('Скасовано', 'AbortError');
+          // Fresh identity/session authorization permits editing while the frozen POST waits.
+          show({ private: true });
           const ack = identity.confirmed
             ? identity
             : await api.execute(envelope, hash, signal, () => live(generation, signal), session);
@@ -438,6 +462,7 @@ export function useCampaignRecovery(
     isLive: () => lifecycle.current.mounted && document.visibilityState !== 'hidden',
     value: () => value.current,
     prepare,
+    captureRaw,
     readFence,
     refuseAuthRead,
     read,

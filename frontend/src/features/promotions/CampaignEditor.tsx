@@ -99,6 +99,13 @@ export function CampaignEditor({
     original: initial,
   };
   const recovery = useCampaignRecovery(baseline, raw, restored, !!api.durableRecovery);
+  const updateRaw = (change: Raw | ((previous: Raw) => Raw)) => {
+    const next = typeof change === 'function' ? change(rawRef.current) : change;
+    rawRef.current = next;
+    // Capture the input event before reload/visibility suspend, including pending writes.
+    recovery.captureRaw(next);
+    setRaw(next);
+  };
   const legacyIntent = useRef<{
     input: CampaignInput;
     identity: { id: string; revision: number } | { idempotencyKey: string };
@@ -142,7 +149,7 @@ export function CampaignEditor({
     handleProductError();
   }, [products.error]);
   const patch = (input: Partial<CampaignInput>) => {
-    setRaw((v) => ({ ...v, input: { ...v.input, ...input } }));
+    updateRaw((v) => ({ ...v, input: { ...v.input, ...input } }));
     setDirty(true);
     setCurrent(null);
   };
@@ -257,7 +264,7 @@ export function CampaignEditor({
         next,
       )
     ) {
-      setRaw(next);
+      updateRaw(next);
       setCurrent(null);
       setDirty(true);
       setNotice('Узгоджені поля застосовано локально. Збережіть окремою дією.');
@@ -371,7 +378,7 @@ export function CampaignEditor({
             selectedOption={selected ? { id: selected.id, label: selected.name } : null}
             inputValue={raw.search}
             onInputChange={(search) => {
-              setRaw((v) => ({ ...v, search }));
+              updateRaw((v) => ({ ...v, search }));
               setSelected((p) => (p && p.name === search ? p : null));
             }}
             isLoading={products.isFetching || raw.search !== searchTerm}
@@ -379,7 +386,7 @@ export function CampaignEditor({
               const p = products.data?.items.find((p) => p.id === key);
               if (p) {
                 setSelected(p);
-                setRaw((v) => ({ ...v, search: p.name }));
+                updateRaw((v) => ({ ...v, search: p.name }));
               }
             }}
           />
@@ -387,7 +394,7 @@ export function CampaignEditor({
             isDisabled={!selected || rows.some((r) => r.product === selected.id)}
             onPress={() => {
               if (!selected) return;
-              setRaw((v) => ({
+              updateRaw((v) => ({
                 ...v,
                 search: '',
                 names: { ...v.names, [selected.id]: selected.name },

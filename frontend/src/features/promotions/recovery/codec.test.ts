@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   decodeEnvelope,
+  decodeInput,
   requestHash,
   createRecoveryApi,
   RecoveryError,
@@ -55,6 +56,13 @@ function payload(hash: string): CampaignPayload {
   });
 }
 describe('campaign compact recovery', () => {
+  it('refuses scope arrays instead of coercing them to a valid raw choice', () => {
+    const { idempotencyKey, ...input } = request;
+    void idempotencyKey;
+    expect(() => decodeInput({ ...input, scope: ['network'] })).toThrow();
+    expect(() => decodeInput({ ...input, scope: ['stores'] })).toThrow();
+    expect(decodeInput(input).scope).toBe('network');
+  });
   it('retains invalid newer raw and frozen intent; confirmation is scalar, never a baseline', async () => {
     const hash = await requestHash(envelope),
       p = payload(hash);

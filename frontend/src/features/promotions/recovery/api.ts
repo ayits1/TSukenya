@@ -45,7 +45,8 @@ export function decodeInput(raw: unknown): CampaignInput {
       (k) => typeof v[k] !== 'string' || String(v[k]).length > 1000,
     ) ||
     typeof v.active !== 'boolean' ||
-    !['network', 'stores'].includes(String(v.scope)) ||
+    typeof v.scope !== 'string' ||
+    !['network', 'stores'].includes(v.scope) ||
     !Array.isArray(v.stores) ||
     v.stores.length > 100 ||
     v.stores.some((x) => !Number.isSafeInteger(x) || Number(x) <= 0) ||

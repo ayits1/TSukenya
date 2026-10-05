@@ -53,3 +53,17 @@ Actual isolated native harness `tests/campaign-draft-reload-ui.cjs`, `QA_CAMPAIG
 - `layout`: 1440/320 long Ukrainian labels, >=44px actions/no document overflow, calendar Enter/Escape focus, sidebar Restore Enter та raw, mutations0. Initial sandbox bind failure і mobile hidden sidebar fixture failure retained. Пізніший capture-only tail явно scrolls editor/actions у viewport. Остаточний tail — `/tmp/tsukenya-campaign-native-layout-final.log`, screenshots `editor-{1440,320}.png` та `actions-{1440,320}.png` переглянуті. Бізнесові prefixes reuse після no-empty-frame CSS та уточнення product search cache key поточним store, не whole-family repeat. Prefixes працювали з власними matching builds; їх не називаємо повторним exact-final-head прогоном.
 
 Залишки повного плану не закрито цим пакетом. Cross-tab/new-session persistence, provider integrations, physical print, capacity100k/full regression і deployment не виконувались. Нові settings/інші editor codecs не дублювалися.
+
+## Review follow-up: pending raw та синхронна privacy межа
+
+`CampaignEditor.updateRaw` тепер записує кожну зміну raw синхронно в input handler, включно з назвою, причиною, датами, магазинами, цінами та пошуком. Busy не блокує capture; exact frozen firstIntent UUID/body/hash зберігається окремо й не змінюється. Після guarded fresh identity/session поля доступні для новішого введення під час execute. Foundation suspend/revoke синхронно прибирає private form через `flushSync` до redirect/beforeunload; obsolete response guards лишаються. Strict raw scope приймає лише string, масиви не coercing.
+
+Цільові докази цього follow-up з власним новим matching build:
+
+- `QA_CAMPAIGN_DRAFT_FROM=pending-create` — PASS: committed CREATE ACK held, новіша invalid blank назва/ціна `0.00` durable **до** ACK; pagehide приховує форму; reload + явний Restore зберігає поля й незмінний первісний body/UUID/baseline, лише один POST.
+- `QA_CAMPAIGN_DRAFT_FROM=pending-update` — PASS того самого pending/reload boundary для UPDATE.
+- `QA_CAMPAIGN_DRAFT_FROM=auth-sync` — PASS: актуальний session-invalidated синхронно прибирає DOM/record у тому самому стеку beforeunload; actual nonJSON last-session401 проходить Foundation revoke, private DOM/storage порожні, execute0.
+- Reports `/tmp/tsukenya-campaign-draft-proof/{pending-create,pending-update,auth-sync}-report.json`; terminal logs `/tmp/tsukenya-campaign-{pending-create,pending-update,auth-sync}-final.log`.
+- Unit7 `/tmp/tsukenya-campaign-followup-unit.log`, scoped lint і matching TypeScript/Vite build PASS `/tmp/tsukenya-campaign-followup-{lint,build}.log`; harness syntax/diff guard PASS.
+
+Перший delayed CREATE assertion помилково очікував blank decimal після очищення лише гривень за наявних `00` копійок (чинний MoneyField правильно дає `0.00`). Failure artifact лишився; fixture тепер явно вводить invalid `0.00`, лише цей affected stage повторено. Cleanup звільняє held route і при failure. Старі вісім prefixes/stories/server proofs вище reuse; whole wrapper/full/production не запускались. Нові три stages додані до майбутнього explicit family wrapper, незмінний flag `QA_CAMPAIGN_DRAFT_FROM`.
