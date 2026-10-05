@@ -148,3 +148,11 @@ policy PASS. Один додатковий actual callbacks stage на об’є
 PASS: підтверджене проведення → explicit Done → чинні detail/price-review
 callbacks, назви товарів після strict decode; додаткових бізнес-запитів немає.
 Незмінені accounting/інші native proofs вище використано повторно.
+
+### CI SQL oracle correction
+
+Стара перевірка `payload,` помилково відхиляла SQLite JSON_TYPE/JSON_EXTRACT
+із scalar expense_scope. Тепер перевіряється raw SELECT projection, включно
+DISTINCT/alias; count=1, PostgreSQL JSON operator та query rejection до
+projection збережені. Один змінений scenario PASS SQLite і PostgreSQL.
+Бізнес-код і незмінені native/build/accounting докази не змінено/не повторено.

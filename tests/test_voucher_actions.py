@@ -1,4 +1,5 @@
 """Standalone action receipts: accounting services unchanged, exact acknowledgements survive DELETE."""
+import re
 import uuid
 import threading
 from unittest.mock import patch
@@ -119,7 +120,10 @@ class VoucherActionTests(TransactionApiFixture):
         voucher_sql=[query['sql'] for query in queries if 'FROM "erp_voucher"' in query['sql']]
         self.assertEqual(len(voucher_sql),1)
         if connection.vendor=='postgresql':self.assertIn('->',voucher_sql[0])
-        self.assertNotIn('"erp_voucher"."payload",',voucher_sql[0])
+        # JSON_EXTRACT/JSON_TYPE payload arguments are scalar reads, not raw
+        # payload projections. Reject SELECT of the whole column on both DBs.
+        raw_payload=r'(?:SELECT\s+(?:DISTINCT\s+)?|,\s*)"erp_voucher"\."payload"\s*(?:,|FROM\b|AS\b)'
+        self.assertIsNone(re.search(raw_payload,voucher_sql[0],re.I))
         LedgerLock.objects.filter(pk=1).update(closed_through=self.today)
         self.assertFalse(self.client.get(self.path('context')+'?'+urlencode(q)).json()['canExecute'])
         # Existing DELETE permits draft removal in a closed period; retain that policy.
