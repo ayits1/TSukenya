@@ -150,6 +150,7 @@ export function Catalog({
             </div>
           ) : null}
           <CatalogView
+            {...(api.facets ? { facetApi: api.facets } : {})}
             showVisibility={false}
             data={result.data}
             onReferences={() => setManagingReferences(true)}

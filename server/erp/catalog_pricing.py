@@ -9,7 +9,8 @@ from decimal import Decimal
 from django.core.exceptions import RequestDataTooBig
 from django.db import transaction
 from .catalog import defaults, normalise_product, plain, revision, serialize
-from .catalog_import import MAX_ENTRIES, UUID_PATTERN, canonical, snapshot
+from .catalog_import import MAX_ENTRIES, UUID_PATTERN, canonical
+from .catalog_snapshot import snapshot
 from .models import Document
 from .services import BusinessError, audit, dec, ledger_lock, require
 
@@ -71,36 +72,45 @@ def plan(payload, user):
     validate_payload(payload)
     before_config = defaults()
     after_config = dict(before_config)
-    from .catalog_references import reference_records
-    references = reference_records()
-    documents = list(Document.objects.filter(path__startswith='products/').order_by('path'))
-    active = {document.path.split('/', 1)[1]: document for document in documents if document.data.get('hidden') is not True}
+    documents = Document.objects.filter(path__startswith='products/').order_by('path')
+    from .catalog import base_query
+    from django.db.models import Q
+    from .promotion_prices import kyiv_day
+    price_day = kyiv_day()
     kind = payload['kind']
     if kind == 'markup':
         ids = payload.get('ids')
         if 'selection' in payload:
-            from .catalog import filtered_products
-            query,*_=filtered_products(user,payload['selection'])
-            ids=[path.split('/',1)[1] for path in query.values_list('path',flat=True)]
+            from .catalog_selection import Selection
+            with Selection(user, payload['selection'], effective_day=price_day) as selection:
+                ids=[path.split('/',1)[1] for path in selection.ids(MAX_ENTRIES + 1)]
             require(ids,'За вибраними фільтрами товарів немає.')
             require(len(ids)<=MAX_ENTRIES,'Вибір за фільтром охоплює понад 1000 товарів. Зменшіть вибір.')
         if ids is not None:
-            require(all(identifier in active for identifier in ids), 'Вибраний товар не існує або прихований. Оновіть каталог.')
-        selected = set(active) if ids is None else set(ids)
+            require(base_query().filter(pk__in=['products/' + identifier for identifier in ids]).count() == len(ids), 'Вибраний товар не існує або прихований. Оновіть каталог.')
+        else:
+            ids=[path.split('/',1)[1] for path in base_query().order_by('path').values_list('path',flat=True)[:MAX_ENTRIES + 1]]
+            require(len(ids)<=MAX_ENTRIES, 'Зміна цін охоплює понад 1000 товарів. Зменшіть вибір.')
+        selected = set(ids)
         if payload['updateDefault']:
             after_config['markup'] = dec(payload['markup'], 'Націнка', Decimal('.0001'))
         # Pin the previous fallback for every excluded product, including hidden
         # products and skipped manual prices, before changing a future default.
-        candidates = [document for document in documents if document.path.split('/', 1)[1] in selected
-                      or payload['updateDefault'] and 'markup' not in document.data]
+        condition = Q(pk__in=['products/' + identifier for identifier in selected])
+        if payload['updateDefault']: condition |= ~Q(data__has_key='markup')
+        from .catalog_snapshot import bounded_documents, MAX_CANDIDATE_BYTES
+        candidates = list(bounded_documents(documents.filter(condition), limit=MAX_ENTRIES + 1, total_limit=MAX_CANDIDATE_BYTES))
     else:
         selected = set()
         after_config['rounding'] = Decimal(payload['rounding'])
-        candidates = documents
+        from .catalog_snapshot import bounded_documents, MAX_CANDIDATE_BYTES
+        candidates = list(bounded_documents(documents, limit=MAX_ENTRIES + 1, total_limit=MAX_CANDIDATE_BYTES))
     require(len(candidates) <= MAX_ENTRIES, 'Зміна цін охоплює понад 1000 товарів. Зменшіть вибір; глобальне округлення потребує меншого каталогу.')
-    from .promotion_prices import PriceResolver,context_store,kyiv_day
+    from .catalog_scoped_references import scoped_records
+    references = scoped_records(document.data for document in candidates)
+    from .promotion_prices import PriceResolver,context_store
     price_store=price_results.resolve_context(user,payload,selection_store=payload.get('selection',{}).get('store'))
-    price_day=kyiv_day();paths=[d.path for d in candidates]
+    paths=[d.path for d in candidates]
     before_resolver=PriceResolver(before_config,price_store,price_day,product_paths=paths)
     after_resolver=PriceResolver(after_config,price_store,price_day,product_paths=paths)
     entries = []

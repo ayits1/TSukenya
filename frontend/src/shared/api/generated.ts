@@ -2192,6 +2192,167 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/catalog/selection/page': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query?: {
+          q?: string;
+          type?: string;
+          category?: string;
+          pack?: string;
+          promotion?: string;
+          page?: number;
+          limit?: number;
+          visibility?: 'active' | 'hidden';
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Bounded scalar selection page; facets use a separate searched/paged endpoint. */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['BoundedProductPage'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/catalog/selection/facets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: {
+      parameters: {
+        query: {
+          q?: string;
+          type?: string;
+          category?: string;
+          pack?: string;
+          promotion?: string;
+          page?: number;
+          visibility?: 'active' | 'hidden';
+          field: 'type' | 'category' | 'pack';
+          facetQ?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Complete facet universe through explicit pages; constrained by parents, never by self. */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CatalogFacetPage'];
+          };
+        };
+        /** @description Error */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+        /** @description Error */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Error'];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3221,6 +3382,37 @@ export interface components {
       /** @enum {integer} */
       limit: 100;
       items: components['schemas']['OperationPriceSelectionRow'][];
+    };
+    BoundedProductPage: {
+      items: components['schemas']['Product'][];
+      total: number;
+      page: number;
+      pages: number;
+      /** @enum {integer} */
+      limit: 10 | 20 | 50;
+      /** @description Choices are read through searched/paged facets; this is not an empty universe. */
+      facets: null;
+      canEdit: boolean;
+      defaultMarkup: string;
+      /** @enum {string} */
+      visibility: 'active' | 'hidden';
+      /** @constant */
+      contract: 'catalog-page-v2';
+      /** @constant */
+      facetMode: 'paged';
+    };
+    CatalogFacetPage: {
+      /** @constant */
+      contract: 'catalog-facets-v1';
+      /** @enum {string} */
+      field: 'type' | 'category' | 'pack';
+      q: string;
+      items: string[];
+      total: number;
+      page: number;
+      pages: number;
+      /** @constant */
+      limit: 30;
     };
   };
   responses: never;

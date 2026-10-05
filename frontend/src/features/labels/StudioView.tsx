@@ -13,6 +13,8 @@ import {
 } from 'react-aria-components';
 import { Button } from '../../shared/ui/Button';
 import { ComboBox } from '../../shared/ui/ComboBox';
+import { CatalogFacet } from '../catalog/CatalogFacet';
+import type { FacetApi } from '../catalog/api';
 import { Select } from '../../shared/ui/Select';
 import { TextField } from '../../shared/ui/TextField';
 import { Label } from './Label';
@@ -87,6 +89,7 @@ export type StudioViewProps = {
   onClearSelection: () => void;
   filters: StudioFilters;
   facets: { type: string[]; category: string[]; pack: string[] };
+  facetApi?: FacetApi;
   onFiltersChange: (filters: StudioFilters) => void;
   page: number;
   pages: number;
@@ -767,24 +770,50 @@ export function StudioView(props: StudioViewProps) {
                 placeholder="Назва або штрихкод"
                 isDisabled={props.outputBusy}
               />
-              <ComboBox
-                label="Група"
-                options={choices(props.facets.type, 'Усі групи', props.filters.type)}
-                selectedKey={props.filters.type || '*'}
-                isDisabled={props.outputBusy}
-                onSelectionChange={(key) =>
-                  filters({ type: key === '*' ? '' : String(key), category: '', pack: '' })
-                }
-              />
-              <ComboBox
-                label="Категорія"
-                options={choices(props.facets.category, 'Усі категорії', props.filters.category)}
-                selectedKey={props.filters.category || '*'}
-                isDisabled={props.outputBusy || props.loading}
-                onSelectionChange={(key) =>
-                  filters({ category: key === '*' ? '' : String(key), pack: '' })
-                }
-              />
+              {props.facetApi ? (
+                <CatalogFacet
+                  label="Група"
+                  allLabel="Усі групи"
+                  field="type"
+                  filters={{ ...props.filters, page: 1, limit: 20 }}
+                  value={props.filters.type}
+                  load={props.facetApi}
+                  disabled={props.outputBusy}
+                  onChange={(type) => filters({ type, category: '', pack: '' })}
+                />
+              ) : (
+                <ComboBox
+                  label="Група"
+                  options={choices(props.facets.type, 'Усі групи', props.filters.type)}
+                  selectedKey={props.filters.type || '*'}
+                  isDisabled={props.outputBusy}
+                  onSelectionChange={(key) =>
+                    filters({ type: key === '*' ? '' : String(key), category: '', pack: '' })
+                  }
+                />
+              )}
+              {props.facetApi ? (
+                <CatalogFacet
+                  label="Категорія"
+                  allLabel="Усі категорії"
+                  field="category"
+                  filters={{ ...props.filters, page: 1, limit: 20 }}
+                  value={props.filters.category}
+                  load={props.facetApi}
+                  disabled={props.outputBusy || props.loading}
+                  onChange={(category) => filters({ category, pack: '' })}
+                />
+              ) : (
+                <ComboBox
+                  label="Категорія"
+                  options={choices(props.facets.category, 'Усі категорії', props.filters.category)}
+                  selectedKey={props.filters.category || '*'}
+                  isDisabled={props.outputBusy || props.loading}
+                  onSelectionChange={(key) =>
+                    filters({ category: key === '*' ? '' : String(key), pack: '' })
+                  }
+                />
+              )}
               <Select
                 label="Акція"
                 options={[

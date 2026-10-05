@@ -27,7 +27,7 @@ function PendingFacets() {
             ...catalogPage,
             items: [product],
             total: 1,
-            facets: { type: catalogPage.facets.type, category: ['Кава'], pack: ['Стакан'] },
+            facets: { type: catalogPage.facets?.type || [], category: ['Кава'], pack: ['Стакан'] },
           };
         },
         product: async () => product,

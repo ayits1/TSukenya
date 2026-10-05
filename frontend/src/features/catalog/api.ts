@@ -20,9 +20,20 @@ export function hasEffectivePromotion(product: Product): boolean {
     Number(product.salePrice) < Number(product.regularPrice)
   );
 }
-export type ProductPage = Omit<components['schemas']['ProductPage'], 'items'> & {
+export type ProductPage = Omit<components['schemas']['ProductPage'], 'items' | 'facets'> & {
   items: Product[];
+  facets: components['schemas']['ProductPage']['facets'] | null;
+  facetMode?: 'paged';
 };
+export type FacetField = 'type' | 'category' | 'pack';
+export type FacetPage = components['schemas']['CatalogFacetPage'];
+export type FacetApi = (
+  filters: Filters,
+  field: FacetField,
+  q: string,
+  page: number,
+  signal?: AbortSignal,
+) => Promise<FacetPage>;
 export type ProductCreate = components['schemas']['ProductCreate'];
 export type ProductPatch = components['schemas']['ProductPatch'];
 export type Session = components['schemas']['Session'];
@@ -135,6 +146,37 @@ export function decodePage(
     !decimal(page.defaultMarkup)
   )
     throw new Error('Invalid page');
+  if (page.contract === 'catalog-page-v2') {
+    if (
+      Object.keys(page).some(
+        (key) =>
+          ![
+            'contract',
+            'items',
+            'total',
+            'page',
+            'pages',
+            'limit',
+            'facets',
+            'facetMode',
+            'visibility',
+            'canEdit',
+            'defaultMarkup',
+          ].includes(key),
+      ) ||
+      page.facets !== null ||
+      page.facetMode !== 'paged' ||
+      page.pages !== Math.max(1, Math.ceil(Number(page.total) / Number(page.limit))) ||
+      Number(page.page) > Number(page.pages) ||
+      page.items.length !==
+        Math.min(
+          Number(page.limit),
+          Math.max(0, Number(page.total) - (Number(page.page) - 1) * Number(page.limit)),
+        )
+    )
+      throw new Error('Invalid bounded catalogue page');
+    return page as ProductPage;
+  }
   const facets = object(page.facets);
   for (const key of ['type', 'category', 'pack']) {
     if (
@@ -144,6 +186,32 @@ export function decodePage(
       throw new Error('Invalid facets');
   }
   return page as ProductPage;
+}
+export function decodeFacetPage(value: unknown, field: FacetField, q: string): FacetPage {
+  const page = object(value);
+  if (
+    Object.keys(page).some(
+      (key) =>
+        !['contract', 'field', 'q', 'items', 'total', 'page', 'pages', 'limit'].includes(key),
+    ) ||
+    page.contract !== 'catalog-facets-v1' ||
+    page.field !== field ||
+    page.q !== q ||
+    !Array.isArray(page.items) ||
+    page.items.some((item) => typeof item !== 'string' || !item) ||
+    new Set(page.items).size !== page.items.length ||
+    !Number.isSafeInteger(page.total) ||
+    Number(page.total) < 0 ||
+    !Number.isSafeInteger(page.page) ||
+    Number(page.page) < 1 ||
+    page.limit !== 30 ||
+    page.pages !== Math.max(1, Math.ceil(Number(page.total) / 30)) ||
+    Number(page.page) > Number(page.pages) ||
+    page.items.length !==
+      Math.min(30, Math.max(0, Number(page.total) - (Number(page.page) - 1) * 30))
+  )
+    throw new Error('Invalid catalogue facets');
+  return page as FacetPage;
 }
 function decodeSession(value: unknown): Session {
   const session = object(value);
@@ -203,8 +271,25 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
       );
       const visibility = filters.visibility || 'active';
       return client.get(
-        contextual(`/api/v1/catalog/products?${params}`),
-        (value) => decodePage(value, visibility),
+        contextual(`/api/v1/catalog/selection/page?${params}`),
+        (value) => {
+          if (object(value).contract !== 'catalog-page-v2')
+            throw new Error('Invalid bounded catalogue contract');
+          return decodePage(value, visibility);
+        },
+        signal,
+      );
+    },
+    facets(filters: Filters, field: FacetField, q: string, page: number, signal?: AbortSignal) {
+      const params = new URLSearchParams(
+        Object.entries({ ...filters, field, facetQ: q, page }).map(([key, value]) => [
+          key,
+          String(value),
+        ]),
+      );
+      return client.get(
+        contextual(`/api/v1/catalog/selection/facets?${params}`),
+        (value) => decodeFacetPage(value, field, q),
         signal,
       );
     },
@@ -294,4 +379,6 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
     },
   };
 }
-export type CatalogApi = ReturnType<typeof createCatalogApi>;
+export type CatalogApi = Omit<ReturnType<typeof createCatalogApi>, 'facets'> & {
+  facets?: FacetApi;
+};
