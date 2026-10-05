@@ -201,3 +201,14 @@ Apply змінює raw, baseline і intent одним атомарним storage
 quota failure зберігає попередню цілу чернетку. Для повторних дефектів
 перевіряти реальні delayed-response та revoked-access сценарії, окремо
 від звичайного happy path; не замінювати їх лише strict DTO unit-тестом.
+
+## Звіти
+
+Робочий `#trade/reports` використовує ті самі компоненти React Aria, що й
+`Trading/Reports` stories: дати, довідник, вкладки, пошук, paging. Кожна активна
+TabPanel має стабільний key відповідного режиму/секції; inactive дані не
+зберігаються в прихованих панелях. Таблиці на вузькому екрані стають картками з
+підписом кожного поля. Native opener зберігається явно до async відкриття.
+Цільова команда: `node tests/react-reports-ui.cjs`; власна ізольована SQLite,
+bundled headless Chromium, синтетичні fixture. Межі та reusable результати:
+[REACT-REPORTS.md](REACT-REPORTS.md). Storybook не замінює actual callback proof.
