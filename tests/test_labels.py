@@ -11,7 +11,7 @@ def config():
     return {'size':'s','border':'dash','styleVersion':2,'chain':True,'store':True,'storeIdx':0,'name':True,'nameBig':False,'pack':True,'psize':True,'price':True,'kop':False,'unit':True,'per100':True,'category':True,'date':True,'custom':'','customEnabled':True,'promo':True,'styles':{}}
 
 
-class LabelTests(TestCase):
+class LabelTests(TransactionTestCase):
     def setUp(self):
         self.user = User.objects.create(username='label-owner')
         Profile.objects.create(user=self.user, role='owner')
