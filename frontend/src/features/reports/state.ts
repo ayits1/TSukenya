@@ -67,11 +67,30 @@ export class ReportsModel {
   private controller: AbortController | null = null;
   private intent: Query | null = null;
   private authority = '';
+  public abc: ABCApi;
   constructor(
     public api: ReportsApi,
     public finance: FinanceApi,
-    public abc: ABCApi,
-  ) {}
+    abc: ABCApi,
+  ) {
+    this.abc = {
+      read: async (filters, page, signal) => {
+        const token = this.accessToken(),
+          live = () => !signal?.aborted && this.isCurrent(token);
+        try {
+          if (!live()) throw new DOMException('Скасовано', 'AbortError');
+          await this.options!.directoryApi.bootstrap(signal);
+          if (!live()) throw new DOMException('Скасовано', 'AbortError');
+          const result = await abc.read(filters, page, signal);
+          if (!live()) throw new DOMException('Скасовано', 'AbortError');
+          return result;
+        } catch (error) {
+          if (live()) this.privacy(error);
+          throw error;
+        }
+      },
+    };
+  }
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
     return () => {

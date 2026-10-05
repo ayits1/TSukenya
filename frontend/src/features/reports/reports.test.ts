@@ -180,6 +180,40 @@ describe('Reports state', () => {
     expect(model.state.denied).toBe(false);
     model.leave();
   });
+  it('ABC rechecks authority and fences current403 versus ignored-abort late401', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof abcApi.read>>>(),
+      started = deferred<void>();
+    const model = new ReportsModel(api, financeApi, {
+      read: () => {
+        started.resolve();
+        return pending.promise;
+      },
+    });
+    await model.activate(options);
+    await model.mode('abc');
+    const signal = new AbortController(),
+      read = model.abc.read(model.state.abc, 1, signal.signal);
+    await started.promise;
+    signal.abort();
+    await model.mode('period');
+    pending.reject(new ApiError(401, 'Late ABC'));
+    await expect(read).rejects.toMatchObject({ status: 401 });
+    expect(model.state.denied).toBe(false);
+    model.leave();
+    const current = new ReportsModel(api, financeApi, {
+      read: async () => {
+        throw new ApiError(403, 'Denied ABC');
+      },
+    });
+    await current.activate(options);
+    await current.mode('abc');
+    await expect(
+      current.abc.read(current.state.abc, 1, new AbortController().signal),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(current.state.denied).toBe(true);
+    expect(current.state.data).toBeNull();
+    current.leave();
+  });
   it('fresh authority or current403 clears private data and actions', async () => {
     const model = new ReportsModel(api, financeApi, abcApi);
     await model.activate(options);

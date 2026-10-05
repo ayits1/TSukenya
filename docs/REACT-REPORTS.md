@@ -86,3 +86,17 @@ UI harnesses адаптуються окремим test-only пакетом бе
   contract/limit та fresh role; `/tmp/tsukenya-reports-source-context-pg.log`.
 - Native whole-screen/геометрія перевіряються наступним власним пакетом;
   цей candidate не засвідчує їх, розгортання або завершення всієї міграції.
+
+### Privacy follow-up candidate
+
+Власний перегляд знайшов два callback gaps: current403 під час відкриття
+джерельного документа тепер повертається в Reports deny, включно з явним retry;
+ABC reader повторно перевіряє actor та має mode/abort fence до і після запиту.
+Current403 прибирає весь workspace із приватними назвами фільтрів. Окремий
+unit покриває current403 й ignored-abort late401; разом10 unit PASS.
+
+Compatibility harness виявив, що React reset сам по собі не гарантує DOM clear
+до `location.assign`. Reports session listener тепер синхронно unmount-ить root,
+скидає root/element після чинного session-invalidated event. Це не змінює
+скасування застарілих відповідей. Affected actual expiry proof виконує окремий
+compatibility пакет; результати буде додано до остаточної передачі.

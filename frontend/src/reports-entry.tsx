@@ -44,5 +44,9 @@ window.ReactReports = {
 };
 window.addEventListener('tsukenya:session-invalidated', () => {
   if (!model.state.denied) model.deny('Сеанс завершився. Увійдіть знову.');
+  // The event runs before the native caller redirects: clear private DOM synchronously.
+  root?.unmount();
+  root = undefined;
+  element = undefined;
 });
 window.dispatchEvent(new Event('tsukenya:reports-ready'));
