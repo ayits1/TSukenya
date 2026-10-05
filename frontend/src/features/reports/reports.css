@@ -224,3 +224,7 @@
     text-align: left;
   }
 }
+.reports-workspace [data-report-export] {
+  color: var(--tk-ink);
+  text-decoration: none;
+}

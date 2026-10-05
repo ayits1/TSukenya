@@ -60,3 +60,12 @@ readers і strict decimal DTO. Native employee/work-shift/payroll editors зал
 independent review та test compatibility описано у [REACT-STAFF.md](REACT-STAFF.md)
 і [STAFF-TEST-COMPATIBILITY.md](STAFF-TEST-COMPATIBILITY.md). Інтеграція у гілці не
 означає прийняття або розгортання.
+
+## Звіти: весь робочий React екран
+
+`#trade/reports` об'єднує обороти (4 секції), історичні залишки (5 секцій),
+чинний ABC, поточні борги й повні CSV. Пагінація та суми серверні; frontend
+перевіряє strict OpenAPI DTO і показує decimal strings без втрати копійок.
+Розшифровка й вибрані документ/платіж лишаються native callbacks із privacy та
+route guards. Межа, цільові докази та O(N)/native обмеження —
+[REACT-REPORTS.md](REACT-REPORTS.md).

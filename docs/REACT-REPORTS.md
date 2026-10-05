@@ -100,3 +100,45 @@ Compatibility harness виявив, що React reset сам по собі не �
 скидає root/element після чинного session-invalidated event. Це не змінює
 скасування застарілих відповідей. Affected actual expiry proof виконує окремий
 compatibility пакет; результати буде додано до остаточної передачі.
+
+## Остаточні цільові докази
+
+- `tests/react-reports-ui.cjs`: реальний portal/React bundle та synthetic65
+  товарів/магазинів/проведень; read-only UI (лише login/details POST).
+  Initialpage30/escapedname, усі9секцій,30+30+5, повний65CSV із formula guard,
+  повний balancesCSV та прямий ABC пройдені в першому запуску
+  `/tmp/tsukenya-react-reports-ui.log` до неточного test-only очікування категорії
+  у native view. Виправлено assertion на фактичні номер/магазин/суму; повторний
+  callback запуск пройшов source30/195.00 → документ та Escape opener до
+  неточного accessible label кнопки закриття платежу. Source результат reused.
+- Payment tail PASS (`/tmp/tsukenya-react-reports-payment.log`): actual130боргів
+  → чинна форма платежу, Закрити вікно, повернення фокуса після native close
+  event, жодного businessPOST. Report/artifacts:
+  `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-react-reports-TbMXNo`.
+  Один проміжний startup перетнувся з build dist; не був callback доказом.
+- Remaining tail PASS (`/tmp/tsukenya-react-reports-tail.log`):1440/320 bounds
+  actual таблиць, деталей, кнопок оплати/джерел; current native document403 після
+  зміни ролі на сервері, currentABC403, malformed200 → disable/exportclear,
+  exactpage GET retry, currentReports403 → усі приватні блоки відсутні.
+  Report і переглянуті PNG:
+  `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-react-reports-we7PWn`.
+  Source/read unit10 PASS, build/scoped lint PASS. Після PNG виправлено лише
+  успадкований синій колір/підкреслення CSV links, без зміни геометрії.
+- Незалежний test-only compatibility пакет: source callbacks/B17 дати/CSV/
+  settled layout PASS; ignored-abort cancelled401 PASS. Після синхронного
+  unmount лише affected expiry-final повторено — actual beforeunload має
+  summary/debts порожні, sources/exports0, після чого login:
+  `/tmp/tsukenya-reports-compat-expiry-final.log`.
+- Full runner зареєстрував actual harness і scrub QA_REACT_REPORTS_STAGE/PORT;
+  повний режим не запускався. GitHub CI/реліз/VPS/фізичний друк не перевірялися
+  й не оголошуються виконаними цим пакетом.
+
+### Залишені межі
+
+Reports лишаються поточними read-only snapshot на кожен запит. O(N) backend
+scan та приватний disk spool не усувають потребу окремо виміряти навантаження
+або проєктувати cached/background reports. Snapshot не переноситься між
+сторінками; користувач бачить відповідне повідомлення. Це не SLA/capacity proof.
+Native вибраний voucher/editor та його legacy money presentation не перенесені
+цією міграцією; нові report/source суми точні. Облікові формули, права POST,
+проведення, зарплатні нарахування та фактичні платежі лишаються серверними.
