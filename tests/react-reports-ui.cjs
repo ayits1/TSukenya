@@ -4,7 +4,7 @@ const { spawn, execFileSync } = require('node:child_process'), { chromium } = re
 const root = path.resolve(__dirname, '..'), data = fs.mkdtempSync(path.join(os.tmpdir(), 'tsukenya-react-reports-'));
 const python = process.env.PYTHON_BIN || 'python3', port = Number(process.env.QA_REACT_REPORTS_PORT || 18561), base = `http://localhost:${port}`;
 const stage = process.env.QA_REACT_REPORTS_STAGE || 'all', password = 'synthetic-reports-qa-password';
-assert(['all', 'sections', 'callbacks', 'payment', 'layout', 'privacy', 'detail', 'tail'].includes(stage));
+assert(['all', 'sections', 'callbacks', 'payment', 'layout', 'privacy', 'detail', 'tail', 'heading'].includes(stage));
 const env = { ...process.env };
 for (const key of Object.keys(env)) if (key.startsWith('DB_') || key.startsWith('PG') || ['DATABASE_URL', 'POSTGRES_URL', 'TSUKENYA_REQUIRE_POSTGRES', 'DATA_DIR', 'ERP_DB_PATH'].includes(key)) delete env[key];
 Object.assign(env, { PORT: String(port), HOST: '127.0.0.1', DATA_DIR: data, ERP_DB_PATH: path.join(data, 'qa.sqlite3'), DJANGO_SECRET_KEY: 'synthetic-reports-native-tests-fifty-characters-private-fixture', OWNER_USERNAME: 'tester' });
@@ -37,6 +37,18 @@ VoucherLine.objects.filter(product_id='products/w1').update(name='<img src=x one
   assert.equal(await region('Товари').locator('tbody tr').count(), 30); assert.equal(await region('Товари').locator('img').count(), 0);
   assert((await region('Товари').innerText()).includes('<img src=x'));
   pass('actual React initial page30 / escaped name');
+  if (['all', 'heading'].includes(stage)) {
+    for (const width of [1440, 320]) {
+      await page.setViewportSize({width,height:1000}); await page.evaluate(()=>scrollTo(0,0));
+      const title=page.getByRole('heading',{name:'Звіти',exact:true}), tabs=workspace.getByRole('tablist',{name:'Режим фінансового звіту',exact:true});
+      assert.equal(await title.count(),1); assert.equal(await workspace.getAttribute('aria-label'),'Фінансові звіти');
+      const heading=await title.boundingBox(), modes=await tabs.boundingBox();
+      assert(heading && modes && modes.y>=heading.y+heading.height && modes.x>=0 && modes.x+modes.width<=width+1);
+      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      await page.screenshot({path:path.join(data,`heading-${width}.png`)});
+    }
+    await page.setViewportSize({width:1440,height:1000}); pass('single shell Reports title / named workspace / mode bounds1440+320');
+  }
   if (['all', 'sections'].includes(stage)) {
     await pager.getByRole('button', { name: 'Наступна' }).press('Enter'); await ready();
     assert.match(await pager.innerText(), /Сторінка 2 із 3/); assert.equal(await region('Товари').locator('tbody tr').count(), 30);

@@ -142,3 +142,15 @@ scan та приватний disk spool не усувають потребу о�
 Native вибраний voucher/editor та його legacy money presentation не перенесені
 цією міграцією; нові report/source суми точні. Облікові формули, права POST,
 проведення, зарплатні нарахування та фактичні платежі лишаються серверними.
+
+### Єдиний заголовок сторінки
+
+Після незалежного перегляду прибрано повторний React header/intro «Звіти» та
+його невикористаний CSS. Основний заголовок і вступ належать чинному shell;
+React section зберігає accessible name «Фінансові звіти».
+`QA_REACT_REPORTS_STAGE=heading` перевірив рівно один видимий заголовок, назву
+регіону, порядок/межі вкладок та відсутність горизонтального переповнення на
+1440/320. PASS, `/tmp/tsukenya-reports-heading.log`; обидва PNG переглянуто:
+`/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-react-reports-eBYya1`.
+Build/scoped ESLint/syntax PASS. Дев'ять секцій, payment, privacy та серверні
+сценарії не повторювались: зміни стосуються лише заголовка й CSS.

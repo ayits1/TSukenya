@@ -282,12 +282,6 @@ export function Reports({ model }: { model: ReportsModel }) {
     model.ready() && query ? exportURL(query, section, q) : undefined;
   return (
     <section className="reports-workspace" aria-label="Фінансові звіти" data-react-reports>
-      <header className="reports-heading">
-        <div>
-          <h1>Звіти</h1>
-          <p className="tk-help">Результат торгівлі, залишки та аналіз товарів.</p>
-        </div>
-      </header>
       <Tabs selectedKey={s.view} onSelectionChange={(key) => void model.mode(key as typeof s.view)}>
         <TabList aria-label="Режим фінансового звіту" className="reports-tabs">
           {[

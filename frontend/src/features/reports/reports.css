@@ -2,16 +2,6 @@
   min-width: 0;
   color: var(--tk-text, #253036);
 }
-.reports-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-.reports-heading h1 {
-  margin: 0;
-  font-size: clamp(24px, 3vw, 32px);
-}
 .reports-tabs {
   display: flex;
   flex-wrap: wrap;
