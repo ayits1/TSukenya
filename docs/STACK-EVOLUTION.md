@@ -52,14 +52,14 @@ Native редагування/проведення, пов'язані прода
 залишені чинними callbacks; серверні облікові правила збережено. Точна межа,
 цільові докази та обмеження — [REACT-SALES.md](REACT-SALES.md).
 
-## Команда та зарплата: React workspace до прийняття
+## Команда та зарплата: прийнятий React workspace
 
 `#trade/staff` інтегровано з вкладками Працівники/Табель/Документи, bounded scalar
 readers і strict decimal DTO. Native employee/work-shift/payroll editors залишаються
 чинними; historical captured terms і формули сервера не змінено. Matching checks,
 independent review та test compatibility описано у [REACT-STAFF.md](REACT-STAFF.md)
-і [STAFF-TEST-COMPATIBILITY.md](STAFF-TEST-COMPATIBILITY.md). Інтеграція у гілці не
-означає прийняття або розгортання.
+і [STAFF-TEST-COMPATIBILITY.md](STAFF-TEST-COMPATIBILITY.md). Пакет прийнято в #112
+і розгорнуто як частину accepted `9f2adf8`.
 
 ## Звіти: весь робочий React екран
 

@@ -8,24 +8,26 @@
 
 ## Актуальний прийнятий стан · 05.10.2026
 
-Історична матриця нижче не є оцінкою поточного main `fbbd358`.
+Історична матриця нижче не є оцінкою поточного main `9f2adf8`.
 
 - #107: фактичні продажі й касові зміни на React; [REACT-SALES](REACT-SALES.md).
 - #108: bounded settlement readers, звірка й підсумки; [B24-BOUNDED-SETTLEMENTS](B24-BOUNDED-SETTLEMENTS.md).
 - #109: сирі чернетки кількості магазинів, session/role guards, atomic Apply та окреме Save; [TEMPLATE-DRAFT-PERSISTENCE](TEMPLATE-DRAFT-PERSISTENCE.md).
 - #110: увесь React Finance із п’ятьма вкладками та чинними native діями; [REACT-FINANCE](REACT-FINANCE.md), [FINANCE-TEST-MIGRATION](FINANCE-TEST-MIGRATION.md).
 - #111: відновлення raw полів витрат, immutable intent, незалежні dirty units та session/privacy guards; [EXPENSE-DRAFT-PERSISTENCE](EXPENSE-DRAFT-PERSISTENCE.md). DELETE і весь P2/P3 цим пакетом не закрито.
+- #112: увесь React workspace команди й зарплати з трьома вкладками, bounded scalar readers, native редакторами та чинними обліковими правилами; [REACT-STAFF](REACT-STAFF.md), [STAFF-TEST-COMPATIBILITY](STAFF-TEST-COMPATIBILITY.md).
+- React Reports підготовлено в окремій гілці: весь екран, поточні борги, ABC, CSV, privacy та native callbacks; [REACT-REPORTS](REACT-REPORTS.md). Прийняття й розгортання цього пакета ще не підтверджено.
 
-На VPS підтверджено accepted `7d640ea` (#110, включає #109): source/assets/health,
+На VPS підтверджено accepted `9f2adf8` (#112, включає #111): source/assets/health,
 matching worker, read-only стан обліку до/після однаковий, reconcile без розбіжностей.
-#111 прийнято, але ще не розгорнуто на момент цього зрізу. Production mutation-тестів
-і нової повної регресії не виконували. Релізи авторизовані власником; виключення0.1 зберігається.
+Production mutation-тестів і нової повної регресії не виконували. Релізи авторизовані
+власником; виключення0.1 зберігається.
 
-React Staff: увесь workspace із вкладками Працівники/Табель/Документи підготовлено
-до прийняття, independent review та actual native/layout/privacy/compatibility
-докази наведено у [REACT-STAFF](REACT-STAFF.md) та [STAFF-TEST-COMPATIBILITY](STAFF-TEST-COMPATIBILITY.md).
-Це не твердження про його merge/deployment або новий повний PASS старих сімейств.
-Reports мігрується окремим пакетом; native editors/setup ще лишаються native.
+React Staff прийнято й розгорнуто; точні independent review та actual
+native/layout/privacy/compatibility докази наведено у [REACT-STAFF](REACT-STAFF.md)
+та [STAFF-TEST-COMPATIBILITY](STAFF-TEST-COMPATIBILITY.md). Це не новий повний PASS
+старих сімейств. Reports підготовлено окремим пакетом; його merge/deployment ще
+не підтверджені. Native editors/setup залишаються native.
 Решта B24 freshness/capacity, B22/B23 зовнішні інтеграції, loyalty/channel рішення
 та operations scheduler потребують власних matching доказів. Увесь план залишається активним.
 
