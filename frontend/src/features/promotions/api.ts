@@ -120,6 +120,7 @@ export function createPromotionApi() {
   let csrf: string | undefined;
   const client = createApiClient({ getCsrf: () => csrf });
   return {
+    durableRecovery: true as boolean,
     async context(store?: number | null, signal?: AbortSignal) {
       const v = await client.get(
         '/api/v1/promotions/context' + (store == null ? '' : `?store=${store}`),
@@ -169,4 +170,6 @@ export function createPromotionApi() {
     },
   };
 }
-export type PromotionApi = ReturnType<typeof createPromotionApi>;
+export type PromotionApi = Omit<ReturnType<typeof createPromotionApi>, 'durableRecovery'> & {
+  durableRecovery?: boolean;
+};
