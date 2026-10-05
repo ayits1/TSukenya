@@ -229,3 +229,16 @@ recursive click немає. `data-trade`, id/revision/reservation та серв�
   `$TMPDIR/tsukenya-document-view-lRe5M3` і лог збережено.
 
 Completed business/PG/8sections/layout families повторно не запускалися.
+
+### PostgreSQL legacy HTTP fixtures
+
+Перший PostgreSQL CI мав7 additional legacy HTTP failures через writable
+Django TestCase transaction: новий detail GET коректно потребує власний
+read-only RR. DiscountApi і VoucherDetailBatch fixtures переведено на
+transaction fixture з тими самими setup helpers; production snapshot guard
+не послаблено. DTO parity, privacy, quantities, audit та SQL count<=14
+assertions збережені. Вузький PG10 запуск:8 PASS,2 helper setup errors;
+додані sale/cash_start helper aliases, affected2 tail PASS0.817s.
+Логи `/tmp/tsukenya-document-legacy-pg-runner.log` та
+`/tmp/tsukenya-document-legacy-pg-helper-runner.log`, unique local DB/role
+cleanup виконано. Це affected fixtures, не full regression.
