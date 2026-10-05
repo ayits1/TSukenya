@@ -100,3 +100,21 @@ class ReconcileSchedulerTests(unittest.TestCase):
             with patch.object(scheduler.subprocess, 'run', bad), self.assertRaises(scheduler.PendingError):
                 scheduler.invoke(self.root, key)
 
+
+    def test_discrepancy_receipt_is_nonzero_and_next_schedule_gets_new_id(self):
+        ids=[]
+        def discrepancy(root,key):
+            ids.append(key)
+            return self.receipt(key,'discrepancies')
+        self.assertEqual(scheduler.run(self.root,self.state,executor=discrepancy),1)
+        self.assertFalse((self.state/'pending.json').exists())
+        self.assertEqual(json.loads((self.state/'last.json').read_text())['status'],'discrepancies')
+        self.assertEqual(scheduler.run(self.root,self.state,executor=discrepancy),1)
+        self.assertNotEqual(ids[0],ids[1])
+        key=ids[-1]
+        for status in ['failed','discrepancies']:
+            def completed(command,**kwargs):
+                kwargs['stdout'].write(json.dumps(self.receipt(key,status)).encode())
+                return subprocess.CompletedProcess(command,1)
+            with patch.object(scheduler.subprocess,'run',completed):
+                self.assertEqual(scheduler.invoke(self.root,key)['status'],status)

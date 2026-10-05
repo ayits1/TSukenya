@@ -46,11 +46,12 @@ Retention серверного журналу не введено: автома�
 
 ## Перевірки
 
-- 6 host-side сценаріїв без Docker/БД: lost ACK → exact UUID, failed receipt →
+- 7 host-side сценаріїв без Docker/БД: lost ACK → exact UUID, failed receipt →
   блокування та explicit resume, пошкоджений стан, live lock, збій запису last.json,
   strict compact ACK і scoped Compose command.
-- 2 цільові Django-сценарії на ізольованій SQLite: compact clean receipt, replay
+- 3 цільові Django-сценарії на ізольованій SQLite: compact clean receipt, replay
   без нового scan і бізнесових записів, failed receipt без приватного payload,
-  відхилення несумісних flags. Результат записано після виконання цих сценаріїв.
+  відхилення несумісних flags; discrepancy receipt із nonzero без деталей звіту.
+  Початкові 6+2 PASS; додані 1+1 PASS перевірені окремо без повтору незмінених.
 - Наявний PostgreSQL READ ONLY/RR і immutable journal протокол не змінені;
   попередні його докази повторно не запускалися. Повної регресії не було.

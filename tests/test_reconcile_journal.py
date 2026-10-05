@@ -44,6 +44,16 @@ class ReconcileJournalTests(TransactionTestCase):
             with self.assertRaises(CommandError):call_command('reconcile',*args,stdout=StringIO(),stderr=StringIO())
         self.assertEqual(ReconciliationRun.objects.count(),1)
 
+    def test_compact_discrepancy_receipt_keeps_nonzero_without_report_details(self):
+        key=str(uuid.uuid4());output=StringIO()
+        report={'issues':1,'counts':{},'checks':{'fixture':{'title':'Synthetic','issues':[{'check':'fixture','subject':'PRIVATE-ID','message':'PRIVATE-DETAIL','expected':'1','actual':'2'}]}}}
+        with mock.patch('server.erp.management.commands.reconcile.reconcile',return_value=report),self.assertRaises(CommandError):
+            call_command('reconcile','--record','--source','scheduler','--run-id',key,'--receipt-json',stdout=output,stderr=StringIO())
+        self.assertEqual(json.loads(output.getvalue())['status'],'discrepancies')
+        self.assertEqual(json.loads(output.getvalue())['issues'],1)
+        self.assertNotIn('PRIVATE',output.getvalue())
+        self.assertEqual(ReconciliationFinding.objects.count(),1)
+
     def event(self, at, boundary, detail=None):
         event=AuditEvent.objects.create(user=self.user, action='period_changed',subject='ledger',detail=detail if detail is not None else {'date':boundary.isoformat() if boundary else None,'reason':'Синтетична причина'})
         AuditEvent.objects.filter(pk=event.pk).update(at=at);return event
