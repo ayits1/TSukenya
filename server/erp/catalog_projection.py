@@ -38,7 +38,7 @@ def pricing_settings(path='settings/main'):
         size=f'octet_length(({expression})::text)'
         kind="jsonb_typeof(data)"
     else:
-        expression="(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type ELSE json_quote(value) END)),'{}') FROM json_each(data) WHERE key IN ('defaultMarkup','rounding'))"
+        expression="(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type WHEN type IN ('object','array') THEN value ELSE json_quote(value) END)),'{}') FROM json_each(data) WHERE key IN ('defaultMarkup','rounding'))"
         size=f'length(CAST(({expression}) AS BLOB))'
         kind="json_type(data)"
     with connection.cursor() as cursor:
@@ -249,7 +249,7 @@ def projected_documents(paths):
         expression=f"(SELECT coalesce(jsonb_object_agg(key,value),'{{}}'::jsonb) FROM jsonb_each(data) WHERE key IN ({fields}))"
         size=f'octet_length(({expression})::text)'
     else:
-        expression=f"(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type ELSE json_quote(value) END)),'{{}}') FROM json_each(data) WHERE key IN ({fields}))"
+        expression=f"(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type WHEN type IN ('object','array') THEN value ELSE json_quote(value) END)),'{{}}') FROM json_each(data) WHERE key IN ({fields}))"
         size=f'length(CAST(({expression}) AS BLOB))'
     placeholders=','.join(['%s']*len(paths))
     with connection.chunked_cursor() as cursor:
@@ -271,7 +271,7 @@ def projected_document(path, *, config=None, with_recipe=False):
         expression=f"(SELECT coalesce(jsonb_object_agg(key,value),'{{}}'::jsonb) FROM jsonb_each(data) WHERE key IN ({fields}))"
         encoded=f'octet_length(({expression})::text)'
     else:
-        expression=f"(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type ELSE json_quote(value) END)),'{{}}') FROM json_each(data) WHERE key IN ({fields}))"
+        expression=f"(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type WHEN type IN ('object','array') THEN value ELSE json_quote(value) END)),'{{}}') FROM json_each(data) WHERE key IN ({fields}))"
         encoded=f'length(CAST(({expression}) AS BLOB))'
     with connection.cursor() as cursor:
         cursor.execute(f'SELECT CASE WHEN {encoded}<=65536 THEN {expression} ELSE NULL END FROM {table} WHERE path=%s',[path])

@@ -18,7 +18,7 @@ class ReferenceIndexTests(TransactionTestCase):
     def test_complete_dictionary_oracle_aliases_parent_tombstone_unicode(self):
         docs=[('catalog_refs/group',{'field':'type','value':'Нова група','aliases':[{'value':'Стара група','parentType':''}]}),
               ('catalog_refs/category',{'field':'category','value':'Кава','parentType':'Стара група'}),
-              ('catalog_refs/pack',{'field':'pack','value':'Коробка','state':'archived','aliases':[{'value':'Коробки'},{'value':'Коробки'},None]}),
+              ('catalog_refs/pack',{'field':'pack','value':'Коробка','state':'archived','aliases':[{'value':'Коробки'},{'value':'Коробки'},None,{'value':{'historical':'not a choice'}},{'value':['not a choice']}]}),
               ('catalog_refs/unit',{'field':'unit','value':'шт','state':'archived'}),
               ('products/a',{'name':'A','type':'Стара група','category':'Кава','pack':'Коробки','unit':'шт','size':'Straße','unknown':{'recipe':'x'*300000}}),
               ('products/b',{'name':'B','type':'Інша','category':'Чай','size':'STRASSE'})]

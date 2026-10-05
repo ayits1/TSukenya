@@ -1,9 +1,6 @@
 """Worker-scoped complete references with disk-backed aliases and identities."""
-from .catalog_reference_index import ReferenceIndex
+from .catalog_reference_index import ReferenceIndex, ReferenceIndexLimit as ReferenceLimit
 from .catalog_references import FIELDS, identity, legacy_item, clean, follow
-from .services import BusinessError
-
-class ReferenceLimit(BusinessError):pass
 
 class ReferenceCache:
     def __init__(self):

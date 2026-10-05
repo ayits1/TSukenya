@@ -15,10 +15,18 @@ from django.db import connection
 from .catalog_references import FIELDS, clean, identity, legacy_item, follow
 from .catalog_selection import scalar_rows, BATCH, MAX_SECONDS, MAX_DISK
 from .models import Document
-from .services import require
+from .services import BusinessError
 from .catalog_budget import check
 
 REFERENCE_FIELDS=('field','value','parentType','parentId','state','mergedInto')
+
+
+class ReferenceIndexLimit(BusinessError):
+    """A declared reference resource guard, distinct from unexpected failures."""
+
+
+def require_resource(condition, message):
+    if not condition:raise ReferenceIndexLimit(message)
 
 
 class Aliases(list):
@@ -61,9 +69,9 @@ class ReferenceIndex(Mapping):
     def __del__(self):self.close()
     def guard(self):
         check()
-        require(monotonic()-self.started<MAX_SECONDS,'Перевірка довідників перевищила ліміт часу. Повторіть читання.')
+        require_resource(monotonic()-self.started<MAX_SECONDS,'Перевірка довідників перевищила ліміт часу. Повторіть читання.')
         pages=self.db.execute('PRAGMA page_count').fetchone()[0];size=self.db.execute('PRAGMA page_size').fetchone()[0]
-        require(pages*size<=MAX_DISK,'Довідники перевищили ліміт тимчасового диска. Виправте джерело й повторіть читання.')
+        require_resource(pages*size<=MAX_DISK,'Довідники перевищили ліміт тимчасового диска. Виправте джерело й повторіть читання.')
     def __len__(self):return self.db.execute('SELECT COUNT(*) FROM items').fetchone()[0]
     def __iter__(self):
         check()
@@ -88,7 +96,7 @@ class ReferenceIndex(Mapping):
         identifier=item['id'];position=self.db.execute('SELECT position FROM items WHERE id=?',(identifier,)).fetchone()
         if position is None:self.position+=1;position=(self.position,)
         encoded=json.dumps({key:value for key,value in item.items() if key!='aliases'},ensure_ascii=False,separators=(',',':'))
-        require(len(encoded.encode())<=65536,'Довідникові поля перевищують 64 КіБ.')
+        require_resource(len(encoded.encode())<=65536,'Довідникові поля перевищують 64 КіБ.')
         self.db.execute('INSERT OR REPLACE INTO items VALUES (?,?,?,?,?,?,?,?)',(identifier,position[0],item['field'],item['value'],item['parentType'],item.get('parentId'),item['state'],encoded))
         self.db.execute('DELETE FROM keys WHERE id=? AND canonical=1',(identifier,))
         self.key(identifier,identity(item['field'],item['value'],item['parentType']),True)
@@ -96,7 +104,7 @@ class ReferenceIndex(Mapping):
         self.db.execute('INSERT OR IGNORE INTO keys VALUES (?,?,?,?,?)',(identifier,*value,int(canonical)))
     def add_alias(self,identifier,value,*,deduplicate=True):
         encoded=json.dumps(value,ensure_ascii=False,separators=(',',':'))
-        require(len(encoded.encode())<=65536,'Попередня назва довідника перевищує 64 КіБ.')
+        require_resource(len(encoded.encode())<=65536,'Попередня назва довідника перевищує 64 КіБ.')
         if deduplicate and self.db.execute('SELECT 1 FROM aliases WHERE id=? AND data=?',(identifier,encoded)).fetchone():return
         position=self.db.execute('SELECT coalesce(max(position),0)+1 FROM aliases WHERE id=?',(identifier,)).fetchone()[0]
         self.db.execute('INSERT INTO aliases VALUES (?,?,?)',(identifier,position,encoded))
@@ -131,7 +139,7 @@ class ReferenceIndex(Mapping):
         rows=scalar_rows(Document.objects.filter(path__startswith='catalog_refs/'),REFERENCE_FIELDS,present=('state','parentType','parentId','mergedInto')).iterator(chunk_size=BATCH)
         try:
             for path,data,present,parent_present,parent_id_present,merged_present in rows:
-                self.guard();require(data is not None,'Довідникові поля перевищують 64 КіБ.')
+                self.guard();require_resource(data is not None,'Довідникові поля перевищують 64 КіБ.')
                 field,text,parent=data.get('field'),data.get('value'),data.get('parentType')
                 # Missing parentType has the old empty default; explicit null is
                 # invalid just as reference_records, so preserve presence below.
@@ -158,7 +166,7 @@ class ReferenceIndex(Mapping):
             rows=scalar_rows(Document.objects.filter(path__startswith='products/'),tuple(FIELDS)).iterator(chunk_size=BATCH)
             try:
                 for path,data in rows:
-                    self.guard();require(data is not None,'Довідникові поля товару перевищують 64 КіБ.')
+                    self.guard();require_resource(data is not None,'Довідникові поля товару перевищують 64 КіБ.')
                     parent=data.get('type','');parent=parent if isinstance(parent,str) else ''
                     for field in FIELDS:self.add_legacy(field,data.get(field),parent)
             finally:rows.close()
@@ -181,7 +189,7 @@ class ReferenceIndex(Mapping):
               WHERE {table}.path LIKE %s ORDER BY {table}.path,n'''
         else:
             atom="CASE WHEN alias.type IN ('true','false','null') THEN alias.type WHEN alias.type IN ('object','array') THEN alias.value ELSE json_quote(alias.value) END"
-            fields="(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type ELSE json_quote(value) END)),'{}') FROM json_each(alias.value) WHERE key IN ('value','parentType'))"
+            fields="(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type WHEN type IN ('object','array') THEN value ELSE json_quote(value) END)),'{}') FROM json_each(alias.value) WHERE key IN ('value','parentType'))"
             scalar=f"CASE WHEN alias.type='object' THEN {fields} WHEN length(CAST(({atom}) AS BLOB))<=65536 THEN {atom} ELSE 'null' END"
             sql=f'''SELECT {table}.path,CASE WHEN length(CAST(({scalar}) AS BLOB))<=65536 THEN {scalar} ELSE NULL END,
               length(CAST(({scalar}) AS BLOB))>65536
@@ -193,8 +201,8 @@ class ReferenceIndex(Mapping):
                 for path,value,oversized in rows:
                     self.guard();identifier=path.split('/',1)[1]
                     if identifier not in self:continue
-                    require(not oversized,'Попередня назва довідника перевищує 64 КіБ.')
-                    require((len(value.encode()) if isinstance(value,str) else len(json.dumps(value).encode()))<=65536,'Попередня назва довідника перевищує 64 КіБ.')
+                    require_resource(not oversized,'Попередня назва довідника перевищує 64 КіБ.')
+                    require_resource((len(value.encode()) if isinstance(value,str) else len(json.dumps(value).encode()))<=65536,'Попередня назва довідника перевищує 64 КіБ.')
                     alias=json.loads(value) if isinstance(value,str) else value
                     self.add_alias(identifier,alias,deduplicate=False)
     def page(self,field,state,q,parentId,parentType,number):

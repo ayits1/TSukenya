@@ -1,4 +1,5 @@
 import json
+from contextlib import nullcontext
 import os
 import tempfile
 from decimal import Decimal
@@ -20,6 +21,33 @@ class ProjectionTests(TestCase):
             with CaptureQueriesContext(connection) as queries:
                 self.assertEqual(defaults(),pricing_config(terms))
             self.assertFalse(any('SELECT "erp_document"."data"' in q['sql'] for q in queries))
+
+    def test_scalar_projection_preserves_nested_json_without_sqlite_subtype(self):
+        from server.erp.catalog_projection import projected_document, projected_documents, pricing_settings
+        # Some SQLite query/virtual-table boundaries discard the internal JSON
+        # subtype. An identity UDF reproduces that without changing SQL values.
+        def plain_atoms(execute, sql, params, many, context):
+            return execute(sql.replace('json_quote(value)', 'json_quote(qa_plain_scalar(value))'), params, many, context)
+        if connection.vendor == 'sqlite':
+            connection.ensure_connection()
+            connection.connection.create_function('qa_plain_scalar', 1, lambda value: value)
+        boundary = connection.execute_wrapper(plain_atoms) if connection.vendor == 'sqlite' else nullcontext()
+        try:
+            with boundary:
+                for number, value in enumerate(({'pack': 'unknown_stable', 'nested': [None, True, 0]},
+                                                [{'pack': 'historical'}], '{"pack":"text"}', None, False, 0)):
+                    with self.subTest(value=value):
+                        data = {'name': 'Товар', 'referenceIds': value}
+                        path = f'products/projection-{number}'
+                        Document.objects.create(path=path, data={**data, 'unknown': {'large': 'я' * 100000}})
+                        self.assertEqual(projected_document(path).data, data)
+                        self.assertEqual(list(projected_documents([path]))[0].data, data)
+                        terms = {'defaultMarkup': value, 'rounding': '0.25'}
+                        Document.objects.update_or_create(path='settings/main', defaults={'data': terms})
+                        self.assertEqual(pricing_settings(), terms)
+        finally:
+            if connection.vendor == 'sqlite':
+                connection.connection.create_function('qa_plain_scalar', 1, None)
 
     def test_canonical_old_revision_oracle_nested_unicode_arrays_spelling(self):
         config={'markup':Decimal('0.5000'),'rounding':Decimal('.5')}

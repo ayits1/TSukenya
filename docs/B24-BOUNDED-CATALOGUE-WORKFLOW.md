@@ -194,3 +194,35 @@ PASS, then 4 changed-tail scenarios PASS (including semantic numeric/array
 invalidation and callback transport). PostgreSQL 7 affected cache/selection/CSV/
 pricing scenarios PASS, including a concurrent edit after export preparation.
 No frontend runtime input changed; earlier build and native proofs are reused.
+### PR126: вкладений JSON та помилки ресурсів довідника
+
+Під час CI три старі B30 сценарії втратили stable ID групи/категорії або невідомий
+збережений ID. Причина — SQLite-проєкція `json_each.value`: покладатися на її
+внутрішній JSON subtype у `json_quote` не можна. Тепер object/array явно проходять
+як JSON у читанні одного товару, пакета товарів, параметрів цін та полів alias.
+JSON-подібний текст лишається текстом; null, bool і числа зберігають тип.
+Невідомі поля повного документа залишаються в базі. Правила canonical-before-alias,
+parent linkage, archived/merged і прив’язки ID не змінені.
+
+Оголошені ресурсні відмови `ReferenceIndex` мають окремий тип
+`ReferenceIndexLimit`, сумісний із worker `ReferenceLimit`. Надмірне поле alias
+повертає `reference_limit`, а довільна помилка не маскується під ресурсний ліміт.
+Старого обмеження на весь JSON довідників не повернуто; поточні field/disk/time
+межі лишилися тими самими. Публікація товарів та audit при цій відмові відсутні.
+
+Цільові ізольовані SQLite докази:
+
+- Чотири старі перевірки: rename stable child, archived child після rename/merge,
+  unknown stable ID та huge alias import. Початковий локальний прогін:3 PASS,
+  ресурсний сценарій FAIL; CI додатково зафіксував3 B30 FAIL.
+  `/tmp/tsukenya-catalog-reference-before.log`.
+- Identity SQLite UDF прибирає лише внутрішній subtype без зміни SQL-значення.
+  Під такою межею ті самі3 старі B30 assertions: FAIL до правки, PASS після;
+  `/tmp/tsukenya-catalog-reference-subtype-{before,after}.log`.
+- Остаточний вузький прогін:4 старі сценарії + нова перевірка всіх3 проєкцій
+  через subtype boundary + чинний ReferenceIndex oracle з nested invalid aliases:
+  **6 PASS**,0.531с; `/tmp/tsukenya-catalog-reference-after.log`.
+
+Локальна версія SQLite3.53.4. Версію SQLite у CI ця перевірка не встановлювала.
+PostgreSQL SQL, accounting, lock order та mutation oracle не змінені; новий PG
+прогін, браузер, повна регресія й production цим виправленням не запускалися.
