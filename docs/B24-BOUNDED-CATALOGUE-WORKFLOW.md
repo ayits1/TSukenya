@@ -2,8 +2,11 @@
 
 ## Межа пакета
 
-Авторська гілка `codex/bounded-catalogue-workflow` базується на прийнятому
-`673e84d00b0040fa2991f356136b4a039d2598e3` (#122). Міграція
+Авторська гілка `codex/bounded-catalogue-workflow` перебазована на прийнятий
+`105e2e3fd26511c86e38511ab61dfc62ad002e25` (#123). Цільові докази виконано від
+`673e84d00b0040fa2991f356136b4a039d2598e3` (#122); catalogue/control inputs не
+змінені parent report-read-grants комітом, результати reused. Фінальна збірка
+виконана після rebase. Міграція
 `0028_catalog_scalar_invalidation` залежить від прийнятої
 `0027_voucher_action_receipts`. Копій чужих QA моделей/міграцій у доставці немає.
 Код пакета не розгорнуто цим агентом; він не закриває всю B24 або всю CRM.
@@ -121,7 +124,7 @@ length, oversize/truncated transport і ignored abort; зміна filter/store �
 | Actual native layout1440/320 | Layout-only PASS `/tmp/tsukenya-bounded-catalogue-ui-layout-tail.log`; `tsukenya-catalogue-bounded-uVIO0x/report.json`, `editor-popup-{1440,320}.png` viewed. |
 | Old inline create/keyboard/5fields/native delete |Affected null Escape failed twice before fix (artifacts retained), then full references-only scope PASS `/tmp/tsukenya-catalogue-inline-compat-cancel-tail.log`, proof `tsukenya-catalogue-bounded-V5j74Z`. |
 | Old B30 rename/409/merge/lostACK/archive/restore |Initial management prefix through archive PASS, then dialog Escape fixture assumed old Select focus (`/tmp/tsukenya-catalogue-b30-compat.log`, `GbCCft`). Archive/unchanged editor/restore-only tail PASS `/tmp/tsukenya-catalogue-b30-archive-tail.log`, `BUb7vv`; rename/merge/exact lostACK prefix reused, no whole-family terminal claim. |
-| Matching frontend types/Vite/lint/generation |Own build `/tmp/tsukenya-catalogue-picker-build-final-tail.log`; new contract generation, scoped eslint PASS. Own dist, no borrowed root bundle. Final source/static verification recorded in delivery. |
+| Matching frontend types/Vite/lint/generation |Own build перед rebase `/tmp/tsukenya-catalogue-picker-build-final-tail.log`; final accepted123 types/Vite `/tmp/tsukenya-catalogue-accepted123-build.log`, scoped eslint/Prettier `catalogue-accepted123-*` PASS. Catalog chunk `catalog-CR-FRUCa.js` unchanged across rebase. Own dist, no borrowed root bundle. Model migration check `/tmp/tsukenya-catalogue-migrations-check.log` no changes; JS syntax/diff check PASS. |
 
 Тимчасову спробу fixture записати settings-array штатний SQLite/PG invalidation
 trigger відхилив до READ; failed setup logs збережено (`catalogue-settings-refusal-*`).

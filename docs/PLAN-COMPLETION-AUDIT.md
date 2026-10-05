@@ -507,7 +507,8 @@ regression. Template count/expense enrollment та інші родини B06 з�
 
 ## B24: catalogue dictionaries/import/export whole workflow · own delivery
 
-Від прийнятого main673e84d (#122) реалізовано наступний пакет для root review:
+Пакет розроблено від main673e84d (#122) та перебазовано на прийнятий
+main105e2e3 (#123) для root review:
 фактичні5 fields ProductEditor + ReferenceManager сторінками/selected IDs, B30
 повний impact30 та атомарна зміна всіх відповідних записів, scalar-preserving
 atomic/durable imports і повний фільтр CSV. Unknown історичний JSON/recipe metadata
