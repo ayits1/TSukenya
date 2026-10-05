@@ -171,3 +171,13 @@ No new100k/full/concurrency throughput/SLA claims. Cold O(N), shared global
 build lock, conservative product invalidation, distinct-term search cardinality,
 normal page query/indexing, reference reads, import snapshot, cursor/cache
 distribution/tombstones and large write-amplification remain separate open work.
+
+
+## Root integration
+
+Own commit0ee066a інтегровано поверх accepted PR117 main9cbd49d як4b08e43.
+Runtime source і тести byte-identical author delivery; source review повторно
+звірило reserve-before-build, max_page_count, prefix PK і atomic rename. Source
+семантика PR117 та його SQLite fixture isolation збережені. Незмінені author
+цільові PG/SQLite/native/capacity/10k докази використано повторно. Full registry
+отримав окремий native cache scenario; запуск runner лише --plan, не full.
