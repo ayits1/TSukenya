@@ -75,6 +75,7 @@ export class FinanceModel {
   options: Options | null = null;
   private listeners = new Set<() => void>();
   private generation = 0;
+  private committed = new Map<string, { query: Queries[Resource]; page: number }>();
   private active = false;
   private controller: AbortController | null = null;
   constructor(public api: FinanceApi) {}
@@ -96,6 +97,7 @@ export class FinanceModel {
     this.listeners.forEach((fn) => fn());
   }
   deny(message: string) {
+    this.committed.clear();
     this.generation++;
     this.controller?.abort();
     this.emit({ ...initial(), denied: true, error: message });
@@ -120,6 +122,7 @@ export class FinanceModel {
     await this.refresh();
   }
   leave() {
+    this.committed.clear();
     this.active = false;
     this.generation++;
     this.controller?.abort();
@@ -184,7 +187,22 @@ export class FinanceModel {
     this.edit({ page });
     await this.refresh();
   }
-  async refresh() {
+  allowPolicyRefresh() {
+    this.emit({ policy: null });
+  }
+  hasFilterDraft() {
+    const confirmed = this.committed.get(JSON.stringify([this.state.view, this.state.store]));
+    return (
+      !!confirmed &&
+      JSON.stringify(Object.entries(confirmed.query).sort()) !==
+        JSON.stringify(Object.entries(this.query(this.state.view)).sort())
+    );
+  }
+  async refreshCommitted() {
+    const confirmed = this.committed.get(JSON.stringify([this.state.view, this.state.store]));
+    if (confirmed) await this.refresh(confirmed);
+  }
+  async refresh(confirmed?: { query: Queries[Resource]; page: number }) {
     if (!this.active || !this.options) return;
     const token = ++this.generation,
       c = new AbortController();
@@ -193,7 +211,12 @@ export class FinanceModel {
     this.emit({ busy: true, error: '', data: null });
     try {
       const view = this.state.view,
-        data = await this.api.read(view, this.query(view), this.state.filters[view].page, c.signal);
+        data = await this.api.read(
+          view,
+          confirmed?.query ?? this.query(view),
+          confirmed?.page ?? this.state.filters[view].page,
+          c.signal,
+        );
       if (!this.isCurrent(token)) return;
       const bootstrap = this.options.bootstrap;
       if (
@@ -202,17 +225,28 @@ export class FinanceModel {
         (this.state.policy && JSON.stringify(this.state.policy) !== JSON.stringify(data.policy))
       )
         throw new ApiError(403, 'Права змінилися. Оновіть розділ.');
-      let selectedStore = this.state.selectedStore;
-      if (this.state.store && !selectedStore) {
-        const details = await this.options.directoryApi.details(
-          [{ type: 'stores', id: String(this.state.store) }],
-          { purpose: 'filter' },
-          c.signal,
-        );
-        if (!this.isCurrent(token)) return;
-        selectedStore = details.items.find((x) => x.id === String(this.state.store)) ?? null;
-      }
-      this.edit({ page: data.page });
+      const f = this.state.filters[view];
+      const refs = [
+        ...(this.state.store ? [{ type: 'stores' as const, id: String(this.state.store) }] : []),
+        ...(f.party ? [{ type: 'parties' as const, id: String(f.party) }] : []),
+        ...(f.account ? [{ type: 'accounts' as const, id: String(f.account) }] : []),
+      ];
+      const details = refs.length
+        ? await this.options.directoryApi.details(refs, { purpose: 'label' }, c.signal)
+        : null;
+      if (!this.isCurrent(token)) return;
+      const selectedStore =
+        details?.items.find((x) => x.type === 'stores' && x.id === String(this.state.store)) ??
+        null;
+      const selectedParty =
+        details?.items.find((x) => x.type === 'parties' && x.id === String(f.party)) ?? null;
+      const selectedAccount =
+        details?.items.find((x) => x.type === 'accounts' && x.id === String(f.account)) ?? null;
+      this.committed.set(JSON.stringify([this.state.view, this.state.store]), {
+        query: data.query,
+        page: data.page,
+      });
+      this.edit({ page: data.page, selectedParty, selectedAccount });
       this.emit({ policy: data.policy, data, selectedStore });
     } catch (e) {
       if (this.isCurrent(token) && !(e instanceof Error && e.name === 'AbortError')) this.error(e);

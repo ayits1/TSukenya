@@ -84,6 +84,10 @@ export class PurchasesModel {
   options: Options | null = null;
   private listeners = new Set<() => void>();
   private generation = 0;
+  private committed = new Map<
+    string,
+    { query: DocumentQuery | ReplenishmentQuery; page: number }
+  >();
   private active = false;
   private controller: AbortController | null = null;
   private detailController: AbortController | null = null;
@@ -112,6 +116,7 @@ export class PurchasesModel {
     this.detailController = null;
   }
   deny(message: string) {
+    this.committed.clear();
     this.generation++;
     this.controller?.abort();
     this.cancelDetail();
@@ -168,6 +173,7 @@ export class PurchasesModel {
     await this.refresh();
   }
   leave() {
+    this.committed.clear();
     this.active = false;
     this.generation++;
     this.controller?.abort();
@@ -236,13 +242,35 @@ export class PurchasesModel {
     this.emit({ page: 1 });
     await this.refresh();
   }
-  async refresh() {
+  hasFilterDraft() {
+    const confirmed = this.committed.get(JSON.stringify([this.state.view, this.state.store]));
+    return (
+      !!confirmed &&
+      JSON.stringify(Object.entries(confirmed.query).sort()) !==
+        JSON.stringify(
+          this.state.view === 'documents' ? this.documentQuery() : this.replenishmentQuery(),
+        )
+    );
+  }
+  async refreshCommitted() {
+    const confirmed = this.committed.get(JSON.stringify([this.state.view, this.state.store]));
+    if (!confirmed) return;
+    return this.refresh(confirmed);
+  }
+  allowPolicyRefresh() {
+    this.emit({ policy: null });
+  }
+  async refresh(confirmed?: { query: DocumentQuery | ReplenishmentQuery; page: number }) {
     if (!this.active || !this.options) return;
     const token = ++this.generation;
     this.controller?.abort();
     this.cancelDetail();
     const c = new AbortController();
     this.controller = c;
+    const selectedQuery =
+        confirmed?.query ??
+        (this.state.view === 'documents' ? this.documentQuery() : this.replenishmentQuery()),
+      page = confirmed?.page ?? this.state.page;
     this.emit({
       busy: true,
       error: '',
@@ -255,30 +283,41 @@ export class PurchasesModel {
       linesError: '',
     });
     try {
-      const query =
-        this.state.view === 'documents' ? this.documentQuery() : this.replenishmentQuery();
+      const query = selectedQuery;
       if ('from' in query && query.from && query.to && query.from > query.to)
         throw Error('Початок періоду має бути не пізніше завершення.');
       const data =
         this.state.view === 'documents'
-          ? await this.api.documents(query as DocumentQuery, this.state.page, c.signal)
-          : await this.api.groups(query as ReplenishmentQuery, this.state.page, c.signal);
+          ? await this.api.documents(query as DocumentQuery, page, c.signal)
+          : await this.api.groups(query as ReplenishmentQuery, page, c.signal);
       if (!this.isCurrent(token)) return;
       this.policy(data.policy);
-      let selectedStore = this.state.selectedStore;
-      if (this.state.store && !selectedStore) {
-        const details = await this.options.directoryApi.details(
-          [{ type: 'stores', id: String(this.state.store) }],
-          { purpose: 'filter' },
-          c.signal,
-        );
-        if (!this.isCurrent(token)) return;
-        selectedStore = details.items.find((x) => x.id === String(this.state.store)) ?? null;
-      }
+      const refs = [
+        ...(this.state.store ? [{ type: 'stores' as const, id: String(this.state.store) }] : []),
+        ...(this.state.warehouse
+          ? [{ type: 'warehouses' as const, id: String(this.state.warehouse) }]
+          : []),
+      ];
+      const details = refs.length
+        ? await this.options.directoryApi.details(refs, { purpose: 'label' }, c.signal)
+        : null;
+      if (!this.isCurrent(token)) return;
+      const selectedStore =
+        details?.items.find((x) => x.type === 'stores' && x.id === String(this.state.store)) ??
+        null;
+      const selectedWarehouse =
+        details?.items.find(
+          (x) => x.type === 'warehouses' && x.id === String(this.state.warehouse),
+        ) ?? null;
+      this.committed.set(JSON.stringify([this.state.view, this.state.store]), {
+        query: data.query,
+        page: data.page,
+      });
       this.emit({
         policy: data.policy,
         denied: false,
         selectedStore,
+        selectedWarehouse,
         page: data.page,
         ...('summary' in data ? { groups: data } : { documents: data }),
       });

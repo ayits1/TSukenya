@@ -508,6 +508,7 @@ document.addEventListener(
 let bootstrapScope = '';
 const service = {
   api,
+  invalidate: () => cache.clear(),
   bootstrap: async () => {
     const result = await api.bootstrap();
     const next = JSON.stringify([result.role, result.storeId]);

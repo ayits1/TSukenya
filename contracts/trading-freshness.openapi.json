@@ -1,0 +1,233 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya trading validators",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/versions": {
+      "get": {
+        "operationId": "tradingVersions",
+        "description": "Fresh actor/session and selected counters in one read-only RR snapshot. Hashes never grant access.",
+        "parameters": [
+          {
+            "name": "resources",
+            "in": "query",
+            "required": true,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/components/schemas/TradingResource"
+              }
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Strict resource validators",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradingVersions"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "No body; same scoped wire validator"
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Revoked actor or forbidden resource/store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TradingResource": {
+        "type": "string",
+        "enum": [
+          "stock",
+          "assortment",
+          "stock_documents",
+          "purchases_documents",
+          "replenishment",
+          "sales_documents",
+          "sales_shifts",
+          "finance_accounts",
+          "finance_ledger",
+          "finance_documents",
+          "finance_debts",
+          "finance_advances",
+          "staff_employees",
+          "staff_shifts",
+          "staff_documents",
+          "directories",
+          "policy"
+        ]
+      },
+      "TradingRole": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "manager",
+          "cashier",
+          "warehouse",
+          "accountant"
+        ]
+      },
+      "TradingIdentity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "scopeStore",
+          "store",
+          "session"
+        ],
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/TradingRole"
+          },
+          "scopeStore": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "session": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "TradingVersions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract",
+          "identity",
+          "day",
+          "versions"
+        ],
+        "properties": {
+          "contract": {
+            "type": "string",
+            "const": "trading-versions-v1"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/TradingIdentity"
+          },
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "versions": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 8,
+            "propertyNames": {
+              "enum": [
+                "stock",
+                "assortment",
+                "stock_documents",
+                "purchases_documents",
+                "replenishment",
+                "sales_documents",
+                "sales_shifts",
+                "finance_accounts",
+                "finance_ledger",
+                "finance_documents",
+                "finance_debts",
+                "finance_advances",
+                "staff_employees",
+                "staff_shifts",
+                "staff_documents",
+                "directories",
+                "policy"
+              ]
+            },
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

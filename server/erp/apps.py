@@ -6,6 +6,8 @@ def sqlite_invalidation(sender, connection, **kwargs):
     if connection.vendor == 'sqlite':
         from .state_version_sqlite import register
         register(connection)
+        from .trading_version_sql import register_sqlite
+        register_sqlite(connection)
 
 
 class ErpConfig(AppConfig):
