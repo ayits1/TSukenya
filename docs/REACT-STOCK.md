@@ -158,3 +158,12 @@ versioned DTO / CSV; перевірки business values, чернеток і con
 повторного проходження всіх цих сімейств. Повний runner реєструє новий Stock
 сценарій та окремі scope / control-late / comparison-policy стадії; запуск
 `--plan` лише показує перелік. Повну регресію й deployment не виконували.
+
+
+## Durable recovery асортименту
+
+Actual ReactStock sold/minimum для product×warehouse підключено до P0: sync raw,
+creator-bound UUID receipt, Restore/Discard, identity-before-current, атомарне
+Apply й окремий Save. Усі докази, failure/tail межі та обмеження наведені в
+[ASSORTMENT-DRAFT-PERSISTENCE.md](ASSORTMENT-DRAFT-PERSISTENCE.md).
+Це не завершення всього B06 і не cross-tab/cloud recovery.

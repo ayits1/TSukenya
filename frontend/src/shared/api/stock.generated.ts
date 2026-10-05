@@ -190,6 +190,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/trading/assortment/recovery-context': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['assortmentRecoveryRecoveryContext'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/assortment/current': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['assortmentRecoveryCurrent'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/assortment/identity': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['assortmentRecoveryIdentity'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/assortment/execute': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['assortmentRecoveryExecute'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -337,6 +401,89 @@ export interface components {
       };
       policy: components['schemas']['StockPolicy'];
     };
+    AssortmentRecoveryTerms: {
+      sold: boolean;
+      min_stock: string | null;
+    };
+    AssortmentRecoveryRequest: {
+      /** Format: uuid */
+      key: string;
+      warehouse: number;
+      product: string;
+      revision: string | null;
+      unit: string;
+      terms: components['schemas']['AssortmentRecoveryTerms'];
+    };
+    AssortmentRecoveryOriginal: {
+      warehouse: number;
+      product: string;
+      revision: string;
+      unit: string;
+      sold: boolean;
+      min_stock: string | null;
+    };
+    AssortmentRecoveryContext: {
+      /** @constant */
+      contract: 'assortment-context-v1';
+      warehouse: number;
+      product: string;
+      store: number;
+      /** @enum {string} */
+      role: 'owner' | 'manager' | 'warehouse';
+      storeId: number | null;
+      exists: boolean;
+      row: components['schemas']['AssortmentRow'] | null;
+    };
+    AssortmentRecoveryAck: {
+      /** @constant */
+      contract: 'assortment-action-v1';
+      /** Format: uuid */
+      key: string;
+      warehouse: number;
+      product: string;
+      /** @constant */
+      ok: true;
+      original: components['schemas']['AssortmentRecoveryOriginal'];
+    };
+    AssortmentRecoveryIdentity:
+      | {
+          /** @constant */
+          contract: 'assortment-action-v1';
+          /** Format: uuid */
+          key: string;
+          warehouse: number;
+          product: string;
+          /** @constant */
+          confirmed: false;
+        }
+      | {
+          /** @constant */
+          contract: 'assortment-action-v1';
+          /** Format: uuid */
+          key: string;
+          warehouse: number;
+          product: string;
+          /** @constant */
+          confirmed: true;
+          original: components['schemas']['AssortmentRecoveryOriginal'];
+        };
+    AssortmentRecoveryRejection: {
+      /** @constant */
+      contract: 'assortment-action-v1';
+      /** Format: uuid */
+      key: string;
+      warehouse: number;
+      product: string;
+      error: string;
+      /** @enum {string} */
+      code: 'validation_error' | 'revision_conflict';
+      /** @constant */
+      write_rejected: true;
+    };
+    AssortmentRecoveryError: {
+      error: string;
+      code?: string;
+    };
   };
   responses: never;
   parameters: never;
@@ -345,4 +492,249 @@ export interface components {
   pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+  assortmentRecoveryRecoveryContext: {
+    parameters: {
+      query: {
+        warehouse: number;
+        product: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Поточний дозвіл або exact підтвердження */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryContext'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+    };
+  };
+  assortmentRecoveryCurrent: {
+    parameters: {
+      query: {
+        warehouse: number;
+        product: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Поточний дозвіл або exact підтвердження */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryContext'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+    };
+  };
+  assortmentRecoveryIdentity: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          request: components['schemas']['AssortmentRecoveryRequest'];
+        };
+      };
+    };
+    responses: {
+      /** @description Поточний дозвіл або exact підтвердження */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryIdentity'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+    };
+  };
+  assortmentRecoveryExecute: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AssortmentRecoveryRequest'];
+      };
+    };
+    responses: {
+      /** @description Поточний дозвіл або exact підтвердження */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryAck'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            | components['schemas']['AssortmentRecoveryError']
+            | components['schemas']['AssortmentRecoveryRejection'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssortmentRecoveryError'];
+        };
+      };
+      /** @description Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            | components['schemas']['AssortmentRecoveryError']
+            | components['schemas']['AssortmentRecoveryRejection'];
+        };
+      };
+    };
+  };
+}

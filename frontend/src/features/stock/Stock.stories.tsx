@@ -220,3 +220,65 @@ export const DraftActionFocus: Story = {
     await expect(canvas.getByRole('textbox', { name: /Мінімум:/ })).toHaveValue('4');
   },
 };
+
+function DurableRecovery({ changedUnit = false }: { changedUnit?: boolean }) {
+  const [draft, setDraft] = useState<Draft>({
+    store: 1,
+    base: assortmentRow,
+    sold: true,
+    minimum: 'ще вводжу,',
+    busy: false,
+    error: changedUnit
+      ? 'Одиницю змінено. Старе введення не переприв’язується.'
+      : 'Первісний запит збережено.',
+    uncertain: !changedUnit,
+    reading: false,
+    server: null,
+    ...(changedUnit ? { blocked: 'Одиницю змінено.', review: true } : {}),
+  });
+  return (
+    <div style={{ maxWidth: 320 }}>
+      <AssortmentEditor
+        durable
+        warehouse={1}
+        row={assortmentRow}
+        draft={draft}
+        disabled={false}
+        onEdit={(patch) => setDraft((v) => ({ ...v, ...patch }))}
+        onSave={() =>
+          setDraft((v) => ({ ...v, error: 'Повторено лише незмінний первісний запит.' }))
+        }
+        onReset={() => setDraft((v) => ({ ...v, error: 'Явне локальне відкидання.' }))}
+        onCompare={() => {}}
+        onApply={() => {}}
+        onCancel={() => {}}
+      />
+    </div>
+  );
+}
+export const DurableExactRetry: Story = {
+  render: () => <DurableRecovery />,
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement),
+      retry = c.getByRole('button', { name: 'Повторити первісний запит' });
+    await expect(retry).toBeEnabled();
+    retry.focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(c.getByText('Повторено лише незмінний первісний запит.')).toBeVisible();
+    await expect(c.getByRole('textbox')).toHaveValue('ще вводжу,');
+    for (const b of c.getAllByRole('button'))
+      await expect(b.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+  },
+};
+export const DurableUnitChange: Story = {
+  render: () => <DurableRecovery changedUnit />,
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(c.getByRole('textbox')).toBeDisabled();
+    await expect(c.getByRole('button', { name: 'Зберегти' })).toBeDisabled();
+    const discard = c.getByRole('button', { name: 'Скинути чернетку' });
+    discard.focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(c.getByText('Явне локальне відкидання.')).toBeVisible();
+  },
+};

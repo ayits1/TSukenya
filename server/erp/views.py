@@ -615,6 +615,9 @@ def handle(request):
         if request.method!='GET': return response({'error':'Метод недоступний.'},405)
         reader={'documents':purchases_reads.documents,'replenishment':purchases_reads.replenishment,'lines':purchases_reads.lines,'draft':purchases_reads.draft}[path.rsplit('/',1)[-1]]
         return response(reader(user,request.GET))
+    if path.startswith('/api/v1/trading/assortment/'):
+        from .assortment_recovery import handle as handle_assortment_recovery
+        return handle_assortment_recovery(request, user)
     if path in {'/api/v1/trading/stock','/api/v1/trading/stock.csv','/api/v1/trading/stock/documents','/api/v1/trading/assortment'}:
         from .stock_api import handle as handle_stock
         return handle_stock(request,user)

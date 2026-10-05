@@ -267,6 +267,369 @@
           }
         ]
       }
+    },
+    "/api/v1/trading/assortment/recovery-context": {
+      "get": {
+        "operationId": "assortmentRecoveryRecoveryContext",
+        "responses": {
+          "200": {
+            "description": "Поточний дозвіл або exact підтвердження",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssortmentRecoveryContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "warehouse",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "product",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/assortment/current": {
+      "get": {
+        "operationId": "assortmentRecoveryCurrent",
+        "responses": {
+          "200": {
+            "description": "Поточний дозвіл або exact підтвердження",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssortmentRecoveryContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "warehouse",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "product",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/assortment/identity": {
+      "post": {
+        "operationId": "assortmentRecoveryIdentity",
+        "responses": {
+          "200": {
+            "description": "Поточний дозвіл або exact підтвердження",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssortmentRecoveryIdentity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["request"],
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/AssortmentRecoveryRequest"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/assortment/execute": {
+      "post": {
+        "operationId": "assortmentRecoveryExecute",
+        "responses": {
+          "200": {
+            "description": "Поточний дозвіл або exact підтвердження",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssortmentRecoveryAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryRejection"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Поточна відмова або bound rollback proof; звичайна відмова не підтверджує відсутність запису.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AssortmentRecoveryRejection"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssortmentRecoveryRequest"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -852,6 +1215,291 @@
           "query",
           "policy"
         ]
+      },
+      "AssortmentRecoveryTerms": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sold", "min_stock"],
+        "properties": {
+          "sold": {
+            "type": "boolean"
+          },
+          "min_stock": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "AssortmentRecoveryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "warehouse",
+          "product",
+          "revision",
+          "unit",
+          "terms"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "revision": {
+            "type": ["string", "null"],
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "terms": {
+            "$ref": "#/components/schemas/AssortmentRecoveryTerms"
+          }
+        }
+      },
+      "AssortmentRecoveryOriginal": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "warehouse",
+          "product",
+          "revision",
+          "unit",
+          "sold",
+          "min_stock"
+        ],
+        "properties": {
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "sold": {
+            "type": "boolean"
+          },
+          "min_stock": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "AssortmentRecoveryContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract",
+          "warehouse",
+          "product",
+          "store",
+          "role",
+          "storeId",
+          "exists",
+          "row"
+        ],
+        "properties": {
+          "contract": {
+            "const": "assortment-context-v1"
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": ["owner", "manager", "warehouse"]
+          },
+          "storeId": {
+            "type": ["integer", "null"]
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssortmentRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AssortmentRecoveryAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract",
+          "key",
+          "warehouse",
+          "product",
+          "ok",
+          "original"
+        ],
+        "properties": {
+          "contract": {
+            "const": "assortment-action-v1"
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true
+          },
+          "original": {
+            "$ref": "#/components/schemas/AssortmentRecoveryOriginal"
+          }
+        }
+      },
+      "AssortmentRecoveryIdentity": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "contract",
+              "key",
+              "warehouse",
+              "product",
+              "confirmed"
+            ],
+            "properties": {
+              "contract": {
+                "const": "assortment-action-v1"
+              },
+              "key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "warehouse": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "product": {
+                "type": "string"
+              },
+              "confirmed": {
+                "const": false
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "contract",
+              "key",
+              "warehouse",
+              "product",
+              "confirmed",
+              "original"
+            ],
+            "properties": {
+              "contract": {
+                "const": "assortment-action-v1"
+              },
+              "key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "warehouse": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "product": {
+                "type": "string"
+              },
+              "confirmed": {
+                "const": true
+              },
+              "original": {
+                "$ref": "#/components/schemas/AssortmentRecoveryOriginal"
+              }
+            }
+          }
+        ]
+      },
+      "AssortmentRecoveryRejection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract",
+          "key",
+          "warehouse",
+          "product",
+          "error",
+          "code",
+          "write_rejected"
+        ],
+        "properties": {
+          "contract": {
+            "const": "assortment-action-v1"
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "warehouse": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "product": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": ["validation_error", "revision_conflict"]
+          },
+          "write_rejected": {
+            "const": true
+          }
+        }
+      },
+      "AssortmentRecoveryError": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
       }
     }
   }

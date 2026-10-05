@@ -58,6 +58,8 @@ export function AssortmentEditor({
   onCompare,
   onApply,
   onCancel,
+  durable = false,
+  actionsDisabled = false,
 }: {
   warehouse: number;
   row: AssortmentRow;
@@ -69,6 +71,8 @@ export function AssortmentEditor({
   onCompare: () => void;
   onApply: (value: { sold: boolean; min_stock: string | null }) => void;
   onCancel: () => void;
+  durable?: boolean;
+  actionsDisabled?: boolean;
 }) {
   const [choices, setChoices] = useState<MergeChoices>({});
   const min = draft?.minimum ?? row.min_stock ?? '',
@@ -92,7 +96,7 @@ export function AssortmentEditor({
       <Checkbox
         className="stock-checkbox"
         isSelected={sold}
-        isDisabled={disabled}
+        isDisabled={disabled || !!draft?.blocked}
         onChange={(value) => onEdit({ sold: value })}
       >
         <span aria-hidden="true" />
@@ -102,7 +106,7 @@ export function AssortmentEditor({
         label={`Мінімум: ${row.name}`}
         value={min}
         onChange={(value) => onEdit({ minimum: value })}
-        isDisabled={disabled}
+        isDisabled={disabled || !!draft?.blocked}
         inputMode="decimal"
         error={invalid}
         description={`Порожнє поле — з каталогу (${displayDecimal(row.default_min)} ${row.unit}); 0 — власний нуль.`}
@@ -110,18 +114,35 @@ export function AssortmentEditor({
       <div className="stock-actions">
         <Button
           variant="primary"
-          isDisabled={disabled || !draft || draft.busy || draft.uncertain || !!invalid}
+          isDisabled={
+            disabled ||
+            actionsDisabled ||
+            !draft ||
+            draft.busy ||
+            (durable && draft.uncertain
+              ? false
+              : draft.uncertain || !!invalid || !!draft.review || !!draft.blocked)
+          }
           onPress={onSave}
         >
-          {draft?.busy ? 'Збереження…' : 'Зберегти'}
+          {draft?.busy
+            ? 'Збереження…'
+            : durable && draft?.uncertain
+              ? 'Повторити первісний запит'
+              : 'Зберегти'}
         </Button>
-        <Button isDisabled={disabled || !draft || draft.busy || draft.uncertain} onPress={onReset}>
+        <Button
+          isDisabled={
+            disabled || actionsDisabled || !draft || draft.busy || (!durable && draft.uncertain)
+          }
+          onPress={onReset}
+        >
           Скинути чернетку
         </Button>
         {draft?.reading ? <Button onPress={onCancel}>Скасувати читання</Button> : null}
         {draft ? (
           <Button
-            isDisabled={disabled || draft.busy || draft.reading}
+            isDisabled={disabled || actionsDisabled || draft.busy || draft.reading}
             onPress={() => {
               setChoices({});
               onCompare();
@@ -138,11 +159,12 @@ export function AssortmentEditor({
       ) : null}
       {draft?.uncertain ? (
         <p className="tk-help">
-          Результат запиту невідомий або версія застаріла. Повторний запис заблоковано до явного
-          узгодження поточного стану.
+          {durable
+            ? 'Первісний запит збережено. Нові поля не змінюють точний повтор; поточний стан сам по собі не підтверджує запис.'
+            : 'Результат запиту невідомий або версія застаріла. Повторний запис заблоковано до явного узгодження поточного стану.'}
         </p>
       ) : null}
-      {draft?.server ? (
+      {draft?.server && !(durable && draft.uncertain) ? (
         <>
           <p className="tk-help">
             Зараз на сервері: {draft.server.sold ? 'продається' : 'не продається'}, мінімум{' '}
@@ -280,13 +302,42 @@ export function Stock({ model }: { model: StockModel }) {
   }
   const editor = (warehouse: number, row: AssortmentRow) => {
     const key = draftKey(warehouse, row.product);
+    const offer = model.persistence?.offer(warehouse, row.product);
+    if (offer)
+      return (
+        <article
+          className="stock-editor"
+          key={key}
+          data-stock-draft={key}
+          data-assortment-offer={offer}
+        >
+          <h4>{row.name}</h4>
+          <p>Є локальна чернетка. Поточні дані не замінюють ваше введення.</p>
+          <div className="stock-actions">
+            <Button
+              isDisabled={s.recovery.busy}
+              onPress={() => void model.persistence?.restore(offer)}
+            >
+              Відновити чернетку
+            </Button>
+            <Button
+              isDisabled={s.recovery.busy}
+              onPress={() => void model.persistence?.discard(offer)}
+            >
+              Відкинути локальну чернетку
+            </Button>
+          </div>
+        </article>
+      );
     return (
       <AssortmentEditor
         key={key}
         warehouse={warehouse}
         row={row}
         draft={s.drafts.get(key)}
-        disabled={!policy?.canEditAssortment}
+        disabled={!policy?.canEditAssortment || (model.requireRecovery && !s.recovery.ready)}
+        actionsDisabled={model.requireRecovery && s.recovery.busy}
+        durable={model.requireRecovery}
         onEdit={(patch) => model.edit(warehouse, row, patch)}
         // Clean buttons are disabled; their row heading retains the keyboard position.
         onSave={() => void rowAction(key, () => model.save(warehouse, row.product), 'h4', true)}
@@ -537,6 +588,69 @@ export function Stock({ model }: { model: StockModel }) {
               Асортимент складу
             </Button>
           </h3>
+          {model.requireRecovery ? (
+            <div className="stock-recovery" aria-label="Відновлення асортименту">
+              {s.recovery.error ? <p role="alert">{s.recovery.error}</p> : null}
+              {!s.recovery.ready ? <p>Введення приховане до перевірки чинного доступу.</p> : null}
+              <div className="stock-actions">
+                {!s.recovery.ready ? (
+                  <Button
+                    isDisabled={s.recovery.busy || !model.persistence}
+                    onPress={() => void model.persistence?.start()}
+                  >
+                    Підтвердити доступ до асортименту
+                  </Button>
+                ) : null}
+                <Button
+                  isDisabled={s.recovery.busy || !model.persistence}
+                  onPress={() => model.persistence?.openRecovery()}
+                >
+                  Локальні чернетки асортименту
+                </Button>
+                {s.recovery.busy ? (
+                  <Button onPress={() => model.persistence?.cancel()}>
+                    Скасувати перевірку асортименту
+                  </Button>
+                ) : null}
+              </div>
+              {s.recovery.ready
+                ? s.recovery.offers
+                    .filter(
+                      (v) =>
+                        !(
+                          s.assortment?.warehouse === v.warehouse &&
+                          s.assortment.rows.some((r) => r.product === v.product)
+                        ),
+                    )
+                    .map((v) => (
+                      <div
+                        key={v.recordId}
+                        className="stock-editor"
+                        data-assortment-offer={v.recordId}
+                      >
+                        <p>
+                          {v.name}
+                          {v.warehouse ? ` · склад ${v.warehouse}` : ''}
+                        </p>
+                        <div className="stock-actions">
+                          <Button
+                            isDisabled={s.recovery.busy}
+                            onPress={() => void model.persistence?.restore(v.recordId)}
+                          >
+                            Відновити чернетку
+                          </Button>
+                          <Button
+                            isDisabled={s.recovery.busy}
+                            onPress={() => void model.persistence?.discard(v.recordId)}
+                          >
+                            Відкинути локальну чернетку
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                : null}
+            </div>
+          ) : null}
           {s.assortmentOpen ? (
             <>
               <Directory
@@ -558,7 +672,7 @@ export function Stock({ model }: { model: StockModel }) {
                   Увесь асортимент
                 </Button>
               ) : null}
-              {s.assortment ? (
+              {model.requireRecovery && !s.recovery.ready ? null : s.assortment ? (
                 s.assortment.rows.map((row) => editor(s.assortment!.warehouse, row))
               ) : s.assortmentWarehouse ? (
                 <p role="status">Завантаження асортименту…</p>
