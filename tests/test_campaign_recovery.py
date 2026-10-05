@@ -124,7 +124,7 @@ class CampaignRecoveryTests(TransactionApiFixture):
         # Unknown graph deliberately large; reads only need name, not this field.
         self.p.data['unknown']={'recipe':['unchanged'*10000]};self.p.save()
         value=self.action();self.assertEqual(self.send(value).status_code,200)
-        for name in ('Назва \"\\ слово', '', None, 0, True):
+        for name in ('Назва \"\\ слово', '', None, 0, True, False, 'true', 'false', 'null', '123', '1.00', '{}', '[]', {'ключ':'значення'}, ['а',2]):
             data=dict(self.p.data,name=name);Document.objects.filter(pk=self.p.pk).update(data=data)
             with CaptureQueriesContext(connection) as queries:
                 response=self.client.get('/api/v1/promotions/campaigns/'+value['key'])

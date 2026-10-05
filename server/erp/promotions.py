@@ -20,8 +20,17 @@ def campaign_fingerprint(value):
 
 
 def product_names(paths):
-    # Same caption semantics without fetching recipes or other Product JSON fields.
-    return {path: str(name or '') for path,name in Document.objects.filter(pk__in=paths).values_list('path','data__name')}
+    # Text JSON projection preserves a JSON-like *string* ("true", "1.00", ...)
+    # versus the actual boolean/number/object. Django KeyTransform on SQLite
+    # decodes both as JSON and therefore cannot preserve the old caption oracle.
+    from django.db import connection
+    from django.db.models import TextField
+    from django.db.models.expressions import RawSQL
+    table = connection.ops.quote_name(Document._meta.db_table)
+    data = f'{table}."data"'
+    expression = f"({data}->'name')::text" if connection.vendor == 'postgresql' else f"CASE WHEN json_type({data},'$.name') IN ('true','false','null') THEN json_type({data},'$.name') ELSE json_quote(json_extract({data},'$.name')) END"
+    rows = Document.objects.filter(pk__in=paths).annotate(caption_json=RawSQL(expression, [], output_field=TextField())).values_list('path','caption_json')
+    return {path: str((json.loads(encoded) if encoded is not None else None) or '') for path,encoded in rows}
 
 
 def campaign_json(campaign, names=None):
