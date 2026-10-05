@@ -226,3 +226,11 @@ parent linkage, archived/merged і прив’язки ID не змінені.
 Локальна версія SQLite3.53.4. Версію SQLite у CI ця перевірка не встановлювала.
 PostgreSQL SQL, accounting, lock order та mutation oracle не змінені; новий PG
 прогін, браузер, повна регресія й production цим виправленням не запускалися.
+
+Accepted PR127 integration: rebased onto `d84a134c06411b92ce99dec86145635b92815c95`
+without textual conflicts. Both Order5 and catalogue full-check registrations
+and API generators remain present. Generated API outputs are unchanged;
+TypeScript and the matching Vite production build PASS. Combined SQLite
+semantic/reference-limit/three B30 regressions PASS; forced-subtype projection
+tail PASS. Two mistyped local test selectors failed test loading, then only the
+corrected tail was run; they are not runtime or successful whole-suite proofs.
