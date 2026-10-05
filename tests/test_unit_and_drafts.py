@@ -37,6 +37,8 @@ class TransactionApiFixture(ApiSessionFixture, TransactionTestCase):
     sale = AccountingFixture.sale
 
     def setUp(self):
+        from tests.catalog_index_fixture import clear_flushed_catalogue_tombstones
+        clear_flushed_catalogue_tombstones()
         AccountingFixture.setUp(self)
         self.setup_api_session()
 

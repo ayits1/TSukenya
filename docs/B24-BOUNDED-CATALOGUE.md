@@ -173,3 +173,21 @@ Registry syntax, diff і `test:full -- --plan` PASS; full не запускал�
 Matching integrated frontend build PASS. Попередні isolated PG/Storybook/native
 докази наведено вище; новий 100k прогін не виконувався. Прийняття та deployment
 цього пакета ще не підтверджені.
+
+## CI SQLite fixture isolation follow-up
+
+Перший PR117 head5bb9391: frontend/PG PASS; SQLite server CI відмовив у двох
+сценаріях із `catalog_index_pending`. `CatalogIndexDirty` навмисно не має FK: після
+можливого SQLite flush порядку dirty-table→Document delete trigger відновлює
+понад200 tombstones старої фікстури. Production drain/refusal залишено незмінними.
+Test-only helper перед affected TransactionTestCase setup прибирає тільки deleted
+paths після перевірки, що обидва derived indexes уже порожні; current dirty paths
+зберігає. Це не production shortcut.
+
+Root deterministic ordered-flush reproduction підтвердив старий збій; після правки
+ізольований SQLite affected run4 PASS: flush/current-dirty guard, synthetic prior
+fixture, duplicate/index case і unit/recipe guard. Збережені журнали
+`/tmp/tsukenya-catalogue-sqlite-order-repro.log` та
+`/tmp/tsukenya-catalogue-sqlite-flush-final.log`. Перший звичайний flush не
+відтворив залежність від порядку; це зафіксовано окремо, не названо failed proof.
+Frontend/business inputs не змінено; нову локальну повну регресію не запускали.

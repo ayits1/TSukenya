@@ -10,7 +10,10 @@ import tests.test_catalog_pricing as fixture
 
 
 class CatalogSelectionTests(TransactionTestCase):
-    setUp = fixture.CatalogPricingTests.setUp
+    def setUp(self):
+        from tests.catalog_index_fixture import clear_flushed_catalogue_tombstones
+        clear_flushed_catalogue_tombstones()
+        fixture.CatalogPricingTests.setUp(self)
     create = fixture.CatalogPricingTests.create
 
     def test_page_and_promotion_equal_legacy_filters_with_scalar_payload(self):
