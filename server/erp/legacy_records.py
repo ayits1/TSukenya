@@ -11,6 +11,61 @@ RESOURCES={'tasks','ideas','expenses'}
 FIELDS={'tasks':{'title','status','dueDate','stage'},'ideas':{'title','text','reaction'},'expenses':{'name','group','category','amount'}}
 
 
+def recovery_context(user, params):
+    """Authorize a local editable snapshot without adopting a current revision.
+
+    Missing records are an observation, not a deletion receipt. The supplied
+    historical scope authorizes only the client's local fields, never a write.
+    """
+    require(set(params) <= {'collection', 'id', 'scope', 'store', 'ideaId'}, 'Некоректний контекст чернетки.')
+    collection = params.get('collection')
+    identifier = params.get('id') or None
+    scope = params.get('scope') or None
+    store = params.get('store') or None
+    idea = params.get('ideaId') or None
+    require(collection in RESOURCES, 'Невідомий тип чернетки.')
+    require(identifier is None or re.fullmatch(r'[A-Za-z0-9_-]{1,120}', identifier), 'Некоректний ID.')
+    require(scope in {None, 'operations', 'development'}, 'Некоректний простір задачі.')
+    require(store is None or isinstance(store, str) and re.fullmatch(r'[1-9][0-9]{0,18}', store) and int(store) <= 9223372036854775807, 'Некоректний магазин.')
+    require(idea is None or re.fullmatch(r'[A-Za-z0-9_-]{1,120}', idea), 'Некоректна початкова ідея.')
+    require(collection == 'tasks' or scope is None and store is None and idea is None, 'Некоректний контекст колекції.')
+    with read_snapshot():
+        from .services import current_actor
+        user = current_actor(user)
+        from .legacy_create_identity import authorize
+        authorize(user, collection)
+        metadata = {'scope': scope, 'store': int(store) if store else None, 'ideaId': idea}
+        if collection == 'tasks':
+            from .task_scope import authorize_task
+            authorize_task(user, metadata)
+            if idea:
+                source = read_record(user, 'ideas', idea)
+                require(source['initiative'] is None, 'Ідея змінюється в окремому робочому процесі.')
+        exists = None
+        writable = True
+        if identifier:
+            try:
+                current = read_record(user, collection, identifier)
+            except Conflict as error:
+                if error.code != 'record_missing':
+                    raise
+                if collection == 'tasks' and user.profile.role != 'owner':
+                    from .models import LegacyCreateReceipt
+                    witness = LegacyCreateReceipt.objects.filter(document_path='tasks/' + identifier, collection='tasks').values_list('original', flat=True).first()
+                    require(isinstance(witness, dict) and isinstance(witness.get('data'), dict), 'Немає доказу початкового магазину відсутньої задачі; доступ до локальної чернетки недоступний.')
+                    authorize_task(user, witness['data'])
+                exists = False
+                writable = False
+            else:
+                exists = True
+                writable = current['permissions']['canEdit'] and not current['managed'] and current['initiative'] is None
+        return {'collection': collection, 'id': identifier, 'scope': scope,
+                'store': metadata['store'], 'ideaId': idea, 'exists': exists,
+                'role': user.profile.role, 'storeId': user.profile.store_id,
+                'networkOwner': user.profile.role == 'owner' and user.profile.store_id is None,
+                'canWrite': bool(writable)}
+
+
 def read_record(user,collection,identifier):
     require(collection in RESOURCES and re.fullmatch(r'[A-Za-z0-9_-]{1,120}',identifier),'Некоректний запис.')
     with read_snapshot():

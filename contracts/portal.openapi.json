@@ -830,6 +830,84 @@
           }
         }
       }
+    },
+    "/api/v1/portal/records/recovery-context": {
+      "get": {
+        "operationId": "portalDraftRecoveryContext",
+        "description": "Read-only fresh actor/current resource authorization in RR. The id may be a confirmed CREATE identity and never adopts a draft baseline/revision. Missing manager tasks require a server original-scope receipt witness; client scope claims alone do not authorize missing historical tasks. No business writes/audit.",
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tasks",
+                "ideas",
+                "expenses"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,120}$"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "operations",
+                "development"
+              ]
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,18}$"
+            }
+          },
+          {
+            "name": "ideaId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,120}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh context; contains neither business fields nor revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalDraftContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid keys/resource/context"
+          },
+          "403": {
+            "description": "Current actor/resource/original store witness refused"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1879,6 +1957,89 @@
               }
             },
             "additionalProperties": false
+          }
+        }
+      },
+      "PortalDraftContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collection",
+          "id",
+          "scope",
+          "store",
+          "ideaId",
+          "exists",
+          "role",
+          "storeId",
+          "networkOwner",
+          "canWrite"
+        ],
+        "properties": {
+          "collection": {
+            "type": "string",
+            "enum": [
+              "tasks",
+              "ideas",
+              "expenses"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "scope": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              null,
+              "operations",
+              "development"
+            ]
+          },
+          "store": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "ideaId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exists": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "manager"
+            ]
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "canWrite": {
+            "type": "boolean"
           }
         }
       }
