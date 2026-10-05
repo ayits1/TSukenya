@@ -1,4 +1,5 @@
 import * as settingPersistence from './shared/native/settingPersistence';
+import * as voucherAction from './shared/native/voucherAction';
 import * as managedAlertPersistence from './shared/native/managedAlertPersistence';
 import * as cashShiftPersistence from './shared/native/cashShiftPersistence';
 import * as workShiftPersistence from './shared/native/workShiftPersistence';
@@ -36,6 +37,7 @@ import * as recipeEditor from './shared/native/recipe';
 
 declare global {
   interface Window {
+    NativeVoucherAction?: typeof voucherAction;
     NativeManagedAlertPersistence?: typeof managedAlertPersistence;
     NativeVoucherPersistence?: typeof voucherPersistence;
     NativeEntityPersistence?: typeof entityPersistence;
@@ -71,6 +73,7 @@ declare global {
     };
   }
 }
+window.NativeVoucherAction = voucherAction;
 window.NativeManagedAlertPersistence = managedAlertPersistence;
 window.NativeVoucherPersistence = voucherPersistence;
 window.NativeBudgetTemplateEditor = budgetTemplateEditor;

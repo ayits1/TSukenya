@@ -1,0 +1,456 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TSukenya standalone voucher actions",
+    "version": "1"
+  },
+  "paths": {
+    "/api/v1/trading/voucher-actions/execute": {
+      "post": {
+        "operationId": "executeVoucherAction",
+        "description": "Existing LedgerLock/accounting services plus atomic creator-bound receipt. Exact replay authorized before receipt lookup, then returned before mutable target/period checks. CSRF required. No automatic retry.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Terms"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Strict response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Current permission, malformed request, scope or collision failure. Never interpreted as absence of a prior action."
+          },
+          "403": {
+            "description": "Current permission, malformed request, scope or collision failure. Never interpreted as absence of a prior action."
+          },
+          "409": {
+            "description": "Current permission, malformed request, scope or collision failure. Never interpreted as absence of a prior action."
+          }
+        }
+      }
+    },
+    "/api/v1/trading/voucher-actions/identity": {
+      "post": {
+        "operationId": "readVoucherActionIdentity",
+        "description": "CSRF-protected READ ONLY REPEATABLE READ; author and whole normalized intent bound. confirmed:false does not prove absence.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["request"],
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/Terms"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Strict response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Identity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Current permission, malformed request, scope or collision failure. Never interpreted as absence of a prior action."
+          },
+          "403": {
+            "description": "Current permission, malformed request, scope or collision failure. Never interpreted as absence of a prior action."
+          },
+          "409": {
+            "description": "Current permission, malformed request, scope or collision failure. Never interpreted as absence of a prior action."
+          }
+        }
+      }
+    },
+    "/api/v1/trading/voucher-actions/context": {
+      "get": {
+        "operationId": "readVoucherActionContext",
+        "description": "Exactly one occurrence of each required scalar query key. No extras. Current actor/scope revalidated in READ ONLY RR; no full payload materialization.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "purchase_order",
+                "receipt",
+                "opening",
+                "sale",
+                "customer_return",
+                "supplier_return",
+                "transfer",
+                "writeoff",
+                "inventory",
+                "production",
+                "payment",
+                "advance_allocation",
+                "payment_refund",
+                "expense",
+                "cash_opening",
+                "payroll",
+                "payroll_payment",
+                "customer_order",
+                "debt_opening",
+                "cash_transfer",
+                "cash_difference"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "store",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "in": "query",
+            "name": "expenseScope",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["store", "network"]
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["post", "reverse", "delete"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Strict response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Context"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Current permission, malformed request, scope or collision failure. Never interpreted as absence of a prior action."
+          },
+          "403": {
+            "description": "Current permission, malformed request, scope or collision failure. Never interpreted as absence of a prior action."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Terms": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "action",
+          "id",
+          "kind",
+          "store",
+          "expenseScope",
+          "revision",
+          "reason"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["post", "reverse", "delete"]
+          },
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "purchase_order",
+              "receipt",
+              "opening",
+              "sale",
+              "customer_return",
+              "supplier_return",
+              "transfer",
+              "writeoff",
+              "inventory",
+              "production",
+              "payment",
+              "advance_allocation",
+              "payment_refund",
+              "expense",
+              "cash_opening",
+              "payroll",
+              "payroll_payment",
+              "customer_order",
+              "debt_opening",
+              "cash_transfer",
+              "cash_difference"
+            ]
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "expenseScope": {
+            "type": "string",
+            "enum": ["store", "network"]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "description": "Frozen complete request. Network scope only for expense. Reason must be blank except reverse; reverse retains existing required nonblank reason validation."
+      },
+      "Acknowledgement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["contract", "request", "outcome"],
+        "properties": {
+          "contract": {
+            "type": "string",
+            "enum": ["voucher-action-v1"]
+          },
+          "request": {
+            "$ref": "#/components/schemas/Terms"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["posted", "reversed", "deleted"]
+          }
+        }
+      },
+      "Identity": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["contract", "request", "confirmed"],
+            "properties": {
+              "contract": {
+                "type": "string",
+                "enum": ["voucher-action-v1"]
+              },
+              "request": {
+                "$ref": "#/components/schemas/Terms"
+              },
+              "confirmed": {
+                "type": "boolean",
+                "enum": [false]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["contract", "request", "outcome", "confirmed"],
+            "properties": {
+              "contract": {
+                "type": "string",
+                "enum": ["voucher-action-v1"]
+              },
+              "request": {
+                "$ref": "#/components/schemas/Terms"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": ["posted", "reversed", "deleted"]
+              },
+              "confirmed": {
+                "type": "boolean",
+                "enum": [true]
+              }
+            }
+          }
+        ]
+      },
+      "Context": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract",
+          "id",
+          "kind",
+          "store",
+          "expenseScope",
+          "action",
+          "exists",
+          "status",
+          "revision",
+          "date",
+          "canExecute",
+          "closedThrough",
+          "role",
+          "storeId"
+        ],
+        "properties": {
+          "contract": {
+            "type": "string",
+            "enum": ["voucher-action-context-v1"]
+          },
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "purchase_order",
+              "receipt",
+              "opening",
+              "sale",
+              "customer_return",
+              "supplier_return",
+              "transfer",
+              "writeoff",
+              "inventory",
+              "production",
+              "payment",
+              "advance_allocation",
+              "payment_refund",
+              "expense",
+              "cash_opening",
+              "payroll",
+              "payroll_payment",
+              "customer_order",
+              "debt_opening",
+              "cash_transfer",
+              "cash_difference"
+            ]
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "expenseScope": {
+            "type": "string",
+            "enum": ["store", "network"]
+          },
+          "action": {
+            "type": "string",
+            "enum": ["post", "reverse", "delete"]
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "posted", "reversed"],
+            "nullable": true
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "nullable": true
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "canExecute": {
+            "type": "boolean"
+          },
+          "closedThrough": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": ["owner", "manager", "accountant", "warehouse", "cashier"]
+          },
+          "storeId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "nullable": true
+          }
+        },
+        "description": "Fresh read-only RR view. canExecute is advisory, not a permission grant. Missing/deleted target remains recoverable for an authorized scoped reader."
+      },
+      "RollbackProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["error", "write_rejected", "request"],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "write_rejected": {
+            "type": "boolean",
+            "enum": [true]
+          },
+          "request": {
+            "$ref": "#/components/schemas/Terms"
+          },
+          "code": {
+            "type": "string",
+            "enum": ["revision_conflict"]
+          }
+        },
+        "description": "Only rollback of this authorized attempted action. Optional code only for revision409. No auth/collision/postcommit proof. Only first live never-unknown client attempt may release its frozen intent."
+      }
+    }
+  }
+}
