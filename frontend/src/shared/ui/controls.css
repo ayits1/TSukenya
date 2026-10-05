@@ -366,6 +366,9 @@ input {
 }
 .tk-popover {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   width: var(--trigger-width);
   max-width: calc(100vw - 16px);
   border: 1px solid var(--tk-input-line);
@@ -382,11 +385,9 @@ input {
   /* Pagination needs room even when its trigger lives in a compact toolbar.
      Reserve the same viewport gutters used by native-dialog overlays. */
   min-width: min(20rem, calc(100vw - 64px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
-.tk-popover--paged .tk-listbox {
+/* The list must shrink to Aria's available height when the mobile keyboard opens. */
+.tk-popover .tk-listbox {
   flex: 1 1 auto;
   min-height: 0;
 }

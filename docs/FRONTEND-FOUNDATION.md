@@ -212,3 +212,18 @@ TabPanel має стабільний key відповідного режиму/�
 Цільова команда: `node tests/react-reports-ui.cjs`; власна ізольована SQLite,
 bundled headless Chromium, синтетичні fixture. Межі та reusable результати:
 [REACT-REPORTS.md](REACT-REPORTS.md). Storybook не замінює actual callback proof.
+
+## Коротка висота dropdown · 05.10.2026
+
+Shared ComboBox/Select popover обмежує власний overflow, а ListBox є flex child
+із `min-height:0` і власним прокручуванням. Коли React Aria зменшує доступну
+висоту панелі, рядки не виходять за її рамку. Paged footer зберігає окрему
+область; бізнесовий вибір та focus behavior належать чинним Aria controls.
+
+`ConstrainedDropdown` у Controls stories відтворює 160px панель із40 довгими
+назвами. До виправлення containment assertion падав; після — PASS разом із
+KeyboardSelection та цільовими pager/native-dialog stories. Перевірено
+прокручування, пошук/вибір, Escape/focus, geometry1440px і320px зі скороченою
+висотою viewport420px, production types/build та scoped lint. Усі браузерні
+перевірки — bundled headless Chromium; справжню екранну клавіатуру Android
+цей сценарій не запускає. Full regression і бізнесові mutation не виконували.
