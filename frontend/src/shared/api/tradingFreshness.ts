@@ -18,6 +18,7 @@ export const tradingResources = [
   'staff_documents',
   'directories',
   'policy',
+  'customers_tasks',
   'customers_contacts',
   'customers_metrics',
   'customers_debts',

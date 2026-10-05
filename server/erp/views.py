@@ -654,6 +654,9 @@ def handle(request):
         if path.startswith('/api/v1/trading/'):
             from .directories import handle as handle_directories
             return handle_directories(request,user)
+        if path.startswith('/api/v1/crm/contact-task'):
+            from .contact_tasks import handle
+            return handle(request,user)
         if path.startswith('/api/v1/crm/'):
             from .customers import handle_customers
             return handle_customers(request,user)

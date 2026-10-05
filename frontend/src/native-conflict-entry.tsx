@@ -1,4 +1,5 @@
 import { installCatalogRecovery } from './features/catalog/recovery/session';
+import { installContactTaskEditor } from './features/customers/tasks/TaskEditor';
 import * as documentView from './features/document-details/bridge';
 import * as orderAction from './shared/native/orderAction';
 import * as settingPersistence from './shared/native/settingPersistence';
@@ -150,5 +151,6 @@ if (document.querySelector('#accountLink')) {
     /* Unavailable storage must be reported by enrollment before any send. */
   }
 }
+installContactTaskEditor();
 window.NativeSettingPersistence = settingPersistence;
 window.dispatchEvent(new Event('tsukenya:native-conflict-ready'));

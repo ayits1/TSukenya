@@ -1,3 +1,4 @@
+import { request as taskRequest } from './features/customers/tasks/api';
 import { createRoot, type Root } from 'react-dom/client';
 import { I18nProvider } from 'react-aria-components';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -84,6 +85,7 @@ window.ReactCustomers = {
           <Customers
             {...options}
             api={scoped}
+            taskRead={(path, signal) => guarded(() => taskRequest(path, {}, signal), signal)}
             onDenied={denyWorkspace}
             initialFilters={filters}
             initialCustomer={selected}

@@ -6,3 +6,5 @@ from .migration_helpers.trading_versions_0024_spec import RESOURCES, RULES, TABL
 
 from .migration_helpers.customer_report_0029_spec import RESOURCES as REPORT_RESOURCES
 RESOURCES = {**RESOURCES, **REPORT_RESOURCES}
+
+RESOURCES={**RESOURCES,'customers_tasks':('owner','manager','accountant')}
