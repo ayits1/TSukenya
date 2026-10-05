@@ -68,7 +68,7 @@ live PATCH може звільнити matching rejected intent. Proof зв’я
 request_key, action і code; collision/permission та post-commit response failures
 його не мають. Після definite PATCH rejection current/read/Apply є явним бар’єром
 перед новим UUID/окремим Save. Будь-який lifetime suspend назавжди скасовує цю локальну first-live authority для вже виданого intent; наступна400 не звільняє його. Catch охоплює atomic save;
-post-commit serializer failure такого proof не отримує. Це rollback proof конкретної першої спроби, не доведення загальної відсутності UUID
+Outer transaction тримає commit/on_commit поза catch внутрішнього savepoint; post-commit callback або serializer failure такого proof не отримує. Це rollback proof конкретної першої спроби, не доведення загальної відсутності UUID
 і не автоматичний retry.
 
 ACK/positive identity strict-bound до key/context/normalized terms і durable **до**
@@ -98,7 +98,7 @@ committed page/filter; raw search, активний control або native editor
 
 Без full/production/Sheet/VPS. PostgreSQL disposable DB `tsukenya_contact_tasks`;
 `/tmp/tsukenya-review-venv/bin/python manage.py test tests.test_contact_tasks... --noinput`.
-Одинадцять distinct targeted methods пройшли інкрементально: receipts/revisions/audit,
+Дванадцять distinct targeted methods пройшли інкрементально: receipts/revisions/audit,
 role/store/read-only/cashier, paging65/query errors, direct/bulk/rollback/privacy,
 parallel revision winner, stale/deactivated actor before private read, caption+
 migration reverse/reinstall, actual LedgerLock role-revocation wait, reclassified
@@ -151,7 +151,7 @@ reopen/Restore0writes, first PATCH409→current→keyboard comparison→Apply0wr
 UUID Save, unknownPATCH/later409/noApply до positiveidentity, nonJSONcurrent403 і
 nonJSONfinalsession401 з beforeunload private-clear. Додатковий PG method перевірив
 rollback/no receipt, collision/no proof, scalar assignee projection та serializer
-failure **після committed write** без rollback signal. Змінена workflow Story Atomic
+failure **після committed write** без rollback signal. Окремий callback target довів: on_commit BusinessError не повертає rollback proof, receipt збережено, exact retry повертає первинний ACK без другого task/audit/receipt. Змінена workflow Story Atomic
 перевірена окремо; unchanged Cancel Story повторно не запускалась.
 
 ## Відкриті межі

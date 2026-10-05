@@ -195,3 +195,22 @@ class ContactTasksTests(TransactionTestCase):
         with patch('server.erp.views.response',side_effect=RuntimeError('Serialization after commit')):
             with self.assertRaises(RuntimeError):api.execute_response(self.u,committed)
         self.assertTrue(ContactTaskOperation.objects.filter(key=committed['request_key']).exists())
+
+    def test_committed_callback_failure_never_proves_rollback_and_exact_retry(self):
+        from unittest.mock import patch
+        body=self.request();original_audit=api.audit
+        def failing_callback():raise api.BusinessError('Committed callback failed')
+        def register_callback(*args,**kwargs):
+            original_audit(*args,**kwargs)
+            transaction.on_commit(failing_callback)
+        with patch.object(api,'audit',side_effect=register_callback),patch('server.erp.views.response') as response:
+            with self.assertRaisesMessage(api.BusinessError,'Committed callback failed'):api.execute_response(self.u,body)
+            response.assert_not_called()
+        self.assertTrue(ContactTaskOperation.objects.filter(key=body['request_key']).exists())
+        retry=api.execute_response(self.u,body)
+        import json
+        ack=json.loads(retry.content)
+        self.assertEqual(retry.status_code,200);self.assertNotIn('write_rejected',ack)
+        self.assertEqual(ack['request_key'],body['request_key']);self.assertEqual(ack['original']['id'],body['id'])
+        self.assertEqual(ContactTaskOperation.objects.count(),1);self.assertEqual(ContactTask.objects.count(),1)
+        self.assertEqual(AuditEvent.objects.filter(action='contact_task_create').count(),1)

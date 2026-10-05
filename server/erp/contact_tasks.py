@@ -202,19 +202,20 @@ def assignees(actor,params):
 
 def execute_response(actor,value,identifier=None):
     from .views import response
-    action='create' if identifier is None else 'update'
-    try:result=save(actor,value,identifier)
-    except BusinessError as e:
-        if isinstance(e,TaskDenied) or isinstance(e,Conflict) and e.code!='revision_conflict':raise
-        code='revision_conflict' if isinstance(e,Conflict) else 'validation_error'
-        status=409 if isinstance(e,Conflict) else 400
-        try:
-            key=uid(value.get('request_key')) if isinstance(value,dict) else uid(None)
-            target=uid(identifier if identifier is not None else value.get('id'))
-        except BusinessError:return response({'error':str(e),'code':code},status)
-        # Only atomic save rollback; serialization after commit is outside this catch.
-        return response({'error':str(e),'write_rejected':True,'resource':'contact_task','request_key':str(key),'action':action,'id':str(target),'code':code},status)
-    return response(result)
+    action='create' if identifier is None else 'update';status=200
+    # save() is the inner savepoint; outer commit/on_commit stay outside the catch.
+    with transaction.atomic():
+        try:result=save(actor,value,identifier)
+        except BusinessError as e:
+            if isinstance(e,TaskDenied) or isinstance(e,Conflict) and e.code!='revision_conflict':raise
+            code='revision_conflict' if isinstance(e,Conflict) else 'validation_error'
+            status=409 if isinstance(e,Conflict) else 400
+            try:
+                key=uid(value.get('request_key')) if isinstance(value,dict) else uid(None)
+                target=uid(identifier if identifier is not None else value.get('id'))
+            except BusinessError:result={'error':str(e),'code':code}
+            else:result={'error':str(e),'write_rejected':True,'resource':'contact_task','request_key':str(key),'action':action,'id':str(target),'code':code}
+    return response(result,status)
 
 def _handle(request,actor):
     from .views import response,body
