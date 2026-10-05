@@ -541,3 +541,29 @@ Timer active/enabled, наступний запуск06.10.2026 о03:37:49Kyiv. 
 Це read-only scan з окремим технічним журналом, без автоматичних бізнесових
 виправлень. Env/Compose/gateway/PG/worker/інші проєкти та backup cron не змінені;
 пункт0.1 не виконувався. Повну регресію не запускали.
+
+## Реліз контактних задач та recovery акцій/асортименту · 05.10.2026
+
+Після exact-head рев’ю й frontend/server/PostgreSQL CI прийнято PR135,137,138.
+VPS працює на `6e9bdce8f5736742051a00575cc6267fcfb6c8e0`; public health `ok`,
+imports `available`. Поточний timer reconciliation лишився active/enabled.
+
+Архів `releases/tsukenya-6e9bdce8f5736742051a00575cc6267fcfb6c8e0.tar.gz`:
+649 source files звірено з незмінним Git archive та host CODE;178 server/manage
+files звірено в обох actual web/import-worker контейнерах.57 frontend assets
+збігаються зі збереженою інтегрованою збіркою. Це read-only deployment proof,
+не новий production mutation test або повна регресія.
+
+Backup: `backups/tsukenya-crm-20261005T080345Z.dump`, checksum та
+`pg_restore --list` перевірено; restore не виконувався. Rollback коду:
+`python3 /opt/tsukenya/deploy/release.py /opt/tsukenya/releases/pre-20261005T080345Z.tar.gz`.
+Для узгодженого відкату worker коректно зупинити, після web rollback перебудувати
+і запустити тільки worker через `--profile imports up -d --build --no-deps import-worker`.
+БД для відкату коду не відновлювати; additive0030 tables зберігаються.
+
+Перед оновленням worker зупинено штатно, виконано release `--check`, знято
+read-only контрольні суми58 ERP/user моделей. Після backup/перебудови web
+через `--no-deps` worker перебудовано з явним imports profile. Усі58 попередніх
+counts/hashes незмінні; нові ContactTask/ContactTaskOperation порожні.
+0030 застосована, web/worker/PostgreSQL healthy. Compose/env/PG volume/gateway,
+інші бізнеси й0.1 не змінювалися. Новий перший автоматичний timer fire тут не доведено.
