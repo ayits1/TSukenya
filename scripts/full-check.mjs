@@ -34,6 +34,7 @@ delete isolatedEnv.QA_BOUNDED_CATALOGUE_FROM;
 delete isolatedEnv.QA_CATALOG_DRAFT_FROM;
 delete isolatedEnv.QA_REFERENCE_MANAGEMENT_FROM;
 delete isolatedEnv.QA_CONTACT_TASK_FROM;
+delete isolatedEnv.QA_CAMPAIGN_DRAFT_FROM;
 delete isolatedEnv.QA_CUSTOMER_REPORT_FROM;
 delete isolatedEnv.QA_CUSTOMER_REPORT_PORT;
 delete isolatedEnv.CUSTOMER_REPORT_PROOF_DIR;
@@ -218,6 +219,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/catalog-facets-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-read-cache-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-draft-reload-ui.cjs'], { env: browserEnv });
+    await run('node', ['tests/campaign-draft-reload-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-hidden-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-hidden-ui.cjs'], { env: { ...browserEnv, QA_HIDDEN_STAGE: 'tail' } });
     await run('node', ['tests/catalog-hidden-ui.cjs'], { env: { ...browserEnv, QA_HIDDEN_STAGE: 'layout' } });

@@ -230,3 +230,23 @@
     clip-path: inset(50%);
   }
 }
+
+.tk-campaign-recovery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-block: 12px;
+  border: 1px solid var(--tk-line);
+  border-radius: 6px;
+  min-width: 0;
+}
+.tk-campaign-recovery > p {
+  flex: 1 0 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.tk-campaign-recovery:empty {
+  display: none;
+}

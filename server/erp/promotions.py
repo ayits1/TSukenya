@@ -14,16 +14,35 @@ from .services import audit, day, dec, ledger_lock, require
 FIELDS = {'name', 'startsOn', 'endsOn', 'active', 'scope', 'stores', 'prices', 'reason'}
 
 
-def campaign_json(campaign):
+def campaign_fingerprint(value):
+    # Immutable original CREATE semantics; reused by readonly recovery identity.
+    return hashlib.sha256(json.dumps({key: value[key] for key in sorted(FIELDS)}, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+
+
+def product_names(paths):
+    # Text JSON projection preserves a JSON-like *string* ("true", "1.00", ...)
+    # versus the actual boolean/number/object. Django KeyTransform on SQLite
+    # decodes both as JSON and therefore cannot preserve the old caption oracle.
+    from django.db import connection
+    from django.db.models import TextField
+    from django.db.models.expressions import RawSQL
+    table = connection.ops.quote_name(Document._meta.db_table)
+    data = f'{table}."data"'
+    expression = f"({data}->'name')::text" if connection.vendor == 'postgresql' else f"CASE WHEN json_type({data},'$.name') IN ('true','false','null') THEN json_type({data},'$.name') ELSE json_quote(json_extract({data},'$.name')) END"
+    rows = Document.objects.filter(pk__in=paths).annotate(caption_json=RawSQL(expression, [], output_field=TextField())).values_list('path','caption_json')
+    return {path: str((json.loads(encoded) if encoded is not None else None) or '') for path,encoded in rows}
+
+
+def campaign_json(campaign, names=None):
     today = kyiv_day()
-    prices=campaign.prices.all()
-    if 'prices' not in getattr(campaign,'_prefetched_objects_cache',{}):prices=prices.select_related('product')
+    prices=sorted(campaign.prices.all(),key=lambda p:p.product_id)
+    if names is None:names=product_names([item.product_id for item in prices])
     status = 'archived' if campaign.archived else 'disabled' if not campaign.active else 'scheduled' if today < campaign.starts_on else 'expired' if today > campaign.ends_on else 'active'
     return {'id': str(campaign.pk), 'name': campaign.name, 'startsOn': campaign.starts_on.isoformat(),
         'endsOn': campaign.ends_on.isoformat(), 'active': campaign.active, 'archived': campaign.archived,
         'scope': campaign.scope, 'stores': [s.pk for s in sorted(campaign.stores.all(),key=lambda s:s.pk)],
-        'prices': [{'product': item.product_id.split('/', 1)[1], 'name': str(item.product.data.get('name') or ''),
-                    'price': format(item.price, 'f')} for item in sorted(prices,key=lambda p:p.product_id)],
+        'prices': [{'product': item.product_id.split('/', 1)[1], 'name': names.get(item.product_id,''),
+                    'price': format(item.price, 'f')} for item in prices],
         'reason': campaign.reason, 'revision': campaign.revision, 'status': status, 'author': campaign.author.username}
 
 
@@ -70,7 +89,7 @@ def save_campaign(request, user, identifier=None):
     if identifier is None:
         require(isinstance(value['idempotencyKey'], str) and re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', value['idempotencyKey']), 'Ключ створення акції має бути UUID.')
         identifier = uuid.UUID(value['idempotencyKey'])
-        fingerprint = hashlib.sha256(json.dumps({key: value[key] for key in sorted(FIELDS)}, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+        fingerprint = campaign_fingerprint(value)
         campaign = PromotionCampaign.objects.filter(pk=identifier).first()
         if campaign:
             if campaign.author_id != user.pk or campaign.request_fingerprint != fingerprint:
@@ -135,6 +154,18 @@ def paginate(request, query):
     return list(query[(page-1)*limit:page*limit]),{'page':page,'pages':pages,'limit':limit,'total':total}
 
 def handle_promotions(request, user):
+    if request.path.rstrip('/').startswith('/api/v1/promotions/recovery/'):
+        from .campaign_recovery import handle
+        return handle(request, user)
+    if request.method == 'GET':
+        from .historical_reports import read_snapshot
+        from .services import current_actor
+        with read_snapshot():
+            return _handle_promotions(request, current_actor(user))
+    return _handle_promotions(request, user)
+
+
+def _handle_promotions(request, user):
     from .views import response
     path = request.path.rstrip('/')
     if path == '/api/v1/promotions/context' and request.method == 'GET':
@@ -154,25 +185,26 @@ def handle_promotions(request, user):
             require(re.fullmatch(r'[A-Za-z0-9_-]{1,120}', identifier), 'Некоректний товар.')
             records = records.filter(product_path='products/' + identifier)
         rows,page=paginate(request,records)
-        names={p.path:str(p.data.get('name') or '') for p in Document.objects.filter(pk__in=[row.product_path for row in rows])}
+        names=product_names([row.product_path for row in rows])
         return response({**page,'items': [{'id': row.pk, 'product': row.product_path.split('/', 1)[1], 'name':names.get(row.product_path) or row.product_path.split('/',1)[1],
             'storeId': row.store_id, 'before': row.before, 'after': row.after, 'author': row.author.username,
             'source': row.source, 'reason': row.reason, 'at': row.at.isoformat()} for row in rows]})
     require(user.profile.role == 'owner' and user.profile.store_id is None, 'Акціями мережі керує власник із мережевим доступом.')
     if path == '/api/v1/promotions/campaigns':
         if request.method == 'GET':
-            campaigns=PromotionCampaign.objects.select_related('author').prefetch_related('stores','prices__product').order_by('-created_at','pk')
+            campaigns=PromotionCampaign.objects.select_related('author').prefetch_related('stores','prices').order_by('-created_at','pk')
             scope=request.GET.get('scope','');require(scope in {'','network','stores'},'Некоректний простір акцій.')
             if scope:campaigns=campaigns.filter(scope=scope)
             rows,page=paginate(request,campaigns)
-            return response({**page,'items':[campaign_json(item) for item in rows]})
+            names=product_names({price.product_id for campaign in rows for price in campaign.prices.all()})
+            return response({**page,'items':[campaign_json(item,names) for item in rows]})
         if request.method == 'POST': return save_campaign(request, user)
     match = re.fullmatch(r'/api/v1/promotions/campaigns/([0-9a-f-]{36})', path)
     if match:
         try: identifier = uuid.UUID(match[1])
         except ValueError: require(False, 'Некоректний ID акції.')
         if request.method == 'GET':
-            campaign=PromotionCampaign.objects.select_related('author').prefetch_related('stores','prices__product').filter(pk=identifier).first()
+            campaign=PromotionCampaign.objects.select_related('author').prefetch_related('stores','prices').filter(pk=identifier).first()
             if campaign is None:return response({'error':'Акцію не знайдено.','code':'not_found'},404)
             return response(campaign_json(campaign))
         if request.method == 'PATCH': return save_campaign(request, user, identifier)

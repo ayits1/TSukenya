@@ -1,0 +1,596 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya campaign recovery",
+    "version": "1"
+  },
+  "paths": {
+    "/api/v1/promotions/recovery/context": {
+      "get": {
+        "description": "Current campaign policy/read",
+        "responses": {
+          "200": {
+            "description": "Confirmed current policy or original outcome",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignRecoveryContext"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/promotions/recovery/current": {
+      "get": {
+        "description": "Current campaign policy/read",
+        "responses": {
+          "200": {
+            "description": "Confirmed current policy or original outcome",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignRecoveryCurrent"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/promotions/recovery/identity": {
+      "post": {
+        "description": "Creator-bound immutable intent read",
+        "responses": {
+          "200": {
+            "description": "Confirmed current policy or original outcome",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignRecoveryAcknowledgement"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignRecoveryEnvelope"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/promotions/recovery/execute": {
+      "post": {
+        "description": "Atomic existing campaign action; compact confirmation, never a current baseline",
+        "responses": {
+          "200": {
+            "description": "Confirmed current policy or original outcome",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignRecoveryAcknowledgement"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignRecoveryEnvelope"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CampaignInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "network",
+              "stores"
+            ]
+          },
+          "stores": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxItems": 100
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "product": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "string",
+                  "pattern": "^\\d+\\.\\d{2}$"
+                }
+              },
+              "required": [
+                "product",
+                "price"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "name",
+          "startsOn",
+          "endsOn",
+          "active",
+          "scope",
+          "stores",
+          "prices",
+          "reason"
+        ]
+      },
+      "CampaignRecoveryEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "operation",
+          "target",
+          "request"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "archive"
+            ]
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "startsOn": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "endsOn": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "network",
+                      "stores"
+                    ]
+                  },
+                  "stores": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "maxItems": 100
+                  },
+                  "prices": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "product": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "type": "string",
+                          "pattern": "^\\d+\\.\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "product",
+                        "price"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 1000
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "name",
+                  "startsOn",
+                  "endsOn",
+                  "active",
+                  "scope",
+                  "stores",
+                  "prices",
+                  "reason"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "revision",
+                  "reason"
+                ],
+                "properties": {
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "CampaignRecoveryAcknowledgement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "confirmed",
+          "key",
+          "operation",
+          "target",
+          "requestHash",
+          "outcome"
+        ],
+        "properties": {
+          "confirmed": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "archive"
+            ]
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "created",
+              "saved",
+              "archived",
+              "unresolved"
+            ]
+          }
+        }
+      },
+      "CampaignRecoveryPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "storeId",
+          "networkOwner",
+          "canWrite"
+        ],
+        "properties": {
+          "role": {
+            "const": "owner",
+            "type": "string"
+          },
+          "storeId": {
+            "type": "null"
+          },
+          "networkOwner": {
+            "const": true,
+            "type": "boolean"
+          },
+          "canWrite": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CampaignRecoveryContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "target",
+          "exists",
+          "editing"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "archive"
+            ]
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exists": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "editing": {
+            "$ref": "#/components/schemas/CampaignRecoveryPolicy"
+          }
+        }
+      },
+      "Campaign": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "network",
+              "stores"
+            ]
+          },
+          "stores": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxItems": 100
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "product": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "string",
+                  "pattern": "^\\d+\\.\\d{2}$"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "product",
+                "price",
+                "name"
+              ]
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "scheduled",
+              "expired",
+              "disabled",
+              "archived"
+            ]
+          },
+          "author": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "startsOn",
+          "endsOn",
+          "active",
+          "scope",
+          "stores",
+          "prices",
+          "reason",
+          "id",
+          "revision",
+          "archived",
+          "status",
+          "author"
+        ]
+      },
+      "CampaignRecoveryCurrent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "campaign",
+          "editing"
+        ],
+        "properties": {
+          "campaign": {
+            "$ref": "#/components/schemas/Campaign"
+          },
+          "editing": {
+            "$ref": "#/components/schemas/CampaignRecoveryPolicy"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "session"
+      }
+    }
+  }
+}
