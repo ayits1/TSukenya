@@ -827,6 +827,12 @@ def handle(request):
     if path=='/api/erp/party-statement' and request.method=='GET':
         return response({'error':'Оновіть застосунок: звірка має новий обмежений контракт.',
                          'code':'endpoint_retired','replacement':'/api/v1/trading/settlements/statement'},410)
+    if path=='/api/erp/initiatives/recovery-context' and request.method=='GET':
+        from .initiative_drafts import recovery_context
+        return response(recovery_context(user,request.GET))
+    if path=='/api/erp/initiatives/operation-identity' and request.method=='POST':
+        from .initiative_drafts import operation_identity
+        return response(operation_identity(user,body(request)))
     if path=='/api/erp/initiatives':
         from .initiatives import list_projects,mutate
         if request.method=='GET':return response(list_projects(user,request.GET))
