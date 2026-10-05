@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
@@ -41,6 +41,47 @@ export function Catalog({
     activatePromotion?: boolean;
     defaultMarkup: string;
   } | null>(null);
+  const exportRequest = useRef<AbortController | null>(null),
+    exportSequence = useRef(0);
+  const exportIdentity = JSON.stringify([filters, priceStore]);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const exportBusy = exporting === exportIdentity;
+  useEffect(
+    () => () => {
+      exportRequest.current?.abort();
+      exportSequence.current += 1;
+    },
+    [api, exportIdentity],
+  );
+  const download = async () => {
+    if (!api.exportCsv || exportBusy || result.isFetching || query !== filters.q) return;
+    const controller = new AbortController(),
+      sequence = ++exportSequence.current;
+    exportRequest.current = controller;
+    setExporting(exportIdentity);
+    setMessage('');
+    try {
+      const blob = await api.exportCsv(filters, controller.signal);
+      if (sequence !== exportSequence.current || controller.signal.aborted) return;
+      const url = URL.createObjectURL(blob),
+        anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'catalogue.csv';
+      try {
+        document.body.append(anchor);
+        anchor.click();
+      } finally {
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }
+      setMessage('CSV містить усі товари за поточним фільтром.');
+    } catch (cause) {
+      if (sequence === exportSequence.current && !controller.signal.aborted)
+        setMessage(cause instanceof Error ? cause.message : 'Експорт недоступний.');
+    } finally {
+      if (sequence === exportSequence.current && !controller.signal.aborted) setExporting(null);
+    }
+  };
   const [message, setMessage] = useState('');
   const [managingReferences, setManagingReferences] = useState(false);
   useEffect(() => {
@@ -78,6 +119,7 @@ export function Catalog({
         return;
       void client.invalidateQueries({ queryKey: ['catalog'] });
       void client.invalidateQueries({ queryKey: ['catalog-references'] });
+      void client.invalidateQueries({ queryKey: ['catalog-reference-details'] });
     };
     window.addEventListener('tsukenya:data-changed', refresh);
     return () => window.removeEventListener('tsukenya:data-changed', refresh);
@@ -153,6 +195,7 @@ export function Catalog({
             {...(api.facets ? { facetApi: api.facets } : {})}
             showVisibility={false}
             data={result.data}
+            {...(api.exportCsv ? { onExport: () => void download() } : {})}
             onReferences={() => setManagingReferences(true)}
             filters={filters}
             onFilters={(value) => {
@@ -178,7 +221,7 @@ export function Catalog({
                   defaultMarkup: result.data.defaultMarkup,
                 });
             }}
-            busy={result.isFetching || promotion.isPending}
+            busy={result.isFetching || promotion.isPending || exportBusy || query !== filters.q}
             message={message}
           />
         </>

@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from '../catalog/referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fireEvent, userEvent, waitFor, within } from 'storybook/test';
@@ -84,6 +85,7 @@ function ConflictScenario({ mode = 'merge' }: { mode?: Mode }) {
       product: async () => catalogProducts[0]!,
       save: async () => catalogProducts[0]!,
       remove: async () => true,
+      referenceDirectory: fixtureReferenceDirectory(async () => catalogReferences),
       references: async () => catalogReferences,
       createReference: async () => {
         throw new Error('Довідники не використовуються в цьому сценарії.');

@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from './referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
@@ -35,6 +36,7 @@ function PendingFacets() {
         previewPrice: fixturePricePreview,
         save: async () => product,
         remove: async () => true,
+        referenceDirectory: fixtureReferenceDirectory(async () => catalogReferences),
         references: async () => catalogReferences,
         createReference: async () => {
           throw new Error('Не використовується в цьому сценарії.');

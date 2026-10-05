@@ -22,8 +22,21 @@ def register(connection):
         return raw.execute(query, values).fetchall()
     def keys(table, old, new):
         old=json.loads(old) if old else None; new=json.loads(new) if new else None
-        if old==new:return '[]'
-        if table=='document' and old and new and old['path']==new['path'] and spelling(json.loads(old['data']))==spelling(json.loads(new['data'])):return '[]'
+        # Scalar catalogue envelopes deliberately omit data; their SQL flag
+        # distinguishes real writes from true no-ops even when paths match.
+        scalar_catalogue = table=='document' and any(r and r.get('__dataChanged') for r in (old,new))
+        if old==new and not scalar_catalogue:return '[]'
+        # Catalogue invalidation needs only the path and raw JSON equality.
+        # The trigger envelope contains a transport string; do not decode its
+        # arbitrarily large nested recipe/unknown object graph. Spelling-only
+        # writes conservatively invalidate, while other family semantics stay.
+        catalogue = lambda row: row and (row['path'].startswith('products/') or row['path'].startswith('catalog_refs/'))
+        if table=='document' and old and new and old['path']==new['path']:
+            if catalogue(old):
+                if '__dataChanged' in new:
+                    if not new['__dataChanged']: return '[]'
+                elif old['data']==new['data']: return '[]'
+            elif spelling(json.loads(old['data']))==spelling(json.loads(new['data'])):return '[]'
         result=[]; rows=[r for r in (old,new) if r is not None]
         if table=='document':
             prior=json.loads(old['data']) if old and old['path']=='settings/main' else {}
@@ -33,10 +46,13 @@ def register(connection):
             allowed=set(PUBLIC+PRICING+SYNC)
             if spelling({k:v for k,v in prior.items() if k not in allowed})!=spelling({k:v for k,v in next_.items() if k not in allowed}):result.append('private_settings')
             for row in rows:
-                path=row['path']; data=json.loads(row['data'])
-                if path.startswith('products/'):result.append('catalog')
-                elif path.startswith('catalog_refs/'):result.append('references')
-                elif path.startswith('tasks/'):result+=task_keys(data)
+                path=row['path']
+                if path.startswith('products/'):
+                    result.append('catalog');continue
+                if path.startswith('catalog_refs/'):
+                    result.append('references');continue
+                data=json.loads(row['data'])
+                if path.startswith('tasks/'):result+=task_keys(data)
                 elif path.startswith('ideas/'):
                     result.append('owner_ideas')
                     if data.get('scope')=='operations':result.append('ops_ideas')

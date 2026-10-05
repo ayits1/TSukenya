@@ -21,6 +21,7 @@ from .models import Document
 from .import_index import drain, indexed_duplicate, legacy_recipe_lookup, IndexLimit
 from .import_references import ReferenceCache, ReferenceLimit
 from .services import BusinessError, dec, ledger_lock, require
+from .catalog_budget import bounded,check as budget_check,BudgetExceeded
 
 LIMITS={'maxRows':100000,'uploadRows':200,'workerRows':100,'maxEntryBytes':16384,
         'maxTotalBytes':52428800,'maxChunkBytes':1048576}
@@ -236,6 +237,7 @@ def config_for(run):return {key:Decimal(value) for key,value in run.pricing_conf
 
 
 def prepare(run,row,user,*,references=None):
+    budget_check()
     value=row.input;fields(value,{'line','id','revision','values'})
     check(row.line is not None,'Некоректний номер рядка.')
     for field,value_key in [('line',row.line),('name_hash',row.name_hash),('barcode',row.barcode)]:
@@ -247,7 +249,8 @@ def prepare(run,row,user,*,references=None):
     check(expected is None or isinstance(expected,str) and re.fullmatch('[0-9a-f]{64}',expected),'Некоректна версія товару.')
     matches=list(CatalogImportIndex.objects.filter(run=run,name_hash=row.name_hash)[:2])
     check(len(matches)<=1,'У каталозі кілька товарів із цією назвою.')
-    existing=Document.objects.filter(pk=matches[0].product_path).first() if matches else None
+    from .catalog_projection import projected_document
+    existing=projected_document(matches[0].product_path,config=config_for(run),with_recipe=True) if matches else None
     config=config_for(run)
     if matches:check(existing is not None and name_hash(existing.data.get('name'))==row.name_hash and revision(existing,config)==matches[0].revision,'Каталог змінено під час побудови плану.')
     if identifier is not None:check(existing is not None and existing.path=='products/'+identifier,'Назва та ID товару не відповідають каталогу.')
@@ -300,6 +303,7 @@ def claim(identifier=None):
 def lease_valid(run,token):return run.status=='running' and run.lease_token==token and run.lease_until is not None and run.lease_until>timezone.now()
 
 
+@bounded
 @transaction.atomic
 def step(identifier,token):
     ledger_lock();run=CatalogImportRun.objects.select_for_update().get(pk=identifier)
@@ -318,7 +322,11 @@ def step(identifier,token):
     if run.phase in {'indexing','validating'} and pricing_revision()!=run.pricing_revision:
         run.status='failed';run.error={'code':'pricing_revision_conflict','message':'Налаштування ціни змінено. Створіть новий імпорт.'};run.lease_token=None;run.lease_until=None;run.save();return False
     if run.phase=='indexing':
-        docs=list(Document.objects.filter(path__startswith='products/',path__gt=run.catalog_cursor).order_by('path')[:200])
+        from .catalog_projection import projected_document
+        paths=list(Document.objects.filter(path__startswith='products/',path__gt=run.catalog_cursor).order_by('path').values_list('path',flat=True)[:200])
+        docs=[]
+        for path in paths:
+            budget_check();docs.append(projected_document(path,config=config))
         CatalogImportIndex.objects.bulk_create([CatalogImportIndex(run=run,product_path=doc.path,name_hash=name_hash(doc.data.get('name')) if isinstance(doc.data,dict) else '',revision=revision(doc,config)) for doc in docs],batch_size=200)
         if docs:run.catalog_cursor=docs[-1].path;run.phase_done+=len(docs);run.phase_total=max(run.phase_total,run.phase_done)
         if len(docs)<200:run.phase='validating';run.phase_done=0;run.phase_total=run.expected_rows;run.row_cursor=0
@@ -329,6 +337,7 @@ def step(identifier,token):
             try:
                 path,captured,data,action,preview,price_version=prepare(run,row,user,references=references)
                 row.product_path=path;row.revision=captured;row.data=data;row.action=action;row.preview=preview;row.effective_revision=price_version;row.status='planned'
+            except BudgetExceeded:raise
             except BusinessError as exc:row.status='invalid';row.error={'code':'invalid_import_row','message':str(exc)}
             row.save();run.plan_material=digest([run.plan_material,row_material(row)]);run.row_cursor=row.ordinal;run.phase_done+=1
             if monotonic()-started>=5:break
@@ -349,11 +358,13 @@ def step(identifier,token):
     # skips it. Expiry fences entry to the step, not a completed unit's commit.
     check(run.lease_token==token,'Час виконання пакета вичерпано.','lease_expired',409)
     if run.status=='running':run.status='queued'
-    run.lease_token=None;run.lease_until=None;run.save();return True
+    run.lease_token=None;run.lease_until=None;run.save();budget_check();return True
 
 
 def apply_row(run,row,user,config,*,references=None):
-    existing=Document.objects.filter(pk=row.product_path).first();row.current_revision=revision(existing,config) if existing else ''
+    budget_check()
+    from .catalog_projection import projected_document,save_projection
+    existing=projected_document(row.product_path,config=config,with_recipe=True);row.current_revision=revision(existing,config) if existing else ''
     if pricing_revision()!=run.pricing_revision or (row.action=='create' and existing is not None) or (row.action!='create' and (existing is None or row.current_revision!=row.revision)):
         row.status='conflicted';row.error={'code':'revision_conflict','message':'Товар або налаштування ціни змінено після перевірки.'};row.save();return
     try:
@@ -373,7 +384,9 @@ def apply_row(run,row,user,config,*,references=None):
                 from .services import audit
                 before=snapshot('product',existing.data) if existing else None
                 if existing:observe_prices(user,[existing],'import','Імпорт товарів',seed=True,product_paths=[row.product_path])
-                document=existing or Document(path=row.product_path);document.data=data;document.save()
+                document=existing or Document(path=row.product_path)
+                if existing:save_projection(document,data,config=config)
+                else:document.data=data;document.save()
                 observe_prices(user,[document],'import','Імпорт товарів',product_paths=[row.product_path])
                 audit(user,'catalog_changed',document.path,{'method':'IMPORT','contract':'v1','run':str(run.pk),'line':row.line,**change(before,snapshot('product',data),observed=run.plan_revision,reason='Імпорт товарів')})
                 row.current_revision=revision(document,config)
@@ -382,6 +395,7 @@ def apply_row(run,row,user,config,*,references=None):
                 after_price=price_results.terms(existing if row.action=='skip' else document,config,resolver)
                 row.price_result=price_results.result(row.product_path.split('/',1)[1],row.status,price_results.compare_terms(before_price,after_price),resolver,line=row.line,ordinal=row.ordinal)
             row.error=None;row.save()
+    except BudgetExceeded:raise
     except BusinessError as exc:
         row.status='conflicted' if isinstance(exc,JobError) and exc.code=='revision_conflict' else 'failed'
         row.error={'code':'revision_conflict' if row.status=='conflicted' else 'apply_validation_failed','message':str(exc)};row.save()
@@ -397,7 +411,7 @@ def process_one(identifier=None):
         with transaction.atomic():
             run=CatalogImportRun.objects.select_for_update().get(pk=identifier)
             if run.lease_token==token:
-                run.status='failed';run.lease_token=None;run.lease_until=None;run.error={'code':'catalog_index_limit' if isinstance(exc,IndexLimit) else 'reference_limit' if isinstance(exc,ReferenceLimit) else 'worker_failed','message':str(exc) if isinstance(exc,(IndexLimit,ReferenceLimit)) else 'Пакет не записано. Повторіть виконання з журналу.'};run.save()
+                run.status='failed';run.lease_token=None;run.lease_until=None;run.error={'code':'catalog_index_limit' if isinstance(exc,IndexLimit) else 'reference_limit' if isinstance(exc,ReferenceLimit) else 'worker_failed','message':str(exc) if isinstance(exc,(IndexLimit,ReferenceLimit,BudgetExceeded)) else 'Пакет не записано. Повторіть виконання з журналу.'};run.save()
     return True
 
 

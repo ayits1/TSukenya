@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from '../catalog/referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within, waitFor } from 'storybook/test';
@@ -76,6 +77,7 @@ function Harness({ onPrepare }: { onPrepare: (store: number | undefined | null) 
       previewPrice: fixturePricePreview,
       save: async () => product(liveStore),
       remove: async () => true,
+      referenceDirectory: fixtureReferenceDirectory(async () => catalogReferences),
       references: async () => catalogReferences,
       createReference: async () => {
         throw new Error('Unused');

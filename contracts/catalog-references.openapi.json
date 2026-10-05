@@ -1,0 +1,699 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya bounded catalogue references",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/catalog/references/page": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Fresh READ ONLY snapshot; no business writes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "field",
+            "schema": {
+              "$ref": "#/components/schemas/Field"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "type": "string",
+              "enum": ["active", "archived", "merged"]
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "parentId",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,120}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "parentType",
+            "schema": {
+              "type": ["string", "null"],
+              "maxLength": 160
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalog/references/details": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Fresh READ ONLY snapshot; no business writes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Details"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetailsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/references/impact-page": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Fresh READ ONLY snapshot; no business writes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpactPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImpactPageRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portal/catalogue.csv": {
+      "get": {
+        "description": "Complete filtered schema-v1 CSV (transportCSV1 marker unchanged). Fresh read-only snapshot with frozen Kyiv day/config/store, bounded scalar batches, private pre-header disk preparation. Cost/markup columns redacted for cashier. includeHidden=true compatibility is owner-only both states and cannot combine with visibility or filters. No page/limit parameters; unknown or repeated parameters refuse.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 250
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pack",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "promotion",
+            "schema": {
+              "type": "string",
+              "enum": ["", "yes", "no"]
+            }
+          },
+          {
+            "in": "query",
+            "name": "visibility",
+            "schema": {
+              "type": "string",
+              "enum": ["active", "hidden"],
+              "default": "active"
+            }
+          },
+          {
+            "in": "query",
+            "name": "store",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "includeHidden",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"],
+              "deprecated": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All matching rows, including readonly derived metadata; no truncated success.",
+            "headers": {
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 268435456
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Explicit request, authorization, stale snapshot or resource refusal; no partial success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./catalog.openapi.json#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Field": {
+        "type": "string",
+        "enum": ["type", "category", "pack", "size", "unit"]
+      },
+      "Reference": {
+        "$ref": "./catalog.openapi.json#/components/schemas/ReferenceManagedItem"
+      },
+      "Query": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/Field"
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "state": {
+            "type": "string",
+            "enum": ["active", "archived", "merged"]
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parentType": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          }
+        },
+        "required": ["field", "q", "state", "parentId", "parentType"]
+      },
+      "Selected": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/Field"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "value": {
+            "type": "string"
+          },
+          "parentType": {
+            "type": "string"
+          }
+        },
+        "required": ["field", "value"]
+      },
+      "DetailsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/Selected"
+            }
+          },
+          "product": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          }
+        },
+        "required": ["items"]
+      },
+      "Resolved": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "selected": {
+            "$ref": "#/components/schemas/Selected"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Reference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolved": {
+            "type": "boolean"
+          }
+        },
+        "required": ["selected", "item", "resolved"]
+      },
+      "Details": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "contract": {
+            "const": "catalog-reference-details-v1"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/Resolved"
+            }
+          },
+          "canEdit": {
+            "type": "boolean"
+          }
+        },
+        "required": ["contract", "items", "canEdit"]
+      },
+      "Page": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "contract": {
+            "const": "catalog-reference-page-v1"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/Reference"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "const": 30
+          },
+          "query": {
+            "$ref": "#/components/schemas/Query"
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "csrf": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "contract",
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "query",
+          "canEdit",
+          "csrf"
+        ]
+      },
+      "ImpactSection": {
+        "type": "string",
+        "enum": ["products", "references", "coalesced", "blocked"]
+      },
+      "ImpactPageRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request": {
+            "$ref": "./catalog.openapi.json#/components/schemas/ReferenceMutation"
+          },
+          "snapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "section": {
+            "$ref": "#/components/schemas/ImpactSection"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": ["request", "snapshot", "section", "page"]
+      },
+      "ImpactRow": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "before": {
+                "$ref": "#/components/schemas/Reference"
+              },
+              "after": {
+                "$ref": "#/components/schemas/Reference"
+              }
+            },
+            "required": ["before", "after"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              "targetId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": ["sourceId", "targetId", "value"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,120}$"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "reason"]
+          }
+        ]
+      },
+      "ImpactPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "contract": {
+            "const": "catalog-reference-impact-page-v1"
+          },
+          "snapshot": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "section": {
+            "$ref": "#/components/schemas/ImpactSection"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/ImpactRow"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "const": 30
+          }
+        },
+        "required": [
+          "contract",
+          "snapshot",
+          "section",
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit"
+        ]
+      }
+    }
+  }
+}

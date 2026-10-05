@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from '../catalog/referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fireEvent, spyOn, userEvent, waitFor, within } from 'storybook/test';
@@ -63,6 +64,7 @@ function Draft() {
         previewPrice: fixturePricePreview,
         save: async () => product,
         remove: async () => true,
+        referenceDirectory: fixtureReferenceDirectory(async () => catalogReferences),
         references: async () => catalogReferences,
         createReference: async () => {
           throw new Error('Довідники не використовуються в цьому сценарії.');

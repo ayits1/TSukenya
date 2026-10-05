@@ -32,6 +32,7 @@ export function CatalogView({
   busy = false,
   message = '',
   onReferences,
+  onExport,
   showVisibility = true,
   facetApi,
 }: {
@@ -44,6 +45,7 @@ export function CatalogView({
   busy?: boolean;
   message?: string;
   onReferences?: () => void;
+  onExport?: () => void;
   facetApi?: FacetApi;
 }) {
   const change = (patch: Partial<Filters>) => onFilters({ ...filters, ...patch, page: 1 });
@@ -55,6 +57,11 @@ export function CatalogView({
           <h2>Каталог товарів</h2>
           <p>Каталог, актуальні ціни та акційні пропозиції</p>
         </div>
+        {onExport ? (
+          <Button onPress={onExport} isDisabled={busy}>
+            Експортувати весь фільтр CSV
+          </Button>
+        ) : null}
         {onReferences ? (
           <Button onPress={onReferences} isDisabled={busy}>
             Довідники

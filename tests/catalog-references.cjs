@@ -1,5 +1,6 @@
 /* Standalone choices and dependent catalogue selection against isolated Django only. */
 const assert = require('node:assert/strict');
+const readReferences=require('./reference-pages.cjs');
 
 module.exports = async (page, until) => {
   await page.getByRole('button', { name: 'Додати товар' }).click();
@@ -10,6 +11,7 @@ module.exports = async (page, until) => {
   assert.equal(await combo('Одиниця').inputValue(), 'шт');
   await form.getByRole('textbox', { name: 'Назва товару' }).fill('Контрольний товар довідників');
   await combo('Група').fill('Довільний текст пошуку');
+  await page.getByRole('listbox').waitFor();await page.getByText('Нічого не знайдено',{exact:true}).waitFor();
   await combo('Група').press('Escape');await form.getByRole('textbox', { name: 'Назва товару' }).click();
   assert.equal(await combo('Група').inputValue(), '', 'search text does not become a reference');
   async function add(label, value) {
@@ -31,9 +33,9 @@ module.exports = async (page, until) => {
   assert.equal(await page.getByRole('option', { name: 'Категорія QA', exact: true }).count(), 0, 'category from another group excluded');
   await page.keyboard.press('Escape');
   await add('Категорія', 'Категорія QA');
-  await combo('Група').fill('Група QA');await combo('Група').press('ArrowDown');await combo('Група').press('Enter');
+  await combo('Група').fill('Група QA');await page.getByRole('option',{name:'Група QA',exact:true}).waitFor();await combo('Група').press('ArrowDown');await combo('Група').press('Enter');
   assert.equal(await combo('Група').inputValue(), 'Група QA', 'keyboard selection commits group');
-  await combo('Категорія').click();await page.getByRole('option', { name: 'Категорія QA', exact: true }).click();
+  await combo('Категорія').click();const categoryOption=page.getByRole('listbox').getByRole('option').filter({hasText:'Категорія QA'});await categoryOption.waitFor();assert.equal(await categoryOption.count(),1);await categoryOption.click();
   await form.getByRole('button', { name: 'Додати запис: Пакування', exact: true }).click();
   await form.getByRole('textbox', { name: 'Новий запис: Пакування', exact: true }).fill('Чернетка');
   await page.keyboard.press('Escape');
@@ -58,9 +60,10 @@ module.exports = async (page, until) => {
   await form.getByRole('button', { name: 'Зберегти товар', exact: true }).click();
   await until(async () => await form.count() === 0, 'save dictionary-backed product');
   const result = await page.evaluate(async () => ({
-    references: await (await fetch('/api/v1/catalog/references')).json(),
+
     product: (await (await fetch('/api/v1/catalog/products?q=' + encodeURIComponent('Контрольний товар довідників'))).json()).items[0],
   }));
+  result.references=await readReferences(page);
   assert.equal(result.product.type, 'Група QA');assert.equal(result.product.category, 'Категорія QA');
   assert.equal(result.product.pack, 'Пакування QA');assert.equal(result.product.size, '0,5 л QA');assert.equal(result.product.unit, 'уп QA');
   assert.equal(result.references.items.filter(item => item.field === 'category' && item.value === 'Категорія QA').length, 2, 'same category label independently scoped');
@@ -71,7 +74,7 @@ module.exports = async (page, until) => {
   assert.equal(await editor.getByRole('combobox', { name: 'Категорія', exact: true }).inputValue(), 'Категорія QA');
   page.once('dialog', dialog => dialog.accept());await editor.getByRole('button', { name: 'Видалити товар', exact: true }).click();
   await until(async () => await editor.count() === 0, 'delete source product');
-  const items = await page.evaluate(async () => (await (await fetch('/api/v1/catalog/references')).json()).items);
+  const items = (await readReferences(page)).items;
   assert(items.some(item => item.field === 'pack' && item.value === 'Пакування QA'), 'standalone choice survives deletion');
   await page.getByRole('button', { name: 'Скинути фільтри' }).click();
   console.log('PASS: explicit reference creation/selection, dependent categories, keyboard/Enter/Escape/focus, five fields, 1440/390/320 and persistent choices after source deletion; isolated data only.');

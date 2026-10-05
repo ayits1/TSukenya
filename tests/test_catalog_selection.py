@@ -175,7 +175,7 @@ class CatalogSelectionTests(TransactionTestCase):
         Document.objects.bulk_create([Document(path=f'products/repeated-{n}', data={'name':str(n),'pack':'STRASSE БАНКА','recipe':['x'*100000]}) for n in range(210)])
         with CaptureQueriesContext(connection) as queries:
             scoped = scoped_records(({'pack':'STRASSE БАНКА'},))
-        self.assertEqual(len(scoped), 5)  # three explicit entries, default unit, one legacy pack
+        self.assertEqual(len(scoped), len(reference_records()))  # complete disk mapping; no first-page/selected-only truncation
         scalar = next(q['sql'] for q in queries if 'scalar' in q['sql'])
         self.assertNotIn('recipe', scalar)
 

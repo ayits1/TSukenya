@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from './referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, spyOn, userEvent, waitFor, within } from 'storybook/test';
@@ -35,6 +36,7 @@ function Harness({ onDirty }: { onDirty: (dirty: boolean) => void }) {
       remove: async () => true,
       visibility: async (product, hidden) => ({ ...product, hidden }),
       previewPrice: fixturePricePreview,
+      referenceDirectory: fixtureReferenceDirectory(async () => catalogReferences),
       references: async () => catalogReferences,
       createReference: async () => {
         throw new Error('Not used');
@@ -102,10 +104,31 @@ export const ReferenceModalKeepsCampaignDraft: Story = {
     );
     await waitFor(() => expect(args.onDirty).toHaveBeenLastCalledWith(true));
     const fetch = spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-      if (String(input) === '/api/v1/catalog/references/manage')
-        return new Response(JSON.stringify({ items: [], csrf: 'synthetic', canEdit: true }), {
-          status: 200,
-        });
+      if (String(input).startsWith('/api/v1/catalog/references/page?')) {
+        const params = new URL(String(input), 'http://synthetic').searchParams;
+        return new Response(
+          JSON.stringify({
+            contract: 'catalog-reference-page-v1',
+            items: [],
+            total: 0,
+            page: 1,
+            pages: 1,
+            limit: 30,
+            query: {
+              field: params.get('field'),
+              q: params.get('q'),
+              state: params.get('state'),
+              parentId: null,
+              parentType: null,
+            },
+            csrf: 'synthetic',
+            canEdit: true,
+          }),
+          {
+            status: 200,
+          },
+        );
+      }
       throw new Error('Unexpected synthetic HTTP: ' + String(input));
     });
     try {

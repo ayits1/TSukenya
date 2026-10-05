@@ -40,9 +40,14 @@ def scalar_rows(query, fields, *, present=None, ordering=('path',), extra=()):
         scalar = RawSQL('json_object(' + ','.join(expressions) + ')', arguments, output_field=JSONField())
     encoded_bytes = Func(Cast(scalar, TextField()), function='octet_length', output_field=IntegerField()) if connection.vendor == 'postgresql' else Length(Cast(Cast(scalar, TextField()), BinaryField()))
     projected = query.annotate(scalar_bytes=encoded_bytes).annotate(scalar=Case(When(scalar_bytes__lte=MAX_SCALAR_BYTES, then=scalar), default=Value(None), output_field=JSONField()))
-    if present:
-        projected = projected.annotate(present=Case(When(**{'data__has_key': present}, then=Value(True)), default=Value(False), output_field=BooleanField()))
-    return projected.order_by(*ordering).values_list('path', 'scalar', *(['present'] if present else []), *extra)
+    presence = (present,) if isinstance(present, str) else tuple(present or ())
+    names = []
+    for index, field in enumerate(presence):
+        name = 'present' if isinstance(present, str) else 'present_' + str(index)
+        names.append(name)
+        projected = projected.annotate(**{name: Case(When(**{'data__has_key': field}, then=Value(True)), default=Value(False), output_field=BooleanField())})
+    return projected.order_by(*ordering).values_list('path', 'scalar', *names)
+
 
 
 def source(user, params, visibility='active'):
@@ -186,6 +191,16 @@ class Selection:
         self.build()
         where, args = self.where()
         return [row[0] for row in self.db.execute('SELECT path FROM items NOT INDEXED WHERE ' + where + ' ORDER BY position LIMIT ? OFFSET ?', [*args, limit, offset])]
+
+    def iter_ids(self):
+        """Full filtered source, bounded cursor; no pagination offset omission."""
+        if not self.params.get('promotion'):
+            rows=narrowed(self.query,self.params).order_by('data__type','data__category','data__name','path').values_list('path',flat=True).iterator(chunk_size=BATCH)
+            try:yield from rows
+            finally:rows.close()
+        else:
+            self.build();where,args=self.where()
+            for row in self.db.execute('SELECT path FROM items NOT INDEXED WHERE '+where+' ORDER BY position',args):yield row[0]
 
     def count(self):
         if not self.params.get('promotion'): return narrowed(self.query, self.params).count()

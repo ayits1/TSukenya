@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from './referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within, waitFor } from 'storybook/test';
@@ -26,6 +27,10 @@ const meta = {
       previewPrice: fixturePricePreview,
       remove: async () => true,
       save: fn(async () => product),
+      referenceDirectory: fixtureReferenceDirectory(async () => ({
+        ...catalogReferences,
+        items: [...catalogReferences.items, ...created],
+      })),
       references: async () => ({
         ...catalogReferences,
         items: [...catalogReferences.items, ...created],
@@ -149,10 +154,12 @@ export const ReferenceSelectionAndCreation: Story = {
     await waitFor(() => expect(group).toBeEnabled());
     await userEvent.clear(group);
     await userEvent.type(group, 'Цукерки');
+    await within(document.body).findByRole('option', { name: 'Цукерки' });
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await expect(group).toHaveValue('Цукерки');
     const category = form.getByRole('combobox', { name: 'Категорія' });
     await expect(category).toHaveValue('');
+    await waitFor(() => expect(category).toBeEnabled());
     await userEvent.click(category);
     await expect(within(document.body).queryByRole('option', { name: 'Кава' })).toBeNull();
     await userEvent.keyboard('{Escape}');
@@ -203,6 +210,9 @@ export const ReferencesUnavailable: Story = {
   args: {
     api: {
       ...meta.args.api,
+      referenceDirectory: fixtureReferenceDirectory(async () => {
+        throw new Error('Довідники тимчасово недоступні.');
+      }),
       references: async () => {
         throw new Error('Довідники тимчасово недоступні.');
       },

@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from './referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within, waitFor } from 'storybook/test';
@@ -47,6 +48,7 @@ const api: CatalogApi = {
   product: async () => product,
   remove: async () => true,
   save: fn(async () => product),
+  referenceDirectory: fixtureReferenceDirectory(async () => catalogReferences),
   references: async () => catalogReferences,
   createReference: async () => {
     throw new Error('Додавання довідника тут не використовується.');

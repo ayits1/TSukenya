@@ -21,6 +21,7 @@ const impact = {
   usageCount: 2,
   referenceCount: 1,
   coalescedCategories: [],
+  coalescedCount: 0,
   examples: [],
   blocked: [],
   blockedCount: 0,

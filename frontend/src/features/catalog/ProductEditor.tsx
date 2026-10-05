@@ -1,3 +1,4 @@
+import { referenceQuery, type SelectedReference } from './referenceDirectoryApi';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ModalOverlay, Modal, Dialog, Heading, Form, Checkbox } from 'react-aria-components';
@@ -19,7 +20,6 @@ import {
   type ProductCreate,
   type ProductPatch,
   type ReferenceField,
-  type ReferenceData,
   type PricePreview,
   type PricePreviewRequest,
   referenceKey,
@@ -104,12 +104,26 @@ export function ProductEditor({
   const referenceButtons = useRef<Partial<Record<ReferenceField, HTMLButtonElement>>>({});
   const focusAfterCreation = useRef<ReferenceField | null>(null);
   const [creation, setCreation] = useState<{ field: ReferenceField; value: string } | null>(null);
+  const selectedReferences: SelectedReference[] = (
+    ['type', 'category', 'pack', 'size', 'unit'] as const
+  ).map((field) => ({
+    field,
+    value: draft[field],
+    ...(field === 'category' ? { parentType: draft.type } : {}),
+    ...(current?.referenceIds?.[field] &&
+    referenceKey(current[field]) === referenceKey(draft[field]) &&
+    (field !== 'category' || referenceKey(current.type) === referenceKey(draft.type))
+      ? { id: current.referenceIds[field] }
+      : {}),
+  }));
   const references = useQuery({
-    queryKey: ['catalog-references'],
-    queryFn: ({ signal }) => api.references(signal),
-    staleTime: 15_000,
+    queryKey: ['catalog-reference-details', selectedReferences],
+    queryFn: ({ signal }) => api.referenceDirectory.details(selectedReferences, signal),
     retry: false,
+    staleTime: 0,
   });
+  const metadata = (field: ReferenceField) =>
+    references.data?.items.find((row) => row.selected.field === field)?.item || null;
   const chooseReference = (field: ReferenceField, value: string) => {
     setDraft((old) => ({
       ...old,
@@ -133,18 +147,10 @@ export function ProductEditor({
     },
     retry: false,
     onSuccess: (item) => {
-      client.setQueryData<ReferenceData>(['catalog-references'], (data) =>
-        data
-          ? {
-              ...data,
-              items: [...data.items.filter((old) => old.id !== item.id), item],
-            }
-          : data,
-      );
       chooseReference(item.field, item.value);
       setCreation(null);
       setNotice(`Вибрано з довідника: ${item.value}`);
-      void client.invalidateQueries({ queryKey: ['catalog-references'] });
+      void client.invalidateQueries({ queryKey: ['catalog-reference-details'] });
       focusReference(item.field);
     },
   });
@@ -332,18 +338,21 @@ export function ProductEditor({
   }, [comparison]);
   useEffect(() => {
     if (!referenceBusy && !creation && focusAfterCreation.current) {
-      referenceButtons.current[focusAfterCreation.current]?.focus();
-      focusAfterCreation.current = null;
+      const button = referenceButtons.current[focusAfterCreation.current];
+      if (button && !button.disabled) {
+        button.focus();
+        focusAfterCreation.current = null;
+      }
     }
-  }, [referenceBusy, creation]);
-  const archivedSelection = (field: ReferenceField) =>
-    (references.data?.archivedItems || []).some(
-      (item) =>
-        item.field === field &&
-        referenceKey(item.value) === referenceKey(draft[field]) &&
-        (field !== 'category' || referenceKey(item.parentType) === referenceKey(draft.type)) &&
-        (!current?.referenceIds?.[field] || current.referenceIds[field] === item.id),
-    );
+  }, [
+    referenceBusy,
+    creation,
+    references.isPending,
+    references.isFetching,
+    references.data,
+    references.error,
+  ]);
+  const archivedSelection = (field: ReferenceField) => metadata(field)?.state === 'archived';
   const archivedNewValue =
     !current && (['type', 'category', 'pack', 'size', 'unit'] as const).some(archivedSelection);
   const reference = (field: ReferenceField) => (
@@ -351,10 +360,16 @@ export function ProductEditor({
       label={referenceLabels[field]}
       archived={archivedSelection(field)}
       value={draft[field]}
-      options={(references.data?.items || []).filter(
-        (item) =>
-          item.field === field &&
-          (field !== 'category' || referenceKey(item.parentType) === referenceKey(draft.type)),
+      api={api.referenceDirectory}
+      selected={metadata(field)}
+      query={referenceQuery(
+        field,
+        field === 'category'
+          ? {
+              parentId: metadata('type')?.id || null,
+              parentType: metadata('type') ? null : draft.type,
+            }
+          : {},
       )}
       onChange={(value) => chooseReference(field, value)}
       addButtonRef={(button) => {
@@ -373,17 +388,22 @@ export function ProductEditor({
         !referenceBusy &&
         !references.error &&
         !creation &&
-        (field !== 'category' ||
-          !!references.data?.items.some(
-            (item) =>
-              item.field === 'type' && referenceKey(item.value) === referenceKey(draft.type),
-          ))
+        (field !== 'category' || metadata('type')?.state === 'active')
       }
-      {...(field === 'category'
+      {...(selectedReferences.find((row) => row.field === field)?.id &&
+      !metadata(field) &&
+      !references.isPending
         ? {
-            description: draft.type ? `Категорії групи «${draft.type}»` : 'Спочатку виберіть групу',
+            description:
+              'ID цього збереженого значення не знайдено. Це не означає архівування; виберіть чинний запис перед зміною.',
           }
-        : {})}
+        : field === 'category'
+          ? {
+              description: draft.type
+                ? `Категорії групи «${draft.type}»`
+                : 'Спочатку виберіть групу',
+            }
+          : {})}
       onAdd={() => {
         addReference.reset();
         setCreation({ field, value: '' });
@@ -431,6 +451,7 @@ export function ProductEditor({
                 !activePreview ||
                 archivedNewValue ||
                 visibilityRecovery ||
+                !references.data?.canEdit ||
                 !!(current && !current.canEdit)
               )
                 return;
@@ -760,6 +781,7 @@ export function ProductEditor({
                   !activePreview ||
                   archivedNewValue ||
                   visibilityRecovery ||
+                  !references.data?.canEdit ||
                   !!(current && !current.canEdit)
                 }
               >

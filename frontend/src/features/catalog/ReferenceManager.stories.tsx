@@ -1,3 +1,4 @@
+import { fixtureReferenceDirectory } from './referenceDirectoryFixtures';
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -51,6 +52,7 @@ const reviewed = (request: ReferenceMutation): ReferenceImpact => ({
   productCount: request.operation === 'archive' ? 0 : 2,
   usageCount: 2,
   referenceCount: 3,
+  coalescedCount: request.operation === 'merge' ? 1 : 0,
   coalescedCategories:
     request.operation === 'merge'
       ? [
@@ -69,8 +71,10 @@ const reviewed = (request: ReferenceMutation): ReferenceImpact => ({
   blockedCount: 0,
   warnings: ['Історичні назви й одиниці в облікових рядках та партіях залишаться незмінними.'],
 });
+const directory = fixtureReferenceDirectory(async () => ({ items, canEdit: true }));
 const api: ReferenceManagementApi = {
-  list: async () => ({ items, csrf: 'synthetic', canEdit: true }),
+  directory,
+  list: directory.page,
   preview: fn(async (request) => reviewed(request)),
   commit: fn(async (request) => ({ ...reviewed(request), ok: true as const })),
 };
@@ -91,12 +95,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 const ui = () => within(within(document.body).getByRole('dialog'));
 const select = async (label: string, name: string) => {
-  await userEvent.click(ui().getByRole('button', { name: new RegExp(label) }));
+  const picker = ui().queryByRole('combobox', { name: new RegExp(label) });
+  await userEvent.click(picker || ui().getByRole('button', { name: new RegExp(label) }));
   await userEvent.click(within(document.body).getByRole('option', { name }));
 };
 const source = async () => {
-  await waitFor(() => expect(ui().getByRole('button', { name: /Запис довідника/ })).toBeEnabled());
-  await select('Запис довідника', 'Напої · Активний');
+  await waitFor(() =>
+    expect(ui().getByRole('combobox', { name: /Запис довідника/ })).toBeEnabled(),
+  );
+  await select('Запис довідника', 'Напої');
 };
 const impact = async () => {
   await userEvent.click(ui().getByRole('button', { name: 'Переглянути вплив' }));
@@ -136,7 +143,7 @@ export const ExplicitMerge: Story = {
     await source();
     await select('Дія', 'Об’єднати');
     await expect(ui().getByRole('button', { name: 'Переглянути вплив' })).toBeDisabled();
-    await select('Цільова група', `${items[1]!.value} · Активний`);
+    await select('Цільова група', items[1]!.value);
     await impact();
     await expect(
       ui().getByText('Кава з довгою назвою категорії → Подарункові набори із довгою назвою'),
@@ -153,7 +160,8 @@ export const ArchiveAndRestore: Story = {
         'Архівований запис зникне з нового вибору. Наявні значення товарів залишаться читабельними.',
       ),
     ).toBeVisible();
-    await select('Запис довідника', 'Архівна група · Архівований');
+    await select('Стан записів', 'Архівований');
+    await select('Запис довідника', 'Архівна група');
     await expect(ui().queryByRole('heading', { name: 'Перевірений вплив' })).toBeNull();
     await impact();
     await expect(ui().getByText('Відновити: Архівна група')).toBeVisible();
@@ -200,7 +208,12 @@ export const StaleSnapshotKeepsInput: Story = {
   },
 };
 export const ReadOnly: Story = {
-  args: { api: { ...api, list: async () => ({ items, canEdit: false, csrf: 'synthetic' }) } },
+  args: {
+    api: {
+      ...api,
+      list: async (query, page) => ({ ...(await directory.page(query, page)), canEdit: false }),
+    },
+  },
   play: async () => {
     await source();
     await expect(ui().getByText('Вашій ролі доступний перегляд довідників.')).toBeVisible();

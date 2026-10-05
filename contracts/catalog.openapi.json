@@ -686,18 +686,8 @@
     },
     "/api/v1/catalog/references": {
       "get": {
-        "description": "Active persistent choices and compatible legacy product values; explicit archive/merge tombstones suppress old values and defaults. archivedItems supports readable unchanged historical selections.",
+        "description": "Retired whole-dictionary GET. Use references/page and selected-ID references/details; no silent first-page compatibility.",
         "responses": {
-          "200": {
-            "description": "Reference dictionaries",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReferenceData"
-                }
-              }
-            }
-          },
           "400": {
             "description": "Error",
             "content": {
@@ -727,8 +717,19 @@
                 }
               }
             }
+          },
+          "410": {
+            "description": "bounded_read_required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        }
+        },
+        "deprecated": true
       },
       "post": {
         "description": "Create a persistent choice. Retries return the same canonical item and ID (200); new value 201. Requires catalogue edit role. Category requires a known nonempty group.",
@@ -1143,18 +1144,8 @@
     },
     "/api/v1/catalog/references/manage": {
       "get": {
-        "description": "Current stable dictionaries including explicit archived/merged entries; read only.",
+        "description": "Retired whole-dictionary GET. Use references/page and selected-ID references/details; no silent first-page compatibility.",
         "responses": {
-          "200": {
-            "description": "Result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReferenceManagement"
-                }
-              }
-            }
-          },
           "400": {
             "description": "Error",
             "content": {
@@ -1194,8 +1185,19 @@
                 }
               }
             }
+          },
+          "410": {
+            "description": "bounded_read_required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        }
+        },
+        "deprecated": true
       }
     },
     "/api/v1/catalog/references/preview": {
@@ -5329,6 +5331,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "coalescedCount": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
@@ -5343,7 +5349,8 @@
           "examples",
           "blocked",
           "blockedCount",
-          "warnings"
+          "warnings",
+          "coalescedCount"
         ]
       },
       "ReferenceCommit": {
@@ -5499,6 +5506,10 @@
           "ok": {
             "type": "boolean",
             "const": true
+          },
+          "coalescedCount": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
@@ -5514,7 +5525,8 @@
           "blocked",
           "blockedCount",
           "warnings",
-          "ok"
+          "ok",
+          "coalescedCount"
         ]
       },
       "PriceContext": {

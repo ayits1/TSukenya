@@ -28,13 +28,15 @@ def drain(limit=200):
     """Caller owns LedgerLock. Technical writes are rolled back with the current step."""
     from .catalog_import import canonical
     paths=list(CatalogIndexDirty.objects.order_by('path').values_list('path','revision')[:limit])
+    from .catalog_budget import check
     for path,observed in paths:
-        document=Document.objects.select_for_update().filter(pk=path).first()
+        check()
+        from .catalog_projection import projected_document
+        document=projected_document(path,with_recipe='index')
         if document is None:
             CatalogNameIndex.objects.filter(product_id=path).delete();CatalogRecipeIndex.objects.filter(product_id=path).delete()
         else:
             data=document.data if isinstance(document.data,dict) else {}
-            if len(canonical(data).encode())>MAX_INDEX_RECORD_BYTES:raise IndexLimit(f'Каталожний запис {path} перевищує 1 МіБ. Виправте його перед великим імпортом.')
             recipe=data.get('recipe',[])
             if isinstance(recipe,list) and len(recipe)>MAX_INDEX_RECIPE_ROWS:raise IndexLimit(f'Історична рецептура {path} перевищує 100 рядків. Виправте її перед великим імпортом.')
             key=name_key(data.get('name'));hashed=hashlib.sha256(key.encode()).hexdigest() if key else ''

@@ -16,8 +16,12 @@ ID = re.compile(r'[A-Za-z0-9_-]{1,120}')
 
 
 def sign(value):
-    material = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
-    return hmac.new(settings.SECRET_KEY.encode(), material, hashlib.sha256).hexdigest()
+    signer = hmac.new(settings.SECRET_KEY.encode(), digestmod=hashlib.sha256)
+    for chunk in json.JSONEncoder(ensure_ascii=False,sort_keys=True,separators=(',',':')).iterencode(value):
+        from .catalog_budget import check
+        check()
+        signer.update(chunk.encode())
+    return signer.hexdigest()
 
 
 def item_revision(item):
@@ -57,17 +61,27 @@ def remember(item):
 
 
 def plan(payload):
+    from .catalog_reference_index import ReferenceIndex
+    records=ReferenceIndex();opened=[records]
+    try:return _plan(payload,records,opened)
+    except BaseException:
+        for index in opened:index.close()
+        raise
+
+
+def _plan(payload,records,opened):
     from .catalog import unit_in_use
-    records = reference_records()
+    from .catalog_reference_index import ReferenceIndex
+    from .catalog_reference_plan import Changes
     source = records.get(payload['sourceId'])
     require(source is not None, 'Запис довідника не знайдено. Оновіть список.')
     if item_revision(source) != payload['revision']:
         raise Conflict('Довідник уже змінено. Оновіть список та перегляньте вплив знову.', 'revision_conflict')
     operation = payload['operation']
     require(source['state'] == ('archived' if operation == 'restore' else 'active'), 'Дія недоступна для поточного стану довідника.')
-    updated = copy.deepcopy(records)
+    updated = records.clone();opened.append(updated)
+    changed = Changes(updated);changed.add(source['id'])
     next_source = updated[source['id']]
-    changed, redirects, coalesced = {source['id']}, {}, []
     target = None
     if operation == 'rename':
         text = payload['value']
@@ -81,13 +95,14 @@ def plan(payload):
         if source['field'] == 'category':
             require(source.get('parentId') == target.get('parentId') and identity('type', source['parentType']) == identity('type', target['parentType']), 'Категорії можна об’єднувати лише в одній групі.')
         remember(next_source); next_source['state'] = 'merged'; next_source['mergedInto'] = target['id']
-        redirects[source['id']] = target['id']
+        changed.redirect(source['id'],target['id'])
         changed.add(target['id'])  # Pin a legacy target before source products cease to expose it.
     else:
         if operation == 'restore':
-            collision = next((item for item in records.values() if item['id'] != source['id'] and item['state'] == 'active' and keys(source) & keys(item)), None)
+            collision = records.collisions(source)
             require(collision is None, 'Активний запис із такою назвою або попередньою назвою вже існує в цій групі. Відкрийте його або спочатку перейменуйте активний запис, щоб звільнити назву.')
         next_source['state'] = 'archived' if operation == 'archive' else 'active'
+    updated.put(next_source)
     if source['field'] == 'type' and operation in {'rename', 'merge'}:
         for child in records.values():
             if child['field'] != 'category' or child['state'] == 'merged' or child.get('parentId') != source['id']: continue
@@ -95,62 +110,47 @@ def plan(payload):
             remember(next_child); changed.add(child['id'])
             if operation == 'rename': next_child['parentType'] = next_source['value']
             else:
-                collision = next((other for other in records.values() if other['field'] == 'category' and other['state'] == 'active' and other.get('parentId') == target['id'] and clean(other['value']).casefold() == clean(child['value']).casefold()), None) if child['state'] == 'active' else None
+                collision = records.lookup('category',child['value'],target['value']) if child['state']=='active' else None
+                if collision and not (collision['state']=='active' and collision.get('parentId')==target['id'] and identity('category',collision['value'],collision['parentType'])==identity('category',child['value'],target['value'])):collision=None
                 if collision:
                     next_child['state'] = 'merged'; next_child['mergedInto'] = collision['id']
-                    redirects[child['id']] = collision['id']; changed.add(collision['id'])
-                    coalesced.append({'sourceId': child['id'], 'targetId': collision['id'], 'value': child['value']})
+                    changed.redirect(child['id'],collision['id']);changed.add(collision['id'])
+                    changed.coalesce(child['id'],collision['id'],child['value'])
                 else:
                     next_child['parentType'] = target['value']; next_child['parentId'] = target['id']
-    products, usage, blocked = [], [], []
-    for document in Document.objects.filter(path__startswith='products/').order_by('path'):
-        old = document.data
-        if not isinstance(old, dict): continue
-        value, matched = copy.deepcopy(old), {}
-        for field in FIELDS:
-            text = old.get(field) or ('шт' if field == 'unit' else '')
-            if not isinstance(text, str) or not text: continue
-            parent = old.get('type', '') if field == 'category' else ''
-            if not isinstance(parent, str): parent = ''
-            stored = old.get('referenceIds', {})
-            item = records.get(stored.get(field)) if isinstance(stored, dict) else None
-            if not item or item['field'] != field:
-                item = find_reference(records, field, text, parent)
-            if item and item['id'] in changed: matched[field] = item['id']
-        if not matched: continue
-        # Archive/restore never rewrite existing display values or product revisions.
-        if source['id'] in matched.values(): usage.append(document.path)
-        if operation in {'rename', 'merge'}:
-            bindings = dict(old.get('referenceIds', {})) if isinstance(old.get('referenceIds'), dict) else {}
-            for field, identifier in matched.items():
-                next_item = updated[redirects.get(identifier, identifier)]
-                value[field] = next_item['value']; bindings[field] = next_item['id']
-            value['referenceIds'] = bindings
-            if source['field'] == 'unit' and source['id'] in matched.values():
-                reason = unit_in_use(document.path, old)
-                if reason: blocked.append(f'{old.get("name", document.path)}: {reason}. Для іншої одиниці створіть окремий товар.')
-            if value != old: products.append((document, value))
-    material = {'request': payload, 'references': records, 'usage': usage,
-                'products': [{'path': document.path, 'before': document.data, 'after': value} for document, value in products], 'blocked': blocked}
-    snapshot = sign(material)
-    result = {'snapshot': snapshot, 'operation': operation, 'source': serialize(source),
-              'target': serialize(target) if target else None, 'productCount': len(products),
-              'usageCount': len(usage), 'referenceCount': len(changed), 'coalescedCategories': coalesced,
-              'examples': [{'id': document.path.split('/', 1)[1], 'name': str(document.data.get('name', ''))} for document, _ in products[:10]],
-              'blocked': blocked[:10], 'blockedCount': len(blocked),
-              'warnings': ['Історичні назви й одиниці в облікових рядках та партіях залишаться незмінними.']}
-    if operation == 'archive': result['warnings'].append('Наявні товари зберігають значення. Новий вибір архівованого запису буде заборонено.')
-    return result, updated, changed, products, records
+            updated.put(next_child)
+    changed.scan(source,operation,records)
+    from .catalog_source_guard import snapshot as source_snapshot
+    from .catalog import defaults
+    from .promotion_prices import kyiv_day
+    snapshot = sign({'request':payload,'source':source_snapshot(defaults(),day=kyiv_day())})
+    result={'snapshot':snapshot,'operation':operation,'source':serialize(source),
+        'target':serialize(target) if target else None,'productCount':changed.count('changes'),
+        'usageCount':changed.count('usage'),'referenceCount':len(changed),
+        'coalescedCategories':changed.coalesced_examples(),'coalescedCount':changed.count('coalesced'),
+        'examples':changed.examples(),'blocked':changed.blocked_examples(),'blockedCount':changed.count('blocked'),
+        'warnings':['Історичні назви й одиниці в облікових рядках та партіях залишаться незмінними.']}
+    if operation=='archive':result['warnings'].append('Наявні товари зберігають значення. Новий вибір архівованого запису буде заборонено.')
+    return result,updated,changed,changed.products(),records
 
 
 def preview(request, user):
     from .catalog import EDIT_ROLES
     from .views import body, response
-    require(user.profile.role in EDIT_ROLES, 'Недостатньо прав для керування довідниками.')
-    result, _, _, _, _ = plan(request_value(body(request)))
-    return response(result)
+    from .historical_reports import read_snapshot
+    from .services import current_actor
+    from .catalog_budget import budget
+    with budget(),read_snapshot():
+        user=current_actor(user)
+        require(user.profile.role in EDIT_ROLES,'Недостатньо прав для керування довідниками.')
+        result,updated,changed,products,before=plan(request_value(body(request)))
+        try:return response(result)
+        finally:updated.close();before.close()
 
 
+from .catalog_budget import bounded,check
+
+@bounded
 @transaction.atomic
 def commit(request, user):
     from .catalog import EDIT_ROLES
@@ -176,26 +176,34 @@ def commit(request, user):
             raise Conflict('Ключ зміни довідника вже використано з іншим запитом.', 'idempotency_conflict')
         return response(previous.data['result'])
     result, records, changed, products, before_records = plan(payload)
-    if result['snapshot'] != value['snapshot']:
-        raise Conflict('Вплив зміни довідника змінився. Перегляньте його знову.', 'snapshot_conflict')
-    require(not result['blockedCount'], 'Зміну одиниці обліку заблоковано: ' + ' '.join(result['blocked']))
-    for identifier in sorted(changed):
-        item = records[identifier]
-        Document.objects.update_or_create(pk='catalog_refs/' + identifier, defaults={'data': {field: val for field, val in item.items() if field != 'id'}})
-    for document, data in products:
-        document.data = data; document.save(update_fields=['data'])
-    audit(user, 'catalog_reference_changed', 'catalog_refs/' + payload['sourceId'],
-          {'operation': payload['operation'], 'productCount': result['productCount'], 'referenceCount': result['referenceCount'], 'coalescedCategories': result['coalescedCategories'], 'snapshot': result['snapshot'],
-           'references': [{'before': serialize(before_records[identifier]), 'after': serialize(records[identifier])} for identifier in sorted(changed)]})
-    response_value = {**result, 'ok': True}
-    Document.objects.create(path=run_path, data={'owner': user.pk, 'payloadHash': digest, 'result': response_value})
-    return response(response_value)
+    try:
+        if result['snapshot'] != value['snapshot']:
+            raise Conflict('Вплив зміни довідника змінився. Перегляньте його знову.', 'snapshot_conflict')
+        require(not result['blockedCount'], 'Зміну одиниці обліку заблоковано: ' + ' '.join(result['blocked']))
+        from .catalog_projection import merge_document,save_reference
+        reference_examples=[]
+        for identifier in changed:
+            check();item=records[identifier]
+            save_reference(item,before_records.get(identifier))
+            detail={'before':serialize(before_records[identifier]),'after':serialize(item)}
+            if len(reference_examples)<10:reference_examples.append(detail)
+            else:audit(user,'catalog_reference_detail','catalog_refs/'+identifier,{'run':key,'sourceId':payload['sourceId'],'operation':payload['operation'],**detail})
+        for document,data in products:
+            check();merge_document(document.path,data)
+        audit(user, 'catalog_reference_changed', 'catalog_refs/' + payload['sourceId'],
+              {'operation': payload['operation'], 'productCount': result['productCount'], 'referenceCount': result['referenceCount'], 'coalescedCategories': result['coalescedCategories'], 'snapshot': result['snapshot'],
+               'references':reference_examples,'referenceDetailCount':max(0,len(changed)-10),'coalescedCount':result['coalescedCount']})
+        response_value = {**result, 'ok': True}
+        Document.objects.create(path=run_path, data={'owner': user.pk, 'payloadHash': digest, 'result': response_value})
+        check()
+        return response(response_value)
+    finally:records.close();before_records.close()
 
 
 def handle(request, user):
     from .views import response
     if request.path.rstrip('/').endswith('/manage') and request.method == 'GET':
-        return response(management(user, request.portal_session.csrf))
+        return response({'error':'Повний довідник замінено сторінками та вибраними ID.','code':'bounded_read_required'},410)
     if request.path.rstrip('/').endswith('/preview') and request.method == 'POST': return preview(request, user)
     if request.path.rstrip('/').endswith('/commit') and request.method == 'POST': return commit(request, user)
     return response({'error': 'Метод довідника не підтримується.', 'code': 'unsupported_route'}, 405)
