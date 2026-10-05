@@ -113,7 +113,7 @@ def cursor_rows(sql, params):
             yield from rows
 
 
-def json_children(query, array):
+def json_children(query, array, *, include_product=True):
     """Yield (voucher ID, reference ID, raw scalar value, raw product) without payload materialization.
     Missing arrays are empty; present malformed arrays/items are refused, not silently zeroed.
     Float JSON values retain Python json.loads/Decimal behavior used by the old oracle.
@@ -128,7 +128,7 @@ def json_children(query, array):
         sql=f"SELECT v.id, jsonb_typeof({path}) FROM {table} v WHERE v.id IN ({subquery}) AND (jsonb_typeof(v.payload)!='object' OR (v.payload ? %s AND jsonb_typeof({path}) IS DISTINCT FROM 'array'))"
         with closing(cursor_rows(sql,[array,*params,array,array])) as rows:invalid=next(rows,None)
         if invalid: raise BusinessError(f'Документ {invalid[0]} має некоректні реквізити показника; перевірте регістри.')
-        product_sql="CASE WHEN jsonb_typeof(j.item->'product') IN ('string','number','boolean','null') THEN (j.item->'product')::text END, jsonb_typeof(j.item->'product')" if array=='differences' else 'NULL, NULL'
+        product_sql="CASE WHEN jsonb_typeof(j.item->'product') IN ('string','number','boolean','null') THEN (j.item->'product')::text END, jsonb_typeof(j.item->'product')" if array=='differences' and include_product else 'NULL, NULL'
         sql=f"""SELECT v.id,v.reference_id,
         jsonb_typeof(j.item),jsonb_typeof(j.item->%s),
         CASE WHEN jsonb_typeof(j.item->%s) IN ('string','number','boolean','null') THEN (j.item->%s)::text END,
@@ -142,7 +142,7 @@ def json_children(query, array):
         with closing(cursor_rows(sql,[path,*params,path,path])) as rows:invalid=next(rows,None)
         if invalid: raise BusinessError(f'Документ {invalid[0]} має некоректні реквізити показника; перевірте регістри.')
         # The -> JSON token preserves float digits and integers beyond SQLite int64.
-        product_sql="CASE WHEN j.type='object' AND json_type(j.value,'$.product') IN ('text','integer','real','true','false','null') THEN (j.value -> '$.product') END,CASE WHEN j.type='object' THEN json_type(j.value,'$.product') END" if array=='differences' else 'NULL, NULL'
+        product_sql="CASE WHEN j.type='object' AND json_type(j.value,'$.product') IN ('text','integer','real','true','false','null') THEN (j.value -> '$.product') END,CASE WHEN j.type='object' THEN json_type(j.value,'$.product') END" if array=='differences' and include_product else 'NULL, NULL'
         sql=f"""SELECT v.id,v.reference_id,j.type,
         CASE WHEN j.type='object' THEN json_type(j.value,%s) END,
         CASE WHEN j.type='object' AND json_type(j.value,%s) IN ('text','integer','real','true','false','null')

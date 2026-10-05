@@ -1,11 +1,14 @@
 """Paginated source explanations in one current RR snapshot, with salary privacy."""
+from decimal import Decimal, InvalidOperation
 from django.utils import timezone
-from .models import CashEntry, StockEntry, StockLot, CashAccount
-from .services import ROLE_KINDS, ZERO, day, money, require
+from .models import CashEntry, StockEntry, StockLot, CashAccount, Voucher
+from .services import ROLE_KINDS, ZERO, day, money, require, current_actor, BusinessError
 from .browsing import PAGE_SIZE, page_bounds, page_number, positive_integer
 from .historical_reports import (METRICS, read_snapshot, stores_for, require_reversal_dates,
                                 period_documents, period_sign, reversal_day, effective_entries)
 from .report_contributions import PROFIT_WEIGHTS, GROSS_WEIGHTS, voucher_contributions
+from . import report_children as children
+from .bounded_reports import Spool, batches
 
 LABELS = {'revenue':'Виторг', 'cogs':'Собівартість', 'expenses':'Витрати', 'payroll':'Зарплата', 'writeoffs':'Списання',
           'inventory_adjustment':'Інвентаризація', 'supplier_return_variance':'Різниця повернень постачальнику',
@@ -14,6 +17,46 @@ LABELS = {'revenue':'Виторг', 'cogs':'Собівартість', 'expenses
 FORMULAS = {'gross_profit':'Виторг − собівартість', 'profit':'Виторг − собівартість − витрати − зарплата − списання + інвентаризація + різниця повернень постачальнику + касове розходження',
             'cash_net':'Сума рухів коштів за період без початкових залишків', 'expenses':'Магазинні витрати + мережеві нерозподілені витрати (лише для мережі)',
             'stock':'Сума первинних і зворотних складських рухів до кінця вибраного дня', 'cash':'Сума первинних і зворотних грошових рухів до кінця вибраного дня'}
+
+
+def expense_header(voucher):
+    # The existing oracle treats only the exact string 'network' as network scope.
+    # An unused nested scope must not materialize, nor acquire a new interpretation.
+    require(not voucher.report_payload_bad,
+            f'Документ {voucher.pk} має некоректні реквізити витрати; перевірте регістри.')
+    voucher.payload = {'expense_scope': voucher.report_scope if not voucher.report_scope_bad else None}
+
+
+def entry_headers(query, *, stock=False):
+    """A bounded batch of movement scalars plus selected voucher headers, never payload."""
+    fields = ['id', 'voucher_id', 'is_reversal']
+    fields += (['value', 'quantity', 'lot__id', 'lot__warehouse_id', 'lot__warehouse__id', 'lot__warehouse__store_id']
+               if stock else ['amount', 'account__id', 'account__store_id'])
+    for batch in batches(query.only(*fields)):
+        headers = {v.pk: v for v in children.headers(Voucher.objects.filter(pk__in={e.voucher_id for e in batch}))}
+        for entry in batch:
+            voucher = headers[entry.voucher_id]
+            if voucher.kind == 'expense': expense_header(voucher)
+            entry.voucher = voucher
+            yield entry
+
+
+def period_headers(query):
+    """Keep JSON array fanout on disk; ignored product metadata is not a contribution."""
+    with Spool() as spool:
+        for pk, _, raw, _ in children.json_children(query.filter(kind='inventory'), 'differences', include_product=False):
+            try:
+                amount = Decimal(raw)
+                if not amount.is_finite(): raise InvalidOperation
+            except (ValueError, TypeError, InvalidOperation):
+                raise BusinessError(f'Документ {pk} має некоректні реквізити показника; перевірте регістри.') from None
+            spool.add('_inventory', pk, {'amount': '0'}, {'amount': amount})
+        for voucher in children.headers(query).iterator(chunk_size=children.CHUNK):
+            if voucher.kind == 'expense': expense_header(voucher)
+            else: children.payload(voucher)
+            if voucher.kind == 'inventory':
+                voucher.payload['differences'] = [{'value': (spool.get('_inventory', voucher.pk) or {'amount': '0'})['amount']}]
+            yield voucher
 
 
 def source(user, voucher, metric, contribution, date, sign, *, entry=None, visible_store=None):
@@ -64,14 +107,14 @@ def period_sources(user, params, ids, scoped):
     weights = PROFIT_WEIGHTS if metric == 'profit' else GROSS_WEIGHTS if metric == 'gross_profit' else {metric:1}
     if metric in {'profit','expenses'} and not scoped: weights = {**weights,'unallocated_expenses':-1 if metric=='profit' else 1}
     if metric == 'cash_net':
-        for entry in effective_entries(CashEntry, end, start).filter(account__store_id__in=ids).exclude(voucher__kind='cash_opening').select_related('voucher','account').order_by('pk').iterator(chunk_size=200):
+        for entry in entry_headers(effective_entries(CashEntry, end, start).filter(account__store_id__in=ids).exclude(voucher__kind='cash_opening').select_related('account').order_by('pk')):
             amount += entry.amount
             if user.profile.role == 'manager' and entry.voucher.kind in {'payroll','payroll_payment'}:
                 salary += entry.amount; has_salary = True; continue
             sign = -1 if entry.is_reversal else 1
             rows.append(source(user,entry.voucher,metric,entry.amount,reversal_day(entry.voucher) if entry.is_reversal else entry.voucher.date,sign,entry=entry.pk,visible_store=entry.account.store_id))
     else:
-        for voucher in period_documents(ids,start,end).order_by('date','pk').iterator(chunk_size=200):
+        for voucher in period_headers(children.nonzero_period(period_documents(ids,start,end),start,end).order_by('date','pk')):
             sign = period_sign(voucher,start,end)
             if not sign: continue
             for component,value in voucher_contributions(voucher,sign,scoped=scoped).items():
@@ -93,11 +136,11 @@ def balance_sources(user,params,ids):
     rows, amount, salary, has_salary = PageRows(params), ZERO, ZERO, False
     if metric == 'stock':
         exists = StockLot.objects.filter(pk=identifier,warehouse__store_id__in=ids).exists()
-        entries = effective_entries(StockEntry,cutoff).filter(lot_id=identifier,lot__warehouse__store_id__in=ids).select_related('voucher','lot__warehouse').order_by('pk').iterator(chunk_size=200) if exists else []
+        entries = effective_entries(StockEntry,cutoff).filter(lot_id=identifier,lot__warehouse__store_id__in=ids).select_related('lot__warehouse').order_by('pk') if exists else StockEntry.objects.none()
     else:
         exists = CashAccount.objects.filter(pk=identifier,store_id__in=ids).exists()
-        entries = effective_entries(CashEntry,cutoff).filter(account_id=identifier,account__store_id__in=ids).select_related('voucher','account').order_by('pk').iterator(chunk_size=200) if exists else []
-    for entry in entries:
+        entries = effective_entries(CashEntry,cutoff).filter(account_id=identifier,account__store_id__in=ids).select_related('account').order_by('pk') if exists else CashEntry.objects.none()
+    for entry in entry_headers(entries, stock=metric=='stock'):
         value = entry.value if metric=='stock' else entry.amount; amount += value
         if user.profile.role=='manager' and entry.voucher.kind in {'payroll','payroll_payment'}:
             salary += value;has_salary=True;continue
@@ -112,6 +155,7 @@ def balance_sources(user,params,ids):
 
 def drilldown(user,params):
     with read_snapshot():
+        user = current_actor(user)
         stores,scoped=stores_for(user,params);ids={store.pk for store in stores}
         mode=params.get('mode','period');require(mode in {'period','balances'},'Некоректний режим розшифровки.')
         return balance_sources(user,params,ids) if mode=='balances' else period_sources(user,params,ids,scoped)
