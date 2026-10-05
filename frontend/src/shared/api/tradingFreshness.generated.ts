@@ -4,117 +4,134 @@
  */
 
 export interface paths {
-    "/api/v1/trading/versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Fresh actor/session and selected counters in one read-only RR snapshot. Hashes never grant access. */
-        get: operations["tradingVersions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  '/api/v1/trading/versions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    /** @description Fresh actor/session and selected counters in one read-only RR snapshot. Hashes never grant access. */
+    get: operations['tradingVersions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /** @enum {string} */
-        TradingResource: "stock" | "assortment" | "stock_documents" | "purchases_documents" | "replenishment" | "sales_documents" | "sales_shifts" | "finance_accounts" | "finance_ledger" | "finance_documents" | "finance_debts" | "finance_advances" | "staff_employees" | "staff_shifts" | "staff_documents" | "directories" | "policy";
-        /** @enum {string} */
-        TradingRole: "owner" | "manager" | "cashier" | "warehouse" | "accountant";
-        TradingIdentity: {
-            role: components["schemas"]["TradingRole"];
-            scopeStore: number | null;
-            store: number | null;
-            session: string;
-        };
-        TradingVersions: {
-            /** @constant */
-            contract: "trading-versions-v1";
-            identity: components["schemas"]["TradingIdentity"];
-            /** Format: date */
-            day: string;
-            versions: {
-                [key: string]: string;
-            };
-        };
-        Error: {
-            error: string;
-        };
+  schemas: {
+    /** @enum {string} */
+    TradingResource:
+      | 'stock'
+      | 'assortment'
+      | 'stock_documents'
+      | 'purchases_documents'
+      | 'replenishment'
+      | 'sales_documents'
+      | 'sales_shifts'
+      | 'finance_accounts'
+      | 'finance_ledger'
+      | 'finance_documents'
+      | 'finance_debts'
+      | 'finance_advances'
+      | 'staff_employees'
+      | 'staff_shifts'
+      | 'staff_documents'
+      | 'directories'
+      | 'policy';
+    /** @enum {string} */
+    TradingRole: 'owner' | 'manager' | 'cashier' | 'warehouse' | 'accountant';
+    TradingIdentity: {
+      role: components['schemas']['TradingRole'];
+      scopeStore: number | null;
+      store: number | null;
+      session: string;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    TradingVersions: {
+      /** @constant */
+      contract: 'trading-versions-v1';
+      identity: components['schemas']['TradingIdentity'];
+      /** Format: date */
+      day: string;
+      versions: {
+        [key: string]: string;
+      };
+    };
+    Error: {
+      error: string;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    tradingVersions: {
-        parameters: {
-            query: {
-                resources: components["schemas"]["TradingResource"][];
-                store?: number;
-            };
-            header?: {
-                "If-None-Match"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Strict resource validators */
-            200: {
-                headers: {
-                    ETag?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TradingVersions"];
-                };
-            };
-            /** @description No body; same scoped wire validator */
-            304: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid query */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Expired session */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Revoked actor or forbidden resource/store */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
+  tradingVersions: {
+    parameters: {
+      query: {
+        resources: components['schemas']['TradingResource'][];
+        store?: number;
+      };
+      header?: {
+        'If-None-Match'?: string;
+      };
+      path?: never;
+      cookie?: never;
     };
+    requestBody?: never;
+    responses: {
+      /** @description Strict resource validators */
+      200: {
+        headers: {
+          ETag?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TradingVersions'];
+        };
+      };
+      /** @description No body; same scoped wire validator */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid query */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Expired session */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Revoked actor or forbidden resource/store */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
 }

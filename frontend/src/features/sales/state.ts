@@ -62,6 +62,10 @@ export class SalesModel {
   options: Options | null = null;
   private listeners = new Set<() => void>();
   private generation = 0;
+  private committed = new Map<
+    string,
+    { documents?: DocumentQuery; shifts?: ShiftQuery; page: number }
+  >();
   private active = false;
   private controller: AbortController | null = null;
   constructor(public api: SalesApi) {}
@@ -83,6 +87,7 @@ export class SalesModel {
     this.listeners.forEach((fn) => fn());
   }
   deny(message: string) {
+    this.committed.clear();
     this.generation++;
     this.controller?.abort();
     this.emit({ ...initial(), busy: false, denied: true, error: message });
@@ -119,6 +124,7 @@ export class SalesModel {
     await this.refresh();
   }
   leave() {
+    this.committed.clear();
     this.active = false;
     this.generation++;
     this.controller?.abort();
@@ -171,35 +177,77 @@ export class SalesModel {
     this.emit({ page, focus: page > this.state.page ? 'next' : 'previous' });
     await this.refresh();
   }
-  async refresh() {
+  hasFilterDraft() {
+    const confirmed = this.committed.get(JSON.stringify([this.state.view, this.state.store]));
+    return (
+      !!confirmed &&
+      JSON.stringify(Object.entries(confirmed.documents ?? confirmed.shifts ?? {}).sort()) !==
+        JSON.stringify(
+          Object.entries(
+            this.state.view === 'documents' ? this.documentQuery() : this.shiftQuery(),
+          ).sort(),
+        )
+    );
+  }
+  async refreshCommitted() {
+    const confirmed = this.committed.get(JSON.stringify([this.state.view, this.state.store]));
+    if (!confirmed) return;
+    return this.refresh(confirmed);
+  }
+  allowPolicyRefresh() {
+    this.emit({ policy: null });
+  }
+  async refresh(confirmed?: { documents?: DocumentQuery; shifts?: ShiftQuery; page: number }) {
     if (!this.active || !this.options) return;
     const token = ++this.generation;
     this.controller?.abort();
     const c = new AbortController();
     this.controller = c;
+    const documents = confirmed?.documents ?? this.documentQuery(),
+      shifts = confirmed?.shifts ?? this.shiftQuery(),
+      page = confirmed?.page ?? this.state.page;
     this.emit({ busy: true, error: '', documents: null, shifts: null });
     try {
-      if (this.state.from && this.state.to && this.state.from > this.state.to)
+      if (
+        (this.state.view === 'documents' ? documents : shifts).from &&
+        (this.state.view === 'documents' ? documents : shifts).to &&
+        (this.state.view === 'documents' ? documents : shifts).from >
+          (this.state.view === 'documents' ? documents : shifts).to
+      )
         throw Error('Початок періоду має бути не пізніше завершення.');
       const data =
         this.state.view === 'documents'
-          ? await this.api.documents(this.documentQuery(), this.state.page, c.signal)
-          : await this.api.shifts(this.shiftQuery(), this.state.page, c.signal);
+          ? await this.api.documents(documents, page, c.signal)
+          : await this.api.shifts(shifts, page, c.signal);
       if (!this.isCurrent(token)) return;
       this.policy(data.policy);
-      let selectedStore = this.state.selectedStore;
-      if (this.state.store && !selectedStore) {
-        const details = await this.options.directoryApi.details(
-          [{ type: 'stores', id: String(this.state.store) }],
-          { purpose: 'filter' },
-          c.signal,
-        );
-        if (!this.isCurrent(token)) return;
-        selectedStore = details.items.find((item) => item.id === String(this.state.store)) ?? null;
-      }
+      const refs = [
+        ...(this.state.store ? [{ type: 'stores' as const, id: String(this.state.store) }] : []),
+        ...(this.state.employee
+          ? [{ type: 'employees' as const, id: String(this.state.employee) }]
+          : []),
+      ];
+      const details = refs.length
+        ? await this.options.directoryApi.details(refs, { purpose: 'label' }, c.signal)
+        : null;
+      if (!this.isCurrent(token)) return;
+      const selectedStore =
+        details?.items.find((x) => x.type === 'stores' && x.id === String(this.state.store)) ??
+        null;
+      const selectedEmployee =
+        details?.items.find(
+          (x) => x.type === 'employees' && x.id === String(this.state.employee),
+        ) ?? null;
+      this.committed.set(
+        JSON.stringify([this.state.view, this.state.store]),
+        'fiscalRequired' in data
+          ? { documents: data.query, page: data.page }
+          : { shifts: data.query, page: data.page },
+      );
       this.emit({
         policy: data.policy,
         selectedStore,
+        selectedEmployee,
         page: data.page,
         ...('fiscalRequired' in data ? { documents: data } : { shifts: data }),
       });

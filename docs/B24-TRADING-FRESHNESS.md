@@ -34,10 +34,37 @@ Unchanged path: **4 domain SELECT**, HTTP middleware додає1; CaptureQueries
 
 ## Consumer integration
 
-Поки consumer layer і його докази завершуються; сам endpoint не доводить, що всі actual readers оновлюються. Потрібні active registration stock/purchases/sales/finance/staff, committed query/page, dirty/unknown-modal hold, current identity immediate hide, strict protocol/old401/304 barrier. Reports/setup/customers/orders/detail мають окрему explicit-read policy; до відповідної actual реєстрації вони не названі automatically live.
+Actual registration у `stock-entry`, `purchases-entry`, `sales-entry`, `finance-entry`, `staff-entry`: один активний coordinator у `app/trading-freshness.js`, strict namespace decoder/typed bridge `shared/api/tradingFreshness.ts`. Ресурс вибирається за поточною вкладкою, store — підтверджений committed context, не typed directory search. Видима вкладка перевіряється кожні5с та при focus; hidden/pagehide/leave переривають issued read. Реєстрація після async mount має generation/host fence: leave або новий mount не реєструють старого reader.
+
+| Actual reader | Active keys (плюс directories/policy) | Callback / hold |
+| --- | --- | --- |
+| Stock | stock, stock_documents, assortment | `model.refresh`, invalid/dirty/uncertain assortment або CSV/pending/action hold |
+| Purchases | purchases_documents або replenishment | `refreshCommitted`, committed page/query, selected lines/detail action/filter draft hold |
+| Sales | sales_documents або sales_shifts | `refreshCommitted`, submitted query/page, raw filters/action hold |
+| Finance | Окремо finance_accounts / finance_ledger / finance_documents / finance_debts / finance_advances | `refreshCommitted`, поточний ресурс, raw/action hold; account balance не є приватним salary journal counter |
+| Staff | staff_employees / staff_shifts / staff_documents | existing `refreshCommitted`, committed scope/page/query; invalid/unsubmitted text/action hold |
+
+JSON member order порівнюється семантично (sorted entries), тому server cash-shift query не вигадує dirty state. Після store-change503 немає старих rows під новим store чи fallback, що auto-submit новішого raw query. При same-context503 зберігається лише lastconfirmed query для GETretry. Background refresh не `Trade.mount` і не remount; cached directory captions invalidated та bounded selected IDs reread. Фокус на живому editor/control теж defer, щоб не красти keyboard position.
+
+Будь-який відкритий native dialog/listbox приєднаний до hold: remote update показує public notice, не стирає raw/firstIntent. «Перечитати» робить лише перевірку/read; guard перевіряється заново, а не лишає stale disabled button після Reset. Identity role/scope/session зміна одразу deny reader, закриває приватний native dialog і запускає P0 revalidation/suspend; актуальний401 invalidates session, obsolete401 після context/reader change відкидається перед redirect.503/malformed не є grant і не стирають дозволені чернетки.
+
+Reports/setup/customers/orders/detail **не зареєстровані** у цьому пакеті: лишаються explicit bounded current GET/refresh за чинним UI. Native editor current/identity/Apply/Save лишаються незалежними; remote polling не підтверджує авторство, не підміняє baseline й не пише бізнес-дані. `mode:manual` — доступний контракт coordinator, а не доказ enrollment Reports.
 
 Delta cursor, tombstone retention, persisted immutable snapshot, cache/capacity completion, VPS worker/scheduler/backup0.1 не входять у цю роботу. Business ledger locks, postings, money/stock/salary формули й roles unchanged.
 
 Migration freeze/scalar FK follow-up: `/tmp/tsukenya-trading-versions-scalar-frozen-pg.log`, лише affected reverse/reinstall/absence та direct/bulk/rollback/old-new audience2 PASS. Generated SQL/source guard забороняє whole-related-row to_jsonb/SQLite SELECT*. Незмінені PG8 формули/приватність не повторювалися.
 
 Freeze follow-up companion не імпортує runtime catalog/spec. SQLite direct/rollback + migration freeze guard2 PASS у `/tmp/tsukenya-trading-versions-sqlite-frozen-price.log` (окремий помилково названий price loader не був доказом); правильний price parity target1 PASS `/tmp/tsukenya-trading-versions-sqlite-frozen-price-only.log`. PG результати незмінені.
+
+## Client / actual native evidence
+
+- `node tests/trading-freshness.cjs` PASS: strict304, malformed200, current/obsolete401403, dirty/unknown hold, hidden/context/leave, changed-token/read barrier, GET-only retry. VM без DB/network.
+- `npm exec --workspace frontend -- vitest run src/shared/api/tradingFreshness.test.ts --project unit`4 PASS `/tmp/tsukenya-trading-freshness-model-final.log`: committed query after503, retained newer raw, store→503 private rows/query cleared, real server cash-query member order.
+- Scoped ESLint, TypeScript і matching frontend build PASS. Це не весь regression.
+- `env -i PATH="$PATH" PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python QA_TRADING_FRESHNESS_FROM=<stage> node tests/trading-freshness-ui.cjs`, disposable SQLite18286, **дві actual login sessions**, bundled Chromium headless. Stages allowlist: all/readers/readers-tail/dirty/unknown/privacy. No production/Sheet.
+- Initial `all` до cash-query-order finding підтвердив Stock receipt5→12 та Purchases remote header; збережено `/tmp/tsukenya-trading-freshness-proof/all-partial.json`. Це **partial**, не all-PASS. Після виправлення лише `readers-tail` Sales close/Finance9.99/Staff remote employee terminalPASS `/tmp/tsukenya-trading-freshness-proof/readers-tail-report.json`.
+- `dirty` terminalPASS `dirty-report.json`: invalid assortment raw byte-for-byte, remote qty held, explicit GETretry after Reset, zero business mutations; `dirty-1440.png`/`dirty-320.png` inspected, no horizontal cut, notice button≥44px. Harness read-only POST directory details не рахує бізнес-записом.
+- `unknown` terminalPASS `unknown-report.json`: real CREATE commits, ACK aborted, newer invalid amount/note untouched, original UUID уP0 storage, remote balance notice, жодного auto retry/додаткового POST.
+- `privacy` terminalPASS `privacy-report.json`: private native Finance expense dialog remote hold; fresh owner→scopedcashier hides heading/body, React rows іP0 raw storage; жодного business write. Paths вище абсолютні у `/tmp/tsukenya-trading-freshness-proof/`.
+
+Successful inputs reused: Staff private QA ancestor `f578703` має ті самі touched source файли, що accepted Staff112 `9f2adf8`. Final delivery replay лише own commits на accepted9f2, matching build; не duplicate Staff ancestry. Старі full/Story/browser families не запускалися. Current query/controller/model proofs не є100k import/post throughput, cache retention чи multi-device conflict-resolution SLA.

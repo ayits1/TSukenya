@@ -161,6 +161,17 @@ export class StaffModel {
     this.edit({ page });
     await this.refresh();
   }
+  hasFilterDraft() {
+    const confirmed = this.committed.get(this.state.view);
+    return (
+      !!confirmed &&
+      JSON.stringify(Object.entries(confirmed.query).sort()) !==
+        JSON.stringify(Object.entries(this.query(this.state.view)).sort())
+    );
+  }
+  allowPolicyRefresh() {
+    this.emit({ policy: null });
+  }
   async refreshCommitted() {
     const confirmed = this.committed.get(this.state.view);
     // No successful read in this scope yet: an optional background refresh must
@@ -191,19 +202,30 @@ export class StaffModel {
         (this.state.policy && JSON.stringify(this.state.policy) !== JSON.stringify(data.policy))
       )
         throw new ApiError(403, 'Права або обліковий період змінилися. Оновіть розділ.');
-      let selectedStore = this.state.selectedStore;
-      if (this.state.store && !selectedStore) {
-        const result = await this.options.directoryApi.details(
-          [{ type: 'stores', id: String(this.state.store) }],
-          { purpose: 'filter' },
-          controller.signal,
-        );
-        if (!this.isCurrent(token)) return;
-        selectedStore = result.items.find((x) => x.id === String(this.state.store)) ?? null;
-      }
-      this.edit({ page: data.page });
+      const f = this.state.filters[view];
+      const refs = [
+        ...(this.state.store ? [{ type: 'stores' as const, id: String(this.state.store) }] : []),
+        ...(f.employee ? [{ type: 'employees' as const, id: String(f.employee) }] : []),
+      ];
+      const details = refs.length
+        ? await this.options.directoryApi.details(refs, { purpose: 'label' }, controller.signal)
+        : null;
+      if (!this.isCurrent(token)) return;
+      const selectedStore =
+        details?.items.find((x) => x.type === 'stores' && x.id === String(this.state.store)) ??
+        null;
+      const selectedEmployee =
+        details?.items.find((x) => x.type === 'employees' && x.id === String(f.employee)) ?? null;
       this.committed.set(view, { query: data.query, page: data.page });
-      this.emit({ policy: data.policy, data, selectedStore });
+      this.emit({
+        policy: data.policy,
+        data,
+        selectedStore,
+        filters: {
+          ...this.state.filters,
+          [view]: { ...this.state.filters[view], selectedEmployee },
+        },
+      });
     } catch (error) {
       if (this.isCurrent(token) && !(error instanceof Error && error.name === 'AbortError'))
         this.error(error);
