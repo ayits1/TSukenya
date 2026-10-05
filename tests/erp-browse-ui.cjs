@@ -47,7 +47,7 @@ module.exports=async function browseUX(page,base,wait){
  // After deleting the last row on page2, the list returns to a valid page.
  for(let i=0;i<31;i++)await ok('vouchers','POST',{kind:'opening',date:today,store,warehouse,lines:[{product,quantity:'1',price:'1'}]});
  await go('stock');await page.locator('[data-trade=next]').click();await wait(async()=>(await page.locator('.trade-pagination').innerText()).includes('31–31'));
- await page.locator('[data-trade=view]').click();await primary().locator('[data-trade=delete-voucher]').click();await primary().locator('button[type=submit]').click();await wait(async()=>(await page.locator('.trade-pagination').innerText()).includes('1–30 із 30'));
+ await page.locator('[data-trade=view]').click();await primary().locator('[data-trade=delete-voucher]').click();await require('./voucher-action-navigation.cjs')(page);await wait(async()=>(await page.locator('.trade-pagination').innerText()).includes('1–30 із 30'));
  }
  }
  if(!recoveryOnly)console.log('PASS: customer history64, source503 retry and actual accountant allocation/outstanding40.');

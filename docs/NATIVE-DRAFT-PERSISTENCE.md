@@ -116,3 +116,13 @@ request, creator-bound readonly receipt, independent current selection grant
 і explicit Apply/Save. [INITIATIVE-DRAFT-PERSISTENCE.md](INITIATIVE-DRAFT-PERSISTENCE.md)
 описує серверні/actual UI докази й точні межі. Це не закриває решту B06 family
 і не дає generic task adapter обходити initiative transitions.
+
+## Standalone voucher actions · окремий пакет
+
+Реальні detail кнопки проведення, сторно й видалення draft підключено до P0 з
+creator-bound `VoucherActionReceipt`, raw reason, frozen UUID/body/revision,
+explicit Restore/identity/current/Apply/окремою дією та fresh read privacy.
+Exact whole contract, кожен terminal/partial proof і scope обмеження — у
+[VOUCHER-ACTION-DRAFT-PERSISTENCE.md](VOUCHER-ACTION-DRAFT-PERSISTENCE.md).
+Save+Post редактора залишається окремою попередньою машиною. Це не completion
+усіх destructive legacy actions або всього B06/P2/P3.

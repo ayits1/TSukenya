@@ -222,6 +222,21 @@ class EntityCreateReceipt(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+class VoucherActionReceipt(models.Model):
+    """Exact creator-bound action result, independent of later target deletion."""
+    key = models.UUIDField(primary_key=True, editable=False)
+    author = models.ForeignKey(User, on_delete=models.PROTECT)
+    target_id = models.PositiveBigIntegerField()
+    store_id_snapshot = models.PositiveBigIntegerField()
+    kind = models.CharField(max_length=24)
+    action = models.CharField(max_length=8)
+    expense_scope = models.CharField(max_length=8)
+    fingerprint = models.CharField(max_length=64)
+    request = models.JSONField()
+    outcome = models.CharField(max_length=8)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class AuditEvent(models.Model):
     at = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.PROTECT)
