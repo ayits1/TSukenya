@@ -270,6 +270,89 @@
           }
         }
       }
+    },
+    "/api/erp/report/drilldown": {
+      "get": {
+        "description": "Current read-only source explanations. Fresh actor inside RR; scalar children; anonymous salary sources for managers.",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One source page and full exact total.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sources"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1565,6 +1648,383 @@
           "name",
           "store",
           "amount"
+        ]
+      },
+      "SourceRow": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "voucher"
+              },
+              "metric": {
+                "type": "string"
+              },
+              "amount": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "sign": {
+                "enum": [
+                  -1,
+                  1
+                ]
+              },
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "voucher_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "reversal": {
+                "type": "boolean"
+              },
+              "store": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "kind": {
+                "type": "string"
+              },
+              "voucher": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "number": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "canOpen": {
+                "type": "boolean"
+              },
+              "entry": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "quantity": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{3}$"
+              }
+            },
+            "required": [
+              "type",
+              "metric",
+              "amount",
+              "sign",
+              "date",
+              "voucher_date",
+              "reversal",
+              "store",
+              "kind",
+              "voucher",
+              "number",
+              "canOpen"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "aggregate"
+              },
+              "metric": {
+                "type": "string"
+              },
+              "amount": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "label": {
+                "type": "string"
+              },
+              "canOpen": {
+                "const": false
+              }
+            },
+            "required": [
+              "type",
+              "metric",
+              "amount",
+              "label",
+              "canOpen"
+            ]
+          }
+        ]
+      },
+      "Sources": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-report-sources-v1"
+              },
+              "limit": {
+                "const": 30
+              },
+              "store": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "policy": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "role": {
+                    "enum": [
+                      "owner",
+                      "manager",
+                      "accountant"
+                    ]
+                  },
+                  "store": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "role",
+                  "store"
+                ]
+              },
+              "metric": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "formula": {
+                "type": "string"
+              },
+              "amount": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/SourceRow"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "snapshot": {
+                "const": "current"
+              },
+              "basis": {
+                "const": "accounting_dates"
+              },
+              "reversal_policy": {
+                "const": "kyiv_reversed_at"
+              },
+              "snapshot_notice": {
+                "type": "string"
+              },
+              "mode": {
+                "const": "period"
+              },
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "required": [
+              "contract",
+              "limit",
+              "store",
+              "policy",
+              "metric",
+              "title",
+              "formula",
+              "amount",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "snapshot",
+              "basis",
+              "reversal_policy",
+              "snapshot_notice",
+              "mode",
+              "from",
+              "to"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "const": "trading-report-sources-v1"
+              },
+              "limit": {
+                "const": 30
+              },
+              "store": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "policy": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "role": {
+                    "enum": [
+                      "owner",
+                      "manager",
+                      "accountant"
+                    ]
+                  },
+                  "store": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "role",
+                  "store"
+                ]
+              },
+              "metric": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "formula": {
+                "type": "string"
+              },
+              "amount": {
+                "type": "string",
+                "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "$ref": "#/components/schemas/SourceRow"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "snapshot": {
+                "const": "current"
+              },
+              "basis": {
+                "const": "accounting_dates"
+              },
+              "reversal_policy": {
+                "const": "kyiv_reversed_at"
+              },
+              "snapshot_notice": {
+                "type": "string"
+              },
+              "mode": {
+                "const": "balances"
+              },
+              "as_of": {
+                "type": "string",
+                "format": "date"
+              },
+              "source": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "contract",
+              "limit",
+              "store",
+              "policy",
+              "metric",
+              "title",
+              "formula",
+              "amount",
+              "items",
+              "total",
+              "page",
+              "pages",
+              "snapshot",
+              "basis",
+              "reversal_policy",
+              "snapshot_notice",
+              "mode",
+              "as_of",
+              "source"
+            ]
+          }
         ]
       }
     }

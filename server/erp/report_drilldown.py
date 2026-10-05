@@ -158,4 +158,7 @@ def drilldown(user,params):
         user = current_actor(user)
         stores,scoped=stores_for(user,params);ids={store.pk for store in stores}
         mode=params.get('mode','period');require(mode in {'period','balances'},'Некоректний режим розшифровки.')
-        return balance_sources(user,params,ids) if mode=='balances' else period_sources(user,params,ids,scoped)
+        data = balance_sources(user,params,ids) if mode=='balances' else period_sources(user,params,ids,scoped)
+        return {**data, 'contract': 'trading-report-sources-v1', 'limit': PAGE_SIZE,
+                'store': int(params['store']) if params.get('store') else user.profile.store_id,
+                'policy': {'role': user.profile.role, 'store': user.profile.store_id}}

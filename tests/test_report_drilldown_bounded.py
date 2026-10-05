@@ -97,3 +97,21 @@ class BoundedSourceTests(TransactionTestCase):
         with patch.object(reads, 'current_actor', actor):
             self.assertEqual(reads.drilldown(self.u, {'from': self.today, 'to': self.today, 'metric': 'profit'})['amount'], '0.00')
         self.assertEqual(seen, [self.u.pk])
+
+    def test_source_context_preserves_requested_scope_and_fresh_policy(self):
+        from server.erp.models import Store
+        foreign = Store.objects.create(name='Інший магазин')
+        Profile.objects.filter(user=self.u).update(role='manager', store=self.store)
+        base = {'from': self.today, 'to': self.today, 'metric': 'profit'}
+        data = reads.drilldown(self.u, {**base, 'store': str(foreign.pk)})
+        self.assertEqual(data['store'], foreign.pk)
+        self.assertEqual(data['policy'], {'role': 'manager', 'store': self.store.pk})
+        self.assertEqual((data['contract'], data['limit'], data['amount'], data['items']),
+                         ('trading-report-sources-v1', 30, '0.00', []))
+        for invalid in ('x', '-1', '1.5'):
+            with self.assertRaises(BusinessError):
+                reads.drilldown(self.u, {**base, 'store': invalid})
+        Profile.objects.filter(user=self.u).update(role='owner', store=None)
+        fresh = reads.drilldown(self.u, base)
+        self.assertIsNone(fresh['store'])
+        self.assertEqual(fresh['policy'], {'role': 'owner', 'store': None})

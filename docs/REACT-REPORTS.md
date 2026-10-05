@@ -43,3 +43,46 @@ PageRows лишає requested/last page (до60 рядків), повна сум
   суму лише для SQLite; affected1 PASS0.016s,
   `/tmp/tsukenya-reports-backend-sqlite-tail.log`. Великі суми підтверджені PG.
 - Python syntax перевірено. Full suite/production/browser не запускалися.
+
+## React workspace
+
+`frontend/src/features/reports/` та `reports-entry.tsx` підключені до чинного
+`#trade/reports` через `app/erp.js`. Перенесено всі4 секції оборотів, усі5 секцій
+залишків із чинними зарплатними правами, прямий `ABCReport` та поточні борги на
+bounded Finance API. Native лишаються розшифровка джерел і редактор вибраного
+документа/платежу. Callback передає explicit opener і чинну route/generation
+межу; читання, paging, CSV та retry не проводять і не зберігають документи.
+
+OpenAPI `trading-reports.openapi.json` генерує `reports.generated.ts`.
+Runtime decoder перевіряє exact context, усі рядкові поля, money decimal strings,
+ліміти, count/page, зарплатну політику та source envelope. Суми відображаються
+рядковим `moneyText`, без `Number`. Показники, підсумки та CSV обчислює сервер.
+Summary/rows мають один поточний snapshot у відповіді rows; окреме повторне
+сканування summary на кожне читання більше не потрібне. Full CSV включає всі
+рядки застосованої секції/залишків; незастосовані поля не змінюють paging/CSV.
+
+Поточні борги мають власні фільтри й явні дії; дати періоду їх не обмежують.
+503 може лишити явно позначені попередні підсумки того самого scope, але CSV та
+джерела вимкнено. Malformed200 очищає дані; current401/403 очищає приватні блоки;
+скасована/застаріла відповідь не змінює інший маршрут або сеанс. Новий host
+починає з актуального store навіть для того самого actor. Native write refresh
+перечитує борги та зберігає застосований report query.
+
+Старі `app/erp-reports.js`, окремий `abc-entry.tsx` та їх bootstrap/static hooks
+прибрані після перенесення actual consumer. Вісім старих груп metadata/rows
+invariants перенесено з retired VM harness у React API unit; historical/native
+UI harnesses адаптуються окремим test-only пакетом без втрати бізнес-перевірок.
+
+### Докази frontend candidate
+
+- Build PASS; scoped ESLint PASS;9 API/state unit PASS
+  (`/tmp/tsukenya-reports-unit.log`, `/tmp/tsukenya-reports-build.log`).
+- Stories: Empty/Retry Focus PASS у першому actual run; Whole Screen/Manager
+  виявили stale panel id після зміни вкладки. Додано keyed TabPanel; affected2
+  PASS (`/tmp/tsukenya-reports-stories-tabs.log`). Перші setup спроби до collection
+  були зірвані symlink dependencies; локальна копія виправила resolution.
+- Source envelope test PostgreSQL1 PASS0.129s:
+  foreign requested store не підміняє scoped policy, empty intersection, exact
+  contract/limit та fresh role; `/tmp/tsukenya-reports-source-context-pg.log`.
+- Native whole-screen/геометрія перевіряються наступним власним пакетом;
+  цей candidate не засвідчує їх, розгортання або завершення всієї міграції.
