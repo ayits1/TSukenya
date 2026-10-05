@@ -254,6 +254,9 @@ def handle_portal(request,user):
         return result
     from .views import response,legacy_state
     path=request.path
+    if path=='/api/v1/portal/records/recovery-context' and request.method=='GET':
+        from .legacy_records import recovery_context
+        return response(recovery_context(user, request.GET))
     if path=='/api/v1/portal/budget-template':
         from .budget_template import read, save
         if request.method=='GET':return response(read(user))

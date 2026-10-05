@@ -209,6 +209,7 @@
 
   const collectionRecord=(name,id)=>window.TSUKENYA_SERVER?window.PortalCollections?.record(name,id):S[name].find(x=>x.id===id);
   window.PortalCollections?.configure(()=>render());
+  window.PortalDraftRecovery?.configure({render:()=>render()});
   window.ManagedAlerts?.configure({tasks:()=>S.tasks,lookup:id=>collectionRecord('tasks',id),pin:id=>window.PortalCollections?.pin('tasks',id),unpin:id=>window.PortalCollections?.unpin('tasks',id),render:()=>render(),refresh:async id=>{await window.TSUKENYA_REFRESH_AFTER_WRITE();if(id)return window.PortalCollections.task(id);},toast:t=>toast(t)});
   function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2200); }
 
@@ -320,6 +321,7 @@
   }
   window.addEventListener('hashchange',()=>cancelCreateRead());
   async function createIdeaTask(idea,button){
+    if(window.TSUKENYA_SERVER){try{await window.PortalDraftRecovery.createIdeaTask(idea,()=>toast("Задачу створено"));}catch(error){toast(error.message);}return;}
     const key=`ideaTask:${idea.id}`;
     if(inlineSaves.has(key))return;
     const prior=createPending.get(key);if(prior?.terminal||prior?.confirmedId){refreshCreateRecovery(key);return;}
@@ -406,6 +408,7 @@
   function inlineDrafts(){return [...document.querySelectorAll(inlineFields)].map(el=>[fieldKey(el),el.value]);}
   function hasInlineDraft(){return [...document.querySelectorAll('#newWork,#newTask,#newIdea,[data-newexp]')].some(el=>el.value.trim());}
   async function addInline(action, collection, payload, fields, ok, exact=false){
+    if(window.TSUKENYA_SERVER&&['addWork','addTask','addIdea'].includes(action)){try{if(await window.PortalDraftRecovery.createInline(action,collection,payload,fields,()=>toast(ok)))if(pending)render();}catch(error){toast(error.message);}return;}
     if(inlineSaves.has(action))return;
     const input=fields[0],existingKey=action==='addExp'?`${action}:${payload.group}`:action;
     if(!exact&&createPending.has(existingKey)){refreshCreateRecovery(existingKey);return;}
@@ -521,6 +524,7 @@
     for(const key of openPanels)m.querySelector(`[data-disclosure="${key}"]`)?.setAttribute("open","");
     for(const [cls,top,left]of scrolls){const el=m.getElementsByClassName(cls)[0];if(el){el.scrollTop=top;el.scrollLeft=left;}}
     syncCreateRecoveries();
+    window.PortalDraftRecovery?.mountInline();
     if(focus)restoreFocus(m,focus);
     if (tab==="tags") renderPreview();
   }
@@ -580,7 +584,7 @@
     if(next!==tab && ((window.Trade?.handles(tab) && !window.Trade.canLeave?.()) || inlineSaves.size)){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     if(next!==tab && (hasInlineDraft()||draftKeys.some(key=>createPending.has(key)))){
       const uncertain=draftKeys.some(key=>createPending.has(key));
-      if(!confirm(uncertain?'Відкинути чернетку? Попередній запит міг уже створити запис. Перевірте список перед новим створенням.':'Відкинути незбережену назву задачі, ідеї або статті витрат?')){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
+      if(!confirm(window.TSUKENYA_SERVER&&['work','tasks','ideas'].includes(tab)?'Перейти до іншого розділу? Локальна чернетка збережена для явного відновлення.':uncertain?'Відкинути чернетку? Попередній запит міг уже створити запис. Перевірте список перед новим створенням.':'Відкинути незбережену назву задачі, ідеї або статті витрат?')){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
     }
     if(next!==tab && budgetDrafts.size){
       if(!confirm('Відкинути незбережені зміни бюджету?')){history.replaceState(null,'','#'+SECTIONS[tab][0]+'/'+tab);return;}
