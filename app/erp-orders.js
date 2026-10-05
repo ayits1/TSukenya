@@ -18,11 +18,24 @@ function create({api,esc,quantity,amount,table,field,input,num,button,modal,date
   if(v.kind==='customer_order')html+=`<h3 class="trade-section-title">Історія резервів</h3><p class="trade-caption">Строк включає вибраний день за Києвом. Резерв не створює складського чи грошового проведення; звільняється тільки невикористана частина.</p>${table(['Товар / партія','Строк','Кількість','Використано','Звільнено','Стан / дія'],o.reservations.map(r=>[esc(o.lines.find(l=>l.line===r.line)?.name||'—')+'<br>'+esc(r.code||'Без коду')+(r.lot_expiry?'<span class="muted">Придатний до '+esc(r.lot_expiry)+'</span>':''),esc(r.expires_on)+'<span class="muted">Створив: '+esc(r.owner)+'</span>',quantity(r.quantity),quantity(r.used),quantity(r.released),(r.active?'Чинний':Number(r.quantity)===Number(r.used)+Number(r.released)?'Використано / звільнено':'Строк минув')+(manage&&Number(r.quantity)>Number(r.used)+Number(r.released)?'<div class="trade-order-actions">'+button('Звільнити','order-release',attrs(v,`data-reservation="${r.id}"`))+'</div>':'')]))}${o.history.pages>1?`<div class="trade-pagination trade-order-actions">${button('Назад','order-history',attrs(v,`data-page="${o.history.page-1}" ${o.history.page===1?'disabled':''}`))}<span role="status">${o.history.page} / ${o.history.pages} · записів ${o.history.total}</span>${button('Далі','order-history',attrs(v,`data-page="${o.history.page+1}" ${o.history.page===o.history.pages?'disabled':''}`))}</div>`:''}`;
   return html+'</section>';
  }
- async function action(el,stillCurrent){
+ async function createAction(el,stillCurrent){
   const source=getDialog(),kind=el.dataset.trade,identifier=Number(el.dataset.id),observed=Number(el.dataset.orderRevision),page=el.dataset.page;
   if(kind==='order-refresh'){if(canClose(source))await onView(identifier);return;}
   const action={'order-reserve':'reserve','order-release':'release','order-expire':'expire','order-close':'close','order-date':'expected_date'}[kind];
-  if(action){const v=getSource(source);if(!v||v.id!==identifier)throw Error('Прочитайте замовлення перед відкриттям дії.');const captured={id:identifier,kind:v.kind,store:v.store,revision:observed,...(action==='release'?{reservation:Number(el.dataset.reservation)}:{})};return window.TradeOrderRecovery.open(captured,action,null,null,()=>stillCurrent()&&source.open);}
+  if(action){
+   const v=getSource(source);if(!v||v.id!==identifier)throw Error('Прочитайте замовлення перед відкриттям дії.');
+   const captured={id:identifier,kind:v.kind,store:v.store,revision:observed,...(action==='release'?{reservation:Number(el.dataset.reservation)}:{})};
+   source.querySelector('#tradeDialogTitle').textContent='Перевірка доступу до дії замовлення';
+   source.querySelector('.trade-dialog-body').hidden=true;
+   source.querySelector('.trade-dialog-foot')?.setAttribute('hidden','');
+   try{return await window.TradeOrderRecovery.open(captured,action,null,null,()=>stillCurrent()&&source.open);}
+   catch(error){if(stillCurrent()&&source.open){
+    let notice=source.querySelector('[data-order-open-error]');if(!notice){notice=document.createElement('section');notice.className='trade-dialog-body';notice.dataset.orderOpenError='';source.append(notice);}
+    notice.replaceChildren();const message=document.createElement('p');message.setAttribute('role','alert');message.textContent=error.message;notice.append(message);
+    const retry=document.createElement('button');retry.type='button';retry.className='btn soft';retry.textContent='Повторити перевірку доступу';retry.onclick=()=>{retry.disabled=true;void createAction(el,stillCurrent).finally(()=>{if(retry.isConnected)retry.disabled=false;});};notice.append(retry);
+   }}
+   return;
+  }
   const finish=busyDialog(source,'Завантаження стану замовлення…');if(!finish)return;let response;
   try{response=await api(`orders/${identifier}?${new URLSearchParams(kind==='order-history'?{page}:kind==='order-reserve'?{purpose:'reserve'}:{})}`);if(!stillCurrent())return;decode(response);if(kind!=='order-history'&&response.order.revision!==observed)throw Error('Замовлення вже змінено. Оновіть його й перевірте залишок перед новою дією.');}
   catch(error){if(stillCurrent())formError(error,source);return;}finally{finish();}
@@ -30,7 +43,7 @@ function create({api,esc,quantity,amount,table,field,input,num,button,modal,date
   if(kind==='order-history'){const host=source.querySelector('[data-order-panel]');host.outerHTML=panel({id:identifier,kind:'customer_order',status:'posted',order:response.order});source.querySelector(`[data-trade="order-history"][data-page="${Number(page)+1}"]`)?.focus();return;}
 
  }
- return {panel,action};
+ return {panel,action:createAction};
 }
 window.TradeOrders={create,decode};
 })();

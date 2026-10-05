@@ -123,3 +123,31 @@ PASS. Знайдену сторонню freshness policy race Sales/Purchases/Fi
 assertions; його Escape→row focus ще не пройшов на старому accepted viewer,
 який захоплює opener після GET/React busy. Це незалежна viewer integration
 межа, не заявлений compatibility PASS; original expected focus лишено.
+
+## Additive інтеграція та opening privacy
+
+Власний пакет ребейзовано на accepted673e84d; standalone voucher-actions
+script/routes/native exports і всі попередні guards збережені. Matching
+build PASS. Compact viewer source `_documentActionSource` підтримується
+поряд із чинним `_confirmedVoucher`; у recovery не копіюється full header
+чи grant. Old fixture бере reservation history через actual tab, якщо
+підключений bounded viewer, і зберігає всі original business assertions та
+44px gate для реальних видимих дій (hidden recovery CTA не touch targets).
+
+`opening/opening-report.json` terminal PASS: реальна owner→accountant зміна
+перед reserve entrypoint; old source heading/body/foot ховаються **до**
+fresh session/context, denied403 лишає public readonly retry, raw form не
+монтується, business writes0. Reading/session та old modal generation fences
+залишаються окремими від pending business intent.
+
+Private compatibility QA `/tmp/tsukenya-order-action-viewer-qa` мав dependency
+viewer root2b5cdab + own0436 + test-only compositionfe5a. Частковий
+`compat-viewer-visible` довів opener focus,44px, immutable lost-ACK repeat,
+stale409/local Apply, source revision і partial sale/reserved quantity;
+далі зупинився на реальному viewer RAC per-reservation Enter callback, що
+не досягав native handler. Це передано viewer author/root; його sourcefix
+не включено до власної доставки. Нема заяви whole compat PASS, original
+Enter assertion збережена. Stage `release` перевіряє exact ID на page2
+65-record history для обох50/30-page DTO; target — шостий старий запис,
+не перший ID за припущенням. Runtime після viewerfix ще потрібний лише для
+цього affected tail. Інші завершені family/PG перевірки не повторювалися.

@@ -52,7 +52,7 @@ const documentBrowser=window.TradeBrowse.create({api,esc,amount,name,table,kinds
 const shiftUI=window.TradeShifts.create({api,esc,amount,quantity,name,table,option,calendarDay});
 const financeUI=window.TradeFinance.create({api,esc,amount,name,table,option,kinds,getState:()=>E});
 const paymentsUI=window.TradePayments.create({api,esc,amount,name,table,field,input,num,select,option,modal,date,markDirty,busyDialog,formError,getState:()=>E,pickDocument:options=>documentBrowser.pick(options),onForm:voucherForm});
-const orderUI=window.TradeOrders.create({api,esc,quantity,amount,table,field,input,num,button,modal,date,busyDialog,formError,getDialog:()=>dialog,afterWrite:(id,d)=>refreshDocument(id,d,current,'saved'),onView:viewVoucher,canClose,getSource:d=>d?._confirmedVoucher});
+const orderUI=window.TradeOrders.create({api,esc,quantity,amount,table,field,input,num,button,modal,date,busyDialog,formError,getDialog:()=>dialog,afterWrite:(id,d)=>refreshDocument(id,d,current,'saved'),onView:viewVoucher,canClose,getSource:d=>d?._documentActionSource||d?._confirmedVoucher});
 const reconciliationUI=window.TradeReconciliation.create({api,esc,table,modal});
 const productionUI=window.TradeProduction.create({api,esc,field,input,num,select,modal,markDirty,busyDialog,formError,getState:()=>E,onSaved:()=>refreshSaved(null)});
 let financeControls=[];const cancelFinanceControls=()=>{financeControls.forEach(control=>control.cancel());financeControls=[];};
