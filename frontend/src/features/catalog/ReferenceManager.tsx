@@ -1,3 +1,13 @@
+import { useCatalogRecovery } from './recovery/session';
+import { RecoveryActions } from './recovery/RecoveryActions';
+import {
+  decodeManagerRaw,
+  projectReference,
+  type CatalogPayload,
+  type ManagerRaw,
+} from './recovery/codec';
+import { ConflictComparison } from '../../shared/ui/ConflictComparison';
+import { compareThreeWay, resolveThreeWay, type MergeChoices } from '../../shared/merge/threeWay';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ModalOverlay, Modal, Dialog, Heading } from 'react-aria-components';
@@ -37,17 +47,24 @@ export function ReferenceManager({
   onClose,
   onChanged,
   api: injectedApi,
+  restoredPayload,
+  store = null,
 }: {
   onClose: () => void;
   onChanged: () => void;
   api?: ReferenceManagementApi;
+  restoredPayload?: CatalogPayload;
+  store?: number | null;
 }) {
   const [api] = useState(() => injectedApi || createReferenceManagementApi());
   const client = useQueryClient();
-  const [field, setField] = useState<ReferenceField>('type');
-  const [recordState, setRecordState] = useState<ManagedReference['state']>('active');
-  const [source, setSource] = useState<ManagedReference | null>(null);
-  const [target, setTarget] = useState<ManagedReference | null>(null);
+  const restored = restoredPayload ? decodeManagerRaw(restoredPayload.draft) : null;
+  const [field, setField] = useState<ReferenceField>(restored?.field || 'type');
+  const [recordState, setRecordState] = useState<ManagedReference['state']>(
+    restored?.recordState || 'active',
+  );
+  const [source, setSource] = useState<ManagedReference | null>(restored?.source || null);
+  const [target, setTarget] = useState<ManagedReference | null>(restored?.target || null);
   const sourceQuery = referenceQuery(field, { state: recordState });
   const data = useQuery({
     queryKey: ['catalog-reference-management', sourceQuery],
@@ -55,8 +72,10 @@ export function ReferenceManager({
     retry: false,
     staleTime: 0,
   });
-  const [operation, setOperation] = useState<ReferenceMutation['operation']>('rename');
-  const [name, setName] = useState('');
+  const [operation, setOperation] = useState<ReferenceMutation['operation']>(
+    restored?.operation || 'rename',
+  );
+  const [name, setName] = useState(restored?.name || '');
   const targetId = target?.id || '';
   const [reviewed, setReviewed] = useState<{
     key: string;
@@ -66,6 +85,129 @@ export function ReferenceManager({
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [notice, setNotice] = useState('');
+  const enabled = api.durableRecovery === true;
+  const raw: ManagerRaw = {
+    field,
+    recordState,
+    source: projectReference(source),
+    target: projectReference(target),
+    operation,
+    name,
+    reviewed: (reviewed?.body as Record<string, string>) || null,
+  };
+  const baseline = () => ({
+    kind: 'references' as const,
+    store,
+    target: source?.id || null,
+    revision: source?.revision || null,
+    hidden: false,
+    referenceIds: {},
+    defaultMarkup: '',
+    original: raw,
+  });
+  const recovery = useCatalogRecovery(baseline(), raw, restoredPayload, enabled);
+  const [comparison, setComparison] = useState<{
+    base: { value: string };
+    mine: { value: string };
+    server: ManagedReference;
+    choices: MergeChoices;
+  } | null>(null);
+  const fields = [
+    {
+      id: 'value',
+      label: 'Назва запису',
+      read: (v: { value: string }) => v.value,
+      write: (v: { value: string }, source: { value: string }) => ({ ...v, value: source.value }),
+    },
+  ];
+  const rows = comparison
+    ? compareThreeWay(comparison.base, comparison.mine, { value: comparison.server.value }, fields)
+    : [];
+  const currentRead = async (compare = true) => {
+    const stored = recovery.value(),
+      id = stored.confirmation?.ack.target || stored.baseline.target || source?.id;
+    if (!id) return;
+    const fresh = await recovery.read(async (signal) => {
+      const selected = [
+        decodeManagerRaw(stored.baseline.original).source,
+        source,
+        decodeManagerRaw(stored.draft).source,
+      ].find((item) => item?.id === id);
+      if (!selected || selected.id !== id)
+        throw Error('Не підтверджено первісний запис довідника.');
+      const details = await api.directory.details(
+        [
+          {
+            id,
+            field: selected.field,
+            value: selected.value,
+            ...(selected.field === 'category' ? { parentType: selected.parentType } : {}),
+          },
+        ],
+        signal,
+      );
+      const item = details.items[0]?.item;
+      if (!details.canEdit || item?.id !== id)
+        throw new ApiError(403, 'Підтверджений запис довідника недоступний.');
+      return item;
+    });
+    if (fresh && compare) {
+      const old = decodeManagerRaw(stored.baseline.original).source || source;
+      setComparison({
+        base: { value: old?.value || '' },
+        mine: { value: operation === 'rename' ? name : old?.value || '' },
+        server: fresh,
+        choices: {},
+      });
+      setNotice(
+        'Актуальний запис відкрито для порівняння. Перегляд впливу та збереження залишаються окремими діями.',
+      );
+    }
+    return fresh;
+  };
+  const exactRetry = async () => {
+    const ack = await recovery.exactRetry();
+    if (ack) {
+      onChanged();
+      await currentRead();
+    }
+  };
+  const applyComparison = () => {
+    if (!comparison || recovery.busy || recovery.intent) return;
+    const merged = resolveThreeWay(
+      comparison.base,
+      comparison.mine,
+      { value: comparison.server.value },
+      fields,
+      comparison.choices,
+    );
+    if (!merged) return;
+    const next = {
+      ...raw,
+      source: projectReference(comparison.server),
+      name: operation === 'rename' ? merged.value : name,
+      reviewed: null,
+    };
+    if (
+      !recovery.adopt(
+        {
+          ...baseline(),
+          target: comparison.server.id,
+          revision: comparison.server.revision,
+          original: next,
+        },
+        next,
+      )
+    )
+      return;
+    setSource(comparison.server);
+    setName(next.name);
+    setReviewed(null);
+    setComparison(null);
+    setNotice(
+      'Поточну версію застосовано локально. Перегляньте повний вплив перед окремим підтвердженням.',
+    );
+  };
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
@@ -91,7 +233,17 @@ export function ReferenceManager({
     },
     [],
   );
-  const canEdit = data.data?.canEdit === true && !data.isFetching && !data.error;
+  const canEdit =
+    data.data?.canEdit === true &&
+    !data.isFetching &&
+    !data.error &&
+    (!enabled ||
+      (recovery.private &&
+        !recovery.busy &&
+        !recovery.intent &&
+        !recovery.confirmed &&
+        !recovery.blocked &&
+        !comparison));
   const valid =
     !!source &&
     source.state !== 'merged' &&
@@ -115,9 +267,44 @@ export function ReferenceManager({
     commit.reset();
   };
   const commit = useMutation({
-    mutationFn: (body: ReferenceCommit) => api.commit(body),
+    mutationFn: async (body: ReferenceCommit) => {
+      if (!enabled) return api.commit(body);
+      const ack = await recovery.send('reference_commit', body, body.sourceId, body.idempotencyKey);
+      if (!ack && !recovery.value().firstIntent) setReviewed(null);
+      if (ack) {
+        onChanged();
+        const fresh = await currentRead(false);
+        if (fresh && recovery.isLive()) {
+          const empty: ManagerRaw = {
+            field,
+            recordState,
+            source: null,
+            target: null,
+            operation: 'rename',
+            name: '',
+            reviewed: null,
+          };
+          if (
+            !recovery.adopt({ ...baseline(), target: null, revision: null, original: empty }, empty)
+          )
+            return null;
+          setReviewed(null);
+          setSource(null);
+          setTarget(null);
+          setName('');
+          setOperation('rename');
+          setComparison(null);
+          setNotice('Зміну довідника збережено. Каталог і цінники оновлено.');
+          void client.invalidateQueries({ queryKey: ['catalog-reference-management'] });
+          void client.invalidateQueries({ queryKey: ['catalog-references'] });
+          void client.invalidateQueries({ queryKey: ['catalog'] });
+        }
+      }
+      return null;
+    },
     retry: false,
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (enabled || !result) return;
       setReviewed(null);
       setSource(null);
       setName('');
@@ -164,7 +351,7 @@ export function ReferenceManager({
     }
   };
   const close = () => {
-    if (!commit.isPending) {
+    if (!commit.isPending && !recovery.busy) {
       controller.current?.abort();
       generation.current += 1;
       onClose();
@@ -174,8 +361,8 @@ export function ReferenceManager({
     <ModalOverlay
       className="tk-editor-overlay"
       isOpen
-      isDismissable={!commit.isPending}
-      isKeyboardDismissDisabled={commit.isPending}
+      isDismissable={!commit.isPending && !recovery.busy}
+      isKeyboardDismissDisabled={commit.isPending || recovery.busy}
       onOpenChange={(open) => {
         if (!open) close();
       }}
@@ -187,262 +374,300 @@ export function ReferenceManager({
               <Heading slot="title">Керування довідниками</Heading>
               <p>Зміни назв у поточному каталозі потребують перегляду впливу.</p>
             </div>
-            <Button onPress={close} isDisabled={commit.isPending} aria-label="Закрити довідники">
+            <Button
+              onPress={close}
+              isDisabled={commit.isPending || recovery.busy}
+              aria-label="Закрити довідники"
+            >
               Закрити
             </Button>
           </header>
-          {data.isPending ? <p role="status">Завантажуємо довідники…</p> : null}
-          {data.error ? (
-            <div role="alert">
-              <p>{data.error.message}</p>
-              <Button onPress={() => void data.refetch()}>Оновити довідники</Button>
-            </div>
+          {enabled ? (
+            <RecoveryActions
+              recovery={recovery}
+              onCurrent={() => void currentRead()}
+              onExact={() => void exactRetry()}
+            />
           ) : null}
-          {data.data ? (
+          {!enabled || recovery.private ? (
             <>
-              {!data.data.canEdit ? <p>Вашій ролі доступний перегляд довідників.</p> : null}
-              <div className="tk-reference-grid">
-                <Select
-                  label="Довідник"
-                  options={referenceFields.map((id) => ({ id, label: labels[id] }))}
-                  selectedKey={field}
-                  isDisabled={commit.isPending}
-                  onSelectionChange={(value) => {
-                    invalidate();
-                    setField(value as ReferenceField);
-                    setSource(null);
-                    setTarget(null);
-                    setName('');
-                    setOperation('rename');
-                  }}
-                />
-                <Select
-                  label="Стан записів"
-                  options={Object.entries(states).map(([id, label]) => ({ id, label }))}
-                  selectedKey={recordState}
-                  isDisabled={commit.isPending}
-                  onSelectionChange={(key) => {
-                    invalidate();
-                    setRecordState(String(key) as ManagedReference['state']);
-                    setSource(null);
-                    setTarget(null);
-                    setName('');
-                  }}
-                />
-                <ReferencePicker
-                  api={api.directory}
-                  query={sourceQuery}
-                  label="Запис довідника"
-                  selected={source}
-                  value={source?.value || ''}
-                  disabled={commit.isPending || data.isPending || !!data.error}
-                  onCommit={(item) => {
-                    invalidate();
-                    setSource(item);
-                    setName(item.value);
-                    setTarget(null);
-                    setOperation(item.state === 'archived' ? 'restore' : 'rename');
-                  }}
-                />
-              </div>
-              {source ? (
-                <p className="tk-help">
-                  Стан: {states[source.state]}.{' '}
-                  {source.parentType ? `Група: ${source.parentType}.` : ''}
-                </p>
+              {data.isPending ? <p role="status">Завантажуємо довідники…</p> : null}
+              {data.error ? (
+                <div role="alert">
+                  <p>{data.error.message}</p>
+                  <Button onPress={() => void data.refetch()}>Оновити довідники</Button>
+                </div>
               ) : null}
-              {source?.state === 'merged' ? (
-                <p>Запис об’єднано. Для нових значень виберіть цільовий активний запис.</p>
-              ) : null}
-              {source && source.state !== 'merged' && data.data.canEdit ? (
+              {data.data ? (
                 <>
+                  {!data.data.canEdit ? <p>Вашій ролі доступний перегляд довідників.</p> : null}
                   <div className="tk-reference-grid">
                     <Select
-                      label="Дія"
-                      options={(source.state === 'archived'
-                        ? ['restore']
-                        : ['rename', 'merge', 'archive']
-                      ).map((id) => ({
-                        id,
-                        label: operations[id as ReferenceMutation['operation']],
-                      }))}
-                      selectedKey={operation}
-                      isDisabled={commit.isPending}
+                      label="Довідник"
+                      options={referenceFields.map((id) => ({ id, label: labels[id] }))}
+                      selectedKey={field}
+                      isDisabled={commit.isPending || recovery.busy}
                       onSelectionChange={(value) => {
                         invalidate();
-                        setOperation(value as ReferenceMutation['operation']);
+                        setField(value as ReferenceField);
+                        setSource(null);
                         setTarget(null);
+                        setName('');
+                        setOperation('rename');
                       }}
                     />
-                    {operation === 'rename' ? (
-                      <TextField
-                        label="Нова назва"
-                        value={name}
-                        maxLength={field === 'unit' ? 30 : 160}
-                        isReadOnly={commit.isPending}
-                        onChange={(value) => {
-                          invalidate();
-                          setName(value);
-                        }}
-                      />
-                    ) : null}
-                    {operation === 'merge' ? (
-                      <ReferencePicker
-                        api={api.directory}
-                        query={referenceQuery(
-                          field,
-                          field === 'category'
-                            ? {
-                                parentId: source.parentId,
-                                parentType: source.parentId ? null : source.parentType,
-                              }
-                            : {},
-                        )}
-                        label={field === 'type' ? 'Цільова група' : 'Цільовий запис'}
-                        selected={target}
-                        value={target?.value || ''}
-                        disabled={commit.isPending}
-                        onCommit={(item) => {
-                          if (item.id === source.id) return;
-                          invalidate();
-                          setTarget(item);
-                        }}
-                      />
-                    ) : null}
+                    <Select
+                      label="Стан записів"
+                      options={Object.entries(states).map(([id, label]) => ({ id, label }))}
+                      selectedKey={recordState}
+                      isDisabled={commit.isPending || recovery.busy}
+                      onSelectionChange={(key) => {
+                        invalidate();
+                        setRecordState(String(key) as ManagedReference['state']);
+                        setSource(null);
+                        setTarget(null);
+                        setName('');
+                      }}
+                    />
+                    <ReferencePicker
+                      api={api.directory}
+                      query={sourceQuery}
+                      label="Запис довідника"
+                      selected={source}
+                      value={source?.value || ''}
+                      disabled={commit.isPending || recovery.busy || data.isPending || !!data.error}
+                      onCommit={(item) => {
+                        invalidate();
+                        setSource(item);
+                        setName(item.value);
+                        setTarget(null);
+                        setOperation(item.state === 'archived' ? 'restore' : 'rename');
+                      }}
+                    />
                   </div>
-                  {operation === 'archive' ? (
-                    <p>
-                      Архівований запис зникне з нового вибору. Наявні значення товарів залишаться
-                      читабельними.
+                  {source ? (
+                    <p className="tk-help">
+                      Стан: {states[source.state]}.{' '}
+                      {source.parentType ? `Група: ${source.parentType}.` : ''}
                     </p>
                   ) : null}
-                  {operation === 'merge' ? (
-                    <p>
-                      Товари перейдуть до вибраного цільового запису.{' '}
-                      {field === 'type'
-                        ? 'Однойменні категорії в цільовій групі об’єднаються; інші категорії збережуть свої ID.'
-                        : ''}
+                  {source?.state === 'merged' ? (
+                    <p>Запис об’єднано. Для нових значень виберіть цільовий активний запис.</p>
+                  ) : null}
+                  {source && source.state !== 'merged' && data.data.canEdit ? (
+                    <>
+                      <div className="tk-reference-grid">
+                        <Select
+                          label="Дія"
+                          options={(source.state === 'archived'
+                            ? ['restore']
+                            : ['rename', 'merge', 'archive']
+                          ).map((id) => ({
+                            id,
+                            label: operations[id as ReferenceMutation['operation']],
+                          }))}
+                          selectedKey={operation}
+                          isDisabled={commit.isPending || recovery.busy}
+                          onSelectionChange={(value) => {
+                            invalidate();
+                            setOperation(value as ReferenceMutation['operation']);
+                            setTarget(null);
+                          }}
+                        />
+                        {operation === 'rename' ? (
+                          <TextField
+                            label="Нова назва"
+                            value={name}
+                            maxLength={field === 'unit' ? 30 : 160}
+                            isReadOnly={commit.isPending}
+                            onChange={(value) => {
+                              invalidate();
+                              setName(value);
+                            }}
+                          />
+                        ) : null}
+                        {operation === 'merge' ? (
+                          <ReferencePicker
+                            api={api.directory}
+                            query={referenceQuery(
+                              field,
+                              field === 'category'
+                                ? {
+                                    parentId: source.parentId,
+                                    parentType: source.parentId ? null : source.parentType,
+                                  }
+                                : {},
+                            )}
+                            label={field === 'type' ? 'Цільова група' : 'Цільовий запис'}
+                            selected={target}
+                            value={target?.value || ''}
+                            disabled={commit.isPending}
+                            onCommit={(item) => {
+                              if (item.id === source.id) return;
+                              invalidate();
+                              setTarget(item);
+                            }}
+                          />
+                        ) : null}
+                      </div>
+                      {operation === 'archive' ? (
+                        <p>
+                          Архівований запис зникне з нового вибору. Наявні значення товарів
+                          залишаться читабельними.
+                        </p>
+                      ) : null}
+                      {operation === 'merge' ? (
+                        <p>
+                          Товари перейдуть до вибраного цільового запису.{' '}
+                          {field === 'type'
+                            ? 'Однойменні категорії в цільовій групі об’єднаються; інші категорії збережуть свої ID.'
+                            : ''}
+                        </p>
+                      ) : null}
+                      <Button
+                        onPress={() => void preview()}
+                        isDisabled={!canEdit || !valid || previewBusy || commit.isPending}
+                      >
+                        {previewBusy ? 'Перевіряємо вплив…' : 'Переглянути вплив'}
+                      </Button>
+                      {previewBusy ? (
+                        <p role="status">Перевіряємо поточні товари та залежності…</p>
+                      ) : null}
+                    </>
+                  ) : null}
+                  {previewError ? (
+                    <p role="alert" className="tk-error">
+                      {previewError}
                     </p>
                   ) : null}
-                  <Button
-                    onPress={() => void preview()}
-                    isDisabled={!canEdit || !valid || previewBusy || commit.isPending}
-                  >
-                    {previewBusy ? 'Перевіряємо вплив…' : 'Переглянути вплив'}
-                  </Button>
-                  {previewBusy ? (
-                    <p role="status">Перевіряємо поточні товари та залежності…</p>
+                  {impact ? (
+                    <section className="tk-reference-impact" aria-label="Вплив зміни">
+                      <h3 ref={reviewHeading} tabIndex={-1}>
+                        Перевірений вплив
+                      </h3>
+                      <p>
+                        <strong>
+                          {operations[impact.operation]}: {impact.source.value}
+                        </strong>
+                        {impact.target
+                          ? ` → ${impact.target.value}`
+                          : impact.operation === 'rename'
+                            ? ` → ${name.trim()}`
+                            : ''}
+                      </p>
+                      <dl>
+                        <div>
+                          <dt>Товарів із цим записом</dt>
+                          <dd>{impact.usageCount}</dd>
+                        </div>
+                        <div>
+                          <dt>Товарів буде оновлено</dt>
+                          <dd>{impact.productCount}</dd>
+                        </div>
+                        <div>
+                          <dt>Записів буде змінено</dt>
+                          <dd>{impact.referenceCount}</dd>
+                        </div>
+                      </dl>
+                      {impact.examples.length ? (
+                        <>
+                          <h4>Приклади товарів</h4>
+                          <ul>
+                            {impact.examples.map((item) => (
+                              <li key={item.id}>{item.name}</li>
+                            ))}
+                          </ul>
+                          <p className="tk-help">
+                            Показано до 10 товарів із {impact.productCount}.
+                          </p>
+                        </>
+                      ) : null}
+                      {impact.coalescedCategories.length ? (
+                        <>
+                          <h4>Категорії, які об’єднаються у вибраній групі</h4>
+                          <ul>
+                            {impact.coalescedCategories.map((item) => (
+                              <li key={item.sourceId}>
+                                {item.value} → {impact.target?.value}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null}
+                      {reviewed && request ? (
+                        <ImpactDetails api={api} request={request} impact={impact} />
+                      ) : null}
+                      {impact.coalescedCount > impact.coalescedCategories.length ? (
+                        <p className="tk-help">
+                          Показано приклади: {impact.coalescedCategories.length} із{' '}
+                          {impact.coalescedCount}. Усі об’єднання доступні в деталях впливу.
+                        </p>
+                      ) : null}
+                      {impact.warnings.map((warning, index) => (
+                        <p key={index}>{warning}</p>
+                      ))}
+                      {impact.blockedCount ? (
+                        <div role="alert">
+                          <h4>Заблоковано: {impact.blockedCount}</h4>
+                          <ul>
+                            {impact.blocked.map((reason, index) => (
+                              <li key={index}>{reason}</li>
+                            ))}
+                          </ul>
+                          <p>Жодна зміна не буде збережена.</p>
+                        </div>
+                      ) : null}
+                      <Button
+                        variant="primary"
+                        onPress={() => {
+                          if (reviewed && canEdit && valid) commit.mutate(reviewed.body);
+                        }}
+                        isDisabled={!canEdit || !valid || !!impact.blockedCount || commit.isPending}
+                      >
+                        {commit.isPending
+                          ? 'Зберігаємо…'
+                          : commit.error
+                            ? 'Повторити підтвердження'
+                            : 'Підтвердити зміну довідника'}
+                      </Button>
+                    </section>
                   ) : null}
                 </>
               ) : null}
-              {previewError ? (
+              {commit.error ? (
                 <p role="alert" className="tk-error">
-                  {previewError}
+                  {commit.error.message}
+                  {commit.error instanceof ApiError && commit.error.status === 409
+                    ? ' Перегляньте вплив знову.'
+                    : ''}
                 </p>
               ) : null}
-              {impact ? (
-                <section className="tk-reference-impact" aria-label="Вплив зміни">
-                  <h3 ref={reviewHeading} tabIndex={-1}>
-                    Перевірений вплив
-                  </h3>
-                  <p>
-                    <strong>
-                      {operations[impact.operation]}: {impact.source.value}
-                    </strong>
-                    {impact.target
-                      ? ` → ${impact.target.value}`
-                      : impact.operation === 'rename'
-                        ? ` → ${name.trim()}`
-                        : ''}
-                  </p>
-                  <dl>
-                    <div>
-                      <dt>Товарів із цим записом</dt>
-                      <dd>{impact.usageCount}</dd>
-                    </div>
-                    <div>
-                      <dt>Товарів буде оновлено</dt>
-                      <dd>{impact.productCount}</dd>
-                    </div>
-                    <div>
-                      <dt>Записів буде змінено</dt>
-                      <dd>{impact.referenceCount}</dd>
-                    </div>
-                  </dl>
-                  {impact.examples.length ? (
-                    <>
-                      <h4>Приклади товарів</h4>
-                      <ul>
-                        {impact.examples.map((item) => (
-                          <li key={item.id}>{item.name}</li>
-                        ))}
-                      </ul>
-                      <p className="tk-help">Показано до 10 товарів із {impact.productCount}.</p>
-                    </>
-                  ) : null}
-                  {impact.coalescedCategories.length ? (
-                    <>
-                      <h4>Категорії, які об’єднаються у вибраній групі</h4>
-                      <ul>
-                        {impact.coalescedCategories.map((item) => (
-                          <li key={item.sourceId}>
-                            {item.value} → {impact.target?.value}
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  ) : null}
-                  {reviewed && request ? (
-                    <ImpactDetails api={api} request={request} impact={impact} />
-                  ) : null}
-                  {impact.coalescedCount > impact.coalescedCategories.length ? (
-                    <p className="tk-help">
-                      Показано приклади: {impact.coalescedCategories.length} із{' '}
-                      {impact.coalescedCount}. Усі об’єднання доступні в деталях впливу.
-                    </p>
-                  ) : null}
-                  {impact.warnings.map((warning, index) => (
-                    <p key={index}>{warning}</p>
-                  ))}
-                  {impact.blockedCount ? (
-                    <div role="alert">
-                      <h4>Заблоковано: {impact.blockedCount}</h4>
-                      <ul>
-                        {impact.blocked.map((reason, index) => (
-                          <li key={index}>{reason}</li>
-                        ))}
-                      </ul>
-                      <p>Жодна зміна не буде збережена.</p>
-                    </div>
-                  ) : null}
-                  <Button
-                    variant="primary"
-                    onPress={() => {
-                      if (reviewed && canEdit && valid) commit.mutate(reviewed.body);
-                    }}
-                    isDisabled={!canEdit || !valid || !!impact.blockedCount || commit.isPending}
-                  >
-                    {commit.isPending
-                      ? 'Зберігаємо…'
-                      : commit.error
-                        ? 'Повторити підтвердження'
-                        : 'Підтвердити зміну довідника'}
-                  </Button>
-                </section>
+              {enabled && source && !recovery.intent && !recovery.confirmed ? (
+                <Button type="button" isDisabled={recovery.busy} onPress={() => void currentRead()}>
+                  Порівняти актуальний запис
+                </Button>
               ) : null}
+              {comparison ? (
+                <ConflictComparison
+                  title="Порівняння запису довідника"
+                  rows={rows}
+                  choices={comparison.choices}
+                  onChoice={(id, choice) =>
+                    setComparison({
+                      ...comparison,
+                      choices: { ...comparison.choices, [id]: choice },
+                    })
+                  }
+                  onApply={applyComparison}
+                  onCancel={() => setComparison(null)}
+                  isDisabled={recovery.busy || recovery.intent}
+                />
+              ) : null}
+              <p role="status" aria-live="polite">
+                {notice}
+              </p>
             </>
           ) : null}
-          {commit.error ? (
-            <p role="alert" className="tk-error">
-              {commit.error.message}
-              {commit.error instanceof ApiError && commit.error.status === 409
-                ? ' Перегляньте вплив знову.'
-                : ''}
-            </p>
-          ) : null}
-          <p role="status" aria-live="polite">
-            {notice}
-          </p>
         </Dialog>
       </Modal>
     </ModalOverlay>

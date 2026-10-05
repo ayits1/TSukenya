@@ -13,6 +13,10 @@ module.exports = async (page, until) => {
   const requests = [];
   page.on('request', (request) => {
     const pathname = new URL(request.url()).pathname;
+    if (pathname === '/api/v1/catalog/recovery/execute') {
+      const envelope = request.postDataJSON();
+      if (envelope.operation.startsWith('product_')) requests.push({method: envelope.operation === 'product_create' ? 'POST' : envelope.operation === 'product_delete' ? 'DELETE' : 'PATCH', path: '/api/v1/catalog/products' + (envelope.target ? '/' + envelope.target : ''), body: envelope.request});
+    }
     if (['POST', 'PATCH', 'DELETE'].includes(request.method()) && /^\/api\/v1\/catalog\/products(?:\/[A-Za-z0-9_-]+)?$/.test(pathname) && !pathname.endsWith('/price-preview')) requests.push({ method: request.method(), path: pathname, body: request.postDataJSON() });
   });
   const ready = () => until(async () => await save.isEnabled(), 'current price preview');
@@ -87,7 +91,7 @@ module.exports = async (page, until) => {
   const pack = editor.getByRole('combobox', { name: 'Пакування', exact: true });
   await pack.fill(chosenPack); await page.getByRole('option', { name: chosenPack, exact: true }).click();
   await competing(product.id, { name: 'B29 змінено на сервері' }); await save.click();
-  await page.getByRole('button', { name: 'Порівняти зміни', exact: true }).click();
+  await require('./catalog-recovery-navigation.cjs').compare(page);
   await page.getByRole('heading', { name: 'Порівняти зміни', exact: true }).waitFor();
   const beforeApply = requests.length;
   const mergeGeometry = await geometry('independent-merge');
@@ -101,21 +105,22 @@ module.exports = async (page, until) => {
   await page.locator('.tk-product-link').click(); await ready();
   await editor.getByRole('textbox', { name: 'Звичайна ціна: копійки', exact: true }).fill('07'); await ready();
   await competing(product.id, { price: '16.09' }); await save.click();
-  await page.getByRole('button', { name: 'Порівняти зміни', exact: true }).click();
+  await require('./catalog-recovery-navigation.cjs').compare(page);
   const apply = page.getByRole('button', { name: 'Застосувати узгоджені зміни' });
   await apply.waitFor(); assert(!await apply.isEnabled(), 'same price conflict requires explicit choice');
   const conflictGeometry = await geometry('price-conflict');
   await page.getByRole('button', { name: 'Повернутися до чернетки' }).click();
-  await until(async () => await page.getByRole('button', { name: 'Порівняти зміни', exact: true }).evaluate((button) => button === document.activeElement), 'cancel focus return');
+  await until(async () => await page.getByRole('button', { name: 'Порівняти актуальні зміни', exact: true }).evaluate((button) => button === document.activeElement), 'cancel focus return');
   assert.equal(await editor.getByRole('textbox', { name: 'Звичайна ціна: копійки', exact: true }).inputValue(), '07');
   await page.keyboard.press('Enter'); await apply.waitFor();
   await page.getByRole('radio', { name: 'Залишити мої зміни' }).focus(); await page.keyboard.press('Space');
   assert(await apply.isEnabled()); const beforeChoice = requests.length; await apply.click();
   assert.equal(requests.length, beforeChoice); await ready();
   await competing(product.id, { barcode: 'B29-SECOND-CONFLICT' }); await save.click();
-  await page.getByRole('button', { name: 'Порівняти зміни', exact: true }).waitFor();
+  await require('./catalog-recovery-navigation.cjs').access(page);
+  await page.getByRole('button', { name: 'Порівняти актуальні зміни', exact: true }).waitFor();
   assert.equal(await editor.getByRole('textbox', { name: 'Звичайна ціна: копійки', exact: true }).inputValue(), '07', 'repeated 409 retains chosen local price');
-  await page.getByRole('button', { name: 'Порівняти зміни', exact: true }).click(); await apply.waitFor(); await apply.click(); await ready(); await save.click();
+  await require('./catalog-recovery-navigation.cjs').compare(page); await apply.waitFor(); await apply.click(); await ready(); await save.click();
   await until(async () => await editor.count() === 0, 'save after repeated conflict');
   const final = await read(product.id); assert.equal(final.price, '15.07'); assert.equal(final.barcode, 'B29-SECOND-CONFLICT');
   fs.writeFileSync(path.join(artifacts, 'report.json'), JSON.stringify({ previewGeometry, mergeGeometry, conflictGeometry, previewSaveParity: true, firstManualFromPreview: true, manualKopecksPreserved: true, stalePreviewIgnored: true, independentMerge: true, explicitPriceChoice: true, cancelFocus: true, repeatedConflict: true, noMutationOnPreviewOrApply: true }, null, 2));

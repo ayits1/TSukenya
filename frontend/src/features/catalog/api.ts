@@ -261,6 +261,8 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
   let csrf: string | undefined = csrfToken;
   const client = createApiClient({ getCsrf: () => csrf });
   return {
+    durableRecovery: true as const,
+    priceStore: store ?? null,
     referenceDirectory: createReferenceDirectoryApi(() => csrf),
     async session(signal?: AbortSignal) {
       const result = await client.get('/api/v1/session', decodeSession, signal);
@@ -429,7 +431,12 @@ export function createCatalogApi(store?: number | null, csrfToken?: string) {
     },
   };
 }
-export type CatalogApi = Omit<ReturnType<typeof createCatalogApi>, 'facets' | 'exportCsv'> & {
+export type CatalogApi = Omit<
+  ReturnType<typeof createCatalogApi>,
+  'facets' | 'exportCsv' | 'durableRecovery' | 'priceStore'
+> & {
+  durableRecovery?: true;
+  priceStore?: number | null;
   facets?: FacetApi;
   exportCsv?: ReturnType<typeof createCatalogApi>['exportCsv'];
 };

@@ -124,12 +124,26 @@ class CatalogRecoveryConcurrencyTests(CatalogRecoveryTests):
         self.assertEqual(results[0].json() if hasattr(results[0],'json') else __import__('json').loads(results[0].content),__import__('json').loads(results[1].content))
         self.assertEqual(Document.objects.filter(path__startswith='products/',data__name='Concurrent receipt product').count(),1)
         self.assertEqual(Document.objects.filter(pk='catalog_action_receipts/'+value['key']).count(),1)
-        entered,release=Event(),Event()
+        entered=Event(); worker_pid=[]
         from server.erp.services import ledger_lock
-        def wait():entered.set();self.assertTrue(release.wait(5));ledger_lock()
+        from time import monotonic, sleep
+        def wait():
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT pg_backend_pid()');worker_pid.append(cursor.fetchone()[0])
+            entered.set();ledger_lock()
         with ThreadPoolExecutor(max_workers=1) as pool,patch('server.erp.catalog_recovery.ledger_lock',side_effect=wait):
-            future=pool.submit(invoke,value);self.assertTrue(entered.wait(5))
-            self.user.profile.role='cashier';self.user.profile.save();release.set()
+            with transaction.atomic():
+                ledger_lock()
+                future=pool.submit(invoke,value);self.assertTrue(entered.wait(5))
+                deadline=monotonic()+5;blocked=False
+                while monotonic()<deadline:
+                    with connection.cursor() as cursor:
+                        cursor.execute('SELECT wait_event_type FROM pg_stat_activity WHERE pid=%s',worker_pid)
+                        blocked=cursor.fetchone()[0]=='Lock'
+                    if blocked:break
+                    sleep(.02)
+                self.assertTrue(blocked,'actor request must actually wait on the PostgreSQL ledger lock')
+                self.user.profile.role='cashier';self.user.profile.save()
             with self.assertRaisesRegex(Exception,'прав'):future.result(timeout=10)
         self.assertEqual(Document.objects.filter(path__startswith='products/',data__name='Concurrent receipt product').count(),1)
 

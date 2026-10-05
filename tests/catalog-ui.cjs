@@ -89,8 +89,9 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  await page.evaluate(async id=>{const session=await (await fetch('/api/v1/session')).json();const revision=(await (await fetch('/api/v1/catalog/products/'+id)).json()).revision;const result=await fetch('/api/docs/products/'+id,{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf,'If-Match':revision},body:JSON.stringify({name:'Оновлено іншим редактором'})});if(!result.ok)throw new Error('isolated competing edit failed');},product.id);
  await page.getByRole('dialog').getByRole('button',{name:'Зберегти товар'}).click();
  await page.getByRole('alert').filter({hasText:'Товар уже змінено'}).waitFor();
+ await require('./catalog-recovery-navigation.cjs').access(page);
  assert.equal(await page.getByRole('dialog').getByRole('textbox',{name:'Назва товару'}).inputValue(),'Незбережена моя назва');
- await page.getByRole('button',{name:'Порівняти зміни'}).click();
+ await require('./catalog-recovery-navigation.cjs').compare(page);
  await page.getByRole('radio',{name:'Взяти зміни сервера'}).focus();await page.keyboard.press('Space');
  await page.getByRole('button',{name:'Застосувати узгоджені зміни'}).click();
  await until(async()=>await page.getByRole('dialog').getByRole('textbox',{name:'Назва товару'}).inputValue()==='Оновлено іншим редактором','explicit conflict comparison');
@@ -98,6 +99,7 @@ async function until(condition, label) { for(let i=0;i<120;i++){if(await conditi
  await page.getByRole('searchbox',{name:'Пошук товару'}).fill('Оновлено іншим редактором');
  await until(async()=>await page.locator('.tk-product-link').count()===1,'updated search');
  await page.getByRole('button',{name:/^Акція: Оновлено/}).click();
+ await page.getByRole('dialog').getByRole('textbox',{name:'Назва товару'}).waitFor();await until(()=>page.getByRole('dialog').getByRole('button',{name:'Зберегти товар'}).isEnabled(),'promotion editor ready');await page.getByRole('dialog').getByRole('button',{name:'Зберегти товар'}).click();
  await until(async()=>await page.getByRole('button',{name:/^Без акції: Оновлено/}).count()===1,'promotion toggle persisted');
  await page.goto(base+'/#operations/tags');await page.waitForSelector('.tk-studio');const preview=page.getByRole('combobox',{name:'Товар для перегляду',exact:true});await preview.fill('Оновлено іншим редактором');await page.getByRole('option',{name:'Оновлено іншим редактором',exact:true}).click();
  assert.equal(await page.locator('.tk-studio-canvas [data-field=name]').innerText(),'Оновлено іншим редактором');assert.equal(await page.locator('.tk-studio-canvas .t-promo').count(),0);

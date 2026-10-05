@@ -395,3 +395,13 @@
 .tk-reference-paging .tk-button {
   min-height: 44px;
 }
+
+.tk-catalog-recovery {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin-block-end: 20px;
+}
+.tk-catalog-recovery p {
+  margin: 0;
+}

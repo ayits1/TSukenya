@@ -1,0 +1,285 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TSukenya catalogue durable recovery",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/catalog/recovery/execute": {
+      "post": {
+        "operationId": "catalogRecoveryExecute",
+        "description": "Creator-bound frozen request. Identity is a CSRF-protected READ ONLY RR read; false is unresolved, never authorship or known absence. Execute delegates unchanged business services under LedgerLock.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogRecoveryEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compact initial result; no current revision or Product DTO.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogRecoveryAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation refused; only initial rolled-back live response may include bound write_rejected proof."
+          },
+          "403": {
+            "description": "Current role/store/activity refuses access."
+          },
+          "409": {
+            "description": "Collision or stale revision; unknown later response never retires the first intent."
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/recovery/identity": {
+      "post": {
+        "operationId": "catalogRecoveryIdentity",
+        "description": "Creator-bound frozen request. Identity is a CSRF-protected READ ONLY RR read; false is unresolved, never authorship or known absence. Execute delegates unchanged business services under LedgerLock.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogRecoveryEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compact initial result; no current revision or Product DTO.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogRecoveryAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation refused; only initial rolled-back live response may include bound write_rejected proof."
+          },
+          "403": {
+            "description": "Current role/store/activity refuses access."
+          },
+          "409": {
+            "description": "Collision or stale revision; unknown later response never retires the first intent."
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/recovery/context": {
+      "get": {
+        "operationId": "catalogRecoveryContext",
+        "parameters": [
+          {
+            "name": "operation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "product_create",
+                "product_update",
+                "product_visibility",
+                "product_delete",
+                "reference_create",
+                "reference_commit"
+              ]
+            }
+          },
+          {
+            "name": "target",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"],
+              "pattern": "^[A-Za-z0-9_-]{1,120}$"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh resource authorization and scalar existence, READ ONLY RR. Unknown and duplicate query keys refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogRecoveryContext"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CatalogRecoveryEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "operation", "target", "store", "request"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "product_create",
+              "product_update",
+              "product_visibility",
+              "product_delete",
+              "reference_create",
+              "reference_commit"
+            ]
+          },
+          "target": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "store": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "request": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CatalogRecoveryAcknowledgement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "confirmed",
+          "key",
+          "operation",
+          "target",
+          "requestHash",
+          "outcome"
+        ],
+        "properties": {
+          "confirmed": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "product_create",
+              "product_update",
+              "product_visibility",
+              "product_delete",
+              "reference_create",
+              "reference_commit"
+            ]
+          },
+          "target": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "requestHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["created", "saved", "deleted", "committed", "unresolved"]
+          }
+        }
+      },
+      "CatalogRecoveryContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation", "target", "store", "exists", "editing"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "product_create",
+              "product_update",
+              "product_visibility",
+              "product_delete",
+              "reference_create",
+              "reference_commit"
+            ]
+          },
+          "target": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Za-z0-9_-]{1,120}$"
+          },
+          "store": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "exists": {
+            "type": ["boolean", "null"]
+          },
+          "editing": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "storeId", "networkOwner", "canWrite"],
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": ["owner", "manager", "warehouse"]
+              },
+              "storeId": {
+                "type": ["integer", "null"],
+                "minimum": 1
+              },
+              "networkOwner": {
+                "type": "boolean"
+              },
+              "canWrite": {
+                "const": true,
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

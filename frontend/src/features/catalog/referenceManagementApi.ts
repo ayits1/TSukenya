@@ -96,6 +96,7 @@ export function createReferenceManagementApi() {
   const client = createApiClient({ getCsrf: () => csrf });
   const directory = createReferenceDirectoryApi(() => csrf);
   return {
+    durableRecovery: true as const,
     directory,
     async list(query: ReferenceQuery, page = 1, signal?: AbortSignal) {
       const result = await directory.page(query, page, signal);
@@ -116,4 +117,7 @@ export function createReferenceManagementApi() {
     },
   };
 }
-export type ReferenceManagementApi = ReturnType<typeof createReferenceManagementApi>;
+export type ReferenceManagementApi = Omit<
+  ReturnType<typeof createReferenceManagementApi>,
+  'durableRecovery'
+> & { durableRecovery?: true };
