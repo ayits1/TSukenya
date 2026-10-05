@@ -90,3 +90,7 @@ actual freshness families та окремий `abort` tail; QA stage/port/proof 
 Reports залишається окремим manual reader: його впровадження не зараховується
 до автоматичного freshness enrollment цим пакетом. Capacity100k, cursor/cache
 та tombstone потребують власних подальших доказів.
+
+## SQLite: історичний не-object payload
+
+До прийняття0024 CI виявив, що SQLite projection намагалася читати `.get()` у масиву payload. Виправлено тільки адаптер умови мережевої витрати: ключ читається лише у dict, як PostgreSQL JSON-key extraction; перевірка структури бізнесовим читачем зберігається. Два чинні сценарії malformed source та monthly legacy fact пройшли цільово на ізольованій SQLite. PostgreSQL SQL, ціни, проведення й accepted міграції не змінено; helper0024 ще не прийнятий.

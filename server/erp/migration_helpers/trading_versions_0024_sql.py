@@ -127,7 +127,11 @@ def register_sqlite(connection):
             if name=='stock_or_order_kind' and row.get('status')!='posted':return False
             if role=='manager' and name=='finance_kind':
                 if row['kind'] in {'cash_opening','debt_opening'}:return False
-                if row['kind']=='expense' and json.loads(row['payload']).get('expense_scope')=='network':return False
+                if row['kind']=='expense':
+                    payload=json.loads(row['payload'])
+                    # Match PostgreSQL JSON-key extraction for legacy non-object
+                    # payloads. Report readers still reject invalid structure.
+                    if isinstance(payload,dict) and payload.get('expense_scope')=='network':return False
         elif name in {'parent_sale','parent_purchase','ledger_entry'}:
             parent=fetch(row,(('voucher_id','voucher'),),('kind',))
             if not parent:return False
