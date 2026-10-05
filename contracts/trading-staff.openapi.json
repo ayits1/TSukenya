@@ -1,0 +1,698 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TSukenya staff workspace reads",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/trading/staff/employees": {
+      "get": {
+        "operationId": "staffEmployees",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read-only snapshot; no salary mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffEmployeesPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/staff/work-shifts": {
+      "get": {
+        "operationId": "staffWorkShifts",
+        "parameters": [
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "employee",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read-only snapshot; no salary mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffWorkShiftsPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/staff/documents": {
+      "get": {
+        "operationId": "staffDocuments",
+        "parameters": [
+          {
+            "name": "store",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "draft",
+                "posted",
+                "reversed"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh scoped read-only snapshot; no salary mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffDocumentsPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "StaffPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "store",
+          "canManageEmployees",
+          "canWriteWorkShifts",
+          "documentKinds",
+          "closedThrough"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "accountant"
+            ]
+          },
+          "store": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canManageEmployees": {
+            "type": "boolean"
+          },
+          "canWriteWorkShifts": {
+            "type": "boolean"
+          },
+          "documentKinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "payroll",
+                "payroll_payment"
+              ]
+            }
+          },
+          "closedThrough": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "StaffEmployee": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "storeName",
+          "name",
+          "active",
+          "shiftRate",
+          "bonusPercent",
+          "bonusBasis",
+          "payrollDebt",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "shiftRate": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "bonusPercent": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{3}$"
+          },
+          "bonusBasis": {
+            "type": "string",
+            "enum": [
+              "store",
+              "personal",
+              "profit"
+            ]
+          },
+          "payrollDebt": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "revision": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "StaffWorkShift": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "storeName",
+          "employee",
+          "employeeName",
+          "employeeActive",
+          "date",
+          "cashShift",
+          "units",
+          "shiftRate",
+          "bonusPercent",
+          "bonusBasis",
+          "basisAmount",
+          "accrued",
+          "payroll",
+          "revision",
+          "canEdit"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "employee": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "employeeActive": {
+            "type": "boolean"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "cashShift": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "units": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "shiftRate": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "bonusPercent": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{3}$"
+          },
+          "bonusBasis": {
+            "type": "string",
+            "enum": [
+              "store",
+              "personal",
+              "profit"
+            ]
+          },
+          "basisAmount": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "accrued": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "payroll": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "canEdit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StaffDocument": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "storeName",
+          "number",
+          "kind",
+          "status",
+          "date",
+          "employee",
+          "employeeName",
+          "total",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "payroll",
+              "payroll_payment"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "posted",
+              "reversed"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "employee": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^-?[0-9]+\\.[0-9]{2}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "StaffEmployeesQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "q",
+          "store"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "store": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "StaffEmployeesPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "query",
+          "policy"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/StaffEmployee"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "query": {
+            "$ref": "#/components/schemas/StaffEmployeesQuery"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/StaffPolicy"
+          }
+        }
+      },
+      "StaffWorkShiftsQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "store",
+          "employee",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "store": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "employee": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      },
+      "StaffWorkShiftsPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "query",
+          "policy"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/StaffWorkShift"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "query": {
+            "$ref": "#/components/schemas/StaffWorkShiftsQuery"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/StaffPolicy"
+          }
+        }
+      },
+      "StaffDocumentsQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "store",
+          "status"
+        ],
+        "properties": {
+          "store": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "",
+              "draft",
+              "posted",
+              "reversed"
+            ]
+          }
+        }
+      },
+      "StaffDocumentsPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pages",
+          "limit",
+          "query",
+          "policy"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/StaffDocument"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          },
+          "query": {
+            "$ref": "#/components/schemas/StaffDocumentsQuery"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/StaffPolicy"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,3 +1,4 @@
+const staff=require('./staff-navigation.cjs');
 /* Actual same-tab directory reload; isolated data, bundled headless browser only. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
@@ -15,7 +16,7 @@ const checks=[],errors=[],writes=[];
 const record=text=>{checks.push(text);console.log(text);fs.writeFileSync(path.join(output,(stage||'primary')+'-partial.json'),JSON.stringify({checks,errors},null,2));};
 const d=()=>page.locator('.trade-dialog[open]'),form=()=>page.locator('#tradeEntityForm'),input=name=>form().locator('[name="'+name+'"]'),btn=name=>d().getByRole('button',{name,exact:true}),recovery=()=>page.getByRole('dialog',{name:'Відновлення локальних чернеток'});
 const clear=()=>page.evaluate(()=>{const f=window.NativeDraftRecovery;for(const entry of f.store.entries())f.store.discard(entry.id);});
-const create=async resource=>{await page.goto(base+'/#trade/'+(resource==='employees'?'staff':'setup'));await page.locator('[data-trade=entity][data-entity='+resource+']:not([data-id])').waitFor();await page.locator('[data-trade=entity][data-entity='+resource+']:not([data-id])').click();await form().waitFor();};
+const create=async resource=>{await page.goto(base+'/#trade/'+(resource==='employees'?'staff':'setup'));if(resource==='employees'){await staff.tab(page,'employees');await staff.addEmployee(page).click();}else{await page.locator('[data-trade=entity][data-entity='+resource+']:not([data-id])').waitFor();await page.locator('[data-trade=entity][data-entity='+resource+']:not([data-id])').click();}await form().waitFor();};
 const close=async()=>{await d().locator('[data-trade=close]').click();await wait(async()=>await page.locator('.trade-dialog[open] #tradeEntityForm').count()===0);};
 const restore=async()=>{await page.locator('[data-native-drafts]').click();await recovery().getByRole('button',{name:'Відновити введення',exact:true}).waitFor();await recovery().getByRole('button',{name:'Відновити введення',exact:true}).press('Enter');await wait(async()=>await recovery().count()===0);await form().waitFor();};
 const reload=async()=>{await page.reload();await page.waitForFunction(()=>!!window.NativeEntityPersistence&&!!window.TradeEntityPersistence);assert.equal(await form().count(),0);};
@@ -49,7 +50,7 @@ const reload=async()=>{await page.reload();await page.waitForFunction(()=>!!wind
  if(stage==='read'){
  const role=value=>py("from django.contrib.auth.models import User;u=User.objects.get(username='tester');u.profile.role='"+value+"';u.profile.save()");
  const details='**/api/v1/trading/directories/details';
- const edit=async()=>{const id=py("from server.erp.models import Employee,Store;print(Employee.objects.create(name='Private employee',store=Store.objects.first(),shift_rate='100',bonus_percent='2').pk)");await page.goto(base+'/#trade/staff');await page.reload();await page.locator('[data-trade=entity][data-entity=employees][data-id="'+id+'"]').click();await form().waitFor();await input('name').fill('Unsent private draft');await input('shift_rate').fill('125');await reload();await restore();return id;};
+ let privateEmployeeIndex=0;const edit=async()=>{const name='Private employee '+(++privateEmployeeIndex);const id=py("from server.erp.models import Employee,Store;print(Employee.objects.create(name='"+name+"',store=Store.objects.first(),shift_rate='100',bonus_percent='2').pk)");await page.goto(base+'/#trade/staff');await page.reload();await staff.openEmployee(page,name);await form().waitFor();await input('name').fill('Unsent private draft');await input('shift_rate').fill('125');await reload();await restore();return id;};
  const hidden=async()=>{await wait(async()=>await page.evaluate(()=>window.NativeDraftRecovery.controller.snapshot().state==='error'));await wait(async()=>await form().evaluate(f=>f.closest('.trade-dialog-body').hidden));assert.equal(await d().getByRole('heading').innerText(),'Локальна чернетка призупинена');assert.equal(await d().locator('[data-entity-access]').getByRole('button',{name:'Перевірити доступ до форми',exact:true}).isVisible(),true);};
  await edit();const count=writes.length;
  const original=await page.evaluate(()=>JSON.stringify(window.NativeDraftRecovery.store.entries()));

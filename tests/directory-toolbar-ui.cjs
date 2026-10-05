@@ -1,3 +1,4 @@
+const staff=require('./staff-navigation.cjs');
 /* Actual shift-history directory toolbars. Disposable SQLite + bundled headless Chromium. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -129,54 +130,27 @@ async function exerciseSales(width,scale){
 async function exercise(tab, kind, width, scale = 1) {
   if(kind==='cash')return exerciseSales(width,scale);
   const label = `${tab}-${width}${scale === 2 ? '-text200' : ''}`;
-  await page.setViewportSize({ width, height: 1050 });
-  await page.goto(base + '/#trade/' + tab);
-  const host = page.locator(`[data-shift-history=${kind}]`), form = host.locator('form.trade-toolbar');
-  await form.getByRole('combobox', { name: 'Працівник', exact: true }).waitFor();
-  await ready(host);
-  const enlarged = scale === 2 ? await page.addStyleTag({ content: 'html{font-size:32px!important}.trade-toolbar :is(.tk-label,.tk-combo-input,.tk-button,label,input,select){font-size:28px!important}.tk-popover--paged :is(.tk-option,.tk-directory-paging,.tk-directory-paging button){font-size:26px!important}.tk-popover--paged .tk-directory-paging small{font-size:22px!important}' }) : null;
-  // History state is intentionally remembered by the real module; explicitly clear
-  // previous selections so each geometry case proves the actual empty captions.
-  for (const name of ['Магазин', 'Працівник']) {
-    const clear = form.getByRole('button', { name: 'Очистити вибір: ' + name, exact: true });
-    if (await clear.count()) await clear.click();
-  }
-  await ready(host);
-  await form.scrollIntoViewIfNeeded();
-  await inspectFields(form, label, width, scale);
-  await capture(label + '-toolbar');
-  const store = form.getByRole('combobox', { name: 'Магазин', exact: true });
-  const nativeStore = form.locator('select[name=store]'), nativeEmployee = form.locator('select[name=employee]');
-  assert.equal(await nativeStore.inputValue(), ''); assert.equal(await nativeStore.getAttribute('hidden'), '');
-  await store.focus(); await store.press('ArrowDown');
-  await inspectMenu(label, width, ids.stores.map(row => row.name).sort((a, b) => a.localeCompare(b, 'uk')));
-  await store.fill('Тимчасовий пошук'); await closeMenu(store);
-  assert.equal(await nativeStore.inputValue(), '', 'Escape cannot commit temporary search');
-  assert.equal(await store.inputValue(), '');
-  await store.fill('Центральний');
-  await wait(async () => await page.getByRole('option').count() === 1 && await page.locator('[data-directory-paging]').count() === 0, 'searched store page');
-  await store.press('ArrowDown'); await store.press('Enter');
-  await wait(async () => await nativeStore.inputValue() === String(ids.stores[0].id), 'keyboard store ID commit');
-  await closeMenu(store); await ready(host);
-  await wait(async () => await store.inputValue() === ids.stores[0].name, 'committed store caption');
-  await store.fill('Незбережений текст'); await closeMenu(store);
-  assert.equal(await nativeStore.inputValue(), String(ids.stores[0].id));
-  assert.equal(await store.inputValue(), ids.stores[0].name, 'Escape restores committed caption');
-  const employee = form.getByRole('combobox', { name: 'Працівник', exact: true });
-  await employee.fill('Коваленко');
-  await wait(async () => await page.getByRole('option').count() === 1 && await page.locator('[data-directory-paging]').count() === 0, 'searched employee page');
-  await employee.press('ArrowDown'); await employee.press('Enter');
-  await wait(async () => await nativeEmployee.inputValue() === String(ids.employees[0].id), 'keyboard employee ID commit');
-  await closeMenu(employee); await ready(host);
-  const fields = await form.evaluate(element => Object.fromEntries(new FormData(element)));
-  assert.equal(fields.store, String(ids.stores[0].id)); assert.equal(fields.employee, String(ids.employees[0].id));
-  const resource = kind === 'work' ? 'work-shifts' : 'shifts';
-  const response = page.waitForResponse(value => { const url = new URL(value.url()); return url.pathname === '/api/erp/' + resource && url.searchParams.get('store') === fields.store && url.searchParams.get('employee') === fields.employee; });
-  await form.getByRole('button', { name: 'Показати', exact: true }).press('Enter');
-  assert.equal((await response).status(), 200); await ready(host);
-  measurements.push({ label, committedFormData: fields });
-  stages.push(label + ': actual toolbar/popup/keyboard/native ID/FormData/filtered GET PASS');
-  if (enlarged) await enlarged.evaluate(element => element.remove());
+  await page.setViewportSize({ width, height: 1050 });await page.goto(base+'/#trade/staff');await staff.tab(page,'work');
+  const form=staff.host(page).locator('form.staff-filters');
+  for(const name of ['Магазин','Працівник']){const clear=form.getByRole('button',{name:'Очистити вибір: '+name,exact:true});if(await clear.count()){await clear.click();await staff.ready(page);}}
+  const enlarged=scale===2?await page.addStyleTag({content:'html{font-size:32px!important}.staff-filters :is(.tk-label,.tk-combo-input,.tk-button,label,input){font-size:28px!important}.tk-popover--directory .tk-option{font-size:26px!important}'}):null;
+  await form.scrollIntoViewIfNeeded();await inspectFields(form,label,width,scale);await capture(label+'-toolbar');
+  const store=form.getByRole('combobox',{name:'Магазин',exact:true});await store.focus();await store.press('ArrowDown');
+  await inspectMenu(label,width,ids.stores.map(row=>row.name).sort((a,b)=>a.localeCompare(b,'uk')));
+  await store.fill('Тимчасовий пошук');await closeMenu(store);assert.equal(await store.inputValue(),'','Escape cannot commit temporary store search');
+  await store.fill('Центральний');await page.getByRole('option',{name:ids.stores[0].name,exact:true}).waitFor();
+  const storeRead=page.waitForResponse(r=>{const u=new URL(r.url());return u.pathname==='/api/v1/trading/staff/work-shifts'&&u.searchParams.get('store')===String(ids.stores[0].id);});
+  await store.press('ArrowDown');await store.press('Enter');assert.equal((await storeRead).status(),200);await staff.ready(page);
+  await wait(async()=>await store.inputValue()===ids.stores[0].name,'React committed store caption');
+  await closeMenu(store);await store.fill('Незбережений текст');await closeMenu(store);assert.equal(await store.inputValue(),ids.stores[0].name,'Escape restores committed caption');
+  const employee=form.getByRole('combobox',{name:'Працівник',exact:true});await employee.fill('Коваленко');await wait(async()=>await page.getByRole('option').count()===1&&await page.getByRole('option').first().getAttribute('aria-disabled')!=='true'&&await page.locator('.tk-popover--directory').getByText('Завантаження…',{exact:true}).count()===0&&await page.getByRole('option').first().innerText().then(t=>t.includes('Коваленко')),'current searched employee option ready');
+  const read=page.waitForResponse(r=>{const u=new URL(r.url());return u.pathname==='/api/v1/trading/staff/work-shifts'&&u.searchParams.get('store')===String(ids.stores[0].id)&&u.searchParams.get('employee')===String(ids.employees[0].id);});
+  await employee.press('ArrowDown');await employee.press('Enter');const response=await read;assert.equal(response.status(),200);const body=await response.json();
+  assert.equal(body.query.store,ids.stores[0].id);assert.equal(body.query.employee,ids.employees[0].id);await staff.ready(page);
+  await wait(async()=>new RegExp(' · №'+ids.employees[0].id+'$').test(await employee.inputValue()),'React committed employee caption');
+  const caption=await employee.inputValue();await employee.fill('Незбережений працівник');await closeMenu(employee);assert.equal(await employee.inputValue(),caption);
+  measurements.push({label,committedQuery:{store:body.query.store,employee:body.query.employee}});
+  stages.push(label+': actual React toolbar/popup/keyboard/temp search/committed IDs/filtered GET PASS');if(enlarged)await enlarged.evaluate(el=>el.remove());
 }
 
 (async () => {

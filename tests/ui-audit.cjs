@@ -1,13 +1,16 @@
+const staff=require('./staff-navigation.cjs');
 const {newDocumentButton}=require('./trading-document-controls.cjs');
 /* Isolated trading workflow, UI forms, access controls and responsive layouts. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-ui-audit-')),python=process.env.PYTHON_BIN||'python3',port=Number(process.env.QA_PORT||18215),base=`http://localhost:${port}`,password='isolated-crm-test-password';
-const hash=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-crm-test-password"))'],{cwd:root,encoding:'utf8'}).trim();
-const auditEnv={...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};for(const k of ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD'])delete auditEnv[k];
+const auditEnv={...process.env};
+for(const key of Object.keys(auditEnv))if(/^(?:DB_|PG|DATABASE_URL$|POSTGRES_URL$|OWNER_PASSWORD|DJANGO_SETTINGS_MODULE$|DJANGO_SECRET_KEY$|TSUKENYA_REQUIRE_POSTGRES$)/.test(key))delete auditEnv[key];
+Object.assign(auditEnv,{PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',DJANGO_SETTINGS_MODULE:'server.settings',DJANGO_SECRET_KEY:'isolated-ui-audit-secret-not-production-at-least-fifty-characters'});
+auditEnv.OWNER_PASSWORD_HASH=execFileSync(python,['-c','from server.auth import hash_password;print(hash_password("isolated-crm-test-password"))'],{cwd:root,env:auditEnv,encoding:'utf8'}).trim();
 const server=spawn(python,['-m','server.main'],{cwd:root,env:auditEnv,stdio:'ignore'});
 let browser;
-const wait=async f=>{for(let i=0;i<120;i++){if(await f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
+const wait=async f=>{for(let i=0;i<120;i++){if(server.exitCode!==null||server.signalCode!==null)throw Error('Isolated UI audit server exited');if(await f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out');};
 (async()=>{
 await wait(async()=>{try{return(await fetch(base+'/health')).ok}catch{return false}});
 browser=await chromium.launch({ headless: true });const ctx=await browser.newContext({viewport:{width:1440,height:1050}}),page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -73,11 +76,11 @@ await go('setup');
 for(const key of ['stores','warehouses','accounts','parties']){await page.locator(`[data-trade=entity][data-entity=${key}]`).first().click();await inspectModal('entity-'+key);}
 for(const action of ['period','fiscal','audit']){await page.locator(`[data-trade=${action}]`).click();await inspectModal('setup-'+action);}
 await page.locator('[data-trade=users]').click();await page.locator('.trade-dialog [data-trade=user-edit]').waitFor();for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await inspect('setup-users',width);}await page.locator('.trade-dialog [data-trade=user-edit]').click();await inspectModal('setup-user-editor');
-await go('staff');await page.locator('[data-trade=entity][data-entity=employees]:not([data-id])').click();await inspectModal('entity-employees');await page.locator('[data-trade=work-shift]').click();await inspectModal('staff-work-shift');
+await go('staff');await staff.tab(page,'employees');await staff.addEmployee(page).click();await inspectModal('entity-employees');await staff.openCreate(page);await inspectModal('staff-work-shift');
 await go('sales');await page.getByRole('tab',{name:'Касові зміни',exact:true}).click();await page.getByRole('button',{name:'Відкрити зміну',exact:true}).click();await inspectModal('sales-open-shift');await page.getByRole('button',{name:/Закрити зміну №/}).first().click();await inspectModal('sales-close-shift');
 await go('stock');await page.getByRole('button',{name:'Калькуляції',exact:true}).click();await inspectModal('stock-recipe'); // Initial recipe state has no product: Add is intentionally disabled.
 await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/account',{waitUntil:'domcontentloaded'});await wait(async()=>!(await page.locator('#out').isDisabled()));await inspect('account',1440);await page.setViewportSize({width:390,height:1000});await inspect('account',390);
 await ctx.clearCookies();await page.goto(base,{waitUntil:'domcontentloaded'});await page.setViewportSize({width:1440,height:1000});await inspect('login',1440);await page.setViewportSize({width:390,height:1000});await inspect('login',390);
 fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({errors,results},null,2));
 console.log('AUDIT CAPTURE:',output,'surfaces:',results.length,'overflow:',results.filter(r=>r.overflow||r.dialogOverflow).map(r=>r.label+'@'+r.width),'axe:',results.filter(r=>r.violations.length).map(r=>({label:r.label,issues:r.violations.map(v=>v.id)})),'runtime errors:',errors);
-})().catch(async e=>{console.error(e);const failedPage=browser?.contexts()[0]?.pages()[0];if(failedPage)await failedPage.screenshot({path:path.join(os.tmpdir(),'tsukenya-ui-audit-failure.png'),fullPage:true}).catch(()=>{});process.exitCode=1;}).finally(async()=>{await browser?.close();server.kill('SIGTERM');if(server.exitCode===null)await new Promise(r=>server.once('exit',r));fs.rmSync(data,{recursive:true,force:true});});
+})().catch(async e=>{console.error(e);const failedPage=browser?.contexts()[0]?.pages()[0];if(failedPage)await failedPage.screenshot({path:path.join(os.tmpdir(),'tsukenya-ui-audit-failure.png'),fullPage:true}).catch(()=>{});process.exitCode=1;}).finally(async()=>{await browser?.close();if(server.exitCode===null&&server.signalCode===null){const ended=new Promise(r=>server.once('exit',r)),timer=setTimeout(()=>server.kill('SIGKILL'),5000);server.kill('SIGTERM');try{await ended;}finally{clearTimeout(timer);}}fs.rmSync(data,{recursive:true,force:true});});

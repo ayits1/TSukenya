@@ -1,3 +1,4 @@
+const staff=require('./staff-navigation.cjs');
 const {documentButton}=require('./trading-document-controls.cjs');
 /* Isolated trading workflow, UI forms, access controls and responsive layouts. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
@@ -37,7 +38,7 @@ await voucher({kind:'expense',account:cash,amount:10,payload:{category:'Кому
 // A 10 грн shortage is posted on close, so it reduces the result instead of moving to the next till.
 await ok('shifts','POST',{id:shift,action:'close',counted:900});const shortage=(await ok('vouchers?kind=cash_difference')).items[0];assert.deepEqual([shortage.status,shortage.total,shortage.shift],['posted','10.00',shift]);
 const ws=(await ok('work-shifts','POST',{employee,date,cash_shift:shift,units:1})).id;
-await go('staff');await page.locator('[data-trade=new-voucher][data-kind=payroll]').click();f=page.locator('#tradeVoucherForm');await f.locator('[name=employee]').selectOption(String(employee));await f.locator('[name=shift_ids]').check();await page.locator('[type=submit][form=tradeVoucherForm][value=post]').click();await page.locator('.trade-dialog-head h2').filter({hasText:'Нарахування зарплати ·'}).waitFor();const wages=(await ok('vouchers?kind=payroll')).items[0];assert.equal(wages.total,'401.00');
+await go('staff');await staff.ready(page);await staff.payroll(page).click();f=page.locator('#tradeVoucherForm');await staff.nativeEmployee(page,employee,'Працівник тесту');await f.locator('[name=shift_ids]').check();await page.locator('[type=submit][form=tradeVoucherForm][value=post]').click();await page.locator('.trade-dialog-head h2').filter({hasText:'Нарахування зарплати ·'}).waitFor();const wages=(await ok('vouchers?kind=payroll')).items[0];assert.equal(wages.total,'401.00');
 await voucher({kind:'payroll_payment',employee,account:cash,amount:100});const rep=await ok('report');assert.equal(Number(rep.profit),-411);assert.equal(rep.cash_difference,'-10.00');assert.deepEqual(rep.cashiers.map(x=>[x.shifts,x.shortage,x.net,x.revenue]),[[1,'10.00','-10.00','20.00']]);assert.equal(rep.cashiers[0].late_return_bonus,'0.00');assert.equal(Number(rep.revenue),20);assert.equal(Number(rep.cogs),10);assert.equal(Number((await ok('state')).payroll_debts[0].amount),301);
 const stock=await ok('stock');assert.equal(Number(stock.items[0].quantity),9);assert.equal(Number(stock.items[0].value),90);
 // Check forbidden writes and role data filtering.

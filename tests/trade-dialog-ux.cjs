@@ -1,3 +1,4 @@
+const staff=require('./staff-navigation.cjs');
 /* Targeted isolated ERP checks. Called by ui-audit.cjs, never production. */
 const assert = require('node:assert/strict');
 module.exports = async function tradeDialogUX(page, base, wait) {
@@ -123,20 +124,22 @@ module.exports = async function tradeDialogUX(page, base, wait) {
   const zeroEmployee = (await ok('entities/employees','POST',{name:'Нульовий відсоток',store,shift_rate:400,bonus_percent:0,bonus_basis:'store'})).id;
   const workShift = (await ok('work-shifts','POST',{employee:zeroEmployee,date:today,units:1,shift_rate:400,bonus_percent:0,bonus_basis:'store'})).id;
   await go('staff');
-  await page.locator('[data-trade=work-shift]:not([data-id])').click();
-  await active().locator('[name=employee]').selectOption(String(zeroEmployee));
+  await staff.openCreate(page);
+  await staff.nativeEmployee(page,zeroEmployee,'Нульовий відсоток');
   await active().locator('[data-cash-choice]').waitFor();
   await wait(async()=>!(await active().locator('[data-cash-choice]').isDisabled()));
   assert.equal(await active().locator('[data-cash-choice]').getAttribute('required'), null, 'Zero bonus permits no cash shift');
-  assert.equal(await active().locator('[name=units]').getAttribute('min'), '0.01');
-  assert.equal(await active().locator('[name=units]').getAttribute('max'), '10');
+  // B06 uses raw text inputs; the authoritative shared draft codec enforces 0 < units <= 10.
+  const unitBounds=await page.evaluate(()=>{const capture=window.NativeWorkShiftEditor.captureWorkShiftDraft;const base={employee:'1',date:'2026-10-01',store:'1',cash_shift:'',units:'1',shift_rate:'400',bonus_percent:'0',bonus_basis:'store',note:''};return ['0','10.01','0.01','10'].map(units=>{try{capture({...base,units});return true;}catch{return false;}});});
+  assert.deepEqual(unitBounds,[false,false,true,true]);
   assert.equal(await active().locator('[name=date]').getAttribute('max'), today);
   await active().locator('[name=bonus_percent]').fill('5');
   assert.equal(await active().locator('[data-cash-choice]').getAttribute('required'), '', 'Nonzero bonus requires linked cash shift');
   await close();
-  await ok('entities/employees','POST',{id:zeroEmployee,name:'Нульовий відсоток',store,shift_rate:400,bonus_percent:0,bonus_basis:'store',active:false});
+  const employeeRevision=await page.evaluate(async id=>{const state=await(await fetch('/api/state')).json();const response=await fetch('/api/v1/trading/directories/details',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':state.csrf},body:JSON.stringify({purpose:'manage',ids:[{type:'employees',id:String(id)}]})});if(!response.ok)throw Error('Fixture current employee read failed');return(await response.json()).items[0].revision;},zeroEmployee);
+  await ok('entities/employees','POST',{id:zeroEmployee,revision:employeeRevision,name:'Нульовий відсоток',store,shift_rate:400,bonus_percent:0,bonus_basis:'store',active:false});
   await go('staff');
-  await page.locator(`[data-trade=work-shift][data-id="${workShift}"]`).click();
+  await staff.openEdit(page,workShift);
   assert.equal(await active().locator('[name=employeeDisplay]').isDisabled(), true);
   assert.equal(await active().locator('[name=employee]').inputValue(), String(zeroEmployee), 'Inactive historical employee remains selected');
   assert.equal(await active().locator('[name=date]').getAttribute('readonly'), '');

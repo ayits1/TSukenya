@@ -8,27 +8,26 @@
 
 ## Актуальний прийнятий стан · 05.10.2026
 
-Історична матриця нижче не є оцінкою поточного main3976f6c.
+Історична матриця нижче не є оцінкою поточного main `fbbd358`.
 
-- #107: реальні продажі й касові зміни на React, exact-head CI та цільові
-  native privacy/callback/layout докази; [REACT-SALES](REACT-SALES.md).
-- #108: активні bounded settlement readers, звірка й підсумки; manager
-  expense_scope missing/null зберігає історичне store правило.
-  [B24-BOUNDED-SETTLEMENTS](B24-BOUNDED-SETTLEMENTS.md).
-- #109: відновлення сирої чернетки кількості магазинів, bound session/role,
-  atomic Apply та окреме Save. [TEMPLATE-DRAFT-PERSISTENCE](TEMPLATE-DRAFT-PERSISTENCE.md).
+- #107: фактичні продажі й касові зміни на React; [REACT-SALES](REACT-SALES.md).
+- #108: bounded settlement readers, звірка й підсумки; [B24-BOUNDED-SETTLEMENTS](B24-BOUNDED-SETTLEMENTS.md).
+- #109: сирі чернетки кількості магазинів, session/role guards, atomic Apply та окреме Save; [TEMPLATE-DRAFT-PERSISTENCE](TEMPLATE-DRAFT-PERSISTENCE.md).
+- #110: увесь React Finance із п’ятьма вкладками та чинними native діями; [REACT-FINANCE](REACT-FINANCE.md), [FINANCE-TEST-MIGRATION](FINANCE-TEST-MIGRATION.md).
+- #111: відновлення raw полів витрат, immutable intent, незалежні dirty units та session/privacy guards; [EXPENSE-DRAFT-PERSISTENCE](EXPENSE-DRAFT-PERSISTENCE.md). DELETE і весь P2/P3 цим пакетом не закрито.
 
-На VPS підтверджено accepted8d6c86e (#108): source/assets/health і matching
-worker, read-only стан обліку до/після однаковий, reconcile без розбіжностей.
-#109 ще не розгорнуто на момент цього зрізу. Production UI mutation-тестів
-і нової повної регресії не виконували. Релізи вже авторизовані власником;
-виключення0.1 зберігається.
+На VPS підтверджено accepted `7d640ea` (#110, включає #109): source/assets/health,
+matching worker, read-only стан обліку до/після однаковий, reconcile без розбіжностей.
+#111 прийнято, але ще не розгорнуто на момент цього зрізу. Production mutation-тестів
+і нової повної регресії не виконували. Релізи авторизовані власником; виключення0.1 зберігається.
 
-React finance5tabs проходить інтеграцію/незалежні native перевірки;
-expense raw recovery та React staff3tabs ще розробляються. Reports і native
-editors/setup не оголошуються мігрованими. Решта B24 freshness/capacity,
-B22/B23 зовнішні інтеграції, loyalty/channel рішення й operations scheduler
-межі потребують власних matching доказів. Увесь план залишається активним.
+React Staff: увесь workspace із вкладками Працівники/Табель/Документи підготовлено
+до прийняття, independent review та actual native/layout/privacy/compatibility
+докази наведено у [REACT-STAFF](REACT-STAFF.md) та [STAFF-TEST-COMPATIBILITY](STAFF-TEST-COMPATIBILITY.md).
+Це не твердження про його merge/deployment або новий повний PASS старих сімейств.
+Reports мігрується окремим пакетом; native editors/setup ще лишаються native.
+Решта B24 freshness/capacity, B22/B23 зовнішні інтеграції, loyalty/channel рішення
+та operations scheduler потребують власних matching доказів. Увесь план залишається активним.
 
 ## Подальші прийняті зміни · main 4fe824a · 04.10.2026
 
