@@ -165,3 +165,7 @@ Studio/assortment/receipt-pricing recovery, capacity/100k/full suite/deployment.
 B30/pricing/stock бухгалтерські формули та arbitrary historical JSON preservation
 лишилися authoritative серверам126; compact recovery не читає/зберігає unknown
 Product JSON і не підміняє whole-impact preview.
+
+## Інтеграція під час рев’ю
+
+Повний runner реєструє `catalog-draft-reload-ui.cjs` із усіма його одинадцятьма scopes та прибирає успадковані `QA_CATALOG_DRAFT_FROM` / `QA_REFERENCE_MANAGEMENT_FROM`. Перевірено синтаксис і тільки `--plan`, без повного прогону. Інтеграційна збірка на залежній базі PR #129 пройшла. Незалежне рев’ю виявило дві прогалини приватності (non-JSON session auth failure та актуальна auth-відмова preview); їх виправлення й окремі докази потрібні до прийняття цього пакета.
