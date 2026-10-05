@@ -70,6 +70,8 @@ window.ReactPurchases = {
         model.state.linesBusy ||
         !!model.state.chosen,
       refresh: async () => {
+        // Reset only after the coordinator has accepted the committed read.
+        model.allowPolicyRefresh();
         await model.refreshCommitted();
         return !model.state.error && !!(model.state.documents || model.state.groups);
       },
@@ -80,7 +82,6 @@ window.ReactPurchases = {
         if (fresh.role !== options.bootstrap.role || fresh.storeId !== options.bootstrap.storeId)
           throw Object.assign(Error('Доступ змінився.'), { status: 403 });
         next.bootstrap = fresh;
-        model.allowPolicyRefresh();
       },
       deny: () => denyWorkspace('Доступ змінився. Перечитайте контекст обліку.'),
     });

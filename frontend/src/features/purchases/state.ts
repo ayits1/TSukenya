@@ -248,7 +248,9 @@ export class PurchasesModel {
       !!confirmed &&
       JSON.stringify(Object.entries(confirmed.query).sort()) !==
         JSON.stringify(
-          this.state.view === 'documents' ? this.documentQuery() : this.replenishmentQuery(),
+          Object.entries(
+            this.state.view === 'documents' ? this.documentQuery() : this.replenishmentQuery(),
+          ).sort(),
         )
     );
   }
