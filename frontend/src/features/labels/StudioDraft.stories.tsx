@@ -191,3 +191,20 @@ export const CancelledPresetLeavesNoChoice: Story = {
     }
   },
 };
+
+/** The integrated P0 editor uses the same raw field and synchronous validation. */
+export const UnfinishedFontSize: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement),
+      size = await canvas.findByLabelText('Розмір, pt');
+    const original = (size as HTMLInputElement).value;
+    await userEvent.clear(size);
+    await expect(size).toHaveValue('');
+    await userEvent.click(canvas.getByRole('button', { name: 'Зберегти макет' }));
+    await canvas.findByText('Вкажіть розмір шрифту від 5 до 72 pt.');
+    await expect(size).toHaveValue('');
+    await expect(canvas.queryByText('Макет змінили в іншому вікні')).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole('button', { name: 'Скасувати зміну' }));
+    await expect(size).toHaveValue(original);
+  },
+};

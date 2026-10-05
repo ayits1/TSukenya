@@ -3181,6 +3181,220 @@
           }
         ]
       }
+    },
+    "/api/v1/labels/recovery-context": {
+      "get": {
+        "operationId": "labelRecoveryContext",
+        "responses": {
+          "200": {
+            "description": "Підтверджений поточний доступ або scalar receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelRecoveryContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/labels/workspace/identity": {
+      "post": {
+        "operationId": "labelSaveIdentity",
+        "responses": {
+          "200": {
+            "description": "Підтверджений поточний доступ або scalar receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelSaveIdentity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/LabelSaveRequest"
+                  }
+                },
+                "required": [
+                  "request"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/labels/workspace/execute": {
+      "post": {
+        "operationId": "labelSaveExecute",
+        "responses": {
+          "200": {
+            "description": "Підтверджений поточний доступ або scalar receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelSaveAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LabelSaveRejected"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Запит відхилено; після unknown це не доказ rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LabelSaveRejected"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabelSaveRequest"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7712,6 +7926,205 @@
             "const": 30
           }
         }
+      },
+      "LabelSaveRequest": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "config": {
+            "$ref": "#/components/schemas/LabelConfig"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/LabelSettings"
+          }
+        },
+        "required": [
+          "key",
+          "revision",
+          "config",
+          "settings"
+        ],
+        "additionalProperties": false
+      },
+      "LabelRecoveryContext": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "string",
+            "enum": [
+              "label-layout-context-v1"
+            ]
+          },
+          "resource": {
+            "type": "string",
+            "enum": [
+              "settings/main"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner"
+            ]
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "canWrite": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "contract",
+          "resource",
+          "role",
+          "storeId",
+          "networkOwner",
+          "canWrite"
+        ],
+        "additionalProperties": false
+      },
+      "LabelSaveIdentity": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "contract": {
+                "type": "string",
+                "enum": [
+                  "label-layout-save-v1"
+                ]
+              },
+              "key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "confirmed": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              }
+            },
+            "required": [
+              "contract",
+              "key",
+              "confirmed"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "contract": {
+                "type": "string",
+                "enum": [
+                  "label-layout-save-v1"
+                ]
+              },
+              "key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "confirmed": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "appliedRevision": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "contract",
+              "key",
+              "confirmed",
+              "appliedRevision"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "LabelSaveAcknowledgement": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "string",
+            "enum": [
+              "label-layout-save-v1"
+            ]
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "appliedRevision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "contract",
+          "key",
+          "appliedRevision",
+          "ok"
+        ],
+        "additionalProperties": false
+      },
+      "LabelSaveRejected": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "write_rejected": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "revision_conflict"
+            ]
+          }
+        },
+        "required": [
+          "error",
+          "write_rejected",
+          "key"
+        ],
+        "additionalProperties": false
       }
     }
   }

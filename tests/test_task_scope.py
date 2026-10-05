@@ -2,7 +2,9 @@ import hashlib
 import time
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.db import connection
+from django.test import TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 
 from server.erp.alerts import sync_alerts
 from server.erp.legacy_settings import settings_for_role
@@ -10,7 +12,7 @@ from server.erp.labels import revision as label_revision
 from server.erp.models import Document, LedgerLock, PortalSession, Profile, Store, Warehouse
 
 
-class TaskScopeTests(TestCase):
+class TaskScopeFixture:
     def setUp(self):
         LedgerLock.objects.create(pk=1)
         self.a = Store.objects.create(name='Задачі A')
@@ -49,6 +51,8 @@ class TaskScopeTests(TestCase):
     def items(self):
         return {item['id']: item for item in self.client.get('/api/state').json()['data']['tasks']}
 
+
+class TaskScopeTests(TaskScopeFixture, TestCase):
     def test_debt_alerts_and_sync_costs_stay_with_finance_roles(self):
         self.task('auto_due', store=self.a.pk, _alertKey='due:7', _alertActive=True,
                   title='Перевірити оплату: Постачальник · документ № 000007 · 1500.00 грн')
@@ -180,48 +184,6 @@ class TaskScopeTests(TestCase):
             for method, value in [('patch', {'status': 'done'}), ('delete', None)]:
                 self.assertEqual(self.write(method, '/api/docs/tasks/mine', value).status_code, 403)
 
-    def test_settings_allowlist_and_development_privacy_without_read_mutation(self):
-        original = {
-            'tag': {'custom': 'Публічний напис', 'styles': {'price': {'size': 30}}},
-            'chainName': 'Мережа', 'storeNames': ['A', 'B'], 'staleDays': 30,
-            'defaultMarkup': 20, 'rounding': .5, 'stores': 7, 'budgetStores': 4,
-            'gsId': 'synthetic-sheet-id', 'gsUrl': 'https://example.invalid/sheet',
-            'gsTitle': 'Приватна таблиця', 'gsSheetName': 'Товари', 'gsFuture': 'private',
-            'futurePrivate': {'note': 'Приватне налаштування'},
-        }
-        document = Document.objects.create(path='settings/main', data=original)
-        project = Document.objects.create(path='project/state', data={'stage': 3, 'privatePlan': 'План власника'})
-        public = {'tag', 'chainName', 'storeNames', 'staleDays'}
-        for role in ['cashier', 'manager', 'warehouse', 'accountant']:
-            with self.subTest(role=role):
-                self.role(role, self.a)
-                result = self.client.get('/api/state')
-                self.assertEqual(result.status_code, 200)
-                state = result.json()
-                expected = public | ({'defaultMarkup', 'rounding'} if role != 'cashier' else set())
-                self.assertEqual(set(state['data']['settings/main']), expected)
-                self.assertEqual(state['data']['project/state'], {})
-                self.assertEqual(state['labelRevision'], label_revision(original))
-                workspace = self.client.get('/api/v1/labels/workspace').json()
-                self.assertEqual(workspace['config'], original['tag'])
-                self.assertFalse(workspace['canEdit'])
-                self.assertEqual(workspace['revision'], state['labelRevision'])
-                document.refresh_from_db()
-                project.refresh_from_db()
-                self.assertEqual(document.data, original)
-                self.assertEqual(project.data, {'stage': 3, 'privatePlan': 'План власника'})
-        # Mutating a returned DTO must never mutate its nested source settings.
-        dto = settings_for_role(original, 'manager')
-        dto['tag']['styles']['price']['size'] = 99
-        dto['storeNames'].append('C')
-        self.assertEqual(original['tag']['styles']['price']['size'], 30)
-        self.assertEqual(original['storeNames'], ['A', 'B'])
-        self.role('owner')
-        state = self.client.get('/api/state').json()['data']
-        self.assertEqual(state['settings/main'], original)
-        self.assertEqual(state['project/state'], project.data)
-        self.assertTrue(self.client.get('/api/v1/labels/workspace').json()['canEdit'])
-
     def test_cashier_public_regular_price_uses_private_server_defaults(self):
         Document.objects.create(path='settings/main', data={
             'defaultMarkup': 37, 'rounding': .5, 'budgetStores': 7, 'chainName': 'Мережа',
@@ -242,3 +204,57 @@ class TaskScopeTests(TestCase):
         self.assertNotIn('markup', row)
         product.refresh_from_db()
         self.assertEqual(product.data, {'name': 'Ціна без приватних defaults', 'cost': 10, 'manualPrice': False})
+
+
+class TaskScopeWorkspaceTests(TaskScopeFixture, TransactionTestCase):
+    # HTTP workspace reads must establish their own READ ONLY REPEATABLE READ,
+    # rather than inherit TestCase's mutable PostgreSQL transaction.
+    def read_only_get(self, path):
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(path)
+        self.assertEqual(response.status_code, 200, response.content)
+        writes = [query['sql'] for query in queries
+                  if query['sql'].lstrip().split(None, 1)[0].upper()
+                  in {'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'CREATE', 'ALTER', 'DROP', 'TRUNCATE'}]
+        self.assertEqual(writes, [], path)
+        return response.json()
+
+    def test_settings_allowlist_and_development_privacy_without_read_mutation(self):
+        original = {
+            'tag': {'custom': 'Публічний напис', 'styles': {'price': {'size': 30}}},
+            'chainName': 'Мережа', 'storeNames': ['A', 'B'], 'staleDays': 30,
+            'defaultMarkup': 20, 'rounding': .5, 'stores': 7, 'budgetStores': 4,
+            'gsId': 'synthetic-sheet-id', 'gsUrl': 'https://example.invalid/sheet',
+            'gsTitle': 'Приватна таблиця', 'gsSheetName': 'Товари', 'gsFuture': 'private',
+            'futurePrivate': {'note': 'Приватне налаштування'},
+        }
+        document = Document.objects.create(path='settings/main', data=original)
+        project = Document.objects.create(path='project/state', data={'stage': 3, 'privatePlan': 'План власника'})
+        public = {'tag', 'chainName', 'storeNames', 'staleDays'}
+        for role in ['cashier', 'manager', 'warehouse', 'accountant']:
+            with self.subTest(role=role):
+                self.role(role, self.a)
+                state = self.read_only_get('/api/state')
+                expected = public | ({'defaultMarkup', 'rounding'} if role != 'cashier' else set())
+                self.assertEqual(set(state['data']['settings/main']), expected)
+                self.assertEqual(state['data']['project/state'], {})
+                self.assertEqual(state['labelRevision'], label_revision(original))
+                workspace = self.read_only_get('/api/v1/labels/workspace')
+                self.assertEqual(workspace['config'], original['tag'])
+                self.assertFalse(workspace['canEdit'])
+                self.assertEqual(workspace['revision'], state['labelRevision'])
+                document.refresh_from_db()
+                project.refresh_from_db()
+                self.assertEqual(document.data, original)
+                self.assertEqual(project.data, {'stage': 3, 'privatePlan': 'План власника'})
+        # Mutating a returned DTO must never mutate its nested source settings.
+        dto = settings_for_role(original, 'manager')
+        dto['tag']['styles']['price']['size'] = 99
+        dto['storeNames'].append('C')
+        self.assertEqual(original['tag']['styles']['price']['size'], 30)
+        self.assertEqual(original['storeNames'], ['A', 'B'])
+        self.role('owner')
+        state = self.read_only_get('/api/state')['data']
+        self.assertEqual(state['settings/main'], original)
+        self.assertEqual(state['project/state'], project.data)
+        self.assertTrue(self.read_only_get('/api/v1/labels/workspace')['canEdit'])

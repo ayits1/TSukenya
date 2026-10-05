@@ -59,3 +59,26 @@ export const TwoRows: Story = {
     await expect(price.top >= meta.bottom).toBe(true);
   },
 };
+
+export const LongName: Story = {
+  args: {
+    product: { ...meta.args.product, name: 'Кава мелена арабіка середнього обсмаження' },
+  },
+  play: check,
+};
+
+export const MediumFormat: Story = {
+  args: {
+    config: { ...meta.args.config, size: 'm' },
+    product: { ...meta.args.product, regularPrice: 1500, salePrice: 1234.5 },
+  },
+  play: check,
+};
+
+export const LargeFormat: Story = {
+  args: {
+    config: { ...meta.args.config, size: 'l' },
+    product: { ...meta.args.product, regularPrice: 1500, salePrice: 1234.5 },
+  },
+  play: check,
+};

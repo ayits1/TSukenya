@@ -8,7 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 from .catalog_access import revalidate_actor
 from .models import Document
-from .services import require, ledger_lock, audit
+from .services import require, ledger_lock, audit, Conflict, current_actor
 from .catalog import base_query, defaults, serialize
 
 FIELDS = {'promo', 'chain', 'store', 'custom', 'name', 'pack', 'psize', 'price', 'oldPrice', 'unit', 'per100', 'category', 'date'}
@@ -72,10 +72,16 @@ def save_workspace(request, user):
     revalidate_actor(user, {'owner'}, 'Недостатньо прав. Макет може змінювати лише власник.')
     value = body(request)
     require(set(value) == {'revision', 'config', 'settings'}, 'Некоректні поля запиту макета.')
+    apply_workspace(user, value)
+    return response(workspace(user, request.portal_session.csrf))
+
+
+def apply_workspace(user, value):
+    """Caller holds LedgerLock and has checked the current owner."""
     document = Document.objects.filter(pk='settings/main').first()
     data = dict(document.data) if document else {}
     if not isinstance(value['revision'], str) or value['revision'] != revision(data):
-        return response({'error': 'Макет уже змінено в іншій вкладці. Чернетку збережено на екрані; завантажте актуальний макет перед повторним збереженням.', 'code': 'revision_conflict'}, 409)
+        raise Conflict('Макет уже змінено в іншій вкладці. Чернетку збережено на екрані; завантажте актуальний макет перед повторним збереженням.', 'revision_conflict')
     config = validate_config(value['config'])
     info = value['settings']
     require(isinstance(info, dict) and set(info) == {'chainName', 'storeNames', 'staleDays'}, 'Некоректні реквізити цінника.')
@@ -89,7 +95,7 @@ def save_workspace(request, user):
     data['tag'] = config
     Document.objects.update_or_create(pk='settings/main', defaults={'data': data})
     audit(user, 'label_layout_changed', 'settings/main', {'styleVersion': 2})
-    return response(workspace(user, request.portal_session.csrf))
+    return revision(data)
 
 
 @transaction.atomic
@@ -135,8 +141,24 @@ def prepare(request, user):
 def handle_labels(request, user):
     from .views import response
     path = request.path.rstrip('/')
+    if path == '/api/v1/labels/recovery-context' and request.method == 'GET':
+        from .label_recovery import context
+        return response(context(user))
+    if path == '/api/v1/labels/workspace/identity' and request.method == 'POST':
+        from .label_recovery import identity
+        from .views import body
+        return response(identity(user, body(request)))
+    if path == '/api/v1/labels/workspace/execute' and request.method == 'POST':
+        from .label_recovery import execute
+        from .views import body
+        value, status = execute(user, body(request))
+        return response(value, status)
     if path == '/api/v1/labels/workspace':
-        if request.method == 'GET': return response(workspace(user, request.portal_session.csrf))
+        if request.method == 'GET':
+            from .historical_reports import read_snapshot
+            with read_snapshot():
+                user = current_actor(user)
+                return response(workspace(user, request.portal_session.csrf))
         if request.method == 'PATCH': return save_workspace(request, user)
     if path == '/api/v1/labels/prepare' and request.method == 'POST': return prepare(request, user)
     return response({'error': 'Метод або маршрут не підтримується.', 'code': 'unsupported_route'}, 405)
