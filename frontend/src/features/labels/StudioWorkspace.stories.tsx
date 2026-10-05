@@ -16,9 +16,11 @@ const products = Array.from({ length: 20 }, (_, index) => ({
 function DesktopWorkspace({
   readOnly = false,
   conflict = false,
+  emptyReview = false,
 }: {
   readOnly?: boolean;
   conflict?: boolean;
+  emptyReview?: boolean;
 }) {
   useLayoutEffect(() => {
     const previous = document.body.dataset.layout;
@@ -39,9 +41,9 @@ function DesktopWorkspace({
     storeNames: Array.from({ length: 8 }, (_, i) => `Магазин ${i + 1}`),
   });
   const [field, setField] = useState<LabelField>('custom');
-  const [tab, setTab] = useState<StudioTab>('design');
+  const [tab, setTab] = useState<StudioTab>(emptyReview ? 'review' : 'design');
   const [status, setStatus] = useState<StudioViewProps['saveStatus']>(
-    conflict ? 'conflict' : 'dirty',
+    conflict ? 'conflict' : emptyReview ? 'saved' : 'dirty',
   );
   const [choices, setChoices] = useState<MergeChoices>({});
   const [comparison, setComparison] = useState(false);
@@ -141,7 +143,7 @@ function DesktopWorkspace({
             Синтетичний аркуш — геометрія друку не змінюється.
           </div>
         }
-        validationErrors={[]}
+        validationErrors={emptyReview ? ['Оберіть товари для друку.'] : []}
         staleProducts={[]}
         staleAcknowledged={false}
         onStaleAcknowledged={() => {}}
@@ -258,5 +260,37 @@ export const ConflictHasBoundedRegion: Story = {
     await userEvent.keyboard('{Enter}');
     await expect(c.queryByRole('heading', { name: 'Порівняти зміни' })).toBeNull();
     await expect(save).toBeDisabled();
+  },
+};
+
+export const EmptyReviewLayout: Story = {
+  args: { emptyReview: true },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(c.getByRole('button', { name: 'Зберегти макет' })).toBeDisabled();
+    await expect(c.getByRole('button', { name: 'Друкувати' })).toBeDisabled();
+    const studio = canvasElement.querySelector<HTMLElement>('.tk-studio')!;
+    await expect(studio.scrollWidth).toBeLessThanOrEqual(studio.clientWidth + 1);
+    if (matchMedia('(max-width:650px)').matches) {
+      const status = studio.querySelector<HTMLElement>('.tk-studio-save > [role="status"]')!;
+      const history = studio.querySelector<HTMLElement>('.tk-studio-history')!;
+      const save = c.getByRole('button', { name: 'Зберегти макет' });
+      await expect(status.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+        save.getBoundingClientRect().bottom,
+      );
+      await expect(history.getBoundingClientRect().right).toBeLessThanOrEqual(
+        save.getBoundingClientRect().left,
+      );
+      const actions = studio.querySelector<HTMLElement>('.tk-studio-review-actions')!;
+      for (const button of actions.querySelectorAll('button')) {
+        const box = button.getBoundingClientRect();
+        await expect(box.height).toBeGreaterThanOrEqual(44);
+        await expect(box.left).toBeGreaterThanOrEqual(actions.getBoundingClientRect().left);
+        await expect(box.right).toBeLessThanOrEqual(actions.getBoundingClientRect().right + 1);
+      }
+    }
+    c.getByRole('tab', { name: 'Перевірка перед друком' }).focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    await expect(c.getByRole('tab', { name: 'Товари для друку' })).toHaveAttribute('data-selected');
   },
 };
