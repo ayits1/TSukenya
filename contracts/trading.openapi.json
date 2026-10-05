@@ -1062,6 +1062,376 @@
         },
         "description": "One explicit till open or close under the ledger lock. Exact UUID retry checks fresh access then returns immutable receipt before mutable status/activity/revision checks; no repeated writes/audit. Validation/revision proof only describes initial rolled-back attempt, never global absence."
       }
+    },
+    "/api/v1/trading/settings/{setting}/recovery-context": {
+      "get": {
+        "operationId": "settingRecoveryContext",
+        "parameters": [
+          {
+            "name": "setting",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "period",
+                "fiscal",
+                "discount-limit"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh authorized READ ONLY RR result; identity does not adopt current baseline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Fresh owner permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Identity/revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/settings/{setting}/current": {
+      "get": {
+        "operationId": "settingCurrent",
+        "parameters": [
+          {
+            "name": "setting",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "period",
+                "fiscal",
+                "discount-limit"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh authorized READ ONLY RR result; identity does not adopt current baseline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingCurrent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Fresh owner permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Identity/revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trading/settings/{setting}/identity": {
+      "post": {
+        "operationId": "settingIdentity",
+        "parameters": [
+          {
+            "name": "setting",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "period",
+                "fiscal",
+                "discount-limit"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh authorized READ ONLY RR result; identity does not adopt current baseline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingIdentityResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Fresh owner permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Identity/revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingIdentityRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/erp/period": {
+      "post": {
+        "operationId": "settingWritePeriod",
+        "description": "Optional UUID+revision receipt protocol. No-key legacy contract is unchanged. Exact creator/fingerprint replay after fresh owner authorization precedes current-version/business checks. Bound first-live rejection only after rollback; current state is not authorship.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fresh authorized READ ONLY RR result; identity does not adopt current baseline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Fresh owner permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Identity/revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/erp/fiscal": {
+      "post": {
+        "operationId": "settingWriteFiscal",
+        "description": "Optional UUID+revision receipt protocol. No-key legacy contract is unchanged. Exact creator/fingerprint replay after fresh owner authorization precedes current-version/business checks. Bound first-live rejection only after rollback; current state is not authorship.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fresh authorized READ ONLY RR result; identity does not adopt current baseline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Fresh owner permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Identity/revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/erp/discount-limit": {
+      "post": {
+        "operationId": "settingWriteDiscountLimit",
+        "description": "Optional UUID+revision receipt protocol. No-key legacy contract is unchanged. Exact creator/fingerprint replay after fresh owner authorization precedes current-version/business checks. Bound first-live rejection only after rollback; current state is not authorship.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fresh authorized READ ONLY RR result; identity does not adopt current baseline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Fresh owner permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Identity/revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2825,6 +3195,443 @@
           }
         ],
         "description": "Positive identity binds creator and full normalized frozen request. Missing receipt=false does not authorize clearing an unknown intent; current state/revision is a separate read."
+      },
+      "SettingEditingPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "storeId",
+          "networkOwner",
+          "canWrite"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "const": "owner"
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "canWrite": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "SettingValue": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "date",
+              "reason"
+            ],
+            "properties": {
+              "date": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "required"
+            ],
+            "properties": {
+              "required": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "percent"
+            ],
+            "properties": {
+              "percent": {
+                "type": "string",
+                "pattern": "^\\d{1,3}(?:\\.\\d{1,2})?$"
+              }
+            }
+          }
+        ]
+      },
+      "SettingOriginal": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "date",
+              "reason",
+              "revision"
+            ],
+            "properties": {
+              "date": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "required",
+              "revision"
+            ],
+            "properties": {
+              "required": {
+                "type": "boolean"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "percent",
+              "revision"
+            ],
+            "properties": {
+              "percent": {
+                "type": "string",
+                "pattern": "^\\d{1,3}(?:\\.\\d{1,2})?$"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              }
+            }
+          }
+        ]
+      },
+      "SettingActionRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "date",
+              "reason",
+              "revision",
+              "idempotency_key"
+            ],
+            "properties": {
+              "date": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              },
+              "idempotency_key": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "required",
+              "revision",
+              "idempotency_key"
+            ],
+            "properties": {
+              "required": {
+                "type": "boolean"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              },
+              "idempotency_key": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "percent",
+              "revision",
+              "idempotency_key"
+            ],
+            "properties": {
+              "percent": {
+                "type": "string",
+                "pattern": "^\\d{1,3}(?:\\.\\d{1,2})?$"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              },
+              "idempotency_key": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ]
+      },
+      "SettingContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "setting",
+          "role",
+          "storeId",
+          "networkOwner",
+          "canWrite"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "setting"
+          },
+          "setting": {
+            "type": "string",
+            "enum": [
+              "period",
+              "fiscal",
+              "discount-limit"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "const": "owner"
+          },
+          "storeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "canWrite": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "SettingCurrent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "setting",
+          "value",
+          "revision",
+          "editing"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "setting"
+          },
+          "setting": {
+            "type": "string",
+            "enum": [
+              "period",
+              "fiscal",
+              "discount-limit"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/SettingValue"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "editing": {
+            "$ref": "#/components/schemas/SettingEditingPolicy"
+          }
+        }
+      },
+      "SettingAcknowledgement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "setting",
+          "request_key",
+          "original",
+          "value",
+          "revision"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "setting"
+          },
+          "setting": {
+            "type": "string",
+            "enum": [
+              "period",
+              "fiscal",
+              "discount-limit"
+            ]
+          },
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "original": {
+            "$ref": "#/components/schemas/SettingOriginal"
+          },
+          "value": {
+            "$ref": "#/components/schemas/SettingValue"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          }
+        }
+      },
+      "SettingIdentityRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/SettingActionRequest"
+          }
+        }
+      },
+      "SettingIdentityResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confirmed",
+              "type",
+              "setting",
+              "request_key"
+            ],
+            "properties": {
+              "confirmed": {
+                "type": "boolean",
+                "const": false
+              },
+              "type": {
+                "type": "string",
+                "const": "setting"
+              },
+              "setting": {
+                "type": "string",
+                "enum": [
+                  "period",
+                  "fiscal",
+                  "discount-limit"
+                ]
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confirmed",
+              "type",
+              "setting",
+              "request_key",
+              "original",
+              "value",
+              "revision"
+            ],
+            "properties": {
+              "confirmed": {
+                "type": "boolean",
+                "const": true
+              },
+              "type": {
+                "type": "string",
+                "const": "setting"
+              },
+              "setting": {
+                "type": "string",
+                "enum": [
+                  "period",
+                  "fiscal",
+                  "discount-limit"
+                ]
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "original": {
+                "$ref": "#/components/schemas/SettingOriginal"
+              },
+              "value": {
+                "$ref": "#/components/schemas/SettingValue"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
+              }
+            }
+          }
+        ]
       }
     }
   }

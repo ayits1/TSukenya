@@ -285,6 +285,105 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/trading/settings/{setting}/recovery-context': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['settingRecoveryContext'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/settings/{setting}/current': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['settingCurrent'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/trading/settings/{setting}/identity': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['settingIdentity'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/erp/period': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Optional UUID+revision receipt protocol. No-key legacy contract is unchanged. Exact creator/fingerprint replay after fresh owner authorization precedes current-version/business checks. Bound first-live rejection only after rollback; current state is not authorship. */
+    post: operations['settingWritePeriod'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/erp/fiscal': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Optional UUID+revision receipt protocol. No-key legacy contract is unchanged. Exact creator/fingerprint replay after fresh owner authorization precedes current-version/business checks. Bound first-live rejection only after rollback; current state is not authorship. */
+    post: operations['settingWriteFiscal'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/erp/discount-limit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Optional UUID+revision receipt protocol. No-key legacy contract is unchanged. Exact creator/fingerprint replay after fresh owner authorization precedes current-version/business checks. Bound first-live rejection only after rollback; current state is not authorship. */
+    post: operations['settingWriteDiscountLimit'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -710,6 +809,121 @@ export interface components {
           action: 'open' | 'close';
           /** Format: uuid */
           request_key: string;
+        };
+    SettingEditingPolicy: {
+      /** @constant */
+      role: 'owner';
+      storeId: number | null;
+      networkOwner: boolean;
+      /** @constant */
+      canWrite: true;
+    };
+    SettingValue:
+      | {
+          /** Format: date */
+          date: string | null;
+          reason: string;
+        }
+      | {
+          required: boolean;
+        }
+      | {
+          percent: string;
+        };
+    SettingOriginal:
+      | {
+          /** Format: date */
+          date: string | null;
+          reason: string;
+          revision: string;
+        }
+      | {
+          required: boolean;
+          revision: string;
+        }
+      | {
+          percent: string;
+          revision: string;
+        };
+    SettingActionRequest:
+      | {
+          /** Format: date */
+          date: string | null;
+          reason: string;
+          revision: string;
+          /** Format: uuid */
+          idempotency_key: string;
+        }
+      | {
+          required: boolean;
+          revision: string;
+          /** Format: uuid */
+          idempotency_key: string;
+        }
+      | {
+          percent: string;
+          revision: string;
+          /** Format: uuid */
+          idempotency_key: string;
+        };
+    SettingContext: {
+      /** @constant */
+      type: 'setting';
+      /** @enum {string} */
+      setting: 'period' | 'fiscal' | 'discount-limit';
+      /** @constant */
+      role: 'owner';
+      storeId: number | null;
+      networkOwner: boolean;
+      /** @constant */
+      canWrite: true;
+    };
+    SettingCurrent: {
+      /** @constant */
+      type: 'setting';
+      /** @enum {string} */
+      setting: 'period' | 'fiscal' | 'discount-limit';
+      value: components['schemas']['SettingValue'];
+      revision: string;
+      editing: components['schemas']['SettingEditingPolicy'];
+    };
+    SettingAcknowledgement: {
+      /** @constant */
+      type: 'setting';
+      /** @enum {string} */
+      setting: 'period' | 'fiscal' | 'discount-limit';
+      /** Format: uuid */
+      request_key: string;
+      original: components['schemas']['SettingOriginal'];
+      value: components['schemas']['SettingValue'];
+      revision: string;
+    };
+    SettingIdentityRequest: {
+      request: components['schemas']['SettingActionRequest'];
+    };
+    SettingIdentityResult:
+      | {
+          /** @constant */
+          confirmed: false;
+          /** @constant */
+          type: 'setting';
+          /** @enum {string} */
+          setting: 'period' | 'fiscal' | 'discount-limit';
+          /** Format: uuid */
+          request_key: string;
+        }
+      | {
+          /** @constant */
+          confirmed: true;
+          /** @constant */
+          type: 'setting';
+          /** @enum {string} */
+          setting: 'period' | 'fiscal' | 'discount-limit';
+          /** Format: uuid */
+          request_key: string;
+          original: components['schemas']['SettingOriginal'];
+          value: components['schemas']['SettingValue'];
+          revision: string;
         };
   };
   responses: never;
@@ -1566,6 +1780,310 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  settingRecoveryContext: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        setting: 'period' | 'fiscal' | 'discount-limit';
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fresh authorized READ ONLY RR result; identity does not adopt current baseline */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingContext'];
+        };
+      };
+      /** @description Invalid input */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Fresh owner permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Identity/revision conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  settingCurrent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        setting: 'period' | 'fiscal' | 'discount-limit';
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fresh authorized READ ONLY RR result; identity does not adopt current baseline */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingCurrent'];
+        };
+      };
+      /** @description Invalid input */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Fresh owner permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Identity/revision conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  settingIdentity: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        setting: 'period' | 'fiscal' | 'discount-limit';
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SettingIdentityRequest'];
+      };
+    };
+    responses: {
+      /** @description Fresh authorized READ ONLY RR result; identity does not adopt current baseline */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingIdentityResult'];
+        };
+      };
+      /** @description Invalid input */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Fresh owner permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Identity/revision conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  settingWritePeriod: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SettingActionRequest'];
+      };
+    };
+    responses: {
+      /** @description Fresh authorized READ ONLY RR result; identity does not adopt current baseline */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingAcknowledgement'];
+        };
+      };
+      /** @description Invalid input */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Fresh owner permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Identity/revision conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  settingWriteFiscal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SettingActionRequest'];
+      };
+    };
+    responses: {
+      /** @description Fresh authorized READ ONLY RR result; identity does not adopt current baseline */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingAcknowledgement'];
+        };
+      };
+      /** @description Invalid input */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Fresh owner permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Identity/revision conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  settingWriteDiscountLimit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SettingActionRequest'];
+      };
+    };
+    responses: {
+      /** @description Fresh authorized READ ONLY RR result; identity does not adopt current baseline */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingAcknowledgement'];
+        };
+      };
+      /** @description Invalid input */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Fresh owner permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Identity/revision conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
       };
     };
   };
