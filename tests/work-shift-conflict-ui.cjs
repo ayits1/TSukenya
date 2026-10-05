@@ -1,3 +1,4 @@
+const staff=require('./staff-navigation.cjs');
 /* B06 native workshift recovery; primary retains B04 exact receipt and actual payroll. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -56,7 +57,7 @@ const wait = async predicate => {
     await voucher({kind:'sale',shift:till,employee,lines:[{product,quantity:1,price:total}],payload:{payments:[{account:bank,amount:String(total)}]}});
     await ok('shifts','POST',{id:till,action:'close',counted:1000});
   }
-  const go=async()=>{await page.goto(base+'/#trade/staff');await page.locator('[data-trade=work-shift]').first().waitFor();};
+  const go=async()=>{await page.goto(base+'/#trade/staff');await staff.tab(page,'work');};
   const form=()=>page.locator('#tradeSimpleForm');
   const privateReadRecovery=async()=>{await wait(async()=>await page.evaluate(()=>window.NativeDraftRecovery.controller.snapshot().state==='error'));assert(await form().evaluate(f=>f.closest('.trade-dialog-body').hidden));const before=writes;await page.locator('[data-workshift-access]').getByRole('button',{name:'Перевірити доступ до форми',exact:true}).click();await wait(async()=>await form().evaluate(f=>!f.closest('.trade-dialog-body').hidden));assert.equal(writes,before);};
   const pickEmployee=async(host,label)=>{const input=host.getByRole('combobox',{name:'Працівник',exact:true});await input.fill(label);await page.getByRole('option',{name:new RegExp(label)}).click();};
@@ -64,7 +65,7 @@ const wait = async predicate => {
   const chooseMine=async()=>{for(const radio of await page.getByRole('radio',{name:'Залишити мої зміни',exact:true}).all()){await radio.focus();await page.keyboard.press('Space');}};
   const apply=()=>page.getByRole('button',{name:'Застосувати узгоджені зміни',exact:true});
   const create=async(index,lostAck=false)=>{
-    await page.locator('[data-trade=work-shift]').first().click();
+    await staff.openCreate(page);
     await pickEmployee(form(), 'Працівник двох касових змін');
     const select=form().locator('[data-cash-choice]');await select.waitFor();
     await wait(async()=>await select.isEnabled());
@@ -150,7 +151,7 @@ const wait = async predicate => {
     }
     await page.locator('.trade-dialog[open]').waitFor({state:'hidden'});
     if(lostAck) {assert.equal(keys.length,2);assert.equal(keys[0],keys[1]);assert.match(keys[0],/^[0-9a-f-]{36}$/);await page.unroute('**/api/erp/work-shifts');}
-    await page.locator(`[data-shift-history=work] button[data-trade=work-shift]`).first().waitFor();
+    await staff.tab(page,'work');
   };
   if(['existing','semantic'].includes(process.env.WORK_CONFLICT_FROM)){
     const extraEmployee=(await ok('entities/employees','POST',{name:'Історичний працівник для узгодження',store,shift_rate:'10',bonus_percent:'0',bonus_basis:'store'})).id;
@@ -158,7 +159,7 @@ const wait = async predicate => {
     const employeeMeta=(await page.evaluate(async id=>{const session=await(await fetch('/api/v1/trading/bootstrap')).json();return(await(await fetch('/api/v1/trading/directories/details',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify({ids:[{type:'employees',id:String(id)}],purpose:'manage'})})).json()).items[0];},extraEmployee));
     await ok('entities/employees','POST',{id:extraEmployee,revision:employeeMeta.revision,name:employeeMeta.name,store,shift_rate:'999',bonus_percent:'99',bonus_basis:'store',active:false});
     const existingChecks=[];
-    const open=async()=>{await go();await page.locator(`[data-trade=work-shift][data-id="${saved}"]`).click();await form().waitFor();assert.equal(await form().locator('[name=shift_rate]').inputValue(),(await row()).shift_rate);};
+    const open=async()=>{await go();await staff.openEdit(page,saved);await form().waitFor();assert.equal(await form().locator('[name=shift_rate]').inputValue(),(await row()).shift_rate);};
     const row=async()=> (await ok('work-shifts?id='+saved)).items[0];
     const update=async changes=>{const before=await row();return ok('work-shifts','POST',{id:saved,revision:before.revision,employee:extraEmployee,date,cash_shift:before.cash_shift_id,units:before.units,shift_rate:before.shift_rate,bonus_percent:before.bonus_percent,bonus_basis:before.bonus_basis,note:before.note,...changes});};
     const review=async()=>{await page.locator('[data-work-read-retry]').click();await apply().waitFor();};
@@ -174,7 +175,7 @@ const wait = async predicate => {
       assert.equal(await form().locator('[name=units]').inputValue(),'1.00');assert(await form().locator('[type=submit]').isDisabled());assert.equal(writes,before);assert(await apply().isVisible());
       await apply().click();await apply().waitFor({state:'hidden'});assert.equal(writes,before);await wait(async()=>await form().locator('[data-cash-choice]').isEnabled());await form().locator('[type=submit]').click();await page.locator('dialog[open]').waitFor({state:'hidden'});assert.equal((await row()).note,'Збережена новіша примітка');assert.deepEqual(errors,[]);
       await page.route('**/api/v1/trading/directories/employees?*',async route=>{const response=await route.fetch();const data=await response.json();for(const item of data.items){delete item.shift_rate;delete item.bonus_percent;delete item.bonus_basis;}return route.fulfill({response,json:data});});
-      const beforeOpening=writes;await page.locator('[data-trade=work-shift]').first().click();await page.getByRole('alert').filter({hasText:'Умови працівника неповні'}).waitFor();assert.equal(await page.locator('dialog[open] #tradeSimpleForm').count(),0);assert.equal(writes,beforeOpening);await page.unroute('**/api/v1/trading/directories/employees?*');
+      const beforeOpening=writes;await staff.openCreate(page);await page.getByRole('alert').filter({hasText:'Умови працівника неповні'}).waitFor();assert.equal(await page.locator('dialog[open] #tradeSimpleForm').count(),0);assert.equal(writes,beforeOpening);await page.unroute('**/api/v1/trading/directories/employees?*');
       fs.writeFileSync(path.join(proof,'semantic-report.json'),JSON.stringify({pass:true,checks:['malformed server units0 and invalid merge refused without draft/revision adoption or POST','fresh valid comparison and separate Save after refusal','new employee missing private terms refuses opening instead of inventing zeros']},null,2));console.log('PASS: B06 malformed semantic terms refusal.');return;
     }
     await open();assert((await form().getByRole('combobox',{name:'Працівник',exact:true}).inputValue()).includes('неактивний'));
@@ -214,16 +215,16 @@ const wait = async predicate => {
   await go();await create(0,true);await page.setViewportSize({width:320,height:900});await create(1);
   const rows=(await ok('work-shifts?employee='+employee)).items;
   assert.equal(rows.length,2);assert.equal(new Set(rows.map(row=>row.date)).size,1);
-  await wait(async()=>{const visible=await page.locator('[data-shift-history=work]').innerText();return tills.every(till=>visible.includes('Касова зміна № '+till));});
+  await wait(async()=>{const visible=await staff.host(page).innerText();return tills.every(till=>visible.includes('Касова зміна № '+till));});
   const geometry=[];
   for(const width of [1440,320]) {
     await page.setViewportSize({width,height:900});
     await page.screenshot({path:path.join(proof,'tabell-'+width+'.png')});
-    await page.locator('[data-shift-history=work] [data-shift-results]').screenshot({path:path.join(proof,'tabell-rows-'+width+'.png')});
+    await staff.host(page).getByRole('region',{name:'Табель робочих змін',exact:true}).screenshot({path:path.join(proof,'tabell-rows-'+width+'.png')});
     const measured=await page.evaluate(()=>({width:innerWidth,documentWidth:document.documentElement.scrollWidth}));
     assert(measured.documentWidth<=width+1,JSON.stringify(measured));geometry.push(measured);
   }
-  await page.locator('[data-trade=new-voucher][data-kind=payroll]').click();
+  await staff.payroll(page).click();
   const payroll=page.locator('#tradeVoucherForm');await pickEmployee(payroll, 'Працівник двох касових змін');
   await wait(async()=>await payroll.locator('[name=shift_ids]').count()===2);
   for(const row of rows) {

@@ -1,3 +1,4 @@
+const staff=require('./staff-navigation.cjs');
 const {waitForTradingRoute}=require('./trading-document-controls.cjs');
 /* Kyiv calendar boundaries, with all writes confined to disposable local SQLite. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
@@ -35,9 +36,9 @@ print(json.dumps({'today':str(today),'yesterday':str(today-timedelta(days=1)),'p
  for(const [instant,today,yesterday] of [[seed.before,seed.yesterday,seed.previous],[seed.after,seed.today,seed.yesterday]]){
   await page.clock.setFixedTime(new Date(instant));await go('setup');await page.locator('[data-trade=period]').press('Enter');
   await bounds(dialog().locator('[name=date]'),{min:'',max:yesterday});await close();
-  await go('staff');await page.locator('[data-trade=work-shift]:not([data-id])').press('Enter');
+  await go('staff');await staff.openCreate(page);
   await bounds(dialog().locator('[name=date]'),{min:'',max:today});assert.equal(await dialog().locator('[name=date]').inputValue(),today);await close();
-  await page.locator('[data-trade=new-voucher][data-kind=payroll]').press('Enter');
+  await staff.payroll(page).press('Enter');
   await bounds(dialog().locator('[name=date]'),{min:'',max:today});assert.equal(await dialog().locator('[name=date]').inputValue(),today);await close();
  }
  assert.equal(await page.evaluate(()=>new Date().getDate()),Number(seed.yesterday.slice(-2)),'Browser is still in preceding day after Kyiv midnight');
@@ -48,12 +49,12 @@ print(json.dumps({'today':str(today),'yesterday':str(today-timedelta(days=1)),'p
  await go('setup');await page.locator('[data-trade=period]').press('Enter');await dialog().locator('[name=reason]').fill('Синтетичне закриття завершеного дня');
  const periodDate=dialog().locator('[name=date]');await periodDate.fill(seed.today);assert.equal(await periodDate.evaluate(el=>el.validity.rangeOverflow),true);await periodDate.fill(seed.yesterday);assert.equal(await periodDate.evaluate(el=>el.checkValidity()),true);await fit();
  let response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/erp/period'&&r.request().method()==='POST');await dialog().locator('[type=submit]').press('Enter');assert.equal((await response).status(),200);await dialog().waitFor({state:'hidden'});
- await go('staff');await page.locator('[data-trade=work-shift]:not([data-id])').press('Enter');const workDate=dialog().locator('[name=date]');
+ await go('staff');await staff.openCreate(page);const workDate=dialog().locator('[name=date]');
  await bounds(workDate,{min:seed.today,max:seed.today});await workDate.fill(seed.yesterday);assert.equal(await workDate.evaluate(el=>el.validity.rangeUnderflow),true);await workDate.fill(seed.tomorrow);assert.equal(await workDate.evaluate(el=>el.validity.rangeOverflow),true);await workDate.fill(seed.today);assert.equal(await workDate.evaluate(el=>el.checkValidity()),true);
  await wait(async()=>await dialog().locator('[data-cash-choice]').count()===1&&await dialog().locator('[data-cash-choice]').isEnabled(),'cash choice');await fit();
  for(const date of [seed.yesterday,seed.tomorrow]){const bad=await api('POST','/api/erp/work-shifts',{employee:seed.employee,date,units:'1',shift_rate:'400',bonus_percent:'0',bonus_basis:'store'});assert.equal(bad.status(),400);}
  response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/erp/work-shifts'&&r.request().method()==='POST');await dialog().locator('[type=submit]').press('Enter');const saved=await response;assert.equal(saved.status(),200);const work=(await saved.json()).id;await dialog().waitFor({state:'hidden'});
- await page.locator('[data-trade=new-voucher][data-kind=payroll]').press('Enter');await bounds(dialog().locator('[name=date]'),{min:seed.today,max:seed.today});await dialog().locator('[name=employee]').selectOption(String(seed.employee));const checkbox=dialog().locator(`[data-payroll-id="${work}"]`);await checkbox.waitFor();await checkbox.press('Space');assert.equal(await checkbox.isChecked(),true);await fit();
+ await staff.payroll(page).press('Enter');await bounds(dialog().locator('[name=date]'),{min:seed.today,max:seed.today});await staff.nativeEmployee(page,seed.employee,'Синтетичний працівник меж дат');const checkbox=dialog().locator(`[data-payroll-id="${work}"]`);await checkbox.waitFor();await checkbox.press('Space');assert.equal(await checkbox.isChecked(),true);await fit();
  response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/erp/vouchers'&&r.request().method()==='POST');await dialog().locator('[type=submit][value=draft]').press('Enter');const draft=await response;assert.equal(draft.status(),201);const voucher=(await draft.json()).id;await dialog().locator('[data-trade=edit-voucher]').waitFor();await close();
  const persisted=await(await ctx.request.get(base+'/api/erp/vouchers/'+voucher)).json();assert.equal(persisted.date,seed.today);assert.deepEqual(persisted.payload.shift_ids,[work]);
  for(const date of [seed.yesterday,seed.tomorrow]){const bad=await api('POST','/api/erp/vouchers',{kind:'expense',date,store:seed.store,account:seed.account,amount:'1',payload:{}});assert.equal(bad.status(),400);}
