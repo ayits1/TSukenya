@@ -112,3 +112,14 @@ Prettier, JS syntax/diff перевірені. Початковий ESLint не 
 `review-inline-generation`, `review-units`, `review-category`, `review-apply` через
 `QA_EXPENSE_DRAFT_FROM` (ця змінна має бути scrubbed перед повним прогоном). Приклад
 вузької команди: `QA_EXPENSE_DRAFT_FROM=review-apply node tests/expense-draft-reload-ui.cjs`.
+
+## Інтеграційна перевірка
+
+Пакет адитивно інтегровано поверх прийнятих React Finance/Sales і recovery count.
+Matching frontend build PASS; реальний ізольований `review-apply` із цією збіркою
+PASS: блокування comparison, keyboard Cancel, quota failure без прийняття raw/baseline,
+окремий атомарний Apply без бізнес-записів. Артефакт:
+`/tmp/tsukenya-expense-root-reviewed-apply/review-apply-report.json`.
+Browser-policy, JS syntax/diff та full runner лише `--plan` PASS.
+Registry містить primary і одинадцять незалежних хвостів; `ack` не повторює
+покриття primary. Це реєстрація майбутнього повного прогону, а не виконання suite.
