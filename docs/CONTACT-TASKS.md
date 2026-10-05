@@ -64,7 +64,7 @@ whitelist codec v1. Немає credentials, CSRF, facts або дозволів 
 Після останнього awaited session перевіряються signal/generation/route/visibility.
 Unknown CREATE/UPDATE зберігає той самий intent після reload і later4xx;
 exact Retry typebutton доступний попри новіші invalid поля. Лише bound rollback400
-першої live CREATE може звільнити rejected intent. Catch охоплює atomic save;
+першої live CREATE може звільнити rejected intent. Будь-який lifetime suspend назавжди скасовує цю локальну first-live authority для вже виданого intent; наступна400 не звільняє його. Catch охоплює atomic save;
 post-commit serializer failure такого proof не отримує. PATCH не вигадує no-write
 receipt або автоматичного повтору.
 
@@ -102,7 +102,7 @@ migration reverse/reinstall, actual LedgerLock role-revocation wait, reclassifie
 contact history/replay/new-create refusal та відмову іншому allowed owner в creator receipt replay. Migration reverse/reinstall також SQLite.
 Це не твердження, що повний server набір повторено.
 
-Unit adapter7 і machine3 пройшли цільовими групами; strict raw/ACK/identity/summary/
+Unit adapter7 і machine4 пройшли цільовими групами; strict raw/ACK/identity/summary/
 context/quota/late callback/removal. Shared comparison Story2: keyboard Apply та
 Cancel. Тимчасовий symlink QA Story config з fs.allow лише для installed dependencies
 не входить у source delivery. Types, changed lint, production build/schema — цільові.

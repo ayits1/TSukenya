@@ -175,6 +175,7 @@ export class TaskMachine {
     }
   }
   suspend() {
+    this.firstLive = false;
     this.granted = null;
     this.generation++;
     this.request?.abort();

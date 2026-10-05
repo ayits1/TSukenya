@@ -191,4 +191,49 @@ describe('contact task machine privacy and final-await boundary', () => {
     expect([...memory.data]).toEqual(old);
     m.dispose();
   });
+  it('suspension after issued CREATE permanently removes live-first rejection authority while keeping exact intent', async () => {
+    const { store } = setup(),
+      m = new TaskMachine(payload());
+    await m.prepare();
+    const original = globalThis.fetch;
+    let release: (r: Response) => void = () => {};
+    let issued = 0;
+    const held = new Promise<Response>((r) => {
+      release = r;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((path: string, options?: RequestInit) => {
+        if (path !== '/api/v1/crm/contact-tasks' || options?.method !== 'POST')
+          return original(path, options);
+        issued++;
+        if (issued === 1) return held;
+        const body = JSON.parse(String(options.body));
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: 'Rejected',
+              write_rejected: true,
+              resource: 'contact_task',
+              request_key: body.request_key,
+              action: 'create',
+            }),
+            { status: 400 },
+          ),
+        );
+      }),
+    );
+    const pending = m.save();
+    for (let i = 0; i < 10 && issued === 0; i++) await pause();
+    expect(issued).toBe(1);
+    const intent = m.snapshot().payload.firstIntent;
+    m.suspend();
+    release(new Response('{}', { status: 503 }));
+    await pending;
+    await m.save();
+    expect(issued).toBe(2);
+    expect(m.snapshot().payload.firstIntent).toEqual(intent);
+    expect(store.beforeSend('contact_' + id)).toEqual(intent);
+    m.dispose();
+  });
 });
