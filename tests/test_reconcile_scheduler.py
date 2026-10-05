@@ -86,7 +86,10 @@ class ReconcileSchedulerTests(unittest.TestCase):
     def test_invoke_accepts_only_exact_compact_receipt_and_scoped_command(self):
         key = '1b90d95e-8b54-4b3a-b922-4c829fe4307e'
         def completed(command, **kwargs):
-            self.assertEqual(command[:7], ['docker', 'compose', '--project-directory', '/opt/tsukenya', '-p', 'tsukenya', 'exec'])
+            self.assertEqual(command, ['docker', 'compose', '--project-directory', '/opt/tsukenya',
+                '-f', '/opt/tsukenya/compose.production.yaml', '-p', 'tsukenya', 'exec', '-T', 'web',
+                'python', 'manage.py', 'reconcile', '--record', '--source', 'scheduler',
+                '--run-id', key, '--receipt-json'])
             self.assertIn('--receipt-json', command)
             self.assertEqual(kwargs['stderr'], subprocess.DEVNULL)
             kwargs['stdout'].write(json.dumps(self.receipt(key)).encode())

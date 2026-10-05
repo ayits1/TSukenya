@@ -41,7 +41,8 @@ def sync_directory(path):
 
 def invoke(root, run_id):
     # No gateway, worker restart, migration or PostgreSQL container operation.
-    command = ['docker', 'compose', '--project-directory', str(root), '-p', 'tsukenya',
+    command = ['docker', 'compose', '--project-directory', str(root),
+               '-f', str(root / 'compose.production.yaml'), '-p', 'tsukenya',
                'exec', '-T', 'web', 'python', 'manage.py', 'reconcile', '--record',
                '--source', 'scheduler', '--run-id', run_id, '--receipt-json']
     with tempfile.TemporaryFile() as output:
