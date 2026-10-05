@@ -16,7 +16,24 @@ def scalar_json(prefix, fields):
     # types, unlike a projection that adds missing markup:null to the old price.
     allowed=','.join("'"+field+"'" for field in dict.fromkeys(fields))
     return f'''(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null')
-              THEN type ELSE json_quote(value) END)),'{{}}') FROM json_each({prefix}.data) WHERE key IN ({allowed}))'''
+              THEN type WHEN type IN ('object','array') THEN value ELSE json_quote(value) END)),'{{}}') FROM json_each({prefix}.data) WHERE key IN ({allowed}))'''
+
+
+def semantic_change():
+    """Compare JSON nodes in SQL, ignoring object-key order, retaining arrays/types.
+
+    The real-number callback receives only a number, preserving Python's float
+    spelling and signed zero. Integer tokens stay textual to avoid SQLite's
+    rounding beyond int64. A path unsupported by an older JSON parser falls
+    back to the source text conservatively, never hiding a changed large integer.
+    """
+    def nodes(prefix):
+        return f"""SELECT fullkey,type,CASE
+            WHEN type='real' THEN tsukenya_real_spelling(atom)
+            WHEN type='integer' THEN coalesce({prefix}.data -> fullkey,CAST({prefix}.data AS TEXT))
+            ELSE atom END FROM json_tree({prefix}.data)"""
+    old,new=nodes('OLD'),nodes('NEW')
+    return f'(OLD.path IS NOT NEW.path OR EXISTS({old} EXCEPT {new}) OR EXISTS({new} EXCEPT {old}))'
 
 
 def install(connection=default_connection):
@@ -27,7 +44,7 @@ def install(connection=default_connection):
     with connection.cursor() as cursor:
         columns=[c.name for c in connection.introspection.get_table_description(cursor,table)]
         for op in ('INSERT','UPDATE','DELETE'):
-            changed='1' if op!='UPDATE' else '(OLD.path IS NOT NEW.path OR CAST(OLD.data AS TEXT) IS NOT CAST(NEW.data AS TEXT))'
+            changed='1' if op!='UPDATE' else "CASE WHEN OLD.path LIKE 'products/%' OR OLD.path LIKE 'catalog_refs/%' OR NEW.path LIKE 'products/%' OR NEW.path LIKE 'catalog_refs/%' THEN "+semantic_change()+" ELSE 0 END"
             def envelope(prefix, trading):
                 args=[]
                 for field in columns:

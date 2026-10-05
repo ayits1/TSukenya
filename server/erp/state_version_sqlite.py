@@ -18,6 +18,8 @@ def task_keys(data, owners_only=False):
 def register(connection):
     raw = connection.connection
     def spelling(value):return json.dumps(value,sort_keys=True,separators=(',',':'))
+    # Only numeric leaves enter Python; historical JSON graphs stay in SQL.
+    raw.create_function('tsukenya_real_spelling',1,spelling,deterministic=True)
     def related(query, values):
         return raw.execute(query, values).fetchall()
     def keys(table, old, new):
@@ -26,10 +28,10 @@ def register(connection):
         # distinguishes real writes from true no-ops even when paths match.
         scalar_catalogue = table=='document' and any(r and r.get('__dataChanged') for r in (old,new))
         if old==new and not scalar_catalogue:return '[]'
-        # Catalogue invalidation needs only the path and raw JSON equality.
+        # Catalogue invalidation needs only the path and SQL semantic equality.
         # The trigger envelope contains a transport string; do not decode its
-        # arbitrarily large nested recipe/unknown object graph. Spelling-only
-        # writes conservatively invalidate, while other family semantics stay.
+        # arbitrarily large nested recipe/unknown object graph. Object-key reordering
+        # is a no-op; numeric types and signed zero remain significant.
         catalogue = lambda row: row and (row['path'].startswith('products/') or row['path'].startswith('catalog_refs/'))
         if table=='document' and old and new and old['path']==new['path']:
             if catalogue(old):

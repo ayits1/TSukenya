@@ -91,6 +91,25 @@ class ProjectionTests(TestCase):
         Document.objects.filter(pk='catalog_refs/transition').update(path='tasks/transition',data={'title':'t','scope':'operations'})
         self.assertTrue(StateVersion.objects.filter(pk='ops_tasks').exists())
 
+    def test_sqlite_semantic_invalidation_nested_order_numbers_and_arrays(self):
+        if connection.vendor!='sqlite':return
+        value={'name':'n','unknown':{'b':{'y':True,'x':None},'a':[1,2]},'float':10.0,'huge':99999999999999999999,'zero':0.0}
+        doc=Document.objects.create(path='products/semantic',data=value)
+        baseline=StateVersion.objects.get(pk='catalog').revision
+        reordered={**dict(reversed(list(value.items()))),'unknown':{'a':[1,2],'b':{'x':None,'y':True}}}
+        Document.objects.filter(pk=doc.pk).update(data=reordered)
+        self.assertEqual(StateVersion.objects.get(pk='catalog').revision,baseline)
+        for key,next_value in (('float',10),('zero',-0.0),('huge',99999999999999999998),('unknown',{'a':[2,1],'b':{'x':None,'y':True}})):
+            baseline=StateVersion.objects.get(pk='catalog').revision
+            reordered={**reordered,key:next_value}
+            Document.objects.filter(pk=doc.pk).update(data=reordered)
+            self.assertEqual(StateVersion.objects.get(pk='catalog').revision,baseline+1,key)
+        # Equal float values with different exponent spelling stay a no-op.
+        baseline=StateVersion.objects.get(pk='catalog').revision
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE erp_document SET data=replace(data,%s,%s) WHERE path=%s',['"zero": -0.0','"zero": -0e0',doc.pk])
+        self.assertEqual(StateVersion.objects.get(pk='catalog').revision,baseline)
+
     def test_disposable_namespace_disk_guard_precedes_write_and_no_sort_journal(self):
         import server.erp.catalog_projection as module
         from server.erp.services import BusinessError

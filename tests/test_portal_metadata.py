@@ -68,8 +68,8 @@ class PortalMetadataTests(TransactionTestCase):
         self.role('manager',self.a);self.assertEqual(self.client.get('/api/v1/portal/examples').status_code,403)
     def test_export_role_formula_guard_snapshot_and_no_full_json(self):
         Document.objects.filter(pk='products/p0').update(data={'name':'=2+2','cost':10,'barcode':'00123'})
-        r=self.client.get('/api/v1/portal/catalogue.csv');self.assertTrue(r.streaming);iterator=iter(r.streaming_content);header=next(iterator);first=next(iterator)
-        self.assertIn('Закупівля'.encode(),header);self.assertIn(b'\t=2+2',first);self.assertIn(b'00123',first);r.close()
+        r=self.client.get('/api/v1/portal/catalogue.csv');self.assertTrue(r.streaming);value=b''.join(r.streaming_content)
+        self.assertEqual(len(value),int(r['Content-Length']));self.assertIn('Закупівля'.encode(),value);self.assertIn(b'\t=2+2',value);self.assertIn(b'00123',value);r.close()
         self.role('cashier',self.a);r=self.client.get('/api/v1/portal/catalogue.csv');value=b''.join(r.streaming_content);self.assertNotIn('Закупівля'.encode(),value);self.assertNotIn('Націнка'.encode(),value)
         self.assertEqual(self.client.get('/api/v1/portal/catalogue.csv?includeHidden=true').status_code,403)
     def post(self,path,payload):
@@ -79,7 +79,12 @@ class PortalMetadataTests(TransactionTestCase):
         import uuid
         payload={'kind':'markup','selection':{'q':'P','type':'','category':'','pack':'','promotion':'','store':''},'markup':'40','resetManualPrices':False,'updateDefault':False}
         with CaptureQueriesContext(connection) as q:r=self.post('/api/v1/catalog/pricing/preview',payload)
-        self.assertEqual(r.status_code,200);self.assertEqual(r.json()['scope']['count'],500);self.assertLess(len(q),20)
+        self.assertEqual(r.status_code,200);self.assertEqual(r.json()['scope']['count'],500)
+        # The new preview owns READ ONLY RR. Measure its bounded data reads,
+        # excluding BEGIN/SET/COMMIT, whose count differs across backends.
+        reads=[item for item in q if item['sql'].lstrip().upper().startswith('SELECT')]
+        self.assertLess(len(reads),20)
+        self.assertFalse(any('SELECT "erp_document"."data"' in item['sql'] for item in reads))
         frozen={**payload,'snapshot':r.json()['snapshot'],'idempotencyKey':str(uuid.uuid4())}
         Document.objects.filter(pk='products/p0').update(data={'name':'P0','cost':11})
         self.assertEqual(self.post('/api/v1/catalog/pricing/commit',frozen).status_code,409)
@@ -101,11 +106,29 @@ class PortalMetadataTests(TransactionTestCase):
         item=self.client.get('/api/v1/portal/examples').json()['items'][0];p.data['name']='Updated';p.save()
         result=self.post('/api/v1/portal/examples/delete',{'items':[{'id':item['id'],'revision':item['revision']}],'idempotencyKey':'11111111-1111-4111-8111-111111111112'})
         self.assertEqual(result.status_code,200);self.assertEqual(result.json()['items'][0]['status'],'conflicted');self.assertTrue(Document.objects.filter(pk=p.pk).exists())
-    def test_export_rechecks_role_before_iterator_and_snapshot(self):
-        response=self.client.get('/api/v1/portal/catalogue.csv')
-        self.role('cashier',self.a)
-        self.assertNotIn('Закупівля'.encode(),b''.join(response.streaming_content))
-        self.assertFalse(connection.in_atomic_block)
+    def test_export_rechecks_role_before_preparation_and_snapshot(self):
+        from server.erp.services import current_actor
+        from contextlib import contextmanager
+        from server.erp.historical_reports import read_snapshot
+        @contextmanager
+        def revoke_before_snapshot():
+            # Revoke after HTTP authentication, before READ ONLY starts.
+            self.role('cashier',self.a)
+            with read_snapshot():yield
+        def fresh_actor(cached_user):
+            self.assertTrue(connection.in_atomic_block)
+            self.assertEqual(cached_user.profile.role,'owner')
+            actor=current_actor(cached_user)
+            self.assertEqual(actor.profile.role,'cashier')
+            return actor
+        with patch('server.erp.catalog_export.read_snapshot',side_effect=revoke_before_snapshot),patch('server.erp.catalog_export.current_actor',side_effect=fresh_actor) as fresh:
+            response=self.client.get('/api/v1/portal/catalogue.csv')
+        fresh.assert_called_once()
+        content=b''.join(response.streaming_content)
+        self.assertNotIn('Закупівля'.encode(),content)
+        self.assertNotIn('Націнка'.encode(),content)
+        self.assertEqual(len(content),int(response['Content-Length']))
+        response.close();self.assertFalse(connection.in_atomic_block)
     def test_postgres_export_snapshot_survives_concurrent_edit_and_close(self):
         if connection.vendor!='postgresql':self.skipTest('PostgreSQL RR snapshot proof')
         from concurrent.futures import ThreadPoolExecutor

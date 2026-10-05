@@ -16,7 +16,7 @@ class PricingProjection:
     def __getattr__(self,key):return getattr(self.raw,key)
     def execute(self,sql,*args):
         if sql=="SELECT data FROM erp_document WHERE path='settings/main'":
-            expression="(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type ELSE json_quote(value) END)),'{}') FROM json_each(data) WHERE key IN ('defaultMarkup','rounding'))"
+            expression="(SELECT coalesce(json_group_object(key,json(CASE WHEN type IN ('true','false','null') THEN type WHEN type IN ('object','array') THEN value ELSE json_quote(value) END)),'{}') FROM json_each(data) WHERE key IN ('defaultMarkup','rounding'))"
             # The old callback treats non-object settings as empty. Preserve it;
             # malformed huge supported fields fail the transaction explicitly.
             sql=f"SELECT CASE WHEN json_type(data)='object' THEN CASE WHEN length(CAST(({expression}) AS BLOB))<=65536 THEN {expression} END ELSE '{{}}' END FROM erp_document WHERE path='settings/main'"

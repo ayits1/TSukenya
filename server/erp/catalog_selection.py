@@ -46,7 +46,7 @@ def scalar_rows(query, fields, *, present=None, ordering=('path',), extra=()):
         name = 'present' if isinstance(present, str) else 'present_' + str(index)
         names.append(name)
         projected = projected.annotate(**{name: Case(When(**{'data__has_key': field}, then=Value(True)), default=Value(False), output_field=BooleanField())})
-    return projected.order_by(*ordering).values_list('path', 'scalar', *names)
+    return projected.order_by(*ordering).values_list('path', 'scalar', *names, *extra)
 
 
 

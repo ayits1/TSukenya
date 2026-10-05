@@ -174,3 +174,23 @@ SIGTERM/5s SIGKILL cleanup. Лише bundled Chromium headless. Новий scrip
 зареєструвати у full runner під час root integration і scrub цей stage flag;
 full command цим пакетом не запускали. Physical printer/screen reader/cross-engine,
 100k capacity, unrelated B06 families і external provider inputs не доведені.
+
+### PR126 CI correction · 05.10.2026
+
+The CI review found a dropped extra promotion column in scalar selection and a
+SQLite raw-text invalidation flag that incorrectly changed ETags for object-key
+reordering. The extra column is retained; SQL JSON-node comparison keeps object
+order irrelevant, array order and numeric types significant, including signed
+zero and integers beyond int64. Only real-number leaves enter the numeric
+callback; historical JSON graphs remain in SQL. Unsupported older-parser paths
+use a conservative source-text fallback rather than masking an integer change.
+
+CSV tests now check the fully prepared private file and Content-Length rather
+than assuming one HTTP chunk per row. Fresh-role revocation is exercised after
+HTTP authentication and before the READ ONLY snapshot prepares any bytes. The
+pricing query bound counts SELECT data reads separately from transaction setup.
+Root targeted proofs: prior 3 SQLite regressions FAIL/ERROR; fixed 5 scenarios
+PASS, then 4 changed-tail scenarios PASS (including semantic numeric/array
+invalidation and callback transport). PostgreSQL 7 affected cache/selection/CSV/
+pricing scenarios PASS, including a concurrent edit after export preparation.
+No frontend runtime input changed; earlier build and native proofs are reused.
