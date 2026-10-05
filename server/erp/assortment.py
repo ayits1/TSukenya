@@ -45,11 +45,16 @@ def save_assortment(user, value):
     ledger_lock()
     user = current_actor(user)
     w = warehouse_for(user, value.get('warehouse')); p = get(Document, 'products/' + str(value.get('product', '')), 'Товар')
-    row = Assortment.objects.filter(warehouse=w, product=p).first()
+    return apply(user, value, w, p)
+
+
+def apply(user, value, w, p):
+    """Caller holds the ledger and already checked actor/warehouse/product access."""
+    row = Assortment.objects.filter(warehouse=w, product_id=p.pk).first()
     # The first save of a product here is a create and must not carry a version; later saves must carry the current one.
     if row: require_revision(row, value.get('revision'))
     elif value.get('revision'): raise Conflict(STALE_FORM, 'revision_conflict')
-    else: row = Assortment(warehouse=w, product=p)
+    else: row = Assortment(warehouse=w, product_id=p.pk)
     require(isinstance(value.get('sold'), bool), 'Вкажіть, чи продається товар на цьому складі.')
     raw = value.get('min_stock'); old = (row.sold, row.min_stock) if row.pk else None
     row.sold = value['sold']; row.min_stock = None if raw is None or str(raw).strip() == '' else dec(raw, 'Мінімальний залишок', QTY)
