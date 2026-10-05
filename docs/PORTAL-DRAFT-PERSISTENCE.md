@@ -71,3 +71,16 @@ Compatibility виконано лише зачепленими хвостами:
 Старі `primary` idea/expense/tombstone, `tail`, `layout` та решта legacy-records stages адаптовані source-only, без повторного запуску цілого старого сімейства. Їхні функціональні межі мають нові targeted core докази (`inline`, `expense-delete`, `create`, `privacy`, `layout`); це не окремий PASS кожного старого stage. Default wrapper/full registry не отримали skip; повний explicit запуск надалі виконує всі свої stages.
 
 Початкові FAIL logs збережені: `/tmp/tsukenya-portal-edit-unknown{,-final,-final2,-final3}.log`, `/tmp/tsukenya-portal-compat-{primary,ack,ack-final,ack-final2,boundary,boundary-final,boundary-final2,boundary-final3}.log`. Partial reports містять пройдені prefix assertions до помилки; їх не названо whole PASS. Фінальні retries перевіряли тільки відповідний stage. Fixture repairs: завершений PATCH перед sampling counter; завершений DELETE замість transient private hide; реальний malformed interceptor completion; current-read CTA після confirmed identity; explicit reload між незалежними fixture cases.
+
+## Інтеграція з прийнятою основною гілкою
+
+Пакет інтегровано поверх прийнятого `9ee4d20` (PR114). Збережено React Reports
+із PR113, відмову від старого ABC entry та trading freshness із PR114. Конфлікти
+у loader і full runner вирішені додаванням нового модуля та його stages; чинні
+модулі й scrub-параметри не замінюються старою версією.
+
+Source codec, recovery adapter і read-only context байт у байт відповідають
+перевіреному delivery. Їхні незмінені цільові докази повторно використовуються.
+Для нового складу модулів виконано matching build із перевіркою типів і окремий
+реальний CREATE recovery сценарій. `test:full -- --plan` перевіряє лише перелік
+етапів; повна регресія в цій інтеграції не запускалася.
