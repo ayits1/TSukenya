@@ -168,4 +168,45 @@ Product JSON і не підміняє whole-impact preview.
 
 ## Інтеграція під час рев’ю
 
-Повний runner реєструє `catalog-draft-reload-ui.cjs` із усіма його одинадцятьма scopes та прибирає успадковані `QA_CATALOG_DRAFT_FROM` / `QA_REFERENCE_MANAGEMENT_FROM`. Перевірено синтаксис і тільки `--plan`, без повного прогону. Інтеграційна збірка на залежній базі PR #129 пройшла. Незалежне рев’ю виявило дві прогалини приватності (non-JSON session auth failure та актуальна auth-відмова preview); їх виправлення й окремі докази потрібні до прийняття цього пакета.
+Повний runner реєструє `catalog-draft-reload-ui.cjs` із усіма його scopes та прибирає успадковані `QA_CATALOG_DRAFT_FROM` / `QA_REFERENCE_MANAGEMENT_FROM`. Перевірено синтаксис і тільки `--plan`, без повного прогону. Інтеграційна збірка на залежній базі PR #129 пройшла. Незалежне рев’ю виявило дві прогалини приватності (non-JSON session auth failure та актуальна auth-відмова preview); обидві прогалини виправлено наступними commits, докази наведено нижче.
+## Follow-up незалежного privacy review
+
+Після frozen `92e9b4bf617cf9869fa678e336b888eca91038a0` reviewer знайшов два
+конкретні пропущені auth paths; наступні own commits їх виправляють.
+
+1. Last-session GET тепер ловить non-JSON body як `null`, повторно перевіряє
+   response-live і передає фактичний HTTP401/403 як RecoveryError до P0. Gateway
+   HTML/text більше не перетворює auth refusal на SyntaxError без status.
+2. Actual Product price preview і B30 impact preview приймають лише current
+   request/token + captured editor lifecycle witness. Актуальний401/403 негайно
+   ховає private body, через чинний Foundation.verifyRead робить fresh session/
+   resource revalidation і застосовує його401 global revoke/403 resource discard.
+   Quota не блокує приховування або authorization. Увесь debounce не став blocking
+   private read: звичайне редагування не втрачає input/focus. Product preview не
+   запускається до initial private grant. Late/cancelled/suspended/unmounted
+   transport не потрапляє у цей P0 шлях; новий baseline/revision не приймається.
+
+Matching own build/types/scoped lint PASS:
+`/tmp/tsukenya-catalog-recovery-auth-build.log`,
+`/tmp/tsukenya-catalog-recovery-auth-lint.log`.
+Unit **9 PASS** (`/tmp/tsukenya-catalog-recovery-auth-unit.log`), включно non-JSON
+401/403 status/no POST та current/late/aborted auth forwarding. Попередні shared
+recovery Story3, server7 assertions/affected PG tails і unrelated native prefixes
+reused; output/geometry/formulas/shared visual controls тут не змінено.
+
+Лише чотири нові actual stages виконано на disposable SQLite, own matching build,
+bundled headless Chromium. Усі terminal PASS, reports у
+`/tmp/tsukenya-catalog-draft-auth-final/`:
+
+| Stage | Доказ |
+| --- | --- |
+| `productAuth` | Real role revocation у price-preview → actual403 → fresh P0, private form hidden/local record erased/zero execute POST. `/tmp/tsukenya-catalog-draft-product-auth-final.log` |
+| `referenceAuth` | Real role revocation у B30 preview → actual403 → selected record/name/private body hidden, local draft erased; не лише list refetch. `/tmp/tsukenya-catalog-draft-referenceAuth-final.log` |
+| `lateAuth` | Captured transport справді ігнорує abort і повертає старий preview401 після close/reopen: новий raw/editor і всі session records незмінні, zero mutation. `/tmp/tsukenya-catalog-draft-lateAuth-final.log` |
+| `sessionNonJSON` | Last execute session GET повертає text401 після identity: P0 records erased/private body hidden, zero execute POST. `/tmp/tsukenya-catalog-draft-sessionNonJSON-final.log` |
+
+Перший productAuth run FAIL через хибний locator «Закупівельна ціна»;
+реальний MoneyInput — «Закупівля: гривні». Failure artifact і log
+`/tmp/tsukenya-catalog-draft-product-auth.log` збережено. Повторено лише affected
+stage, assertions privacy не послаблено. Всі нові stages підтримують той самий
+`QA_CATALOG_DRAFT_FROM`; додаткового environment flag чи full rerun немає.

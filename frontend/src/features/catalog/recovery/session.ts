@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
+import { isCurrentAuthFailure, throwCurrentAuthFailure } from './authRead';
 import type { Json } from '../../../shared/recovery/storage';
 import {
   createRecoveryApi,
@@ -211,6 +212,36 @@ export function useCatalogRecovery(
   useLayoutEffect(() => {
     persistRaw();
   }, [rawIdentity, state.private, state.busy]);
+  function readFence() {
+    const generation = lifecycle.current.generation;
+    return () => live(generation);
+  }
+  async function refuseAuthRead(error: unknown, current: () => boolean) {
+    if (!enabled || !isCurrentAuthFailure(error, current)) return;
+    const f = window.NativeDraftRecovery;
+    const generation = ++lifecycle.current.generation;
+    // A quota failure cannot keep denied private fields visible. Existing autosave
+    // already captured the raw input; authorization never depends on another save.
+    show({ private: false, busy: true, error: '' });
+    if (!f) {
+      show({ busy: false, error: 'Доступ не підтверджено. Поля приховані.' });
+      return;
+    }
+    lifecycle.current.protected++;
+    try {
+      await f.controller.verifyRead(id, async (signal) =>
+        throwCurrentAuthFailure(error, () => live(generation), signal),
+      );
+    } finally {
+      lifecycle.current.protected--;
+      if (live(generation))
+        show({
+          busy: false,
+          private: false,
+          error: error instanceof Error ? error.message : 'Доступ не підтверджено.',
+        });
+    }
+  }
   async function read<T>(callback: (signal: AbortSignal) => Promise<T>): Promise<T | null> {
     const f = window.NativeDraftRecovery;
     if (!f) return null;
@@ -428,6 +459,8 @@ export function useCatalogRecovery(
     isLive: () => lifecycle.current.mounted && document.visibilityState !== 'hidden',
     value: () => value.current,
     prepare,
+    readFence,
+    refuseAuthRead,
     read,
     send,
     adopt,

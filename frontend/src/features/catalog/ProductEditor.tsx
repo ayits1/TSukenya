@@ -476,24 +476,45 @@ export function ProductEditor({
   const previewKey = JSON.stringify(previewInput);
   const activePreview = preview?.key === previewKey && 'value' in preview ? preview.value : null;
   const previewError = preview?.key === previewKey && 'error' in preview ? preview.error : null;
+  const previewFence = useEffectEvent(() => recovery.readFence());
+  const refusePreview = useEffectEvent((cause: unknown, current: () => boolean) => {
+    if (enabled) void recovery.refuseAuthRead(cause, current);
+  });
   useEffect(() => {
+    if (enabled && !recovery.private) return;
     const token = ++previewSequence.current,
       controller = new AbortController();
     const timer = setTimeout(() => {
+      const editorCurrent = previewFence();
+      const current = () =>
+        !controller.signal.aborted && token === previewSequence.current && editorCurrent();
       void api.previewPrice(JSON.parse(previewKey), controller.signal).then(
         (value) => {
-          if (!controller.signal.aborted && token === previewSequence.current)
+          if (
+            !controller.signal.aborted &&
+            token === previewSequence.current &&
+            (!enabled || editorCurrent())
+          )
             setPreview({ key: previewKey, value });
         },
         (cause: unknown) => {
-          if (!controller.signal.aborted && token === previewSequence.current)
-            setPreview({
-              key: previewKey,
-              error:
-                cause instanceof Error
-                  ? cause
-                  : new Error('Не вдалося розрахувати ціну. Спробуйте ще раз.'),
-            });
+          if (
+            controller.signal.aborted ||
+            token !== previewSequence.current ||
+            (enabled && !editorCurrent())
+          )
+            return;
+          if (enabled && cause instanceof ApiError && [401, 403].includes(cause.status)) {
+            refusePreview(cause, current);
+            return;
+          }
+          setPreview({
+            key: previewKey,
+            error:
+              cause instanceof Error
+                ? cause
+                : new Error('Не вдалося розрахувати ціну. Спробуйте ще раз.'),
+          });
         },
       );
     }, 250);
@@ -501,7 +522,7 @@ export function ProductEditor({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [api, previewKey, previewRetry]);
+  }, [api, previewKey, previewRetry, enabled, recovery.private]);
   const comparisonRows = comparison
     ? compareThreeWay(
         comparison.base,

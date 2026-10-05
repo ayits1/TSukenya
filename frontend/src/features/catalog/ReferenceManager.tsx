@@ -329,6 +329,7 @@ export function ReferenceManager({
     const abort = new AbortController();
     controller.current = abort;
     const current = ++generation.current;
+    const editorCurrent = recovery.readFence();
     setPreviewBusy(true);
     setPreviewError('');
     setReviewed(null);
@@ -336,14 +337,23 @@ export function ReferenceManager({
     setNotice('');
     try {
       const result = await api.preview(request, abort.signal);
-      if (current !== generation.current || abort.signal.aborted) return;
+      if (current !== generation.current || abort.signal.aborted || (enabled && !editorCurrent()))
+        return;
       setReviewed({
         key,
         impact: result,
         body: { ...request, snapshot: result.snapshot, idempotencyKey: crypto.randomUUID() },
       });
     } catch (error) {
-      if (current !== generation.current || abort.signal.aborted) return;
+      if (current !== generation.current || abort.signal.aborted || (enabled && !editorCurrent()))
+        return;
+      if (enabled && error instanceof ApiError && [401, 403].includes(error.status)) {
+        await recovery.refuseAuthRead(
+          error,
+          () => current === generation.current && !abort.signal.aborted && editorCurrent(),
+        );
+        return;
+      }
       setPreviewError(error instanceof Error ? error.message : 'Не вдалося перевірити вплив.');
       if (error instanceof ApiError && [401, 403, 409].includes(error.status)) void data.refetch();
     } finally {
