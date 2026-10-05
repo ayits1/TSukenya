@@ -1,6 +1,6 @@
 # Reports: сумісність чинних тестових споживачів
 
-Test-only робота від accepted `9f2adf8ad97332a608866fe51e9c00f936c96cbd` (Staff112). Production React Reports dependency буде зафіксовано окремим SHA перед actual QA; незакомічений author WIP не переносився. Файл не оголошує всю стару матрицю перевіреною.
+Test-only робота від accepted `9f2adf8ad97332a608866fe51e9c00f936c96cbd` (Staff112). Frozen React Reports dependencies: `baa3609940553ae86f5bef3ae39c5709bad5a602` (backend), `f5859b3e0a2f0c26f6b89ab0d6b6ca81e3d3727e` (workspace), `7d4512e16078ea31b457b7aa86ffca3fdbc53851` (privacy follow-up). Author WIP не переносився. Локальні dependency cherry commits потрібні лише для QA; доставка цього пакета містить тільки tests/helpers/docs. Файл не оголошує всю стару матрицю перевіреною.
 
 ## Межа адаптації
 
@@ -28,4 +28,18 @@ Expired session може бути відхилений fresh bootstrap ще до
 
 ## Перевірки
 
-Початковий static етап: syntax10 змінених CJS/helper і `git diff --check` PASS. Helper export inventory3 modes/9 sections перевірено Node без браузера. Actual QA, production build і completion verdict цього пакета поки не виконано; будуть доповнені лише після frozen Reports dependency + matching власної збірки. Full regression, production/Sheet/VPS writes та system Chrome не запускалися.
+Початковий static етап: syntax10 змінених CJS/helper і `git diff --check` PASS. Helper export inventory3 modes/9 sections перевірено Node без браузера. Matching власні Vite builds після frozen dependency та privacy follow-up PASS. Нижче — окремі фактичні scopes, а не whole old-family/full PASS.
+
+| Target                                                          | Результат і межа                                                                                                                                                                                                                                   |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `QA_REPORT_FROM=sources node tests/bounded-reports-ui.cjs`      | PASS: escaped name/page30, actual financial sources30, heading focus, Escape повертає actual opener.                                                                                                                                               |
+| `node tests/reports-date-ui.cjs`                                | PASS: historical cutoff борг20/stock8, майбутній payment виключено, combined CSV, tabs/retained cutoff, store breakdown keyboard, network expense1. Початкові balances PNG були зроблені під час read; вони не є settled-layout доказом.           |
+| `QA_REPORT_DATE_FROM=layout node tests/reports-date-ui.cjs`     | PASS1440/390/320: geometry та PNG після actual ready кожного mode/section read, keyboard details, retained cutoff. Повторено тільки affected layout; historical/CSV/network expense assertions з попереднього target збережено без повтору.        |
+| `QA_REPORT_FROM=expiry node tests/bounded-reports-ui.cjs`       | Partial: canceled ignored-Abort late401 не змінює новий route/login PASS. Actual expired bootstrap401 FAIL: beforeunload ще бачив private summary/debts/source DOM. Assertion не ослаблено; author виправив synchronous unmount окремим `7d4512e`. |
+| `QA_REPORT_FROM=expiry-final node tests/bounded-reports-ui.cjs` | PASS на matching privacy build: actual expired session401 прибирає summary/debts/sources/CSV URL **до** login redirect. Успішний canceled late401 prefix reused; default повний target продовжує містити обидва scenarios.                         |
+
+Усі команди виконано з `env -i`, явними PATH/PYTHON_BIN `/tmp/tsukenya-review-venv/bin/python`/DJANGO_SETTINGS_MODULE `server.settings`, disposable SQLite, bundled Chromium headless. Перший sources запуск зупинився до browser через local bind sandbox `Errno1`; isolated дозволений повтор PASS. Жодні assertions через це не змінено. Нове значення `expiry-final` використовує existing scrubbed `QA_REPORT_FROM`; layout tail вводить `QA_REPORT_DATE_FROM` (full runner має його очищувати).
+
+Авторські whole-workspace/API/unit/Story докази від `docs/REACT-REPORTS.md` не називаються повторно виконаними цим пакетом. Інші перелічені старі families адаптовано та syntax/source перевірено, але їхні повні browser сценарії тут не запускалися. Geometry/full CSV calculations не підміняють permission/privacy proof.
+
+Локальний синтетичний evidence inventory: `/tmp/tsukenya-reports-compat-proof/report.json`; logs `/tmp/tsukenya-reports-compat-{sources-final,date,settled-layout,expiry,expiry-final}.log`; остаточні PNG `/tmp/tsukenya-reports-compat-settled-layout/{period,balances}-{1440,390,320}.png` переглянуто для1440/320. Full regression, production/Sheet/VPS writes та system Chrome не запускалися.
