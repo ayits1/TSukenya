@@ -136,3 +136,15 @@ fixtures: тепер action dialog→explicit CTA→confirmed→Done. Старі
 повторювалися і не оголошуються PASS.** Незмінені формули/історія/P0 shared
 RecoveryPanel stories reused. Інші браузерні engines/screen readers, capacity,
 усі voucher kinds у цьому native proof та повна регресія не перевірялися.
+
+## Root integration
+
+Інтеграція збережена разом із cash/settings/managed/initiative consumers:
+п’ять текстових конфліктів об’єднано без видалення чинних редакторів і
+нових cash completion fixtures. В явний full entrypoint додано всі сім
+allowlisted stage та scrub QA_VOUCHER_ACTION_FROM; runner перевірено лише
+з --plan. Matching frontend build, синтаксис, diff-check і статична browser
+policy PASS. Один додатковий actual callbacks stage на об’єднаному коді
+PASS: підтверджене проведення → explicit Done → чинні detail/price-review
+callbacks, назви товарів після strict decode; додаткових бізнес-запитів немає.
+Незмінені accounting/інші native proofs вище використано повторно.
