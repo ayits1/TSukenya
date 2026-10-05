@@ -11,6 +11,7 @@ export type Options = {
   api: DocumentApi;
   grant: (signal: AbortSignal) => Promise<Grant>;
   isCurrent: () => boolean;
+  isActionCurrent?: () => boolean;
   onHeader: (value: Header | null) => void;
   onDenied: (error: unknown) => void;
   onNativeAction?: (target: Element) => void;
@@ -80,7 +81,10 @@ export class DocumentModel {
     }
   }
   nativeAction = (target: Element) => {
-    if (this.isCurrent() && !this.state.busy && this.state.data)
+    // A pending child open invalidates old reads, but its still-open source can
+    // select another child. Closing/replacing the source still cancels dispatch.
+    const hostCurrent = this.options.isActionCurrent ?? this.options.isCurrent;
+    if (this.active && hostCurrent() && !this.state.denied && !this.state.busy && this.state.data)
       this.options.onNativeAction?.(target);
   };
   select(section: Section) {

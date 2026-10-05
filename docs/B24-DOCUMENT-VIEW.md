@@ -242,3 +242,24 @@ assertions збережені. Вузький PG10 запуск:8 PASS,2 helper 
 Логи `/tmp/tsukenya-document-legacy-pg-runner.log` та
 `/tmp/tsukenya-document-legacy-pg-helper-runner.log`, unique local DB/role
 cleanup виконано. Це affected fixtures, не full regression.
+### Повторний вибір із відкритого джерела
+
+Follow-up після692e8de: initial child header скасовує попередній reader sequence,
+але початкове вікно ще видиме. `isActionCurrent` окремо звіряє generation/tab,
+поточне відкрите вікно; DocumentModel додатково вимагає active/ready/!busy/!denied.
+Це дозволяє другий вибір B під час pending A. Read-response fences не змінені;
+закритий/замінений/заборонений host не може dispatch. Bridge перевіряє належність
+Element цьому вікну. Marker проти подвійного mouse click та pending runner незмінні.
+
+- Новий unit1 PASS `/tmp/tsukenya-document-action-host-unit.log` — old reader
+  invalidated, живий ready host dispatches; закритий host/cancel не dispatches.
+- TypeScript/build/lint PASS: `/tmp/tsukenya-document-action-host-build.log`,
+  `/tmp/tsukenya-document-action-host-lint.log`.
+- Root-composed QA719fee8 + тільки цей patch: matching build
+  `/tmp/tsukenya-document-action-host-qa-build.log` і actual opening terminal0
+  `/tmp/tsukenya-document-action-host-opening.log`. Обидва affected сценарії PASS:
+  ignored-Abort A→B/lateA401 та source Escape під час initial header.
+  Artifacts `$TMPDIR/tsukenya-document-view-byoRqI`.
+- Перша permission review для запуску не завершилася вчасно, процес не запускався;
+  один явно дозволений повтор отримав terminal0. Це не повтор completed family.
+  Reservation Enter/mouse, PG та решта completed scopes не повторювалися.

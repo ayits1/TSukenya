@@ -156,4 +156,31 @@ describe('bounded document contract', () => {
     model.nativeAction(target);
     expect(callback).toHaveBeenCalledTimes(1);
   });
+  it('allows another child selection from the live ready host after a child invalidates old reads', async () => {
+    let readCurrent = true,
+      hostCurrent = true;
+    const callback = vi.fn(),
+      target = {} as Element;
+    const model = new DocumentModel({
+      initial: fixture,
+      api,
+      grant: async () => grant,
+      isCurrent: () => readCurrent,
+      isActionCurrent: () => hostCurrent,
+      onHeader: () => {},
+      onDenied: () => {},
+      onNativeAction: callback,
+    });
+    await model.read();
+    readCurrent = false;
+    model.nativeAction(target);
+    expect(callback).toHaveBeenCalledExactlyOnceWith(target);
+    hostCurrent = false;
+    model.nativeAction(target);
+    expect(callback).toHaveBeenCalledTimes(1);
+    hostCurrent = true;
+    model.cancel();
+    model.nativeAction(target);
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
 });
