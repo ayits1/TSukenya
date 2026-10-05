@@ -1,22 +1,22 @@
 # Аудит завершення всього плану
 
-## Поточний зріз · 05.10.2026, main78c24e7
+## Поточний зріз · 05.10.2026, main6e9bdce
 
-- PR129 і PR131–134 прийнято; VPS093c53b підтверджено public health,
-  matching source/assets та незмінними обліковими контрольними сумами.
-  Включено recovery каталогу/макета, freshness змін і дві мобільні CSS-правки.
-- PR130 прийнято, scheduler активовано на VPS; доказ операційного запуску
-  прийнято PR136. Перший clean receipt/0issues,58 ERP/user model hashes unchanged,
-  timer active/enabled. [RECONCILIATION-SCHEDULER.md](RECONCILIATION-SCHEDULER.md).
-- B26 контактні задачі прийнято PR135; exact-head frontend/server/PostgreSQL CI
-  успішні, прийняте дерево byte-equal reviewed union. На VPS ще не розгорнуто.
-  [CONTACT-TASKS.md](CONTACT-TASKS.md): задачі в картці та черга, scope/privacy,
-  receipts/revisions, raw recovery й freshness. Це не завершення всієї B26.
-- Campaign whole recovery після independent review інтегровано для PR/CI;
-  [CAMPAIGN-DRAFT-PERSISTENCE.md](CAMPAIGN-DRAFT-PERSISTENCE.md). Assortment recovery
-  ще WIP; решта B06/B24, capacity і зовнішні acceptance
-  залишаються відкритими. Loyalty/consents/providers потребують правил та вихідних
-  даних.0.1 виключено; full не запускали.
+- PR129–138 прийнято; VPS6e9bdce підтверджено public health, matching649 source/
+  57assets, обома server runtimes і незмінними58 попередніми model hashes.
+  ContactTask/Operation additive0030 застосована, обидві нові таблиці порожні.
+  [SERVER-DEPLOYMENT.md](SERVER-DEPLOYMENT.md).
+- Scheduler active/enabled, перший manual operational receipt clean/0issues;
+  майбутній автоматичний timer fire не зарахований як уже спостережений.
+- B26 контактні задачі прийнято135 та розгорнуто: картка/черга, scoped history,
+  privacy, receipts/revisions, raw recovery/freshness. Це не завершення всієї B26.
+- Whole Campaign recovery прийнято137, Assortment recovery138; обидва розгорнуто.
+  [CAMPAIGN-DRAFT-PERSISTENCE.md](CAMPAIGN-DRAFT-PERSISTENCE.md),
+  [ASSORTMENT-DRAFT-PERSISTENCE.md](ASSORTMENT-DRAFT-PERSISTENCE.md).
+- Наступні B06 receipt-pricing і B24 catalogue-family freshness/report result cache
+  ще проходять implementation/review. Capacity/cursors/global enrollment та
+  зовнішні acceptance залишаються відкритими. Loyalty/consents/providers
+  потребують правил і вихідних даних.0.1 виключено; local full не запускали.
 
 
 ## Поточний зріз ·05.10.2026, після PR121
