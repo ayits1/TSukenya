@@ -1,4 +1,5 @@
 """Targeted B06 initiative grants and immutable receipts; no new posting rules."""
+import re
 import threading
 import uuid
 from contextlib import contextmanager
@@ -168,7 +169,11 @@ class InitiativeDraftTests(TransactionApiFixture):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertNotIn('privateFixture', str(response.json()))
         self.assertEqual(response.json()['source']['category'], 'Поточна стаття')
-        self.assertFalse(any('"erp_voucher"."payload",' in q['sql'] for q in queries))
+        # SQLite JSON_EXTRACT("erp_voucher"."payload", path) contains the
+        # same substring as a whole-column SELECT. Reject only a raw SELECT
+        # projection, while retaining the from_db materialization guard above.
+        raw_payload = r'(?:SELECT\s+(?:DISTINCT\s+)?|,\s*)"erp_voucher"\."payload"\s*(?:,|FROM\b|AS\b)'
+        self.assertFalse(any(re.search(raw_payload, q['sql'], re.I) for q in queries))
         other = Store.objects.create(name='Інший')
         Voucher.objects.filter(pk=expense.pk).update(store=other)
         self.assertEqual(self.context(project, 'expense_attach', voucher=str(expense.pk)).status_code, 403)

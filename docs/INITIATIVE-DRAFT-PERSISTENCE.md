@@ -210,3 +210,11 @@ adapter для іншої B06 family, не змінює money/stock/expense attr
 бізнес POST відсутні. Matching frontend build, синтаксис, diff check,
 статична browser policy PASS; full runner лише `--plan`. Незмінені
 серверні та індивідуальні native proofs вище використано повторно.
+
+### Цільове виправлення CI SQL oracle
+
+SQLite використовує `JSON_EXTRACT(payload, path)` для окремих полів; стара
+перевірка підрядка `payload,` помилково вважала це whole-column SELECT.
+Перевірка тепер відхиляє саме raw SELECT projection (включно DISTINCT/alias),
+зберігаючи from_db guard і перевірки відсутності privateFixture. Змінений
+сценарій окремо PASS на SQLite і PostgreSQL; бізнес-код не змінено.
