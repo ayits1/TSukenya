@@ -29,6 +29,8 @@ if (args.includes('--plan')) {
 
 // Never inherit a database connection, data directory or owner account from a deployment shell.
 const isolatedEnv = { ...process.env };
+// A targeted catalogue tail must not silently narrow an explicit full pass.
+delete isolatedEnv.QA_BOUNDED_CATALOGUE_FROM;
 for (const key of ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD',
   'DATABASE_URL', 'DATA_DIR', 'ERP_DB_PATH', 'OWNER_USERNAME', 'OWNER_PASSWORD_HASH',
   'DJANGO_SETTINGS_MODULE', 'DJANGO_SECRET_KEY', 'QA_CUSTOMERS_ARTIFACT_DIR', 'QA_BROWSER', 'QA_ZOOM_ONLY', 'QA_LAYOUT_ONLY', 'QA_FILTERS_ONLY',
@@ -169,6 +171,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/catalog-import-jobs.cjs']);
     await run('node', ['tests/catalog-import-recovery.cjs']);
     await run('node', ['tests/catalog-pricing-read-cancel.cjs']);
+    await run('node', ['tests/catalogue-bounded-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/csv-format.cjs']);
     await run('node', ['tests/csv-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/catalog-pricing-contract.cjs']);
