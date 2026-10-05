@@ -8,7 +8,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from .models import OrderControl,OrderOperation,StockReservation,StockLot,Voucher,VoucherLine
 from .reservations import kyiv_day,live,held_quantities,unused,expiry_instant,release_unused
-from .services import ZERO,QTY,CENT,Conflict,dec,day,get,ledger_lock,permission,require,scope,audit
+from .services import ZERO,QTY,CENT,Conflict,dec,day,get,ledger_lock,permission,require,scope,audit,current_actor
 from .browsing import positive_integer
 
 ORDER_KINDS={'customer_order','purchase_order'}
@@ -107,9 +107,7 @@ def reservation_audit(row):
 
 @transaction.atomic
 def mutate(user,order_id,value):
-    ledger_lock();order=get(Voucher,order_id,'Замовлення');scope(user,order.store);permission(user,order.kind);require(order.kind in ORDER_KINDS,'Це не замовлення.');require(editable(user,order),'Змінювати резерви касир може лише для власного замовлення.')
-    # Re-read the current profile after waiting for the shared ledger boundary.
-    user.refresh_from_db(fields=['is_active']);require(user.is_active,'Обліковий запис вимкнено.');user.profile.refresh_from_db();scope(user,order.store);permission(user,order.kind);require(editable(user,order),'Доступ до замовлення вже змінено.')
+    ledger_lock();user=current_actor(user);order=get(Voucher,order_id,'Замовлення');scope(user,order.store);permission(user,order.kind);require(order.kind in ORDER_KINDS,'Це не замовлення.');require(editable(user,order),'Змінювати резерви касир може лише для власного замовлення.')
     require(isinstance(value,dict),'Очікується об’єкт дії замовлення.');action=value.get('action');require(isinstance(action,str) and action in {'reserve','release','expire','close','expected_date'},'Невідома дія замовлення.')
     fields={'action','revision','idempotencyKey','reason'}|({'expires_on','lines'} if action=='reserve' else {'reservation','quantity'} if action=='release' else {'expected_date'} if action=='expected_date' else set())
     require(not set(value)-fields,'Дія містить невідомі поля.')

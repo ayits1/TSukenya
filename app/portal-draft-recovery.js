@@ -362,12 +362,14 @@
       window.BusinessInitiatives?.pending?.()
     )
       return;
+    const mountNodes = ["addWork", "addTask", "addIdea"].flatMap(
+      (entry) => controls(entry).fields,
+    );
+    // An inactive inline editor must not abort another family's restore.
+    if (!mountNodes.length) return;
     preparing = true;
     const token = ++inlineSequence,
-      path = location.hash,
-      mountNodes = ["addWork", "addTask", "addIdea"].flatMap(
-        (entry) => controls(entry).fields,
-      );
+      path = location.hash;
     try {
       const actor = await f().controller.check(false);
       if (token !== inlineSequence || path !== location.hash) return;
