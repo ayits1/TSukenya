@@ -1,6 +1,7 @@
 # Контактні операційні задачі · B26
 
-Авторська доставка для review, без claim merge/deploy або завершення всієї B26.
+Інтегровано на main093c53b для PR/CI після незалежного review; merge/deploy
+цього пакета та завершення всієї B26 ще не оголошені.
 Залежність — прийнятий Customers/Reports freshness і `0029_customer_report_versions`;
 власна міграція `0030_contact_tasks`. Фінансових проводок, loyalty/provider правил
 та воронки продажів цей пакет не створює.
@@ -160,3 +161,11 @@ Count/search лишаються серверними SQL scans за відпов
 100k capacity, cursor, tombstone/receipt retention/SLA не доведено. Немає notification,
 автоматичної зміни task стану, продажної воронки, loyalty/provider або Google writes.
 Реальний телефон/скринрідер не перевірені; загальний B06/B24/план і0.1 не закриті.
+
+### Реєстрація повної перевірки
+
+Явний `npm run test:full` містить primary сценарій і окремі unknown/workflow/
+freshness/review tails. Успадкований QA_CONTACT_TASK_FROM очищується, щоб зовнішня
+змінна не звузила full. У цій доставці перевірено тільки синтаксис і `--plan`;
+повний прогін не запускався. При інтеграції збережено обидва catalog/task enrollment
+та обидва генератори контрактів; власні runtime-файли byte-equal frozen proof.

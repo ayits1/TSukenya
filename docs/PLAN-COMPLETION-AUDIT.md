@@ -1,5 +1,20 @@
 # Аудит завершення всього плану
 
+## Поточний зріз · 05.10.2026, main093c53b
+
+- PR129 і PR131–134 прийнято; VPS093c53b підтверджено public health,
+  matching source/assets та незмінними обліковими контрольними сумами.
+  Включено recovery каталогу/макета, freshness змін і дві мобільні CSS-правки.
+- PR130 прийнято й код scheduler присутній на VPS. Linux unit/calendar verification
+  успішна, але units не активовані й перший scheduler receipt ще не отримано.
+- B26 контактні задачі інтегровано для PR/CI після незалежного review і виправлень.
+  [CONTACT-TASKS.md](CONTACT-TASKS.md): задачі в картці та черга, scope/privacy,
+  receipts/revisions, raw recovery й freshness. Це не завершення всієї B26.
+- Campaign/Assortment recovery, решта B06/B24, capacity і зовнішні acceptance
+  залишаються відкритими. Loyalty/consents/providers потребують правил та вихідних
+  даних.0.1 виключено; full не запускали.
+
+
 ## Поточний зріз ·05.10.2026, після PR121
 
 - PR116–120 прийнято й розгорнуто; VPS main4b0bbeb підтверджений health,
