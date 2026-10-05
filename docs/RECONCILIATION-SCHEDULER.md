@@ -36,9 +36,8 @@ UUID має точно збігатися з `pending.json` зі статусо�
 
 Після прийняття та розгортання коду: перевірити units через `systemd-analyze verify`,
 встановити лише ці два units і активувати `tsukenya-reconcile.timer`. Перевірити
-перший receipt, статус таймера та незмінність бізнесових таблиць. На цьому етапі
-units **ще не встановлені/не активовані на VPS**; перевірка виконання systemd там
-не проведена. Застаріла інструкція «без cron» стосувалася ручної звірки до B25;
+перший receipt, статус таймера та незмінність бізнесових таблиць. На VPS units встановлені й timer активований 05.10.2026 після
+прийняття PR130 та розгортання коду; докази нижче. Застаріла інструкція «без cron» стосувалася ручної звірки до B25;
 цей пакет додає окремий systemd timer, а не змінює backup cron.
 
 Retention серверного журналу не введено: автоматичного видалення історії немає.
@@ -61,3 +60,31 @@ Retention серверного журналу не введено: автома�
 Команда явно задає `-f <root>/compose.production.yaml`, тому не залежить від автоматичного пошуку Compose-файла чи `COMPOSE_FILE`. Цільова перевірка звіряє весь argv, включно з production-файлом, проєктом та сервісом. До виправлення reviewer підтвердив відсутність вибору файла; після правки affected command-сценарій пройшов.
 
 Компактний receipt також пропускає `saved_report()` та читання всіх finding rows: exact replay підтверджується лише з технічного запису запуску. Після цієї правки три affected CLI-сценарії (clean/replay, failed, discrepancies) пройшли; replay окремо забороняє матеріалізацію повного звіту.
+
+## Активація VPS · 05.10.2026
+
+Реліз коду093c53b; installed units та runner byte-equal прийнятим файлам PR130.
+Перед зміною обидва units мали LoadState=not-found; встановлено лише
+`/etc/systemd/system/tsukenya-reconcile.service` і `.timer`, Docker вже був active.
+Попередня Linux перевірка units/calendar/py_compile успішна; інших units,
+Compose/env/gateway, контейнерів чи backup cron не змінювали.
+
+Перший `systemctl start tsukenya-reconcile.service`: Result=success,
+ExecMainStatus=0. Серверний та host компактний receipt збігаються:
+`47cdda0d-73ce-40a1-a775-c26c2bf9d1cf`, source=scheduler, status=clean,
+checksVersion=1, issues=0. Pending state відсутній. Звірка всіх58 ERP/user моделей
+(крім ReconciliationRun/Finding і heartbeat) до/після: кількості й хеші незмінні;
+створений лише один ReconciliationRun, finding rows0. Це підтвердження операційного
+запуску, не production mutation test або новий повний прогін.
+
+`systemctl enable --now tsukenya-reconcile.timer`: loaded/active/enabled;
+наступний запуск06.10.2026 о03:37:49 за Києвом (00:37:49UTC), у погодженому
+вікні03:30–03:40. Фактичний майбутній автоматичний запуск ще не спостерігався.
+Стан/receipt лежать поза release.CODE у `/opt/tsukenya/ops/reconcile`, отже
+звичайна заміна коду їх не видаляє.
+
+Операційне вимкнення розкладу: `systemctl disable --now tsukenya-reconcile.timer`.
+Не видаляти pending/last, не змінювати UUID після unknown результату. Перший clean
+receipt не змінює правила resume-failed чи вже перевірений exact replay.
+Retention без автоматичного видалення;0.1 та зовнішні backup/recovery рішення
+залишаються поза цією активацією.

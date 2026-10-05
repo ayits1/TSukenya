@@ -526,3 +526,18 @@ worker, штатний release.py з pre-20261004T154142Z.tar.gz, після hea
 [офіційною документацією](https://gunicorn.org/reference/settings/#control_socket_disable).
 Цільова перевірка: sh -n і розбір фактичного startup argv з assertions PASS.
 Розгортання цієї окремої правки звіряється за health.release і свіжим startup log.
+
+
+## Щоденна звірка регістрів · 05.10.2026
+
+На коді093c53b активовано лише `tsukenya-reconcile.timer` і його oneshot service.
+Розклад03:30Europe/Kyiv з випадковою затримкою до10хв; перший ручний запуск service
+створив clean technical receipt `47cdda0d-73ce-40a1-a775-c26c2bf9d1cf`, issues0.
+58 ERP/user model count/hash before/after незмінні, один технічний Run, findings0.
+Timer active/enabled, наступний запуск06.10.2026 о03:37:49Kyiv. Майбутнє фактичне
+спрацювання ще не спостерігалося. Докладні units/receipt/disable/retry процедури:
+[RECONCILIATION-SCHEDULER.md](RECONCILIATION-SCHEDULER.md).
+
+Це read-only scan з окремим технічним журналом, без автоматичних бізнесових
+виправлень. Env/Compose/gateway/PG/worker/інші проєкти та backup cron не змінені;
+пункт0.1 не виконувався. Повну регресію не запускали.
