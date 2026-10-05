@@ -191,3 +191,41 @@ source proofs повторно використані. Прийняття/CI/р�
 не послаблюючи privacy assertion. Аffected direct read/retry + HTTP/scalar
 2 тести SQLite PASS0.125s: `/tmp/tsukenya-document-permission-tail.log`.
 Це локальний affected tail, не нова повна регресія чи завершений CI.
+## Вкладені дії: явний keyboard/pointer callback
+
+Follow-up від PR124 head `b51e019`: React Aria `onPress.continuePropagation()`
+не гарантує native DOM click після Enter. Вкладені кнопки linked reference,
+allocation source і звільнення конкретного резерву тепер передають Element
+через DocumentModel у `onNativeAction`. Дія дозволена лише для ready/current
+сторінки, без loading/deny/closed. Native bridge перевіряє живе вікно й належність
+елемента перед викликом того самого `runTradeAction`, який обслуговує звичайні
+native кнопки, включно з pending/busy та route guards.
+
+Маркер `data-document-native-action` явно виключає ці кнопки із delegated click
+listener: mouse не викликає другу дію навіть якщо DOM click спливає. Штучного
+recursive click немає. `data-trade`, id/revision/reservation та серверні дії не
+змінено. Callback не зберігає й не проводить документ.
+
+Докази follow-up (тільки affected checks):
+
+- Unit `dispatches native actions…`1 PASS:
+  `/tmp/tsukenya-document-keyboard-unit.log` — до ready/після cancel dispatch відсутній.
+- Storybook `NativeActionKeyboardAndPointer`1 PASS:
+  `/tmp/tsukenya-document-keyboard-story.log` — Enter1, mouse ще1 callback.
+- Types/Vite + targeted lint PASS:
+  `/tmp/tsukenya-document-keyboard-build.log`,
+  `/tmp/tsukenya-document-keyboard-lint.log`.
+- Actual вузький `QA_DOCUMENT_VIEW_STAGE=actions`,320px, історія резервів page2:
+  Enter і mouse окремо відкрили рівно один current context із точним reservation,
+  zero order-actions execute POST, pageerrors[].
+  `/tmp/tsukenya-document-keyboard-order-native-final.log`;
+  artifacts `$TMPDIR/tsukenya-document-view-s9J47D`.
+  QA composition — окремий clone від Order5 `fe5a9cc` + цей patch;
+  matching build `/tmp/tsukenya-document-keyboard-order-build.log`.
+  Ці QA commits не входять у доставку. `actions` — явний cross-family scope,
+  потребує Order5 API; додати його до full registry після інтеграції Order5.
+- Перший actual запуск зупинився до натискання: active synthetic reservation
+  помилково був на page1. Виправлено тільки fixture на page2; failure artifact
+  `$TMPDIR/tsukenya-document-view-lRe5M3` і лог збережено.
+
+Completed business/PG/8sections/layout families повторно не запускалися.

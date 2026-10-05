@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-document-view-')),python=process.env.PYTHON_BIN||'python3',port=Number(process.env.QA_DOCUMENT_VIEW_PORT||18641),base=`http://localhost:${port}`,password='synthetic-document-qa-password',stage=process.env.QA_DOCUMENT_VIEW_STAGE||'all';
-assert(['all','browse','callbacks','focus','opening','recovery','privacy','grant','late','layout'].includes(stage));
+assert(['all','browse','callbacks','focus','actions','opening','recovery','privacy','grant','late','layout'].includes(stage));
 const env={...process.env};for(const k of Object.keys(env))if(k.startsWith('DB_')||k.startsWith('PG')||['DATABASE_URL','POSTGRES_URL','TSUKENYA_REQUIRE_POSTGRES','ERP_DB_PATH','DATA_DIR'].includes(k))delete env[k];
 Object.assign(env,{PORT:String(port),HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'qa.sqlite3'),DJANGO_SETTINGS_MODULE:'server.settings',DJANGO_SECRET_KEY:'synthetic-document-ui-isolated-fifty-character-key',OWNER_USERNAME:'tester'});
 env.OWNER_PASSWORD_HASH=execFileSync(python,['-c',`from server.auth import hash_password;print(hash_password('${password}'))`],{cwd:root,env,encoding:'utf8'}).trim();
@@ -37,6 +37,16 @@ StockReservation.objects.bulk_create([StockReservation(order_line=order.lines.fi
 print(json.dumps({v.kind:v.pk for v in [receipt,sale,order,payment,payroll,production]}))`));
  browser=await chromium.launch({headless:true});page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/'))requests.push({url:r.url(),method:r.method()});});page.on('dialog',dialog=>dialog.accept());
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://fonts.gstatic.com/**',r=>r.abort());await require('./browser-login.cjs')(page,base,password);
+ if(stage==='actions'){
+  fixture("from server.erp.models import StockReservation;v=StockReservation.objects.order_by('pk').first();v.released=0;v.save(update_fields=['released'])");
+  for(const mode of ['keyboard','pointer']){
+   await page.setViewportSize({width:320,height:1000});await open('sales',ids.customer_order);await select('Історія резервів');await d().getByRole('button',{name:'Далі',exact:true}).click();await ready();const button=d().locator('[data-trade=order-release]');assert.equal(await button.count(),1);assert(await button.isEnabled());const reservation=await button.getAttribute('data-reservation');
+   const before=requests.filter(r=>new URL(r.url).pathname==='/api/v1/trading/order-actions/context').length;
+   if(mode==='keyboard')await button.press('Enter');else await button.click();await page.locator('#tradeOrderForm').waitFor();
+   await page.locator('#tradeOrderForm [name=quantity]').waitFor();await new Promise(r=>setTimeout(r,100));const context=requests.filter(r=>new URL(r.url).pathname==='/api/v1/trading/order-actions/context');assert.equal(context.length,before+1,'one explicit native opening for '+mode);assert.equal(new URL(context.at(-1).url).searchParams.get('reservation'),reservation);assert.equal(new URL(context.at(-1).url).searchParams.get('action'),'release');assert.equal(requests.filter(r=>r.method==='POST'&&new URL(r.url).pathname.endsWith('/order-actions/execute')).length,0);
+   await page.screenshot({path:path.join(data,'reservation-'+mode+'-320.png')});await d().press('Escape');await page.evaluate(()=>{for(const e of window.NativeDraftRecovery.store.entries())window.NativeDraftRecovery.store.discard(e.id);});pass('actual page2 reservation '+mode+' opens exactly one matching native context, no business POST');
+  }
+ }
  if(stage==='focus'){const opener=await open('purchases',ids.receipt);await select('Рух коштів');await select('Рядки документа');await page.setViewportSize({width:320,height:1000});await d().locator('[data-document-row]').first().scrollIntoViewIfNeeded();await page.setViewportSize({width:1440,height:1000});await d().press('Escape');await wait(()=>opener.evaluate(e=>e===document.activeElement));pass('Explicit live native opener restored after async shared document read, tab and responsive changes');}
  if(['all','browse','layout'].includes(stage)){
   const opener=await open('purchases',ids.receipt);assert.equal(await d().locator('[data-document-row]').count(),30);assert((await d().innerText()).includes('12,3456 грн'));

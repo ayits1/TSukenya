@@ -13,6 +13,7 @@ export type Options = {
   isCurrent: () => boolean;
   onHeader: (value: Header | null) => void;
   onDenied: (error: unknown) => void;
+  onNativeAction?: (target: Element) => void;
 };
 export class DocumentModel {
   private state: {
@@ -78,6 +79,10 @@ export class DocumentModel {
       return null;
     }
   }
+  nativeAction = (target: Element) => {
+    if (this.isCurrent() && !this.state.busy && this.state.data)
+      this.options.onNativeAction?.(target);
+  };
   select(section: Section) {
     return this.read({ ...this.query, section, page: 1 });
   }

@@ -17,7 +17,7 @@ const states = {
   closed: 'Закрито',
   cancelled: 'Скасовано',
 };
-function DetailHeader({ data }: { data: Header }) {
+function DetailHeader({ data, onAction }: { data: Header; onAction: (target: Element) => void }) {
   const d = data.document,
     fields: [string, ReactNode][] = [
       ['Документ', '№ ' + d.number],
@@ -50,7 +50,8 @@ function DetailHeader({ data }: { data: Header }) {
             <>№ {d.reference}</>
           ) : (
             <Button
-              onPress={(event) => event.continuePropagation()}
+              onPress={(event) => onAction(event.target)}
+              data-document-native-action
               data-trade="view"
               data-id={d.reference}
             >
@@ -109,7 +110,7 @@ function DetailHeader({ data }: { data: Header }) {
     </>
   );
 }
-function Rows({ data }: { data: Page }) {
+function Rows({ data, onAction }: { data: Page; onAction: (target: Element) => void }) {
   type S = components['schemas'];
   let columns: string[], rows: { id: number; cells: ReactNode[] }[];
   const items = data.page.items;
@@ -172,7 +173,8 @@ function Rows({ data }: { data: Page }) {
         id: r.id,
         cells: [
           <Button
-            onPress={(event) => event.continuePropagation()}
+            onPress={(event) => onAction(event.target)}
+            data-document-native-action
             data-trade="view"
             data-id={r.source}
           >
@@ -255,7 +257,8 @@ function Rows({ data }: { data: Page }) {
             {data.document.actions.includes('order_expire') &&
               positive(difference(r.quantity, r.used, r.released)) && (
                 <Button
-                  onPress={(event) => event.continuePropagation()}
+                  onPress={(event) => onAction(event.target)}
+                  data-document-native-action
                   data-trade="order-release"
                   data-id={data.document.id}
                   data-order-revision={data.document.order!.revision}
@@ -331,7 +334,7 @@ export function DocumentDetails({
     sections = data?.sections ?? initial.sections;
   return (
     <div className="document-details" ref={host} data-document-details aria-busy={state.busy}>
-      {data && <DetailHeader data={data} />}
+      {data && <DetailHeader data={data} onAction={model.nativeAction} />}
       <Tabs
         selectedKey={state.section}
         onSelectionChange={(k) => {
@@ -391,7 +394,7 @@ export function DocumentDetails({
           )}
           {data && (
             <>
-              <Rows data={data} />
+              <Rows data={data} onAction={model.nativeAction} />
               <nav className="document-detail-pager" aria-label="Сторінки секції">
                 <Button
                   isDisabled={data.page.page === 1}

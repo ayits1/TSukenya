@@ -6,7 +6,16 @@ import { DocumentDetails } from './DocumentDetails';
 import { DocumentModel } from './state';
 import { api, fixture } from './fixtures';
 import { ApiError } from '../../shared/api/client';
-function Screen({ failure = false, empty = false }: { failure?: boolean; empty?: boolean }) {
+function Screen({
+  failure = false,
+  empty = false,
+  actions = false,
+}: {
+  failure?: boolean;
+  empty?: boolean;
+  actions?: boolean;
+}) {
+  const [presses, setPresses] = useState(0);
   const [model] = useState(
     () =>
       new DocumentModel({
@@ -15,16 +24,19 @@ function Screen({ failure = false, empty = false }: { failure?: boolean; empty?:
           ...api,
           page: async (q) => {
             if (failure) throw new ApiError(503, 'Не вдалося прочитати документ.');
-            return api.page(
+            const page = await api.page(
               { ...q, section: empty ? 'cash_movements' : q.section },
               { role: 'owner', scopeStore: null },
             );
+            if (actions) page.document.reference = 42;
+            return page;
           },
         },
         grant: async () => ({ role: 'owner', scopeStore: null }),
         isCurrent: () => true,
         onHeader: () => {},
         onDenied: () => {},
+        onNativeAction: () => setPresses((count) => count + 1),
       }),
   );
   useEffect(() => {
@@ -34,6 +46,7 @@ function Screen({ failure = false, empty = false }: { failure?: boolean; empty?:
   return (
     <I18nProvider locale="uk-UA">
       <DocumentDetails model={model} initial={fixture} />
+      {actions && <output aria-label="Виклики native дії">{presses}</output>}
     </I18nProvider>
   );
 }
@@ -67,5 +80,18 @@ export const Error: Story = {
     const c = within(canvasElement);
     await c.findByRole('alert');
     await expect(c.getByRole('button', { name: 'Повторити читання' })).toBeEnabled();
+  },
+};
+
+export const NativeActionKeyboardAndPointer: Story = {
+  args: { actions: true },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    const action = await c.findByRole('button', { name: '№ 42' });
+    action.focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(c.getByLabelText('Виклики native дії')).toHaveTextContent('1');
+    await userEvent.click(action);
+    await expect(c.getByLabelText('Виклики native дії')).toHaveTextContent('2');
   },
 };

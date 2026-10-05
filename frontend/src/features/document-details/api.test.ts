@@ -135,4 +135,25 @@ describe('bounded document contract', () => {
     ).rejects.toThrow('read failed');
     expect(m.snapshot().data).not.toBeNull();
   });
+  it('dispatches native actions only for a ready, live current document', async () => {
+    const callback = vi.fn(),
+      target = {} as Element;
+    const model = new DocumentModel({
+      initial: fixture,
+      api,
+      grant: async () => grant,
+      isCurrent: () => true,
+      onHeader: () => {},
+      onDenied: () => {},
+      onNativeAction: callback,
+    });
+    model.nativeAction(target);
+    expect(callback).not.toHaveBeenCalled();
+    await model.read();
+    model.nativeAction(target);
+    expect(callback).toHaveBeenCalledExactlyOnceWith(target);
+    model.cancel();
+    model.nativeAction(target);
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
 });
