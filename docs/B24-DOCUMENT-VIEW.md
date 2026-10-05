@@ -169,3 +169,17 @@ URL залишені. Synthetic erp-recovery mocked post status відображ
 або entire voucher-action family. Це source-adapted consumers, не нові PASS для
 їхніх сімей. `tests/order-reserves-ui.cjs` належить паралельному order5 пакету:
 його автору передано точний history-tab/helper delta; у цьому commit файл не змінено.
+
+## Незалежна інтеграція після PR123
+
+Root review перевірило SQL projections, fresh actor/RR, strict decoder,
+shared cancellation/focus fences та separate full recovery bridge.
+Пакет інтегровано поверх accepted main105e2e3 (PR123); policy/filter fixes
+збережені. Matching types/Vite build PASS:
+`/tmp/tsukenya-document-root-integrated-build.log`.
+Actual representative callback після цього об’єднання PASS:
+`/tmp/tsukenya-document-root-action-compat.log` і
+`/tmp/tsukenya-document-root-action-compat/callbacks-report.json`.
+Це окремий post→current→Done→viewer, рівно один POST; інші незмінені
+source proofs повторно використані. Прийняття/CI/розгортання цього пакета
+ще не оголошені.
