@@ -151,3 +151,16 @@ Enter assertion збережена. Stage `release` перевіряє exact ID 
 65-record history для обох50/30-page DTO; target — шостий старий запис,
 не перший ID за припущенням. Runtime після viewerfix ще потрібний лише для
 цього affected tail. Інші завершені family/PG перевірки не повторювалися.
+
+Фінальний власний source baseline — accepted105e2e3 (PR123); лише own range
+після нього. Matching build повторено після additive rebase; unchanged PG/
+unit/native inputs reused. Order controls не додають нової політики закритих
+фінансових періодів: чинні права/FEFO/date/control rules лишаються server
+послугами; фінансові проведення не змінюються.
+
+Для compatibility tail дозволено `QA_ORDER_ACTION_FROM=compat-tail`:
+ізольований synthetic checkpoint створює еквівалентні два резерви та
+partial sale/reserved1 через unchanged server services. PASS prefix не
+повторюється; всі наступні original release0.500/close used1/date-clear/
+optional minimum/audit assertions лишаються. Новий tail поки pending
+оновленого bounded viewer, а не оголошений PASS.
