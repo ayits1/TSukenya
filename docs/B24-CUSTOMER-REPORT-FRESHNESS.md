@@ -54,7 +54,7 @@ QA_CUSTOMER_REPORT_FROM=quiet PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python no
 QA_CUSTOMER_REPORT_FROM=quiet-reports PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/customer-report-freshness-ui.cjs
 ```
 
-Harness accepts all/tail/abc/abort/privacy/quiet/quiet-reports до створення temp data, прибирає inherited DB/PG/owner/settings, waits signal-aware server teardown. Root full registry має scrub `QA_CUSTOMER_REPORT_FROM`/port і зареєструвати all + quiet + quiet-reports; цієї задачі full не виконувано.
+Harness accepts all/tail/abc/abort/privacy/quiet/quiet-reports до створення temp data, прибирає inherited DB/PG/owner/settings, waits signal-aware server teardown. Root full registry прибирає успадковані `QA_CUSTOMER_REPORT_FROM`, port і artifact directory та реєструє all + quiet + quiet-reports. Перевірено синтаксис і `--plan`; повної регресії цієї задачі не виконувано.
 
 ## Відкриті межі
 

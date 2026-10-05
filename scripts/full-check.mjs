@@ -31,6 +31,9 @@ if (args.includes('--plan')) {
 const isolatedEnv = { ...process.env };
 // A targeted catalogue tail must not silently narrow an explicit full pass.
 delete isolatedEnv.QA_BOUNDED_CATALOGUE_FROM;
+delete isolatedEnv.QA_CUSTOMER_REPORT_FROM;
+delete isolatedEnv.QA_CUSTOMER_REPORT_PORT;
+delete isolatedEnv.CUSTOMER_REPORT_PROOF_DIR;
 for (const key of ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD',
   'DATABASE_URL', 'DATA_DIR', 'ERP_DB_PATH', 'OWNER_USERNAME', 'OWNER_PASSWORD_HASH',
   'DJANGO_SETTINGS_MODULE', 'DJANGO_SECRET_KEY', 'QA_CUSTOMERS_ARTIFACT_DIR', 'QA_BROWSER', 'QA_ZOOM_ONLY', 'QA_LAYOUT_ONLY', 'QA_FILTERS_ONLY',
@@ -329,6 +332,10 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/trading-freshness-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/trading-freshness-ui.cjs'], { env: { ...browserEnv, QA_TRADING_FRESHNESS_FROM: 'abort' } });
     await run('node', ['tests/trading-freshness-ui.cjs'], { env: { ...browserEnv, QA_TRADING_FRESHNESS_FROM: 'policy-race' } });
+    await run('node', ['tests/customer-report-freshness-ui.cjs'], { env: browserEnv });
+    for (const customerReportStage of ['quiet', 'quiet-reports']) {
+      await run('node', ['tests/customer-report-freshness-ui.cjs'], { env: { ...browserEnv, QA_CUSTOMER_REPORT_FROM: customerReportStage } });
+    }
     await run('node', ['tests/assortment-drafts-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/erp-settings-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/erp-date-boundary-ui.cjs'], { env: browserEnv });
