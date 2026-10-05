@@ -95,4 +95,16 @@ quota/route/late-response і compatibility докази: [MANAGED-ALERT-DRAFT-PE
 не є generic bypass і не означає завершення всього B06.
 ## Standalone касові зміни · окремий пакет
 
-Actual open/close редактори й cold launcher підключені до P0 із immutable UUID receipt, confirmed identity перед current GET, separate Apply/Save та fresh privacy. Точні stage/prefix/tail proofs і межі наведено в [CASH-SHIFT-DRAFT-PERSISTENCE.md](CASH-SHIFT-DRAFT-PERSISTENCE.md). Posting/reverse/settings залишаються окремими відкритими сім’ями.
+Actual open/close редактори й cold launcher підключені до P0 із immutable UUID receipt, confirmed identity перед current GET, separate Apply/Save та fresh privacy. Точні stage/prefix/tail proofs і межі наведено в [CASH-SHIFT-DRAFT-PERSISTENCE.md](CASH-SHIFT-DRAFT-PERSISTENCE.md). Posting/reverse/delete залишаються окремими відкритими сім’ями.
+
+## Три налаштування обліку ·05.10.2026
+
+Фактичні setup forms period/date+reason, fiscal/mode і discount-limit/percent
+підключено до P0 у `TradeSettingEditor`/`TradeSettingPersistence`: raw/cold restore,
+immutable UUID/body, creator receipt до незалежного current GET, явне локальне
+shared Apply й окреме Save. Authoritative owner/ledger/Decimal/period guards
+збережено; password/users/credentials не autosave. Точні scoped proofs, окремі
+failure tails, dependency0025 та міграція0026 описані в
+[SETTING-DRAFT-PERSISTENCE.md](SETTING-DRAFT-PERSISTENCE.md).
+Це закриває лише ці три P3 consumers; standalone post/reverse/delete та решта
+сімей лишаються окремою роботою.

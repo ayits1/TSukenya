@@ -1,3 +1,4 @@
+import * as settingPersistence from './shared/native/settingPersistence';
 import * as managedAlertPersistence from './shared/native/managedAlertPersistence';
 import * as cashShiftPersistence from './shared/native/cashShiftPersistence';
 import * as workShiftPersistence from './shared/native/workShiftPersistence';
@@ -37,6 +38,7 @@ declare global {
     NativeManagedAlertPersistence?: typeof managedAlertPersistence;
     NativeVoucherPersistence?: typeof voucherPersistence;
     NativeEntityPersistence?: typeof entityPersistence;
+    NativeSettingPersistence?: typeof settingPersistence;
     NativeCashShiftPersistence?: typeof cashShiftPersistence;
     NativeWorkShiftPersistence?: typeof workShiftPersistence;
     NativeRecipePersistence?: typeof recipePersistence;
@@ -134,4 +136,5 @@ if (document.querySelector('#accountLink')) {
     /* Unavailable storage must be reported by enrollment before any send. */
   }
 }
+window.NativeSettingPersistence = settingPersistence;
 window.dispatchEvent(new Event('tsukenya:native-conflict-ready'));

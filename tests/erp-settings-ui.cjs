@@ -1,13 +1,13 @@
 const finance=require('./finance-navigation.cjs');
-const {documentButton}=require('./trading-document-controls.cjs');
+const {documentButton,waitForTradingRoute}=require('./trading-document-controls.cjs');
 /* Remaining ERP states: all real mutations are confined to this disposable SQLite. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),python=process.env.PYTHON_BIN||'python3',port=process.env.QA_SETTINGS_PORT||'18216';
 const data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-settings-ui-')),base=`http://localhost:${port}`,password='isolated-crm-test-password',from=process.env.QA_SETTINGS_FROM||'all';
-const hash=execFileSync(python,['-c',`from server.auth import hash_password;print(hash_password('${password}'))`],{cwd:root,encoding:'utf8'}).trim();
-const env={...process.env,PORT:port,HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',OWNER_PASSWORD_HASH:hash};
-for(const key of ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD'])delete env[key];
+const env={...process.env,PORT:port,HOST:'127.0.0.1',DATA_DIR:data,ERP_DB_PATH:path.join(data,'crm.sqlite3'),OWNER_USERNAME:'tester',DJANGO_SECRET_KEY:'isolated-settings-compat-secret-more-than-fifty-characters-not-production'};
+for(const k of Object.keys(env))if(/^DB_|^PG|^OWNER_PASSWORD/.test(k)||['DATABASE_URL','POSTGRES_URL','TSUKENYA_REQUIRE_POSTGRES','DJANGO_SETTINGS_MODULE'].includes(k))delete env[k];
+env.DJANGO_SETTINGS_MODULE='server.settings';env.OWNER_PASSWORD_HASH=execFileSync(python,['-c',`from server.auth import hash_password;print(hash_password('${password}'))`],{cwd:root,env,encoding:'utf8'}).trim();
 const server=spawn(python,['-m','server.main'],{cwd:root,env,stdio:'ignore'});let browser,page,zoomContext,zoomProfile;
 const results=[],errors=[];const pass=message=>{results.push(message);console.log(message);};
 const wait=async(fn,label)=>{for(let i=0;i<120;i++){if(await fn())return;await new Promise(resolve=>setTimeout(resolve,100));}throw Error(`Timeout: ${label}`);};
@@ -16,10 +16,11 @@ const zoomShot=async(page,filename)=>{const cdp=await page.context().newCDPSessi
 const noFonts=async page=>{await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.route('https://fonts.gstatic.com/**',route=>route.abort());page.on('pageerror',error=>errors.push(error.message));};
 const go=async(page,tab)=>{const url=base+'/#trade/'+tab;if(page.url()===url)await page.reload({waitUntil:'domcontentloaded'});else await page.goto(url,{waitUntil:'domcontentloaded'});await waitForTradingRoute(page,tab);if(tab==='finance')await finance.tab(page,'documents');await wait(async()=>!(await page.locator('#main').innerText()).includes('Завантаження обліку'),tab);};
 const dialog=page=>page.locator('.trade-dialog[open]');
+const finishSetting=async page=>{const finish=dialog(page).getByRole('button',{name:'Завершити перегляд і оновити список',exact:true});await finish.waitFor();await finish.click();await dialog(page).waitFor({state:'hidden'});};
 const closeDirty=async page=>{page.once('dialog',native=>native.accept());await page.keyboard.press('Escape');};
 const fit=async(page,label)=>{assert.equal(await dialog(page).evaluate(el=>el.scrollWidth>el.clientWidth+1),false,label+' dialog reflow');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,label+' page reflow');assert.equal(await dialog(page).locator('#tradeFormError').evaluate(el=>el===document.activeElement),true,label+' error focus');assert.equal(await dialog(page).locator('[type=submit]').isEnabled(),true,label+' submit restored');};
 (async()=>{
- await wait(async()=>{if(server.exitCode!==null)throw Error('Isolated server failed to start');try{return(await fetch(base+'/health')).ok;}catch{return false;}},'server');
+ await wait(async()=>{if(server.exitCode!==null||server.signalCode!==null)throw Error('Isolated server failed to start');try{return(await fetch(base+'/health')).ok;}catch{return false;}},'server');
  const seed=JSON.parse(fixture(`import json
 from datetime import timedelta
 from django.utils import timezone
@@ -57,23 +58,25 @@ print(json.dumps({'store':store.pk,'account':account.pk,'manager':manager.pk,'dr
  }
  if(['all','period'].includes(from)){
   await go(page,'setup');await page.locator('[data-trade=period]').click();await dialog(page).locator('[name=date]').fill(seed.yesterday);await dialog(page).locator('[name=reason]').fill('Закриваємо завершений період');await submit(page,'/api/erp/period',400);await dialog(page).locator('#tradeFormError').filter({hasText:'У періоді є чернетки'}).waitFor();await fit(page,'period rejection320');assert.equal(await dialog(page).locator('[name=date]').inputValue(),seed.yesterday);assert.equal(await dialog(page).locator('[name=reason]').inputValue(),'Закриваємо завершений період');assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).closed_through,null);
-  assert.equal((await api('DELETE','/api/erp/vouchers/'+seed.draft)).status(),200);await submit(page,'/api/erp/period',200);await dialog(page).waitFor({state:'hidden'});assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).closed_through,seed.yesterday);
-  await page.locator('[data-trade=period]').click();assert.equal(await dialog(page).locator('[name=date]').inputValue(),seed.yesterday);await dialog(page).locator('[name=date]').fill('');await dialog(page).locator('[name=reason]').fill('Повторно відкриваємо облік');await submit(page,'/api/erp/period',200);await dialog(page).waitFor({state:'hidden'});assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).closed_through,null);await page.locator('[data-trade=period]').click();assert.equal(await dialog(page).locator('[name=date]').inputValue(),'');await page.keyboard.press('Escape');
+  assert.equal((await api('DELETE','/api/erp/vouchers/'+seed.draft,{revision:(await(await ctx.request.get(base+'/api/erp/vouchers/'+seed.draft)).json()).revision})).status(),200);await submit(page,'/api/erp/period',200);await finishSetting(page);assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).closed_through,seed.yesterday);
+  await page.locator('[data-trade=period]').click();assert.equal(await dialog(page).locator('[name=date]').inputValue(),seed.yesterday);await dialog(page).locator('[name=date]').fill('');await dialog(page).locator('[name=reason]').fill('Повторно відкриваємо облік');await submit(page,'/api/erp/period',200);await finishSetting(page);assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).closed_through,null);await page.locator('[data-trade=period]').click();assert.equal(await dialog(page).locator('[name=date]').inputValue(),'');await page.keyboard.press('Escape');
   pass('period real draft rejection with rollback/draft/focus320, delete blocking draft, close success, reopen blank date, refreshed UI reset: PASS');
  }
  if(['all','fiscal'].includes(from)){
   for(const mode of ['required','optional']){
-   await go(page,'setup');await page.locator('[data-trade=fiscal]').click();await dialog(page).locator('[name=mode]').selectOption(mode);await submit(page,'/api/erp/fiscal',200);await dialog(page).waitFor({state:'hidden'});assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).fiscal_required,mode==='required');
+   await go(page,'setup');await page.locator('[data-trade=fiscal]').click();await dialog(page).locator('[name=mode]').selectOption(mode);await submit(page,'/api/erp/fiscal',200);await finishSetting(page);assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).fiscal_required,mode==='required');
    await go(page,'sales');await page.getByRole('button',{name:'+ Продаж',exact:true}).click();const fiscal=dialog(page).locator('[name=fiscal_ref]');assert.equal(await fiscal.evaluate(input=>input.required),mode==='required');assert.equal(await fiscal.evaluate(input=>input.validity.valueMissing),mode==='required');if(mode==='required')assert.equal(await fiscal.isVisible(),true);await page.keyboard.press('Escape');
    await go(page,'setup');await page.locator('[data-trade=fiscal]').click();assert.equal(await dialog(page).locator('[name=mode]').inputValue(),mode);await page.keyboard.press('Escape');
   }
   pass('fiscal real setting save required/optional, fresh sale required field/validity/display, reopened setting value: PASS');
  }
- if(['all','discount'].includes(from)){
+ if(['all','discount','discount-sale'].includes(from)){
+  if(from!=='discount-sale'){
   await go(page,'setup');assert.match(await page.locator('#main').innerText(),/Максимальна знижка касира: 10%/);await page.locator('[data-trade=discount-limit]').click();assert.equal(await dialog(page).locator('[name=percent]').inputValue(),'10');
-  await dialog(page).locator('[name=percent]').fill('7.5');await submit(page,'/api/erp/discount-limit',200);await dialog(page).waitFor({state:'hidden'});assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).max_discount,'7.5');
+  await dialog(page).locator('[name=percent]').fill('7.5');await submit(page,'/api/erp/discount-limit',200);await finishSetting(page);assert.equal((await(await ctx.request.get(base+'/api/erp/state')).json()).max_discount,'7.5');
   await go(page,'setup');assert.match(await page.locator('#main').innerText(),/Максимальна знижка касира: 7.5%/);await page.locator('[data-trade=discount-limit]').click();assert.equal(await dialog(page).locator('[name=percent]').inputValue(),'7.5');await page.keyboard.press('Escape');
-  await go(page,'sales');await page.getByRole('button',{name:'+ Продаж',exact:true}).click();assert.equal(await dialog(page).locator('[name=discount_reason]').isVisible(),true);await page.keyboard.press('Escape');
+  }else assert.equal((await api('POST','/api/erp/discount-limit',{percent:'7.5'})).status(),200);
+  await go(page,'sales');await page.getByRole('button',{name:'+ Продаж',exact:true}).click();await dialog(page).locator('[name=discount_reason]').waitFor();assert.equal(await dialog(page).locator('[name=discount_reason]').isVisible(),true);await page.keyboard.press('Escape');
   pass('discount limit owner setting save, refreshed value, audited by server, sale form reason field: PASS');
  }
  if(['all','detail'].includes(from)){
@@ -101,4 +104,4 @@ print(json.dumps({'store':store.pk,'account':account.pk,'manager':manager.pk,'dr
   pass(from==='detail-zoom'?'actual Chrome200% detail read error long-token/focus/retry/list reflow: PASS':'actual Chrome200% (1440px window,720px CSS viewport,dpr2) users409/period400/detail503 drafts/focus/submit/reflow: PASS');
  }
  assert.deepEqual(errors,[]);
-})().catch(async error=>{const target=zoomContext?.pages()[0]||page;if(target)await target.screenshot({path:path.join(os.tmpdir(),'tsukenya-settings-failure.png')}).catch(()=>{});console.error(error);process.exitCode=1;}).finally(async()=>{await zoomContext?.close();if(zoomProfile)fs.rmSync(zoomProfile,{recursive:true,force:true});await browser?.close();server.kill('SIGTERM');if(server.exitCode===null)await new Promise(resolve=>server.once('exit',resolve));fs.rmSync(data,{recursive:true,force:true});});
+})().catch(async error=>{const target=zoomContext?.pages()[0]||page;if(target)await target.screenshot({path:path.join(os.tmpdir(),'tsukenya-settings-failure.png')}).catch(()=>{});console.error(error);process.exitCode=1;}).finally(async()=>{await zoomContext?.close();if(zoomProfile)fs.rmSync(zoomProfile,{recursive:true,force:true});await browser?.close();if(server.exitCode===null&&server.signalCode===null){const done=new Promise(resolve=>server.once('exit',resolve)),timer=setTimeout(()=>server.kill('SIGKILL'),5000);server.kill('SIGTERM');try{await done;}finally{clearTimeout(timer);}}fs.rmSync(data,{recursive:true,force:true});});

@@ -1,5 +1,23 @@
 # Аудит завершення всього плану
 
+## Поточний зріз ·05.10.2026, після PR119
+
+- PR116 managed alert recovery прийнято й розгорнуто.
+- PR117 bounded catalogue та PR118 standalone cash open/close прийнято;
+  разом розгорнуто main c64c753. Health, matching sources/assets, backup,
+  before/after accounting і read-only reconcile перевірені.
+- PR119 private catalogue GET cache прийнято як main bcd0fe7;
+  на VPS ще не розгорнуто. Межі: [B24-CATALOGUE-READ-CACHE.md](B24-CATALOGUE-READ-CACHE.md).
+- Три settings consumers інтегровано для окремого review/CI, ще не прийнято:
+  [SETTING-DRAFT-PERSISTENCE.md](SETTING-DRAFT-PERSISTENCE.md).
+- Initiative11, standalone voucher post/reverse/delete, bounded reference/import/
+  export та інші незакриті acceptance залишаються роботою. Whole B06/B24 і
+  повний план не зараховані до завершених.0.1 виключено; full не запускали.
+
+Нижчі історичні зрізи зберігають докази попередніх станів. Поточні статуси
+наведено вище; вузький PASS не є доказом завершення всього плану.
+
+
 **Зріз:** `main` `9c04dad2b48ac59b1b544ec44e4857e273147de6`, 04.10.2026. Джерела: ROADMAP, BUSINESS-IMPROVEMENTS, STACK-EVOLUTION, DEPLOYMENT-PLAN, фактичні серверні/клієнтські модулі, тексти відповідних тестів і збережені QA-документи.
 
 Це read-only зіставлення вимог із реалізацією, не новий тестовий прогін. PR18–43 прийняті за станом робочого плану; зелений CI сам по собі не доводить сусідні випадки, браузерний UX, capacity або VPS. Нижче наведено matching сценарії, а не лише назви PR. Старі цільові докази можна повторно використовувати для незмінених правил; немає нового сертифіката «весь поточний main пройшов повну регресію».

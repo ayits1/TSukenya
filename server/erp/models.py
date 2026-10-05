@@ -23,6 +23,17 @@ class Setting(models.Model):
     key = models.CharField(max_length=80, primary_key=True)
     value = models.TextField()
 
+class SettingActionReceipt(models.Model):
+    """Immutable creator-bound result of one explicit global owner setting intent."""
+    key = models.UUIDField(primary_key=True, editable=False)
+    author = models.ForeignKey(User, on_delete=models.PROTECT)
+    setting = models.CharField(max_length=20)
+    fingerprint = models.CharField(max_length=64)
+    original = models.JSONField()
+    result = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class PortalSession(models.Model):
     token_hash = models.CharField(max_length=64, primary_key=True)
     csrf = models.CharField(max_length=80)

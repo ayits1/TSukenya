@@ -1,3 +1,4 @@
+import { fields as settingFields } from './settingPersistence';
 import { recipeFields } from './recipe';
 import { entityFields } from './entity';
 import type { Meta, StoryObj } from '@storybook/react-vite';
@@ -295,6 +296,25 @@ export const CashClosingTerms: Story = {
         decimals: ['counted'],
       },
     ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement),
+      apply = canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' });
+    await expect(apply).toBeDisabled();
+    canvas.getByRole('radio', { name: 'Залишити мої зміни' }).focus();
+    await userEvent.keyboard(' ');
+    await userEvent.click(apply);
+    await expect(args.onApply).toHaveBeenCalledWith(args.mine);
+  },
+};
+
+export const SettingPeriodTerms: Story = {
+  args: {
+    title: 'Узгодження налаштування',
+    base: { date: '2026-10-01', reason: 'Початкове закриття' },
+    mine: { date: '2026-10-03', reason: 'Моя причина завершення періоду' },
+    server: { date: '2026-10-02', reason: 'Причина іншого редактора' },
+    fields: settingFields('period'),
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement),
