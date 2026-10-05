@@ -6,9 +6,10 @@ from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 from .browsing import PAGE_SIZE, page_bounds, page_number, positive_integer
+from .historical_reports import read_snapshot
 from .models import CashShift, WorkShift
 from .reporting import scoped
-from .services import day, record_revision, require
+from .services import current_actor, day, record_revision, require
 
 WORK_FIELDS = (
     'id', 'employee_id', 'store_id', 'date', 'cash_shift_id', 'units',
@@ -52,49 +53,53 @@ def filters(query, params, date_field):
 
 
 def cash_shifts(user, params):
-    require(user.profile.role in CASH_SHIFT_ROLES, 'Недостатньо прав для касових змін.')
-    requested = page_number(params)
-    query = scoped(CashShift.objects.select_related('opened_by'), user).annotate(
-        opened_day=TruncDate('opened_at', tzinfo=ZoneInfo('Europe/Kyiv')),
-        closed_day=TruncDate('closed_at', tzinfo=ZoneInfo('Europe/Kyiv')),
-    )
-    query = filters(query, params, 'opened_day')
-    status = params.get('status', '')
-    require(status in {'', 'open', 'closed'}, 'Некоректний стан касової зміни.')
-    if status:
-        query = query.filter(closed_at__isnull=status == 'open')
-    if params.get('day'):
-        target = day(params['day'])
-        require(target <= timezone.localdate(), 'День касової зміни не може бути в майбутньому.')
-        query = query.filter(opened_day__lte=target).filter(Q(closed_day__gte=target) | Q(closed_at__isnull=True))
-    total = query.count()
-    page, pages, offset = page_bounds(total, requested)
-    return {'items': [cash_shift_json(shift) for shift in query.order_by('-pk')[offset:offset + PAGE_SIZE]],
-            'total': total, 'page': page, 'pages': pages}
+    with read_snapshot():
+        user = current_actor(user)
+        require(user.profile.role in CASH_SHIFT_ROLES, 'Недостатньо прав для касових змін.')
+        requested = page_number(params)
+        query = scoped(CashShift.objects.select_related('opened_by'), user).annotate(
+            opened_day=TruncDate('opened_at', tzinfo=ZoneInfo('Europe/Kyiv')),
+            closed_day=TruncDate('closed_at', tzinfo=ZoneInfo('Europe/Kyiv')),
+        )
+        query = filters(query, params, 'opened_day')
+        status = params.get('status', '')
+        require(status in {'', 'open', 'closed'}, 'Некоректний стан касової зміни.')
+        if status:
+            query = query.filter(closed_at__isnull=status == 'open')
+        if params.get('day'):
+            target = day(params['day'])
+            require(target <= timezone.localdate(), 'День касової зміни не може бути в майбутньому.')
+            query = query.filter(opened_day__lte=target).filter(Q(closed_day__gte=target) | Q(closed_at__isnull=True))
+        total = query.count()
+        page, pages, offset = page_bounds(total, requested)
+        return {'items': [cash_shift_json(shift) for shift in query.order_by('-pk')[offset:offset + PAGE_SIZE]],
+                'total': total, 'page': page, 'pages': pages}
 
 
 def work_shifts(user, params):
-    require(user.profile.role in {'owner', 'accountant'}, 'Недостатньо прав для зарплати.')
-    requested = page_number(params)
-    query = filters(scoped(WorkShift.objects.all(), user), params, 'date')
-    if params.get('ids'):
-        values = params['ids'].split(',')
-        require(len(values) <= 1000, 'Завеликий перелік змін.')
-        identifiers = {positive_integer(value, 'ID зміни') for value in values}
-        query = query.filter(pk__in=identifiers)
-    # Timesheet hint (B04): other employees' percent rows of one cash shift.
-    if params.get('cash_shift'):
-        query = query.filter(cash_shift_id=positive_integer(params['cash_shift'], 'ID касової зміни'))
-    require(params.get('percent', '') in {'', '1'}, 'Невідомий режим відбору відсотків табеля.')
-    if params.get('percent') == '1':
-        query = query.filter(bonus_percent__gt=0)
-    if params.get('exclude_employee'):
-        query = query.exclude(employee_id=positive_integer(params['exclude_employee'], 'ID виключеного працівника'))
-    eligible = params.get('eligible', '')
-    require(eligible in {'', 'payroll'}, 'Невідомий режим вибору табеля.')
-    if eligible:
-        query = query.filter(payroll__isnull=True).filter(Q(cash_shift__isnull=True) | Q(cash_shift__closed_at__isnull=False))
-    total = query.count()
-    page, pages, offset = page_bounds(total, requested)
-    return {'items': [work_shift_json(row) for row in query.order_by('-date', '-pk')[offset:offset + PAGE_SIZE]],
-            'total': total, 'page': page, 'pages': pages}
+    with read_snapshot():
+        user = current_actor(user)
+        require(user.profile.role in {'owner', 'accountant'}, 'Недостатньо прав для зарплати.')
+        requested = page_number(params)
+        query = filters(scoped(WorkShift.objects.all(), user), params, 'date')
+        if params.get('ids'):
+            values = params['ids'].split(',')
+            require(len(values) <= 1000, 'Завеликий перелік змін.')
+            identifiers = {positive_integer(value, 'ID зміни') for value in values}
+            query = query.filter(pk__in=identifiers)
+        # Timesheet hint (B04): other employees' percent rows of one cash shift.
+        if params.get('cash_shift'):
+            query = query.filter(cash_shift_id=positive_integer(params['cash_shift'], 'ID касової зміни'))
+        require(params.get('percent', '') in {'', '1'}, 'Невідомий режим відбору відсотків табеля.')
+        if params.get('percent') == '1':
+            query = query.filter(bonus_percent__gt=0)
+        if params.get('exclude_employee'):
+            query = query.exclude(employee_id=positive_integer(params['exclude_employee'], 'ID виключеного працівника'))
+        eligible = params.get('eligible', '')
+        require(eligible in {'', 'payroll'}, 'Невідомий режим вибору табеля.')
+        if eligible:
+            query = query.filter(payroll__isnull=True).filter(Q(cash_shift__isnull=True) | Q(cash_shift__closed_at__isnull=False))
+        total = query.count()
+        page, pages, offset = page_bounds(total, requested)
+        return {'items': [work_shift_json(row) for row in query.order_by('-date', '-pk')[offset:offset + PAGE_SIZE]],
+                'total': total, 'page': page, 'pages': pages}

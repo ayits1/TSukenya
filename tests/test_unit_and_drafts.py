@@ -166,7 +166,7 @@ class DraftRevisionTests(ApiFixture):
         self.assertEqual(save_voucher(self.u, {**body, 'note': 'changed'}).pk, v.pk)
 
 
-class DirectoryAndTimesheetRevisionTests(ApiFixture):
+class DirectoryAndTimesheetRevisionTests(TransactionApiFixture):
     def test_stale_directory_form_gets_409(self):
         state = self.client.get('/api/erp/state').json()
         party = next(row for row in state['parties'] if row['id'] == self.party.pk)

@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone as datetime_timezone
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.utils import timezone
 
 from server.erp.models import (
@@ -14,40 +14,38 @@ from server.erp.models import (
 from server.erp.shift_browsing import WORK_FIELDS
 
 
-class ShiftBrowsingTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
+class ShiftBrowsingTests(TransactionTestCase):
+    def setUp(self):
         LedgerLock.objects.create(pk=1)
-        cls.store = Store.objects.create(name='Магазин A')
-        cls.other_store = Store.objects.create(name='Магазин B')
-        cls.employee = Employee.objects.create(name='Працівник A', store=cls.store, shift_rate='500', bonus_percent='3')
-        cls.other_employee = Employee.objects.create(name='Працівник B', store=cls.other_store)
-        cls.account = CashAccount.objects.create(name='Каса A', store=cls.store)
-        cls.owner = cls.user('owner', 'owner')
-        cls.accountant = cls.user('accountant', 'accountant', cls.store)
-        cls.cashier = cls.user('cashier', 'cashier', cls.store)
-        cls.manager = cls.user('manager', 'manager', cls.store)
-        cls.cash = CashShift.objects.bulk_create([
-            CashShift(store=cls.store, account=cls.account, employee=cls.employee,
-                      opened_by=cls.owner, opening_cash='100',
+        self.store = Store.objects.create(name='Магазин A')
+        self.other_store = Store.objects.create(name='Магазин B')
+        self.employee = Employee.objects.create(name='Працівник A', store=self.store, shift_rate='500', bonus_percent='3')
+        self.other_employee = Employee.objects.create(name='Працівник B', store=self.other_store)
+        self.account = CashAccount.objects.create(name='Каса A', store=self.store)
+        self.owner = self.user('owner', 'owner')
+        self.accountant = self.user('accountant', 'accountant', self.store)
+        self.cashier = self.user('cashier', 'cashier', self.store)
+        self.manager = self.user('manager', 'manager', self.store)
+        self.cash = CashShift.objects.bulk_create([
+            CashShift(store=self.store, account=self.account, employee=self.employee,
+                      opened_by=self.owner, opening_cash='100',
                       closed_at=datetime(2026, 10, 1, 8, tzinfo=datetime_timezone.utc) if index else None)
             for index in range(130)
         ])
         CashShift.objects.all().update(opened_at=datetime(2026, 9, 30, 19, tzinfo=datetime_timezone.utc))
-        cls.work = WorkShift.objects.bulk_create([
-            WorkShift(employee=cls.employee, store=cls.store, date=date(2024, 1, 1) + timedelta(days=index),
+        self.work = WorkShift.objects.bulk_create([
+            WorkShift(employee=self.employee, store=self.store, date=date(2024, 1, 1) + timedelta(days=index),
                       units='1', shift_rate='500', bonus_percent='0', bonus_basis='store')
             for index in range(520)
         ])
+
+        self.sign_in(self.owner)
 
     @classmethod
     def user(cls, name, role, store=None):
         user = User.objects.create(username=name)
         Profile.objects.create(user=user, role=role, store=store)
         return user
-
-    def setUp(self):
-        self.sign_in(self.owner)
 
     def sign_in(self, user):
         token = f'isolated-shift-{user.pk}'
