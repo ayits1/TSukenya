@@ -242,6 +242,9 @@ class TradingVersionsTests(TransactionTestCase):
             self.assertNotIn('to_jsonb',related('next',route))
             self.assertNotIn('payload',related('next',route))
         self.assertNotIn('SELECT *',inspect.getsource(register_sqlite))
+        self.assertNotIn('from ..catalog',inspect.getsource(register_sqlite))
+        from server.erp.migration_helpers import trading_versions_0024_price
+        self.assertNotIn('from .catalog',inspect.getsource(trading_versions_0024_price))
         from django.db.migrations.executor import MigrationExecutor
         executor=MigrationExecutor(connection);final=executor.loader.graph.leaf_nodes('erp')
         try:

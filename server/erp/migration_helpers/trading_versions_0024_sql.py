@@ -148,7 +148,7 @@ def register_sqlite(connection):
             if not row['path'].startswith('products/'):return None
             data=json.loads(row['data']);data=data if isinstance(data,dict) else {}
             if rule['condition']=='cost_product':return [row['path'],data.get('cost')]
-            from ..catalog import pricing_config, regular_price, sale_price
+            from .trading_versions_0024_price import pricing_config, regular_price, sale_price
             settings_row=raw.execute("SELECT data FROM erp_document WHERE path='settings/main'").fetchone()
             settings_data=json.loads(settings_row[0]) if settings_row else {}
             config=pricing_config(settings_data if isinstance(settings_data,dict) else {})
