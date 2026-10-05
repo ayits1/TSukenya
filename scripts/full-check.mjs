@@ -269,7 +269,7 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
     await run('node', ['tests/abc-reports-ui.cjs'], { env: { ...browserEnv, QA_ABC_FROM: 'layout' } });
     await run('node', ['tests/reconciliation-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/work-shift-conflict-ui.cjs'], { env: browserEnv });
-    for (const cashShiftStage of ['open','close','policy','preflight','conflict','expiry']) {
+    for (const cashShiftStage of ['open','close','policy','raw-rejection','preflight','conflict','expiry']) {
       await run('node', ['tests/cash-shift-draft-reload-ui.cjs'], { env: { ...browserEnv, QA_CASH_DRAFT_FROM: cashShiftStage } });
     }
     await run('node', ['tests/workshift-draft-reload-ui.cjs'], { env: browserEnv });

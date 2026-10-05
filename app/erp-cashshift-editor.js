@@ -110,7 +110,7 @@
         transport = null,
         comparison = null,
         readGeneration = 0,
-        ambiguous = Boolean(restored),
+        ambiguous = Boolean(restored?.payload.firstIntent),
         sending = false;
       const captureRaw = () =>
         Object.fromEntries(
@@ -256,6 +256,7 @@
                 try {
                   codec().captureClose({ ...captureRaw(), ...merged });
                   persistence.confirm("apply", row);
+                  ambiguous = false;
                   for (const [key, value] of Object.entries(merged))
                     form.elements.namedItem(key).value = value;
                   d.dataset.dirty = "1";

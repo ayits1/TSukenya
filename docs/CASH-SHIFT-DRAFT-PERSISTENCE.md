@@ -37,11 +37,11 @@ Codec4PASS (`unit-final.log`), TypeScript PASS, scoped lint PASS (`lint3.log`), 
 
 ```sh
 PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python QA_CASH_DRAFT_FROM=open node tests/cash-shift-draft-reload-ui.cjs
-# close / policy / preflight / conflict / expiry — окремі stages
+# close / policy / raw-rejection / preflight / conflict / expiry — окремі stages
 QA_SALES_FROM=cash-actions PYTHON_BIN=/tmp/tsukenya-review-venv/bin/python node tests/react-sales-ui.cjs
 ```
 
-Full registry включає шість cash stages і scrub `QA_CASH_DRAFT_FROM`; explicit full pass тут не виконувався. Старі Sales cash callbacks адаптовано до explicit finish і очікування completed refresh/actionability перед keyboard Enter (економічний assert0.13 збережено). Окремий `cash-actions` terminal PASS: `/tmp/tsukenya-cash-shift-sales-compat-final/cash-actions-report.json`, рівно2 POST і cash_difference0.13. Попередні compatibility timeouts та diagnostic trace PASS збережені; final test більше не містить monkeypatch/довільного timeout. Selector не повторює Sales journal/post/refund families.
+Full registry включає сім cash stages і scrub `QA_CASH_DRAFT_FROM`; explicit full pass тут не виконувався. Старі Sales cash callbacks адаптовано до explicit finish і очікування completed refresh/actionability перед keyboard Enter (економічний assert0.13 збережено). Окремий `cash-actions` terminal PASS: `/tmp/tsukenya-cash-shift-sales-compat-final/cash-actions-report.json`, рівно2 POST і cash_difference0.13. Попередні compatibility timeouts та diagnostic trace PASS збережені; final test більше не містить monkeypatch/довільного timeout. Selector не повторює Sales journal/post/refund families.
 
 ## Залишки
 
@@ -61,3 +61,19 @@ counted0.13; рівно2 business POST та один authoritative cash_differen
 `/tmp/tsukenya-cash-integration-callback.log`. Endpoint/codec proofs незмінні й
 використані повторно, full/production mutation не запускалися. Прийняття й
 розгортання пакета ще не підтверджені.
+
+
+## Root review · never-sent raw recovery
+
+Відновлення raw без firstIntent ще не є невизначеним надсиланням. Renderer
+ініціалізує ambiguity лише з наявного frozen firstIntent; після успішного явного
+Apply з новим UUID скидає ambiguity. Unknown exact intent та його пізні400/409
+залишаються frozen. Відхилений Apply або помилка storage не скидають прапорець.
+
+Actual isolated `raw-rejection` спочатку відтворив дефект (before-v2): після
+reload першої ненадісланої форми actual rolledback400 помилково лишав exact retry.
+Після виправлення open prefix пройшов; close fixture мав помилкове поле status
+замість closed_at, що виправлено лише в тесті. Final affected stage PASS:
+`/tmp/tsukenya-cash-raw-rejection-fixed-v2/raw-rejection-report.json` — raw reload,
+first400 correction, close explicit Apply без POST, separate close first bound400.
+Усього2 спроби POST; закриття й cash movements не створені. Backend не змінено.
