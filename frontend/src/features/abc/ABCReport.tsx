@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import type { CommittedReader } from '../../shared/api/committedReader';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '../../shared/ui/Button';
 import { TextField } from '../../shared/ui/TextField';
 import { Select } from '../../shared/ui/Select';
@@ -32,8 +34,15 @@ type Props = {
   directories: TradingApi;
   initial?: ABCFilters;
   onFilters?: (filters: ABCFilters) => void;
+  onReader?: (reader: CommittedReader | null) => void;
 };
-export function ABCReport({ api, directories, initial = initialABC(), onFilters }: Props) {
+export function ABCReport({
+  api,
+  directories,
+  initial = initialABC(),
+  onFilters,
+  onReader,
+}: Props) {
   const [draft, setDraft] = useState(initial),
     [result, setResult] = useState<{ data: ABCReportData; filters: ABCFilters } | null>(null);
   const [locked, setLocked] = useState(false),
@@ -51,10 +60,13 @@ export function ABCReport({ api, directories, initial = initialABC(), onFilters 
     onFiltersRef.current = onFilters;
   }, [onFilters]);
   const read = useCallback(
-    async (filters: ABCFilters, page = 1) => {
+    async (filters: ABCFilters, page = 1, signal?: AbortSignal) => {
       controller.current?.abort();
       const abort = new AbortController();
       controller.current = abort;
+      const cancel = () => abort.abort();
+      signal?.addEventListener('abort', cancel, { once: true });
+      if (signal?.aborted) abort.abort();
       const token = ++request.current;
       intent.current = { filters: { ...filters }, page };
       setPending(true);
@@ -62,13 +74,14 @@ export function ABCReport({ api, directories, initial = initialABC(), onFilters 
       if (confirmed.current?.filters.store !== filters.store) setResult(null);
       try {
         const data = await api.read(filters, page, abort.signal);
-        if (abort.signal.aborted || token !== request.current) return;
+        if (abort.signal.aborted || token !== request.current) return false;
         const value = { data, filters: { ...filters } };
         confirmed.current = value;
         setResult(value);
         onFiltersRef.current?.(filters);
+        return true;
       } catch (caught) {
-        if (abort.signal.aborted || token !== request.current) return;
+        if (abort.signal.aborted || token !== request.current) return false;
         const failure = caught as Error & { status?: number; protocol?: boolean };
         if (failure.status === 401) {
           confirmed.current = null;
@@ -88,8 +101,13 @@ export function ABCReport({ api, directories, initial = initialABC(), onFilters 
         requestAnimationFrame(() => {
           if (token === request.current && !abort.signal.aborted) errorHost.current?.focus();
         });
+        return false;
       } finally {
-        if (token === request.current && !abort.signal.aborted) setPending(false);
+        signal?.removeEventListener('abort', cancel);
+        if (token === request.current) {
+          if (signal) flushSync(() => setPending(false));
+          else setPending(false);
+        }
       }
     },
     [api],
@@ -168,6 +186,30 @@ export function ABCReport({ api, directories, initial = initialABC(), onFilters 
     thresholdValue(draft.aThreshold) > 0 &&
     thresholdValue(draft.aThreshold) < thresholdValue(draft.bThreshold) &&
     thresholdValue(draft.bThreshold) < 100;
+  const readerState = useRef({ draft, pending, ready });
+  useLayoutEffect(() => {
+    readerState.current = { draft, pending, ready };
+  }, [draft, pending, ready]);
+  useEffect(() => {
+    if (!onReader) return;
+    onReader({
+      store: () =>
+        confirmed.current?.filters.store ? Number(confirmed.current.filters.store) : null,
+      stamp: () => request.current,
+      blocked: () =>
+        !confirmed.current ||
+        !readerState.current.ready ||
+        readerState.current.pending ||
+        JSON.stringify(readerState.current.draft) !== JSON.stringify(confirmed.current.filters),
+      refresh: (signal) => {
+        const saved = confirmed.current;
+        return saved
+          ? read(saved.filters, saved.data.page, signal).then(Boolean)
+          : Promise.resolve(false);
+      },
+    });
+    return () => onReader(null);
+  }, [onReader, read]);
   const data = result?.data;
   return (
     <section className="tk-abc" aria-label="ABC-аналітика товарів">

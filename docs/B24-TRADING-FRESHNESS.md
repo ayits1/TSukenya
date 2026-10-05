@@ -128,3 +128,7 @@ Reports unit16 PASS. Це не enrollment звітів у cheap metadata polling
 цей окремий пункт плану залишається відкритим. Типи, targeted lint і
 matching Vite build PASS. Зміни не зачіпають серверне проведення, гроші,
 залишки або зарплату. Deployment підтверджується окремо.
+
+## Addendum: Customers + Reports
+
+Опис manual-only Reports/Customers вище фіксує межу попереднього пакета. Наступний окремий пакет додає actual Customers, period/balances, ABC і CurrentDebts subscriptions із own scoped counters0029, committed filters/page, deferred draft refresh і synchronous privacy boundary. Деталі й точна partial/terminal QA межа — [B24-CUSTOMER-REPORT-FRESHNESS.md](B24-CUSTOMER-REPORT-FRESHNESS.md). Setup/orders/details лишаються explicit reads; повний B24/cursor/capacity не оголошено завершеним.

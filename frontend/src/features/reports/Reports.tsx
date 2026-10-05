@@ -316,6 +316,7 @@ export function Reports({ model }: { model: ReportsModel }) {
                 to: s.draft.to,
               }}
               onFilters={(v) => model.abcFilters(v)}
+              onReader={(value) => model.reader('abc', value)}
             />
           </TabPanel>
         ) : (
@@ -543,6 +544,7 @@ export function Reports({ model }: { model: ReportsModel }) {
                 model={model}
                 store={query.store}
                 epoch={s.epoch}
+                onReader={(value) => model.reader('debts', value)}
               />
             ) : null}
           </TabPanel>

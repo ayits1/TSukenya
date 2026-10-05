@@ -519,3 +519,8 @@ atomic/durable imports і повний фільтр CSV. Unknown історич�
 Це авторська реалізація, не accepted/deployed claim і не completion всієї B24:
 повні сканування O(N), DB temp/statement time/global quotas/capacity та інші
 залишки цільового плану не замінюються 30-row pagination.
+## Прийняті Order5 і bounded catalogue · 05.10.2026
+
+- [PR127 — OrderControl actions](https://github.com/ayits1/TSukenya/pull/127) і [PR126 — bounded catalogue references/import/export](https://github.com/ayits1/TSukenya/pull/126) прийняті. Accepted main `a13c99753042f7975129940fa8612699449bd6bd` розгорнуто; root підтвердив public health exactSHA/statusok/importsavailable, відповідність source/assets і read-only перевірки цілісності. Production mutation/full тут не виконували.
+- Наступний Customers/Reports scoped conditional freshness пакет готується окремо; наявність source/proofs не означає merge/deploy. Нові метадані не є financial cursor/cache або доказом 100k SLA.
+- Повний B06/B24/план залишається відкритим. Пункт0.1 виключений; зовнішні інтеграції та решта native persistence families не прирівнюються до виконаних за цими PR.

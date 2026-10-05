@@ -43,7 +43,14 @@ export interface components {
       | 'staff_shifts'
       | 'staff_documents'
       | 'directories'
-      | 'policy';
+      | 'policy'
+      | 'customers_contacts'
+      | 'customers_metrics'
+      | 'customers_debts'
+      | 'reports_period'
+      | 'reports_balances'
+      | 'reports_salary'
+      | 'reports_abc';
     /** @enum {string} */
     TradingRole: 'owner' | 'manager' | 'cashier' | 'warehouse' | 'accountant';
     TradingIdentity: {

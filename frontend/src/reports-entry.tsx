@@ -1,3 +1,4 @@
+import { registerTradingReader, type TradingResource } from './shared/api/tradingFreshness';
 import { createRoot, type Root } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { I18nProvider } from 'react-aria-components';
@@ -16,9 +17,14 @@ declare global {
   }
 }
 let root: Root | undefined, element: HTMLElement | undefined;
+let unregisterFreshness: (() => void) | undefined;
+let mountGeneration = 0;
 const model = new ReportsModel(createReportsApi(), createFinanceApi(), createABCApi());
 window.ReactReports = {
   async mount(host, options) {
+    const ticket = ++mountGeneration;
+    unregisterFreshness?.();
+    unregisterFreshness = undefined;
     if (element !== host) {
       model.leave();
       root?.unmount();
@@ -34,8 +40,44 @@ window.ReactReports = {
       ),
     );
     await pending;
+    if (ticket !== mountGeneration || element !== host || !host.isConnected || model.state.denied)
+      return;
+    unregisterFreshness = registerTradingReader({
+      name: 'reports',
+      host,
+      identity: { role: options.bootstrap.role, scopeStore: options.bootstrap.storeId },
+      context: () => {
+        const salary = ['owner', 'accountant'].includes(options.bootstrap.role);
+        const resources: TradingResource[] =
+          model.state.view === 'abc'
+            ? ['reports_abc']
+            : model.state.view === 'period'
+              ? ['reports_period', 'reports_balances']
+              : ['reports_balances'];
+        if (salary && model.state.view !== 'abc') resources.push('reports_salary');
+        return { store: model.freshnessStore(), resources };
+      },
+      readStamp: () => model.freshnessStamp(),
+      blocked: () => model.freshnessBlocked(),
+      refresh: (signal) => model.refreshCommitted(signal),
+      revalidate: async (signal) => {
+        const fresh = await options.directoryApi.bootstrap(signal);
+        if (signal.aborted) return;
+        if (fresh.role !== options.bootstrap.role || fresh.storeId !== options.bootstrap.storeId)
+          throw Object.assign(Error('Доступ до звітів змінився.'), { status: 403 });
+      },
+      deny: () => {
+        model.deny('Доступ до звітів змінився. Перечитайте контекст.');
+        root?.unmount();
+        root = undefined;
+        element = undefined;
+      },
+    });
   },
   leave() {
+    mountGeneration++;
+    unregisterFreshness?.();
+    unregisterFreshness = undefined;
     model.leave();
     root?.unmount();
     root = undefined;
@@ -43,6 +85,9 @@ window.ReactReports = {
   },
 };
 window.addEventListener('tsukenya:session-invalidated', () => {
+  mountGeneration++;
+  unregisterFreshness?.();
+  unregisterFreshness = undefined;
   if (!model.state.denied) model.deny('Сеанс завершився. Увійдіть знову.');
   // The event runs before the native caller redirects: clear private DOM synchronously.
   root?.unmount();

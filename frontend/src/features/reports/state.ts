@@ -1,3 +1,4 @@
+import type { CommittedReader } from '../../shared/api/committedReader';
 import { ApiError } from '../../shared/api/client';
 import { ukraineToday } from '../../shared/ui/DatePicker';
 import type { TradingApi, TradingBootstrap, DirectoryItem } from '../trading/api';
@@ -70,6 +71,62 @@ export class ReportsModel {
   private controller: AbortController | null = null;
   private intent: Query | null = null;
   private authority = '';
+  private readers = new Map<'abc' | 'debts', CommittedReader>();
+  reader(name: 'abc' | 'debts', value: CommittedReader | null) {
+    if (value) this.readers.set(name, value);
+    else this.readers.delete(name);
+  }
+  freshnessStore() {
+    if (this.state.view === 'abc') {
+      const reader = this.readers.get('abc');
+      return reader ? reader.store() : this.state.draft.store;
+    }
+    return this.state.committed ? this.state.committed.store : this.state.draft.store;
+  }
+  freshnessStamp() {
+    return this.generation + [...this.readers.values()].reduce((n, r) => n + r.stamp(), 0);
+  }
+  freshnessBlocked() {
+    if (!this.active || this.state.denied || this.state.busy || this.state.actionBusy) return true;
+    if (this.state.view === 'abc')
+      return !this.readers.has('abc') || this.readers.get('abc')!.blocked();
+    const committed = this.state.committed;
+    if (!committed || this.state.q !== committed.q) return true;
+    const draft = this.query();
+    if (
+      ['mode', 'store', ...(committed.mode === 'period' ? ['from', 'to'] : ['as_of'])].some(
+        (key) => draft[key as keyof Query] !== committed[key as keyof Query],
+      )
+    )
+      return true;
+    return (
+      this.state.view === 'period' &&
+      (!this.readers.has('debts') || this.readers.get('debts')!.blocked())
+    );
+  }
+  async refreshCommitted(signal: AbortSignal) {
+    if (signal.aborted || this.freshnessBlocked()) return false;
+    if (this.state.view === 'abc') return this.readers.get('abc')!.refresh(signal);
+    const query = this.state.committed!;
+    const expectedGeneration = this.generation + 1;
+    const cancelled = () => this.controller?.abort();
+    signal.addEventListener('abort', cancelled, { once: true });
+    try {
+      await this.read({ ...query });
+      if (signal.aborted || !this.ready()) return false;
+      if (this.state.view === 'period') return await this.readers.get('debts')!.refresh(signal);
+      return true;
+    } finally {
+      signal.removeEventListener('abort', cancelled);
+      if (
+        signal.aborted &&
+        this.active &&
+        !this.state.denied &&
+        this.generation === expectedGeneration
+      )
+        this.emit({ busy: false });
+    }
+  }
   public abc: ABCApi;
   constructor(
     public api: ReportsApi,
@@ -179,6 +236,7 @@ export class ReportsModel {
     this.generation++;
     this.controller?.abort();
     this.options = null;
+    this.readers.clear();
     this.intent = null;
     this.emit({ ...initial(), epoch: this.state.epoch + 1 });
   }

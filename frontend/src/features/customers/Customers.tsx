@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { registerTradingReader, type TradingResource } from '../../shared/api/tradingFreshness';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../shared/ui/Button';
 import { TextField } from '../../shared/ui/TextField';
 import { Select } from '../../shared/ui/Select';
 import { DirectoryComboBox } from '../trading/DirectoryComboBox';
-import type { TradingApi, DirectoryItem } from '../trading/api';
+import type { TradingApi, DirectoryItem, TradingBootstrap } from '../trading/api';
 import { CustomerProfile } from './CustomerProfile';
 import { emptyCustomerFilters, type CustomerApi, type CustomerFilters } from './api';
 import './customers.css';
 
 export type CustomerOptions = {
+  bootstrap?: TradingBootstrap;
+  onDenied?: () => void;
   stores: { id: number; name: string }[];
   store: number | null;
   onEdit: (id?: number) => Promise<void>;
@@ -20,6 +23,8 @@ export type CustomerOptions = {
 };
 export function Customers({
   api,
+  bootstrap,
+  onDenied,
   stores,
   store,
   onEdit,
@@ -96,6 +101,62 @@ export function Customers({
     enabled: selected !== null,
     retry: false,
   });
+  const reader = useRef({ filters, selected, searchPending, historyBusy, list, profile });
+  useLayoutEffect(() => {
+    reader.current = { filters, selected, searchPending, historyBusy, list, profile };
+  }, [filters, selected, searchPending, historyBusy, list, profile]);
+  const readStamp = useRef(0);
+  useEffect(() => {
+    readStamp.current++;
+  }, [filters, selected]);
+  useEffect(() => {
+    if (!bootstrap || !directoryApi || !host.current) return;
+    return registerTradingReader({
+      name: 'customers',
+      host: host.current,
+      identity: { role: bootstrap.role, scopeStore: bootstrap.storeId },
+      context: () => ({
+        store: reader.current.filters.store,
+        resources: [
+          'customers_contacts',
+          'customers_metrics',
+          ...(['owner', 'manager', 'accountant'].includes(bootstrap.role)
+            ? (['customers_debts'] as TradingResource[])
+            : []),
+        ],
+      }),
+      readStamp: () => readStamp.current,
+      blocked: () =>
+        reader.current.searchPending ||
+        reader.current.historyBusy ||
+        client.isFetching({ queryKey: ['customers'] }) > 0,
+      revalidate: async (signal) => {
+        const fresh = await directoryApi.bootstrap(signal);
+        if (signal.aborted) return;
+        if (fresh.role !== bootstrap.role || fresh.storeId !== bootstrap.storeId)
+          throw Object.assign(Error('Доступ до клієнтів змінився.'), { status: 403 });
+      },
+      refresh: async (signal) => {
+        const cancel = () => {
+          void client.cancelQueries({ queryKey: ['customers'] });
+        };
+        signal.addEventListener('abort', cancel, { once: true });
+        try {
+          if (signal.aborted) return false;
+          await client.refetchQueries(
+            { queryKey: ['customers'], type: 'active' },
+            { throwOnError: true },
+          );
+          return !signal.aborted;
+        } finally {
+          signal.removeEventListener('abort', cancel);
+        }
+      },
+      deny: () => {
+        onDenied?.();
+      },
+    });
+  }, [bootstrap, directoryApi, client, onDenied]);
   const change = (next: Partial<CustomerFilters>) => {
     const value = { ...filters, page: 1, ...next };
     setFilters(value);

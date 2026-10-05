@@ -77,7 +77,8 @@ jobs:
     # The same PostgreSQL 18 image as production: row locks and concurrent postings run here,
     # so no server test is skipped. A disposable service container; no production credentials.
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # The growing PostgreSQL suite exceeded 10 minutes on PR #128.
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:18@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
