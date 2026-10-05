@@ -24,6 +24,32 @@ def context_store(user, value=None):
     return store
 
 
+def current_prices(store, day):
+    """The same scoped candidate SQL for pages and derived promotion membership."""
+    area = Q(campaign__scope='network')
+    if store is not None:
+        area |= Q(campaign__scope='stores', campaign__stores=store.pk)
+    return PromotionPrice.objects.filter(area, campaign__active=True, campaign__archived=False,
+        campaign__starts_on__lte=day, campaign__ends_on__gte=day)
+
+
+def eligible_amount(amount, regular):
+    return amount is not None and 0 < amount < regular
+
+
+def has_promotion(data, config, minimum_campaign_price=None):
+    """Membership only: Decimal, the same strict positive/below-regular rule.
+
+    UUID/legacy ties select captions in resolve(); ties cannot change membership.
+    No float conversion or price/signature computation is needed for a filter.
+    """
+    from .catalog import regular_price, promotion_amount
+    regular = regular_price(data, config)
+    legacy = promotion_amount(data)
+    return bool(data.get('promotion') and eligible_amount(legacy, regular)
+        or eligible_amount(minimum_campaign_price, regular))
+
+
 class PriceResolver:
     def __init__(self, config=None, store=None, effective_day=None, *, product_paths=None):
         from .catalog import defaults
@@ -31,12 +57,8 @@ class PriceResolver:
         self.store = store
         self.day = kyiv_day() if effective_day is None else effective_day
         require(isinstance(self.day, date), 'Некоректна дата визначення ціни.')
-        area = Q(campaign__scope='network')
-        if store is not None:
-            area |= Q(campaign__scope='stores', campaign__stores=store.pk)
         # One SQL statement reads campaign terms and amounts together: no header/price prefetch race.
-        prices = PromotionPrice.objects.filter(area, campaign__active=True, campaign__archived=False,
-            campaign__starts_on__lte=self.day, campaign__ends_on__gte=self.day).select_related('campaign').distinct()
+        prices = current_prices(store, self.day).select_related('campaign').distinct()
         if product_paths is not None:
             prices = prices.filter(product_id__in=set(product_paths))
         self.candidates = {}
@@ -56,11 +78,11 @@ class PriceResolver:
         regular = regular_price(document.data, self.config)
         candidates = []
         legacy = promotion_amount(document.data)
-        if document.data.get('promotion') and legacy is not None and 0 < legacy < regular:
+        if document.data.get('promotion') and eligible_amount(legacy, regular):
             candidates.append((legacy, '0:legacy', {'source': 'legacy', 'id': None, 'name': 'Акція товару',
                 'price': format(legacy, 'f'), 'startsOn': None, 'endsOn': None, 'revision': None}))
         for amount, identifier, campaign in self.candidates.get(document.path, []):
-            if 0 < amount < regular:
+            if eligible_amount(amount, regular):
                 candidates.append((amount, '1:' + identifier, {'source': 'campaign', 'id': identifier,
                     'name': campaign.name, 'price': format(amount, 'f'), 'startsOn': campaign.starts_on.isoformat(),
                     'endsOn': campaign.ends_on.isoformat(), 'revision': campaign.revision}))
