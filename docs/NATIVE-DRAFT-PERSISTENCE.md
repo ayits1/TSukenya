@@ -83,3 +83,13 @@ QA_NATIVE_DRAFT_FROM=barriers # or payment/post/privacy/cold/production/validati
 ## Expense editable fields · окремий пакет
 
 Inline amount/category, new-name/Create та LegacyEditors.edit/update/reviewCreate для expenses підключено до P0: exact raw/units/revisions, creator identity, durable confirmation до current GET, local Apply/окремий Save і private read fences. [EXPENSE-DRAFT-PERSISTENCE.md](EXPENSE-DRAFT-PERSISTENCE.md) містить точні partial/terminal proofs, source boundary та наступну відкриту destructive DELETE/generic P2/P3 роботу. Це не змінює історичні scope заяви попередніх delivery.
+
+
+## Managed alerts · 05.10.2026
+
+`ManagedAlerts` підключає P0 для всіх auto/reprint accept/defer/complete/resume,
+raw відкладення, immutable first intent, creator identity/current barriers,
+explicit Restore/Apply/Save та current privacy. Exact coverage, runtime401/403,
+quota/route/late-response і compatibility докази: [MANAGED-ALERT-DRAFT-PERSISTENCE.md](MANAGED-ALERT-DRAFT-PERSISTENCE.md).
+11 initiative actions та решта P2/P3 лишаються окремою роботою; цей enrollment
+не є generic bypass і не означає завершення всього B06.
