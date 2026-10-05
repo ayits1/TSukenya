@@ -860,6 +860,208 @@
           }
         }
       }
+    },
+    "/api/v1/trading/cash-shifts/recovery-context": {
+      "get": {
+        "operationId": "cashShiftRecoveryContext",
+        "responses": {
+          "200": {
+            "description": "Authorized READ ONLY snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShiftRecoveryContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "401": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "403": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "409": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          }
+        },
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "close"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "store",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/cash-shifts/current": {
+      "get": {
+        "operationId": "cashShiftCurrent",
+        "responses": {
+          "200": {
+            "description": "Authorized READ ONLY snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShiftCurrent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "401": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "403": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "409": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/trading/cash-shifts/identity": {
+      "post": {
+        "operationId": "cashShiftIdentity",
+        "responses": {
+          "200": {
+            "description": "Authorized READ ONLY snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShiftActionIdentity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "401": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "403": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "409": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "request"
+                ],
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/CashShiftActionRequest"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/erp/shifts": {
+      "post": {
+        "operationId": "cashShiftAction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashShiftActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable exact acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShiftActionReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "401": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "403": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          },
+          "409": {
+            "description": "Request refused; keep raw input. Only bound initial rolled-back write_rejected proves this live attempt was not committed."
+          }
+        },
+        "description": "One explicit till open or close under the ledger lock. Exact UUID retry checks fresh access then returns immutable receipt before mutable status/activity/revision checks; no repeated writes/audit. Validation/revision proof only describes initial rolled-back attempt, never global absence."
+      }
     }
   },
   "components": {
@@ -2151,6 +2353,478 @@
           "page",
           "pages"
         ]
+      },
+      "CashShiftActionRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "action",
+              "account",
+              "employee",
+              "idempotency_key"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "open"
+                ]
+              },
+              "account": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                ]
+              },
+              "employee": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991,
+                    "nullable": true
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(?:|[1-9][0-9]*)$"
+                  }
+                ]
+              },
+              "idempotency_key": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "action",
+              "id",
+              "counted",
+              "note",
+              "revision",
+              "idempotency_key"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "close"
+                ]
+              },
+              "id": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                ]
+              },
+              "counted": {
+                "type": "string",
+                "pattern": "^[0-9]{1,12}(?:[.,][0-9]{1,2})?$"
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "idempotency_key": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ],
+        "description": "Optional UUID extension; unkeyed legacy /api/erp/shifts behavior remains unchanged. Close revision binds only CashShift stored fields, never live account balance."
+      },
+      "CashShiftActionOriginal": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "action",
+              "account",
+              "employee"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "open"
+                ]
+              },
+              "account": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "employee": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991,
+                "nullable": true
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "action",
+              "id",
+              "counted",
+              "note",
+              "revision"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "close"
+                ]
+              },
+              "id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "counted": {
+                "type": "string",
+                "pattern": "^[0-9]{1,12}\\.[0-9]{2}$"
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              }
+            }
+          }
+        ]
+      },
+      "CashShiftActionReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "action",
+          "request_key",
+          "original"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "cash_shift"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "open",
+              "close"
+            ]
+          },
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "original": {
+            "$ref": "#/components/schemas/CashShiftActionOriginal"
+          }
+        }
+      },
+      "CashShiftRecoveryContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "action",
+          "id",
+          "account",
+          "store",
+          "role",
+          "storeId",
+          "networkOwner",
+          "canWrite"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "cash_shift"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "open",
+              "close"
+            ]
+          },
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "nullable": true
+          },
+          "account": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "nullable": true
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "manager",
+              "cashier"
+            ]
+          },
+          "storeId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "nullable": true
+          },
+          "networkOwner": {
+            "type": "boolean"
+          },
+          "canWrite": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CashShiftCurrent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store",
+          "account",
+          "employee",
+          "openedBy",
+          "openedAt",
+          "closedAt",
+          "openingCash",
+          "expectedCash",
+          "countedCash",
+          "note",
+          "revision",
+          "editing"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "store": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "account": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "employee": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "nullable": true
+          },
+          "openedBy": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "openingCash": {
+            "type": "string",
+            "pattern": "^-?[0-9]{1,16}\\.[0-9]{2}$"
+          },
+          "expectedCash": {
+            "type": "string",
+            "pattern": "^-?[0-9]{1,16}\\.[0-9]{2}$",
+            "nullable": true
+          },
+          "countedCash": {
+            "type": "string",
+            "pattern": "^-?[0-9]{1,16}\\.[0-9]{2}$",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "editing": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "storeId",
+              "networkOwner",
+              "canWrite"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "manager",
+                  "cashier"
+                ]
+              },
+              "storeId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991,
+                "nullable": true
+              },
+              "networkOwner": {
+                "type": "boolean"
+              },
+              "canWrite": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "CashShiftActionIdentity": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confirmed",
+              "id",
+              "type",
+              "action",
+              "request_key",
+              "original"
+            ],
+            "properties": {
+              "confirmed": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "cash_shift"
+                ]
+              },
+              "action": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "close"
+                ]
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "original": {
+                "$ref": "#/components/schemas/CashShiftActionOriginal"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confirmed",
+              "type",
+              "action",
+              "request_key"
+            ],
+            "properties": {
+              "confirmed": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "cash_shift"
+                ]
+              },
+              "action": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "close"
+                ]
+              },
+              "request_key": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ],
+        "description": "Positive identity binds creator and full normalized frozen request. Missing receipt=false does not authorize clearing an unknown intent; current state/revision is a separate read."
       }
     }
   }

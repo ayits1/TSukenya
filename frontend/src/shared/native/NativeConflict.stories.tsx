@@ -280,3 +280,29 @@ export const EntityCreateOriginalReceipt: Story = {
     await expect(args.onApply).toHaveBeenCalledWith({ ...args.mine, active: false });
   },
 };
+
+export const CashClosingTerms: Story = {
+  args: {
+    title: 'Перевірте закриття касової зміни',
+    base: { counted: '', note: 'Початкова примітка' },
+    mine: { counted: '1234.56', note: 'Моя перевірка готівки' },
+    server: { counted: '', note: 'Примітка іншого керівника' },
+    fields: [
+      {
+        id: 'closing',
+        label: 'Порахована готівка та примітка',
+        keys: ['counted', 'note'],
+        decimals: ['counted'],
+      },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement),
+      apply = canvas.getByRole('button', { name: 'Застосувати узгоджені зміни' });
+    await expect(apply).toBeDisabled();
+    canvas.getByRole('radio', { name: 'Залишити мої зміни' }).focus();
+    await userEvent.keyboard(' ');
+    await userEvent.click(apply);
+    await expect(args.onApply).toHaveBeenCalledWith(args.mine);
+  },
+};
