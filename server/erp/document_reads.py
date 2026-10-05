@@ -89,7 +89,7 @@ def readable_document(user, pk, *, bounded=False):
     permission(user, v.kind)
     require(user.profile.store_id is None or user.profile.store_id == v.store_id, 'Немає доступу до цього магазину.')
     if v.kind == 'expense' and selected_expense_scope(v.pk) == 'network':
-        require(user.profile.role in SALARY, 'Мережева витрата недоступна цій ролі.')
+        require(user.profile.role in SALARY, 'Мережеві витрати доступні лише власнику або бухгалтеру.')
     return v
 
 

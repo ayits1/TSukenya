@@ -183,3 +183,11 @@ Actual representative callback після цього об’єднання PASS:
 Це окремий post→current→Done→viewer, рівно один POST; інші незмінені
 source proofs повторно використані. Прийняття/CI/розгортання цього пакета
 ще не оголошені.
+
+### Compatibility error-text follow-up
+
+Перший PR124 server CI виявив один failing legacy контракт тексту
+мережевої відмови. Відновлено точне чинне повідомлення expense_permission,
+не послаблюючи privacy assertion. Аffected direct read/retry + HTTP/scalar
+2 тести SQLite PASS0.125s: `/tmp/tsukenya-document-permission-tail.log`.
+Це локальний affected tail, не нова повна регресія чи завершений CI.

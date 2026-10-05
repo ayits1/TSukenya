@@ -501,6 +501,6 @@ regression. Template count/expense enrollment та інші родини B06 з�
 ## Продовження після PR123 · main105e2e3 · 05.10.2026
 
 - PR121 initiative recovery і PR122 voucher action recovery прийняті та опубліковані; exact source/assets/health, backup і незмінність before/after read-only обліку підтверджені.
-- PR123 deferred policy/filter refresh і post-read Reports grants прийнятий: frontend51s, SQLite2m51s, PostgreSQL7m23s PASS. Обидві локальні копії синхронізовані; реліз триває, не оголошено завершеним у цьому записі.
+- PR123 deferred policy/filter refresh і post-read Reports grants прийнятий: frontend51s, SQLite2m51s, PostgreSQL7m23s PASS. Обидві локальні копії синхронізовані, main105e2e3 опубліковано. Exact source/assets/health і import-worker підтверджені; backup читаний, before/after облік однаковий, read-only reconcile без розбіжностей.
 - B24 bounded document viewer інтегровано для PR/CI: один actual React viewer, 8 page sections, fresh actor/read-only RR, exact Decimal display та окремий full B06 recovery GET. Докази й відкриті межі — [B24-DOCUMENT-VIEW.md](B24-DOCUMENT-VIEW.md).
 - B06 order actions і bounded catalogue references/import/export ще в роботі. Повний B06/B24/план не завершений; 0.1 виключений.
