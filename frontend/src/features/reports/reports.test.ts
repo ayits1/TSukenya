@@ -9,7 +9,7 @@ import {
   createReportsApi,
   type SourceQuery,
 } from './api';
-import { ReportsModel } from './state';
+import { ReportsModel, type SourceContext } from './state';
 import { fixturePage, query, options, api, financeApi, abcApi } from './fixtures';
 const deferred = <T>() => {
   let resolve!: (v: T) => void, reject!: (e: unknown) => void;
@@ -102,6 +102,105 @@ describe('Reports strict whole-screen contract', () => {
   });
 });
 describe('Reports state', () => {
+  it('source revalidation rejects newly readable cashier documents and changed owner store', async () => {
+    for (const update of [
+      { role: 'cashier' as const, storeId: 1 },
+      { role: 'owner' as const, storeId: 1 },
+    ]) {
+      let auth = options.bootstrap,
+        context: SourceContext | undefined;
+      const model = new ReportsModel(api, financeApi, abcApi);
+      await model.activate({
+        ...options,
+        directoryApi: { ...options.directoryApi, bootstrap: async () => auth },
+        onSources: (_q, _amount, value) => {
+          context = value;
+        },
+      });
+      await model.sources('revenue', '1.00');
+      expect(context).toBeDefined();
+      auth = { ...auth, ...update };
+      await expect(context!.revalidate()).rejects.toMatchObject({ status: 403 });
+      expect(model.state.denied).toBe(true);
+      expect(model.state.data).toBeNull();
+      model.leave();
+    }
+  });
+  it('payment native callback requires the same fresh Reports identity', async () => {
+    let auth = options.bootstrap,
+      invoked = 0;
+    const model = new ReportsModel(api, financeApi, abcApi);
+    await model.activate({
+      ...options,
+      directoryApi: { ...options.directoryApi, bootstrap: async () => auth },
+      onPayDebt: () => {
+        invoked++;
+      },
+    });
+    auth = { ...auth, role: 'accountant' };
+    await model.payDebt(1);
+    expect(invoked).toBe(0);
+    expect(model.state.denied).toBe(true);
+    expect(model.state.data).toBeNull();
+    model.leave();
+  });
+  it('payment native opening grant rechecks identity after awaited references', async () => {
+    let auth = options.bootstrap,
+      invoked = 0;
+    const pending = deferred<void>(),
+      started = deferred<void>(),
+      model = new ReportsModel(api, financeApi, abcApi);
+    await model.activate({
+      ...options,
+      directoryApi: { ...options.directoryApi, bootstrap: async () => auth },
+      onPayDebt: async (_id, context) => {
+        started.resolve();
+        await pending.promise;
+        await context.revalidate();
+        if (context.isCurrent()) invoked++;
+      },
+    });
+    const action = model.payDebt(1);
+    await started.promise;
+    auth = { ...auth, role: 'accountant' };
+    pending.resolve();
+    await action;
+    expect(invoked).toBe(0);
+    expect(model.state.denied).toBe(true);
+    expect(model.state.data).toBeNull();
+    model.leave();
+  });
+  it('late grant cannot open a native form or leave another mode action-busy', async () => {
+    const pending = deferred<typeof options.bootstrap>(),
+      started = deferred<void>();
+    let defer = false,
+      invoked = 0;
+    const model = new ReportsModel(api, financeApi, abcApi);
+    await model.activate({
+      ...options,
+      directoryApi: {
+        ...options.directoryApi,
+        bootstrap: () => {
+          if (!defer) return Promise.resolve(options.bootstrap);
+          started.resolve();
+          return pending.promise;
+        },
+      },
+    });
+    defer = true;
+    const action = model.action(() => {
+      invoked++;
+    });
+    await started.promise;
+    await model.mode('abc');
+    pending.resolve(options.bootstrap);
+    await action;
+    expect(invoked).toBe(0);
+    expect(model.state.view).toBe('abc');
+    expect(model.state.denied).toBe(false);
+    expect(model.state.actionBusy).toBe(false);
+    model.leave();
+  });
   it('reopens a fresh host with the supplied store for the same actor', async () => {
     const model = new ReportsModel(api, financeApi, abcApi);
     await model.activate(options);

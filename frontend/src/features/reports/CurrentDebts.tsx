@@ -246,9 +246,7 @@ export function CurrentDebts({
                 <Button
                   isDisabled={disabled || !!error}
                   aria-label={'Оплатити борг за документом № ' + r.number}
-                  onPress={(event) =>
-                    void model.action(() => model.options?.onPayDebt(r.id), event.target)
-                  }
+                  onPress={(event) => void model.payDebt(r.id, event.target)}
                 >
                   Оплатити
                 </Button>,

@@ -14,8 +14,11 @@ import {
   type SourceQuery,
   type Sources,
 } from './api';
-export type SourceContext = {
+export type ActionContext = {
+  revalidate: () => Promise<void>;
   isCurrent: () => boolean;
+};
+export type SourceContext = ActionContext & {
   onDenied: (error: unknown) => void;
   decode: (raw: unknown, page: number) => Sources;
 };
@@ -31,7 +34,7 @@ export type Options = {
     context: SourceContext,
     opener?: Element,
   ) => void | Promise<void>;
-  onPayDebt: (id: number) => void | Promise<void>;
+  onPayDebt: (id: number, context: ActionContext) => void | Promise<void>;
   runNativeAction?: (action: () => void | Promise<void>, opener?: Element) => void | Promise<void>;
 };
 const current = (): Context => {
@@ -234,6 +237,7 @@ export class ReportsModel {
       committed: null,
       error: '',
       busy: false,
+      actionBusy: false,
       stale: false,
       epoch: this.state.epoch + 1,
     });
@@ -321,11 +325,17 @@ export class ReportsModel {
       !!this.state.committed
     );
   }
+  private async revalidate(token: number) {
+    if (!this.isCurrent(token) || !this.options) throw new DOMException('Скасовано', 'AbortError');
+    await this.options.directoryApi.bootstrap();
+    if (!this.isCurrent(token)) throw new DOMException('Скасовано', 'AbortError');
+  }
   async action(fn: () => void | Promise<void>, opener?: Element) {
     if (this.state.actionBusy || this.state.denied || !this.active) return;
     const token = this.accessToken();
     this.emit({ actionBusy: true });
     try {
+      await this.revalidate(token);
       if (this.options?.runNativeAction) await this.options.runNativeAction(fn, opener);
       else await fn();
     } catch (error) {
@@ -340,6 +350,17 @@ export class ReportsModel {
       if (this.isCurrent(token)) this.emit({ actionBusy: false });
     }
   }
+  async payDebt(id: number, opener?: Element) {
+    const token = this.accessToken();
+    await this.action(
+      () =>
+        this.options?.onPayDebt(id, {
+          revalidate: () => this.revalidate(token),
+          isCurrent: () => this.isCurrent(token),
+        }),
+      opener,
+    );
+  }
   async sources(metric: SourceQuery['metric'], amount: string, source?: number, opener?: Element) {
     if (!this.ready() || !this.options) return;
     const query: SourceQuery = { ...this.state.committed!, metric, ...(source ? { source } : {}) },
@@ -351,6 +372,7 @@ export class ReportsModel {
           query,
           amount,
           {
+            revalidate: () => this.revalidate(token),
             isCurrent: () => this.isCurrent(token),
             onDenied: (error) => {
               if (this.isCurrent(token)) this.privacy(error);

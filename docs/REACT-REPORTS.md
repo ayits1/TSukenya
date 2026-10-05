@@ -154,3 +154,48 @@ React section зберігає accessible name «Фінансові звіти»
 `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-react-reports-eBYya1`.
 Build/scoped ESLint/syntax PASS. Дев'ять секцій, payment, privacy та серверні
 сценарії не повторювались: зміни стосуються лише заголовка й CSS.
+
+### Повторна перевірка доступу перед native діями
+
+Доступ до окремого документа або дозволений платіж сам по собі не підтверджує
+право залишатися у відкритому Reports workspace. Reports `ActionContext`
+перевіряє свіжий directory bootstrap проти початкових session/actor/role/store
+і локальної generation. Для джерела перевірка відбувається до voucher GET та
+після GET із hydration, безпосередньо перед native DOM. Для оплати — перед
+references GET та після references/hydration/P0 ensure перед відкриттям форми.
+Зміна identity прибирає приватний workspace навіть коли нативний endpoint
+новій ролі відповідає 200. Після зміни режиму прострочений grant не відкриває
+діалог і не залишає новий режим у стані actionBusy.
+
+Optional native guards передаються тільки із Reports. Інші voucher/payment
+callers і серверні права запису не змінювалися. Це перевірка поточного доступу
+під час читання, не push-відкликання вже відкритого екрана між запитами.
+
+- Targeted state3 PASS (`/tmp/tsukenya-reports-grant-unit.log`): cashier role,
+  owner store mismatch, payment identity та cancelled late grant. Після
+  додавання payment opening context повторено лише affected payment2 PASS
+  (`/tmp/tsukenya-reports-payment-grant-unit.log`). Попередні10 unit reused.
+- Actual `grant` PASS (`/tmp/tsukenya-reports-grant.log`): на сервері owner→
+  cashier; прямий sale GET підтвердив 200 без cost, а Reports не виконав
+  native GET/не відкрив діалог і очистив приватні блоки. Окремо owner→
+  accountant: прямий references payment GET200 дозволений, але Reports
+  відмовив до native callback. Artifacts:
+  `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-react-reports-LQwqsi`.
+- Actual `grant-late` PASS (`/tmp/tsukenya-reports-grant-late.log`): owner
+  preflight пройшов, voucher GET затримано; після owner→cashier повернуто
+  справжню redacted sale200 відповідь. Повторна перевірка перед DOM очистила
+  Reports, діалог не з'явився. Artifacts:
+  `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-react-reports-QRqlJo`.
+- Actual `payment-late` PASS (`/tmp/tsukenya-reports-payment-late-allowed.log`):
+  owner preflight пройшов, references GET затримано; owner→accountant, справжній
+  references GET200 містить запитаний документ. Після відповіді/ensure grant
+  прибрав приватні блоки, форма не відкрилася, business writes відсутні.
+  Artifacts:
+  `/var/folders/9_/xkms65w90g57nhx8n9bhp6300000gn/T/tsukenya-react-reports-QQtd2O`.
+  Попередній запуск не дійшов до браузера: sandbox заборонив bind локального
+  сервера (`Errno1`, terminal exit1). Збережено startup failure
+  `/tmp/tsukenya-reports-payment-late.log`, artifact `tsukenya-react-reports-62SgZX`;
+  повторено тільки цей scope з дозволом на локальний сервер.
+- Matching build/scoped ESLint/native syntax PASS. Нові stages входять у
+  default actual harness; існуючий full-runner scrub stage/port збережено.
+  Дев'ять секцій, геометрію, PG oracle та повний набір повторно не запускали.

@@ -4,7 +4,7 @@ const { spawn, execFileSync } = require('node:child_process'), { chromium } = re
 const root = path.resolve(__dirname, '..'), data = fs.mkdtempSync(path.join(os.tmpdir(), 'tsukenya-react-reports-'));
 const python = process.env.PYTHON_BIN || 'python3', port = Number(process.env.QA_REACT_REPORTS_PORT || 18561), base = `http://localhost:${port}`;
 const stage = process.env.QA_REACT_REPORTS_STAGE || 'all', password = 'synthetic-reports-qa-password';
-assert(['all', 'sections', 'callbacks', 'payment', 'layout', 'privacy', 'detail', 'tail', 'heading'].includes(stage));
+assert(['all', 'sections', 'callbacks', 'payment', 'layout', 'privacy', 'detail', 'tail', 'heading', 'grant', 'grant-late', 'payment-late'].includes(stage));
 const env = { ...process.env };
 for (const key of Object.keys(env)) if (key.startsWith('DB_') || key.startsWith('PG') || ['DATABASE_URL', 'POSTGRES_URL', 'TSUKENYA_REQUIRE_POSTGRES', 'DATA_DIR', 'ERP_DB_PATH'].includes(key)) delete env[key];
 Object.assign(env, { PORT: String(port), HOST: '127.0.0.1', DATA_DIR: data, ERP_DB_PATH: path.join(data, 'qa.sqlite3'), DJANGO_SECRET_KEY: 'synthetic-reports-native-tests-fifty-characters-private-fixture', OWNER_USERNAME: 'tester' });
@@ -100,6 +100,60 @@ VoucherLine.objects.filter(product_id='products/w1').update(name='<img src=x one
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     }
     pass('1440/320 actual table, actions, details, payment and source bounds');
+  }
+  if (['all', 'grant'].includes(stage)) {
+    await page.setViewportSize({width:1440,height:1000}); await mode('period');
+    await workspace.locator('.trade-report-source-actions summary').press('Enter');
+    await workspace.locator('[data-report-source][data-metric=revenue]').press('Enter');
+    const sources=page.locator('[data-report-sources]'), document=sources.locator('[data-source-voucher]').first(); await document.waitFor();
+    const id=await document.getAttribute('data-source-voucher');
+    pythonRun(`from server.erp.models import Profile,Voucher;v=Voucher.objects.get(pk=${Number(id)});Profile.objects.filter(user__username='tester').update(role='cashier',store=v.store)`);
+    const readable=await page.context().request.get(base+'/api/erp/vouchers/'+id); assert.equal(readable.status(),200);
+    const sale=await readable.json(); assert.equal(sale.kind,'sale');assert.equal(Object.hasOwn(sale,'cost'),false);
+    const before=requests.filter(r=>new URL(r.url).pathname==='/api/erp/vouchers/'+id).length;
+    await document.press('Enter');await workspace.getByRole('alert').waitFor();
+    assert.equal(await workspace.locator('[data-report-summary],[data-report-current-debts],[data-report-export]').count(),0);assert.equal(await page.locator('dialog[open]').count(),0);
+    assert.equal(requests.filter(r=>new URL(r.url).pathname==='/api/erp/vouchers/'+id).length,before);
+    pass('source revalidates Reports grant: readable cashier SALE200/redacted, no native fetch/modal, private report cleared');
+    pythonRun("from server.erp.models import Profile;Profile.objects.filter(user__username='tester').update(role='owner',store=None)");
+    await page.goto('about:blank');await page.goto(base+'/#trade/reports');await ready();
+    const debt=workspace.locator('[data-report-current-debts]').getByRole('button',{name:/Оплатити борг за документом/}).first();await debt.waitFor();
+    const debtId=Number((await debt.getAttribute('aria-label')).match(/(\d+)$/)[1]);
+    pythonRun("from server.erp.models import Profile;Profile.objects.filter(user__username='tester').update(role='accountant')");
+    const permitted=await page.context().request.get(base+'/api/erp/references?purpose=payment&id='+debtId);assert.equal(permitted.status(),200);assert.equal((await permitted.json()).items[0].id,debtId);
+    const refs=requests.filter(r=>new URL(r.url).pathname==='/api/erp/references').length;
+    await debt.press('Enter');await workspace.getByRole('alert').waitFor();
+    assert.equal(await workspace.locator('[data-report-summary],[data-report-current-debts],[data-report-export]').count(),0);assert.equal(await page.locator('dialog[open]').count(),0);
+    assert.equal(requests.filter(r=>new URL(r.url).pathname==='/api/erp/references').length,refs);
+    pass('payment callback rejects changed Reports identity despite allowed accountant references200; no native form or businesswrite');
+    pythonRun("from server.erp.models import Profile;Profile.objects.filter(user__username='tester').update(role='owner',store=None)");
+    if(stage==='all'){await page.goto('about:blank');await page.goto(base+'/#trade/reports');await ready();}
+  }
+  if (['all','grant-late'].includes(stage)) {
+    await mode('period'); await workspace.locator('.trade-report-source-actions summary').press('Enter');
+    await workspace.locator('[data-report-source][data-metric=revenue]').press('Enter');
+    const sources=page.locator('[data-report-sources]'), document=sources.locator('[data-source-voucher]').first();await document.waitFor();
+    const id=await document.getAttribute('data-source-voucher'), url='**/api/erp/vouchers/'+id;let held;
+    await page.route(url,route=>{held=route;});await document.press('Enter');await wait(()=>!!held);
+    pythonRun(`from server.erp.models import Profile,Voucher;v=Voucher.objects.get(pk=${Number(id)});Profile.objects.filter(user__username='tester').update(role='cashier',store=v.store)`);
+    const response=await page.context().request.get(base+'/api/erp/vouchers/'+id);assert.equal(response.status(),200);const sale=await response.json();assert.equal(sale.kind,'sale');assert.equal(Object.hasOwn(sale,'cost'),false);
+    await held.fulfill({status:200,contentType:'application/json',body:JSON.stringify(sale)});await workspace.getByRole('alert').waitFor();
+    assert.equal(await workspace.locator('[data-report-summary],[data-report-current-debts],[data-report-export]').count(),0);assert.equal(await page.locator('dialog[open]').count(),0);
+    await page.unroute(url);pass('post-SALEGET fresh Reports grant: owner preflight, cashier real200/redacted after heldGET, no private native DOM');
+    pythonRun("from server.erp.models import Profile;Profile.objects.filter(user__username='tester').update(role='owner',store=None)");
+    if(stage==='all'){await page.goto('about:blank');await page.goto(base+'/#trade/reports');await ready();}
+  }
+  if (['all','payment-late'].includes(stage)) {
+    const debt=workspace.locator('[data-report-current-debts]').getByRole('button',{name:/Оплатити борг за документом/}).first();await debt.waitFor();
+    const id=Number((await debt.getAttribute('aria-label')).match(/(\d+)$/)[1]), url='**/api/erp/references?purpose=payment&id='+id;let held;
+    await page.route(url,route=>{held=route;});await debt.press('Enter');await wait(()=>!!held);
+    pythonRun("from server.erp.models import Profile;Profile.objects.filter(user__username='tester').update(role='accountant')");
+    const response=await page.context().request.get(base+'/api/erp/references?purpose=payment&id='+id);assert.equal(response.status(),200);const refs=await response.json();assert.equal(refs.items[0].id,id);
+    await held.fulfill({status:200,contentType:'application/json',body:JSON.stringify(refs)});await workspace.getByRole('alert').waitFor();
+    assert.equal(await workspace.locator('[data-report-summary],[data-report-current-debts],[data-report-export]').count(),0);assert.equal(await page.locator('dialog[open]').count(),0);
+    await page.unroute(url);pass('post-references/ensure fresh Reports grant: owner preflight, accountant real references200 after heldGET, no payment modal or businesswrite');
+    pythonRun("from server.erp.models import Profile;Profile.objects.filter(user__username='tester').update(role='owner',store=None)");
+    if(stage==='all'){await page.goto('about:blank');await page.goto(base+'/#trade/reports');await ready();}
   }
   if (['all', 'tail', 'detail'].includes(stage)) {
     await mode('period'); await workspace.locator('.trade-report-source-actions summary').press('Enter');
