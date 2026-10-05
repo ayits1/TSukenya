@@ -63,10 +63,13 @@ whitelist codec v1. Немає credentials, CSRF, facts або дозволів 
 Синхронне on-input capture; frozen intent durable **перед fetch**, quota failclosed.
 Після останнього awaited session перевіряються signal/generation/route/visibility.
 Unknown CREATE/UPDATE зберігає той самий intent після reload і later4xx;
-exact Retry typebutton доступний попри новіші invalid поля. Лише bound rollback400
-першої live CREATE може звільнити rejected intent. Будь-який lifetime suspend назавжди скасовує цю локальну first-live authority для вже виданого intent; наступна400 не звільняє його. Catch охоплює atomic save;
-post-commit serializer failure такого proof не отримує. PATCH не вигадує no-write
-receipt або автоматичного повтору.
+exact Retry typebutton доступний попри новіші invalid поля. Лише bound rollback400 першої live CREATE/PATCH або revision_conflict409 першої
+live PATCH може звільнити matching rejected intent. Proof зв’язує task UUID,
+request_key, action і code; collision/permission та post-commit response failures
+його не мають. Після definite PATCH rejection current/read/Apply є явним бар’єром
+перед новим UUID/окремим Save. Будь-який lifetime suspend назавжди скасовує цю локальну first-live authority для вже виданого intent; наступна400 не звільняє його. Catch охоплює atomic save;
+post-commit serializer failure такого proof не отримує. Це rollback proof конкретної першої спроби, не доведення загальної відсутності UUID
+і не автоматичний retry.
 
 ACK/positive identity strict-bound до key/context/normalized terms і durable **до**
 незалежного current GET. Current503 не відновлює CREATE і не приймає ACK revision як
@@ -95,14 +98,14 @@ committed page/filter; raw search, активний control або native editor
 
 Без full/production/Sheet/VPS. PostgreSQL disposable DB `tsukenya_contact_tasks`;
 `/tmp/tsukenya-review-venv/bin/python manage.py test tests.test_contact_tasks... --noinput`.
-Десять distinct targeted methods пройшли інкрементально: receipts/revisions/audit,
+Одинадцять distinct targeted methods пройшли інкрементально: receipts/revisions/audit,
 role/store/read-only/cashier, paging65/query errors, direct/bulk/rollback/privacy,
 parallel revision winner, stale/deactivated actor before private read, caption+
 migration reverse/reinstall, actual LedgerLock role-revocation wait, reclassified
 contact history/replay/new-create refusal та відмову іншому allowed owner в creator receipt replay. Migration reverse/reinstall також SQLite.
 Це не твердження, що повний server набір повторено.
 
-Unit adapter7 і machine4 пройшли цільовими групами; strict raw/ACK/identity/summary/
+Unit adapter12 і machine16 пройшли цільовими групами; strict raw/ACK/identity/summary/
 context/quota/late callback/removal. Shared comparison Story2: keyboard Apply та
 Cancel. Тимчасовий symlink QA Story config з fs.allow лише для installed dependencies
 не входить у source delivery. Types, changed lint, production build/schema — цільові.
@@ -110,7 +113,7 @@ Cancel. Тимчасовий symlink QA Story config з fs.allow лише для
 Actual `tests/contact-tasks-ui.cjs`: isolated SQLite18291, bundled headless Chromium.
 Повний primary не повторено: `primary-partial.json` підтверджує cold invalid Restore;
 `remaining-partial.json` — quota, last-await Close, card/queue65 і geometry.
-Термінальні stages `create`, `unknown`, `workflow`, `policy`, `freshness` зберігають
+Термінальні stages `create`, `unknown`, `workflow`, `policy`, `freshness`, `review` зберігають
 власні JSON reports, не називаються broad/full PASS.
 
 ```sh
@@ -120,9 +123,36 @@ env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin \
 ```
 
 Локальні синтетичні артефакти: `/tmp/tsukenya-contact-tasks-proof/`:
-create-report/unknown-report/workflow-report/policy-report/freshness-report.json;
+create-report/unknown-report/workflow-report/policy-report/freshness-report/review-report.json;
 contact-queue-current-1440.png і contact-queue-current-320.png. Partial JSON лишено
 для чесного reuse prefix; failure artifacts не є успішним proof.
+
+## Закриті findings незалежного review
+
+- Unresolved CREATE/PATCH не можна стерти через current/Compare/Apply або complete:
+  UI/model/codec guards; only positive creator ACK/identity чи допустимий first-live
+  rollback proof звільняють intent. Unknown after reload/lifetime/later400409 збережено.
+- Apply має **один** atomic storage write baseline+merged raw; quota не змінює ні
+  durable baseline/raw, ні in-memory payload. Title/note незалежні, workflow
+  status+archive+assignee+due_on — одна atomic unit.
+- Request status401403 опрацьовується перед JSON decode. Canceled response перевіряє
+  AbortSignal перед авторизаційним side effect; Save final-session errors також
+  проходять P0 denial. Identity перевіряє decodeDraftSession/sameSession проти
+  authoritative P0 callback actor до identity POST; mismatch приховує форму і
+  перечитує session, без baseline adoption.
+- Ordinary open того самого UUID після fresh session не перезаписує plain raw,
+  frozen intent або unreadable record. Generic public Restore/Discard gate; input і
+  Save заблоковані до явного вибору. Close до initial await не записує opening payload.
+- Enum decoder не перетворює масиви на дозволені рядки; assignee page SELECT містить тільки id/
+  username (окремий fresh actor auth lookup зберігається).
+
+Цільовий `review` native stage (один isolated сценарій) підтвердив invalid plain raw
+reopen/Restore0writes, first PATCH409→current→keyboard comparison→Apply0writes→new
+UUID Save, unknownPATCH/later409/noApply до positiveidentity, nonJSONcurrent403 і
+nonJSONfinalsession401 з beforeunload private-clear. Додатковий PG method перевірив
+rollback/no receipt, collision/no proof, scalar assignee projection та serializer
+failure **після committed write** без rollback signal. Змінена workflow Story Atomic
+перевірена окремо; unchanged Cancel Story повторно не запускалась.
 
 ## Відкриті межі
 

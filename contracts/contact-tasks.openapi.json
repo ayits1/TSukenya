@@ -114,6 +114,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bound atomic rollback proof when valid UUID/key present; collision/auth/serializer failures never have this proof.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejection"
+                }
+              }
+            }
           }
         },
         "parameters": [],
@@ -163,6 +173,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bound atomic rollback proof when valid UUID/key present; collision/auth/serializer failures never have this proof.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejection"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Bound atomic rollback proof when valid UUID/key present; collision/auth/serializer failures never have this proof.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejection"
                 }
               }
             }
@@ -968,6 +998,48 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
+          }
+        }
+      },
+      "Rejection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error",
+          "resource",
+          "write_rejected",
+          "request_key",
+          "action",
+          "id",
+          "code"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "resource": {
+            "const": "contact_task",
+            "type": "string"
+          },
+          "write_rejected": {
+            "const": true,
+            "type": "boolean"
+          },
+          "request_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["create", "update"]
+          },
+          "code": {
+            "type": "string",
+            "enum": ["validation_error", "revision_conflict"]
           }
         }
       }

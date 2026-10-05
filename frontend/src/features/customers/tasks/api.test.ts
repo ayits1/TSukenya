@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DraftStore, type Payload } from '../../../shared/recovery/storage';
 import * as api from './api';
 const id = '11111111-1111-4111-8111-111111111111',
@@ -211,9 +211,110 @@ describe('contact task bounded durable contract', () => {
       resource: 'contact_task',
       request_key: key,
       action: 'create',
+      id,
+      code: 'validation_error',
       error: 'Validation',
     };
     expect(api.confirm(frozen, event('rejected', proof))?.firstIntent).toBeNull();
     expect(() => api.confirm(frozen, event('rejected', { ...proof, request_key: id }))).toThrow();
+  });
+  it('unresolved UPDATE cannot adopt a current baseline or complete without positive operation identity', () => {
+    const unresolved: Payload = {
+      ...frozen,
+      baseline: api.json({ ...api.state(initial.baseline), confirmed: true, revision: 1 }),
+      firstIntent: {
+        ...frozen.firstIntent!,
+        method: 'PATCH',
+        path: '/api/v1/crm/contact-tasks/' + id,
+        revision: 1,
+        body: { request_key: key, revision: 1, terms: api.json(api.capture(base)) },
+      },
+    };
+    const before = JSON.stringify(unresolved);
+    for (const type of ['apply', 'complete'])
+      expect(() => api.confirm(unresolved, event(type, current))).toThrow();
+    expect(JSON.stringify(unresolved)).toBe(before);
+  });
+  it.each([401, 403])(
+    'nonJSON current HTTP%s is an authorization error before strict JSON decoding; canceled response stays canceled',
+    async (status) => {
+      vi.stubGlobal('fetch', async () => new Response('<html>private error</html>', { status }));
+      await expect(api.request('/current')).rejects.toMatchObject({ status });
+      const canceled = new AbortController();
+      canceled.abort();
+      await expect(api.request('/current', {}, canceled.signal)).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      vi.unstubAllGlobals();
+    },
+  );
+  it('bound first revision rejection clears only the matching attempt and requires explicit current comparison', () => {
+    const update: Payload = {
+      ...frozen,
+      baseline: api.json({ ...api.state(initial.baseline), confirmed: true, revision: 1 }),
+      firstIntent: {
+        ...frozen.firstIntent!,
+        method: 'PATCH',
+        path: '/api/v1/crm/contact-tasks/' + id,
+        revision: 1,
+        body: { request_key: key, revision: 1, terms: api.json(api.capture(base)) },
+      },
+    };
+    const proof = {
+      error: 'Stale',
+      resource: 'contact_task',
+      write_rejected: true,
+      id,
+      request_key: key,
+      action: 'update',
+      code: 'revision_conflict',
+    };
+    const next = api.confirm(update, event('rejected', proof))!;
+    expect(next.firstIntent).toBeNull();
+    expect(api.state(next.baseline).needsReview).toBe(true);
+    expect(api.state(next.baseline).revision).toBe(1);
+    for (const wrong of [
+      { ...proof, id: key },
+      { ...proof, action: 'create' },
+      { ...proof, code: 'idempotency_conflict' },
+    ])
+      expect(() => api.confirm(update, event('rejected', wrong))).toThrow();
+  });
+  it('strict enum fields reject arrays rather than coercing them to allowed strings', () => {
+    const update: Payload = {
+      ...frozen,
+      baseline: api.json({ ...api.state(initial.baseline), confirmed: true, revision: 1 }),
+      firstIntent: {
+        ...frozen.firstIntent!,
+        method: 'PATCH',
+        path: '/api/v1/crm/contact-tasks/' + id,
+        revision: 1,
+        body: { request_key: key, revision: 1, terms: api.json(api.capture(base)) },
+      },
+    };
+    expect(() =>
+      api.payload({ ...update, firstIntent: { ...update.firstIntent, method: ['PATCH'] } }),
+    ).toThrow();
+    expect(() =>
+      api.payload({ ...update, firstIntent: null, confirmation: { id, action: ['apply'] } }),
+    ).toThrow();
+    const h = {
+      resource: 'contact_task_history',
+      id,
+      total: 1,
+      page: 1,
+      pages: 1,
+      items: [
+        {
+          request_key: key,
+          actor: 'Owner',
+          action: ['create'],
+          at: '2026-10-05T10:00:00Z',
+          revision: 1,
+          terms: api.capture(base),
+        },
+      ],
+    };
+    expect(() => api.history(h, id)).toThrow();
   });
 });

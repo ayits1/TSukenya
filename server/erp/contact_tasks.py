@@ -198,21 +198,30 @@ def assignees(actor,params):
         if search:query=query.filter(username__icontains=search)
         if params.get('id'):query=query.filter(pk=integer(params['id']))
         total=query.count();page,pages,offset=page_bounds(total,page_number(params))
-        return {'store':store,'items':[{'id':u.pk,'name':u.username} for u in query.order_by('username','pk')[offset:offset+PAGE_SIZE]],'total':total,'page':page,'pages':pages}
+        return {'store':store,'items':[{'id':u['id'],'name':u['username']} for u in query.order_by('username','pk').values('id','username')[offset:offset+PAGE_SIZE]],'total':total,'page':page,'pages':pages}
+
+def execute_response(actor,value,identifier=None):
+    from .views import response
+    action='create' if identifier is None else 'update'
+    try:result=save(actor,value,identifier)
+    except BusinessError as e:
+        if isinstance(e,TaskDenied) or isinstance(e,Conflict) and e.code!='revision_conflict':raise
+        code='revision_conflict' if isinstance(e,Conflict) else 'validation_error'
+        status=409 if isinstance(e,Conflict) else 400
+        try:
+            key=uid(value.get('request_key')) if isinstance(value,dict) else uid(None)
+            target=uid(identifier if identifier is not None else value.get('id'))
+        except BusinessError:return response({'error':str(e),'code':code},status)
+        # Only atomic save rollback; serialization after commit is outside this catch.
+        return response({'error':str(e),'write_rejected':True,'resource':'contact_task','request_key':str(key),'action':action,'id':str(target),'code':code},status)
+    return response(result)
 
 def _handle(request,actor):
     from .views import response,body
     path=request.path
     if path=='/api/v1/crm/contact-tasks':
         if request.method=='GET':return response(list_tasks(actor,request.GET))
-        if request.method=='POST':
-            value=body(request)
-            try:result=save(actor,value)
-            except BusinessError as e:
-                if isinstance(e,(Conflict,TaskDenied)):raise
-                # Bound rollback proof only; never wrap serialization after committed save.
-                return response({'error':str(e),'write_rejected':True,'resource':'contact_task','request_key':value.get('request_key') if isinstance(value,dict) else None,'action':'create'},400)
-            return response(result)
+        if request.method=='POST':return execute_response(actor,body(request))
     if path=='/api/v1/crm/contact-tasks/identity' and request.method=='POST':return response(identity(actor,body(request)))
     if path=='/api/v1/crm/contact-task-context' and request.method=='GET':return response(context(actor,request.GET))
     if path=='/api/v1/crm/contact-task-assignees' and request.method=='GET':return response(assignees(actor,request.GET))
@@ -220,7 +229,7 @@ def _handle(request,actor):
     if match:
         identifier=match[1]
         if request.method=='GET':return response(history(actor,identifier,request.GET) if match[2] else current(actor,identifier))
-        if request.method=='PATCH' and not match[2]:return response(save(actor,body(request),identifier))
+        if request.method=='PATCH' and not match[2]:return execute_response(actor,body(request),identifier)
     return response({'error':'Метод недоступний.','code':'method_not_allowed'},405)
 
 def handle(request,actor):

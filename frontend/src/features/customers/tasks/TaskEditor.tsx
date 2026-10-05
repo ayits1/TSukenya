@@ -11,9 +11,11 @@ import './tasks.css';
 export const taskFields = [
   { id: 'title', label: 'Назва', keys: ['title'] },
   { id: 'note', label: 'Примітка', keys: ['note'] },
-  { id: 'due_on', label: 'Запланована дата', keys: ['due_on'] },
-  { id: 'assignee', label: 'Виконавець', keys: ['assignee'] },
-  { id: 'state', label: 'Стан та архів', keys: ['status', 'archived'] },
+  {
+    id: 'workflow',
+    label: 'Стан, архів, виконавець і строк',
+    keys: ['status', 'archived', 'assignee', 'due_on'],
+  },
 ];
 export function TaskEditor({
   machine,
@@ -67,7 +69,13 @@ export function TaskEditor({
       {!v.visible ? (
         <>
           <p role="status">Поля приховані до перевірки чинного доступу.</p>
-          <Button onPress={() => void machine.verify()}>Перевірити доступ</Button>
+          {v.existing ? (
+            <Button onPress={() => void machine.restoreExisting()}>
+              Відновити наявну чернетку задачі
+            </Button>
+          ) : (
+            <Button onPress={() => void machine.verify()}>Перевірити доступ</Button>
+          )}
         </>
       ) : (
         <>
@@ -149,9 +157,11 @@ export function TaskEditor({
                 Перечитати поточну задачу
               </Button>
             ) : null}
-            {v.current ? <Button onPress={() => machine.compare()}>Порівняти зміни</Button> : null}
+            {v.current && !v.payload.firstIntent ? (
+              <Button onPress={() => machine.compare()}>Порівняти зміни</Button>
+            ) : null}
           </div>
-          {v.comparison && v.current ? (
+          {v.comparison && v.current && !v.payload.firstIntent ? (
             <NativeConflict
               fields={taskFields}
               base={s.base}

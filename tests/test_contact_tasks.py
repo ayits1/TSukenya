@@ -169,3 +169,29 @@ class ContactTasksTests(TransactionTestCase):
         with self.assertRaises(Conflict):api.identity(other,{'action':'create','id':body['id'],'request':body})
         self.assertEqual(ContactTaskOperation.objects.count(),1)
         self.assertEqual(AuditEvent.objects.filter(action='contact_task_create').count(),1)
+
+    def test_bound_first_rejections_only_after_rollback_and_scalar_assignees(self):
+        from unittest.mock import patch
+        body=self.request();invalid={**body,'terms':{**body['terms'],'title':''}}
+        rejection=self.write(invalid)
+        self.assertEqual(rejection.status_code,400)
+        self.assertEqual({k:rejection.json()[k] for k in ('id','request_key','action','code','write_rejected')},{'id':body['id'],'request_key':body['request_key'],'action':'create','code':'validation_error','write_rejected':True})
+        self.assertEqual(ContactTaskOperation.objects.count(),0)
+        malformed=self.write({**invalid,'request_key':[]});self.assertEqual(malformed.status_code,400);self.assertNotIn('write_rejected',malformed.json())
+        self.write(body)
+        newer={'request_key':str(uuid.uuid4()),'revision':1,'terms':{**body['terms'],'title':'External'}}
+        api.save(self.u,newer,body['id'])
+        stale={'request_key':str(uuid.uuid4()),'revision':1,'terms':{**body['terms'],'title':'Mine'}}
+        rejection=self.write(stale,body['id']);self.assertEqual(rejection.status_code,409)
+        self.assertEqual(rejection.json()['code'],'revision_conflict');self.assertTrue(rejection.json()['write_rejected']);self.assertEqual(rejection.json()['id'],body['id'])
+        self.assertFalse(ContactTaskOperation.objects.filter(key=stale['request_key']).exists())
+        collision=self.write({**body,'terms':{**body['terms'],'note':'Collision'}})
+        self.assertEqual(collision.status_code,409);self.assertNotIn('write_rejected',collision.json())
+        with CaptureQueriesContext(connection) as queries:api.assignees(self.u,{'store':str(self.store.pk)})
+        selected=' '.join(q['sql'] for q in queries if 'LIMIT 30' in q['sql'])
+        self.assertIn('AS "username"',selected)
+        self.assertNotIn('"auth_user"."password"',selected);self.assertNotIn('"auth_user"."email"',selected)
+        committed=self.request()
+        with patch('server.erp.views.response',side_effect=RuntimeError('Serialization after commit')):
+            with self.assertRaises(RuntimeError):api.execute_response(self.u,committed)
+        self.assertTrue(ContactTaskOperation.objects.filter(key=committed['request_key']).exists())

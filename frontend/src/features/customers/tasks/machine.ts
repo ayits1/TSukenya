@@ -9,6 +9,7 @@ import * as api from './api';
 export type View = {
   payload: Payload;
   visible: boolean;
+  existing: boolean;
   busy: boolean;
   error: string;
   current: api.TaskRead | null;
@@ -117,6 +118,7 @@ export class TaskMachine {
     this.view = {
       payload: api.payload(p),
       visible: true,
+      existing: false,
       busy: false,
       error: '',
       current: null,
@@ -152,6 +154,7 @@ export class TaskMachine {
     this.set({ payload: p });
   }
   raw(next: api.Raw) {
+    if (this.view.existing || this.disposed) return;
     this.set({
       payload: { ...this.view.payload, draft: api.json(next) },
       current: null,
@@ -165,9 +168,25 @@ export class TaskMachine {
     }
   }
   async prepare() {
+    if (this.disposed) return;
     this.set({ visible: false });
     try {
       await this.recovery().controller.check(false);
+      if (this.disposed) return;
+      const id = api.state(this.view.payload.baseline).recordId;
+      if (
+        this.recovery()
+          .store.entries()
+          .some((entry) => entry.id === id)
+      ) {
+        this.set({
+          existing: true,
+          visible: false,
+          error:
+            'Для цієї задачі є локальна чернетка. Відновіть або явно відкиньте її; поточний запис її не замінює.',
+        });
+        return;
+      }
       this.persist(this.view.payload);
       await this.verify();
     } catch (e) {
@@ -192,7 +211,16 @@ export class TaskMachine {
     this.listeners.clear();
     if (active === this) active = null;
   }
+  async restoreExisting() {
+    if (!this.view.existing || this.disposed) return;
+    try {
+      await this.recovery().controller.restore(api.state(this.view.payload.baseline).recordId);
+    } catch (error) {
+      if (!this.disposed) this.set({ error: String(error) });
+    }
+  }
   async verify() {
+    if (this.view.existing) return false;
     if (this.verifying || this.disposed) return false;
     this.verifying = true;
     try {
@@ -212,17 +240,19 @@ export class TaskMachine {
       this.verifying = false;
     }
   }
-  private confirm(type: string, raw: unknown) {
+  private confirm(type: string, raw: unknown, draft = this.view.payload.draft) {
     const s = api.state(this.view.payload.baseline);
-    const event = { type, raw, draft: this.view.payload.draft };
+    const event = { type, raw, draft };
     const next = api.confirm(this.view.payload, event);
     this.recovery().store.confirmed(s.recordId, event);
     if (next) this.set({ payload: next, current: null, comparison: false });
     return next;
   }
   async current() {
+    if (this.disposed) return;
     const s = api.state(this.view.payload.baseline);
     if (!s.confirmed) return;
+    this.suspend();
     this.verifying = true;
     this.set({ busy: true, error: '' });
     try {
@@ -242,49 +272,64 @@ export class TaskMachine {
     }
   }
   compare() {
-    if (this.view.current) this.set({ comparison: true });
+    if (this.view.current && !this.view.payload.firstIntent) this.set({ comparison: true });
   }
   cancelCompare() {
     this.set({ comparison: false });
   }
   apply(raw: api.Raw) {
-    if (!this.view.current) return;
-    const current = this.view.current;
-    this.confirm('apply', current);
-    this.persist({ ...this.view.payload, draft: api.json(raw) });
-    this.set({
-      comparison: false,
-      current: null,
-      error: 'Порівняння застосовано локально. Натисніть «Зберегти» окремо.',
-    });
+    if (!this.view.current || this.view.payload.firstIntent) return;
+    try {
+      this.confirm('apply', this.view.current, api.json(raw));
+      this.set({
+        comparison: false,
+        current: null,
+        error: 'Порівняння застосовано локально. Натисніть «Зберегти» окремо.',
+      });
+    } catch (error) {
+      this.set({ error: String(error) });
+    }
   }
   async identity() {
+    if (this.disposed) return;
     const p = this.view.payload,
       f = p.firstIntent;
     if (!f) return;
     const s = api.state(p.baseline);
+    this.suspend();
     this.verifying = true;
     this.set({ busy: true, error: '' });
     try {
-      const found = await this.recovery().controller.verifyRead(s.recordId, async (signal) => {
-        const session = api.obj(await api.request('/api/v1/session', {}, signal));
-        if (signal.aborted) throw new DOMException('Скасовано', 'AbortError');
-        const raw = await api.request(
-          '/api/v1/crm/contact-tasks/identity',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': api.text(session.csrf) },
-            body: JSON.stringify({
-              id: s.id,
-              action: f.method === 'POST' ? 'create' : 'update',
-              request: f.body,
-            }),
-          },
-          signal,
-        );
-        api.ack(raw, p, true);
-        return raw;
-      });
+      const found = await this.recovery().controller.verifyRead(
+        s.recordId,
+        async (signal, actor) => {
+          const session = api.obj(await api.request('/api/v1/session', {}, signal));
+          if (signal.aborted) throw new DOMException('Скасовано', 'AbortError');
+          if (!sameSession(actor, decodeDraftSession(session))) {
+            this.suspend();
+            await this.recovery().controller.check(false);
+            throw new DOMException('Сеанс змінився', 'AbortError');
+          }
+          const raw = await api.request(
+            '/api/v1/crm/contact-tasks/identity',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': api.text(session.csrf),
+              },
+              body: JSON.stringify({
+                id: s.id,
+                action: f.method === 'POST' ? 'create' : 'update',
+                request: f.body,
+              }),
+            },
+            signal,
+          );
+          api.ack(raw, p, true);
+          return raw;
+        },
+      );
       if (found && !this.disposed) {
         this.set({ visible: true });
         this.confirm('identity', found.value);
@@ -371,14 +416,18 @@ export class TaskMachine {
         body: JSON.stringify(f.body),
       });
       if (!live()) return;
+      if (response.status === 401 || response.status === 403) {
+        await this.denied(response.status);
+        throw Error('Доступ до задачі відкликано.');
+      }
       const raw: unknown = await response.json();
       if (!live()) return;
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          await this.denied(response.status);
-          throw Error('Доступ до задачі відкликано.');
-        }
-        if (this.firstLive && response.status === 400) {
+        if (
+          this.firstLive &&
+          ((response.status === 400 && api.obj(raw).code === 'validation_error') ||
+            (response.status === 409 && api.obj(raw).code === 'revision_conflict'))
+        ) {
           try {
             this.confirm('rejected', raw);
             this.firstLive = false;
@@ -399,12 +448,25 @@ export class TaskMachine {
       await this.current();
     } catch (e) {
       this.firstLive = false;
+      if (
+        !this.disposed &&
+        this.request &&
+        !this.request.signal.aborted &&
+        this.view.visible &&
+        document.visibilityState !== 'hidden' &&
+        e &&
+        typeof e === 'object' &&
+        'status' in e &&
+        (e.status === 401 || e.status === 403)
+      )
+        await this.denied(e.status);
       this.set({ error: String(e) });
     } finally {
       this.set({ busy: false });
     }
   }
   async discard() {
+    if (this.disposed) return false;
     this.suspend();
     try {
       await this.recovery().controller.discard(api.state(this.view.payload.baseline).recordId);

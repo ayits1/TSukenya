@@ -231,7 +231,8 @@ export function history(v: unknown, id: string): components['schemas']['History'
       const h = obj(v);
       exact(h, ['request_key', 'actor', 'action', 'at', 'revision', 'terms']);
       if (
-        !['create', 'update'].includes(String(h.action)) ||
+        typeof h.action !== 'string' ||
+        !['create', 'update'].includes(h.action) ||
         !Number.isFinite(Date.parse(text(h.at)))
       )
         fail();
@@ -281,7 +282,8 @@ export function payload(v: unknown): Payload {
     const b = obj(f.body),
       creating = f.method === 'POST';
     if (
-      !['POST', 'PATCH'].includes(String(f.method)) ||
+      typeof f.method !== 'string' ||
+      !['POST', 'PATCH'].includes(f.method) ||
       f.possiblySent !== true ||
       f.key !== uuid(b.request_key)
     )
@@ -322,7 +324,12 @@ export function payload(v: unknown): Payload {
   if (x.confirmation !== null) {
     const c = obj(x.confirmation);
     exact(c, ['id', 'action']);
-    if (c.id !== s.id || !['create', 'update', 'apply'].includes(String(c.action)) || !s.confirmed)
+    if (
+      c.id !== s.id ||
+      typeof c.action !== 'string' ||
+      !['create', 'update', 'apply'].includes(c.action) ||
+      !s.confirmed
+    )
       fail();
   }
   return {
@@ -387,6 +394,7 @@ export function confirm(v: unknown, event: unknown): Payload | null {
     p.firstIntent = null;
     p.confirmation = { id: s.id, action };
   } else if (e.type === 'apply') {
+    if (p.firstIntent) fail();
     const r = read(e.raw, s.id);
     if (
       !r.permissions.canEdit ||
@@ -402,17 +410,22 @@ export function confirm(v: unknown, event: unknown): Payload | null {
     p.confirmation = { id: s.id, action: 'apply' };
   } else if (e.type === 'rejected') {
     const r = obj(e.raw);
-    exact(r, ['error', 'write_rejected', 'resource', 'request_key', 'action']);
+    exact(r, ['error', 'write_rejected', 'resource', 'request_key', 'action', 'id', 'code']);
+    text(r.error);
     if (
       !p.firstIntent ||
       r.write_rejected !== true ||
       r.resource !== 'contact_task' ||
       r.request_key !== p.firstIntent.key ||
-      r.action !== 'create'
+      r.id !== s.id ||
+      r.action !== (p.firstIntent.method === 'POST' ? 'create' : 'update') ||
+      !(r.code === 'validation_error' || (r.action === 'update' && r.code === 'revision_conflict'))
     )
       fail();
     p.firstIntent = null;
+    if (r.action === 'update') s.needsReview = true;
   } else if (e.type === 'complete') {
+    if (p.firstIntent) fail();
     const r = read(e.raw, s.id);
     try {
       if (JSON.stringify(capture(raw(p.draft))) === JSON.stringify(r.record.terms)) return null;
@@ -430,7 +443,21 @@ export async function request(path: string, options: RequestInit = {}, signal?: 
     ...options,
     ...(signal ? { signal } : {}),
   });
-  const value: unknown = await response.json();
+  if (signal?.aborted) throw new DOMException('Скасовано', 'AbortError');
+  if (response.status === 401 || response.status === 403)
+    throw Object.assign(Error('Доступ до задачі відкликано.'), { status: response.status });
+  let value: unknown;
+  try {
+    value = await response.json();
+  } catch (error) {
+    if (!response.ok)
+      throw Object.assign(Error('Не вдалося прочитати задачу.'), {
+        status: response.status,
+        body: null,
+      });
+    throw error;
+  }
+  if (signal?.aborted) throw new DOMException('Скасовано', 'AbortError');
   if (!response.ok)
     throw Object.assign(
       Error(

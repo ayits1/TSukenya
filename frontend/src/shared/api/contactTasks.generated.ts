@@ -65,6 +65,15 @@ export interface paths {
             'application/json': components['schemas']['Acknowledgement'];
           };
         };
+        /** @description Bound atomic rollback proof when valid UUID/key present; collision/auth/serializer failures never have this proof. */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Rejection'];
+          };
+        };
       };
     };
     delete?: never;
@@ -129,6 +138,24 @@ export interface paths {
           };
           content: {
             'application/json': components['schemas']['Acknowledgement'];
+          };
+        };
+        /** @description Bound atomic rollback proof when valid UUID/key present; collision/auth/serializer failures never have this proof. */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Rejection'];
+          };
+        };
+        /** @description Bound atomic rollback proof when valid UUID/key present; collision/auth/serializer failures never have this proof. */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['Rejection'];
           };
         };
       };
@@ -453,6 +480,21 @@ export interface components {
       page: number;
       pages: number;
       store: number;
+    };
+    Rejection: {
+      error: string;
+      /** @constant */
+      resource: 'contact_task';
+      /** @constant */
+      write_rejected: true;
+      /** Format: uuid */
+      request_key: string;
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      action: 'create' | 'update';
+      /** @enum {string} */
+      code: 'validation_error' | 'revision_conflict';
     };
   };
   responses: never;
