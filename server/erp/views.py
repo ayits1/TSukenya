@@ -647,6 +647,13 @@ def handle(request):
     if path.startswith('/api/') and path[5:] in COLLECTIONS and request.method=='POST':
         col=path[5:];id=secrets.token_urlsafe(18).replace('-','_')
         return legacy_mutation(request,user,col+'/'+id,request.headers.get('Idempotency-Key') if col in {'tasks','ideas','expenses'} else None)
+    managed_recovery=re.fullmatch(r'/api/erp/alerts/tasks/((?:auto_|reprint_)[a-f0-9]{32})/(recovery-context|identity)',path)
+    if managed_recovery:
+        from .managed_alert_drafts import recovery_context,identity
+        if managed_recovery[2]=='recovery-context' and request.method=='GET':
+            return response(recovery_context(user,managed_recovery[1],request.GET))
+        require(managed_recovery[2]=='identity' and request.method=='POST' and not request.GET,'Метод або параметри не підтримуються.')
+        return response(identity(user,managed_recovery[1],body(request)))
     match=re.fullmatch(r'/api/erp/alerts/tasks/((?:auto_|reprint_)[a-f0-9]{32})/actions',path)
     if match and request.method=='POST':
         from .managed_alerts import action
