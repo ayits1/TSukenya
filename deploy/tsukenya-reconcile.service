@@ -1,0 +1,12 @@
+[Unit]
+Description=TSukenya read-only reconciliation and technical receipt
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/tsukenya
+ExecStart=/usr/bin/python3 /opt/tsukenya/deploy/reconcile_scheduler.py
+UMask=0077
+TimeoutStartSec=35min
+

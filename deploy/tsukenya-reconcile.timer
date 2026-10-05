@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily TSukenya reconciliation
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Europe/Kyiv
+Persistent=true
+RandomizedDelaySec=10min
+Unit=tsukenya-reconcile.service
+
+[Install]
+WantedBy=timers.target
