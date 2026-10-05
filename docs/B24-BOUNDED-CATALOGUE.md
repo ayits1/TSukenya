@@ -163,3 +163,13 @@ PG commands використовують очищений env та тільки 
 `--allow-100k --prior-10k …`. Postguard only: `--rows 1000 --full-record-only`.
 Host127.0.0.1/port61144/DB_NAMEtsukenya_b24_catalogue_capacity обов’язкові.
 Жодних100k/full/prod benchmarks автоматично у regression registry.
+
+## Інтеграція з portal/managed recovery
+
+Own catalogue commit інтегровано поверх accepted PR115 та пакета PR116 без
+копіювання старих залежностей гілки. Full registry додатково очищає
+`QA_FACETS_FROM`, тому targeted tail не звужує майбутній явний full pass.
+Registry syntax, diff і `test:full -- --plan` PASS; full не запускали.
+Matching integrated frontend build PASS. Попередні isolated PG/Storybook/native
+докази наведено вище; новий 100k прогін не виконувався. Прийняття та deployment
+цього пакета ще не підтверджені.
