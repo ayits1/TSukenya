@@ -134,3 +134,12 @@ recovery через existing OrderOperation, exact selected reservation, creator
 identity перед current GET та local Apply/окрему дію. Contract/partial+tail
 proofs і межі: [ORDER-ACTION-DRAFT-PERSISTENCE.md](ORDER-ACTION-DRAFT-PERSISTENCE.md).
 Це не означає завершення решти P2/P3.
+
+
+## Асортимент товару на складі · окрема family
+
+Actual ReactStock sold/minimum для product×warehouse підключено до P0: sync raw,
+creator-bound UUID receipt, Restore/Discard, identity-before-current, атомарне
+Apply й окремий Save. Усі докази, failure/tail межі та обмеження наведені в
+[ASSORTMENT-DRAFT-PERSISTENCE.md](ASSORTMENT-DRAFT-PERSISTENCE.md).
+Це не завершення всього B06 і не cross-tab/cloud recovery.

@@ -1,4 +1,5 @@
 import { ApiError } from '../../shared/api/client';
+import type { AssortmentRecovery, RecoveryView } from './recovery';
 import { decimalKey, mergeEqual, type MergeField } from '../../shared/merge/threeWay';
 import type { TradingBootstrap, TradingApi, DirectoryItem } from '../trading/api';
 import type {
@@ -22,6 +23,8 @@ export type Draft = {
   uncertain: boolean;
   server: AssortmentRow | null;
   reading: boolean;
+  review?: boolean;
+  blocked?: string;
 };
 export const draftKey = (warehouse: number, product: string) => warehouse + ':' + product;
 export const terms = (row: AssortmentRow): Terms => ({ sold: row.sold, min_stock: row.min_stock });
@@ -85,6 +88,7 @@ export type StockState = {
   csvBusy: boolean;
   notice: string;
   focus: { section: string; direction: 'next' | 'previous' } | null;
+  recovery: RecoveryView;
 };
 const initial = (): StockState => ({
   q: '',
@@ -111,8 +115,11 @@ const initial = (): StockState => ({
   csvBusy: false,
   notice: '',
   focus: null,
+  recovery: { ready: false, busy: false, error: '', offers: [] },
 });
 export class StockModel {
+  persistence: AssortmentRecovery | null = null;
+  requireRecovery = false;
   state = initial();
   options: StockOptions | null = null;
   private listeners = new Set<() => void>();
@@ -133,6 +140,9 @@ export class StockModel {
     };
   };
   snapshot = () => this.state;
+  recoveryChanged(drafts: Map<string, Draft>, recovery: RecoveryView) {
+    this.emit({ drafts, recovery });
+  }
   accessToken() {
     return this.generation;
   }
@@ -222,7 +232,7 @@ export class StockModel {
     return true;
   }
   hasDrafts() {
-    return this.state.drafts.size > 0;
+    return this.persistence?.hasDrafts() ?? this.state.drafts.size > 0;
   }
   query(view: 'totals' | 'lots' = 'totals'): StockQuery {
     return {
@@ -317,6 +327,8 @@ export class StockModel {
       const details = refs.size
         ? await this.options.directoryApi.details([...refs.values()], { purpose: 'label' }, signal)
         : null;
+      if (assortment && this.persistence)
+        await this.persistence.indexRows(assortment.warehouse, assortment.rows);
       if (!this.active || generation !== this.generation) return;
       const captions = new Map<string, DirectoryItem>();
       details?.items.forEach((row) => captions.set(row.type + ':' + row.id, row));
@@ -340,6 +352,8 @@ export class StockModel {
     }
   }
   edit(warehouse: number, row: AssortmentRow, patch: Pick<Partial<Draft>, 'sold' | 'minimum'>) {
+    if (this.persistence) return this.persistence.edit(warehouse, row, patch);
+    if (this.requireRecovery) return;
     if (this.state.denied) return;
     const key = draftKey(warehouse, row.product),
       drafts = new Map(this.state.drafts),
@@ -363,6 +377,8 @@ export class StockModel {
     this.emit({ drafts, notice: '' });
   }
   reset(key: string) {
+    if (this.persistence) return this.persistence.reset(key);
+    if (this.requireRecovery) return;
     const old = this.state.drafts.get(key);
     if (old?.busy || old?.uncertain) return;
     this.comparisons.delete(key);
@@ -371,6 +387,8 @@ export class StockModel {
     this.emit({ drafts });
   }
   async save(warehouse: number, product: string) {
+    if (this.persistence) return this.persistence.save(warehouse, product);
+    if (this.requireRecovery) return;
     const key = draftKey(warehouse, product),
       old = this.state.drafts.get(key);
     if (!old || old.busy || old.uncertain || this.state.denied || !this.policy()?.canEditAssortment)
@@ -425,6 +443,8 @@ export class StockModel {
     }
   }
   async compare(warehouse: number, product: string) {
+    if (this.persistence) return this.persistence.compare(warehouse, product);
+    if (this.requireRecovery) return;
     const key = draftKey(warehouse, product),
       old = this.state.drafts.get(key);
     const policy = this.policy();
@@ -479,6 +499,8 @@ export class StockModel {
     }
   }
   apply(key: string, value: Terms) {
+    if (this.persistence) return this.persistence.apply(key, value);
+    if (this.requireRecovery) return;
     const old = this.state.drafts.get(key);
     const policy = this.policy();
     if (
@@ -500,6 +522,7 @@ export class StockModel {
     });
   }
   cancelComparison(key: string) {
+    if (this.persistence) return this.persistence.cancel();
     this.comparisonControllers.get(key)?.abort();
     this.comparisonControllers.delete(key);
     this.comparisons.delete(key);

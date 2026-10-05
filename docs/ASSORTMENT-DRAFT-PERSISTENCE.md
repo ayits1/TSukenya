@@ -46,5 +46,92 @@ creator/collision/scope, postcommit callback без false rollback proof. Чер
 імпорт fixture class unittest також запустив13 чинних AssortmentTests: разом18
 PASS3.739s (`/tmp/tsukenya-assortment-recovery-pg.log`). Fixture import змінено на
 module alias, щоб надалі не повторювати ті13 автоматично. Власна локальна база
-127.0.0.1:61144, env scrub; без production. Frontend/actual consumer докази ще pending.
+127.0.0.1:61144, env scrub; без production; власні QA role/base/test DB видалено.
 Повний набір і системний Chrome не використовуються.
+
+
+### Frontend та actual consumer
+
+Інтеграція: `frontend/src/stock-entry.tsx` вимагає P0 (відсутній controller
+блокує редагування), а `StockModel` делегує actual зміни в окремий
+`AssortmentRecovery`. Старий RAM adapter лишається для ізольованих story/unit
+fixtures; actual route не може тихо перейти на нього. Підтверджений склад і
+товар утворюють стабільний SHA256 record ID. Не зберігаються ProductDTO, залишки,
+ціни, CSRF або grants. Baseline містить тільки мінімальний контекст асортименту.
+
+- Перша холодна поява existing raw пропонує Restore/Discard, не перезаписує його
+  поточною сторінкою. Зміна пошуку, сторінки, складу чи native route зберігає окремі
+  записи. Store quotas загального P0 застосовуються без eviction.
+- Перший bound rollback response повертає raw до review; unresolved original
+  лишається immutable після пізніших4xx. Atomic unit comparison sold+minimum,
+  Apply одним local persist, Save окремим новим UUID. Відсутній product/нова unit
+  залишає старий raw доступним для відкидання, не конвертує кількості.
+- ACK/positive identity очищає firstIntent durable **до** незалежного current
+  GET. Новіший invalid raw може існувати під час POST і під час GET після ACK.
+  Після останнього await береться latest durable record, не попередній object.
+- Кожен request має current session check, exact actor/scope binding і фінальний
+  signal/generation fence. Поточний nonJSON401 закриває P0; resource403 робить
+  fresh P0 session recheck і прибирає лише denied record. Старі late401 не
+  зачіпають чинний сеанс. Окрема відмова stock workspace зупиняє ACK adoption.
+
+Вузькі unit докази `persistence.test.ts` виконано інкрементально. Початковий
+fixture strict-unit тест помилково змінював unit на те саме значення; виправлено
+fixture і повторено тільки affected case. Додані реальні last-await
+регресійні сценарії спочатку FAIL, потім PASS: raw після ACK/current GET та
+workspace denial під held POST; окрема FAIL-before/PASS-after ціль зберігає
+введення у pinned рядку, коли його склад більше не має caption у поточній сторінці.
+Повторний edit використовує original baseline store, без переприв’язування. Решту успішних сценаріїв не повторювали.
+Логи: `/tmp/tsukenya-assortment-unit*.log`, `*-current-raw-before/after.log`,
+`*-deny-before/after.log`.
+
+Actual isolated SQLite + bundled headless Chromium:
+
+| Scope | Доказ |
+| --- | --- |
+| `raw` | `/tmp/tsukenya-assortment-raw-final/raw-report.json`: кілька рядків/два склади/off-filter, sync invalid raw, cold Restore Enter, Apply0POST, окремий Save, інші raw не змінені |
+| `unknown` | `/tmp/tsukenya-assortment-unknown-proof/unknown-report.json`: committed lostACK, новіший raw під POST, durable identity перед current503, reload GET-only; один audit/receipt/POST |
+| `rejected` | `/tmp/tsukenya-assortment-rejected-corrected-headless/rejected-report.json`: actual revision409/reload/Apply/newUUIDSave; зміна unit без автоматичного перенесення |
+| `privacy` | `/tmp/tsukenya-assortment-privacy-proof/privacy-report.json`: Cancel/ignored-Abort late401, quota RAM/noPOST, current nonJSON401 |
+| `scope` | `/tmp/tsukenya-assortment-scope-corrected/scope-report.json`: current nonJSON403/лише denied record, інший raw лишається; allowed owner identity змінюється на final session check — private workspace hidden/noPOST |
+| `ack` | `/tmp/tsukenya-assortment-ack-proof/ack-report.json`: durable ACK, held current GET і новіший invalid raw, cold Restore, один audit/receipt/POST |
+
+PNG `raw-final/assortment-1440.png` та `assortment-320.png` переглянуто:
+читабельні controls/actions, ≥44px, без горизонтального переповнення. Геометрія
+не змінювалась після цих PNG. Первинні failure artifacts збережені: ambiguous
+однакові назви двох складів у helper, невибраний склад після reload, hidden-radio
+`.check()` (замінили actual keyboard focus+Space), заблокований sandbox local
+port. Scope fixture спершу помилково очікував збереження denied record; його
+приведено до чинної P0 privacy policy з перевіркою збереження іншого raw.
+
+Full runner реєструє всі шість нових isolated scopes і прибирає зовнішні
+`QA_ASSORTMENT_FROM`/`QA_ASSORTMENT_COMPAT_FROM`. Це реєстрація, не запуск full.
+Усього B06, cloud/cross-tab recovery, навантаження/100k/SLA та production
+розгортання цей пакет не підтверджує. Серверні фінансові/stock формули незмінні.
+
+
+Legacy consumer `tests/assortment-drafts-ui.cjs` адаптовано до `/execute` і
+справжнього server revision409 (конкурентна зміна isolated row, без вигаданого
+rollback proof). Усі старі assertions залишені; додано явне очікування завершення
+P0 порівняння перед keyboard вибором конфлікту. Виконано тільки
+`QA_ASSORTMENT_COMPAT_FROM=pending` — PASS
+`/tmp/tsukenya-assortment-compat-pending-settled.log`: два склади, editable newer
+raw під held POST, remount/search lock, GET/Apply0POST/Save після409, late
+success/error isolation, Reset heading focus, 390/320. Початковий legacy prefix
+refresh/navigation/unload у цьому запуску **не виконувався**; його assertions
+залишено в default runner. Початковий console summary був надто широким для tail,
+тому звужено його текст без повторення незмінених assertions. Fixture failures
+односторінкового directory footer та ранішнього вибору radio до завершення
+P0 remount збережено в `*-compat-pending*.log`.
+
+
+Дві нові synthetic Storybook states `DurableExactRetry` та `DurableUnitChange` —
+PASS2 (`/tmp/tsukenya-assortment-stories-local-deps.log`). Початковий запуск
+не дістався tests: symlink dependencies поза власним Vite root не дозволили
+імпортувати setup-file. Власна APFS-копія тих самих installed dependencies
+усунула тільки QA-path помилку; production config/lockfile не змінено.
+
+Остаточний matching build/TypeScript:
+`/tmp/tsukenya-assortment-build-freeze.log` — PASS. Target lint/format,
+OpenAPI/generated parity, Node syntax та diff whitespace перевірено окремо.
+Усього11 різних unit випадків доведено цільовими/інкрементальними запусками;
+це не твердження про повний повторний run усіх11 на останньому head.

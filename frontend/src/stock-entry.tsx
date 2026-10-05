@@ -6,6 +6,7 @@ import { I18nProvider } from 'react-aria-components';
 import { Stock } from './features/stock/Stock';
 import { StockModel, type StockOptions } from './features/stock/state';
 import { createStockApi } from './features/stock/api';
+import { AssortmentRecovery } from './features/stock/recovery';
 import type { TradingApi } from './features/trading/api';
 import './shared/ui/controls.css';
 declare global {
@@ -24,9 +25,19 @@ let root: Root | undefined,
 let unregisterFreshness: (() => void) | undefined;
 let mountGeneration = 0;
 const model = new StockModel(createStockApi(() => csrf));
+model.requireRecovery = true;
+function installRecovery() {
+  if (!model.persistence && window.NativeDraftRecovery) {
+    model.persistence = new AssortmentRecovery(model, window.NativeDraftRecovery);
+    if (element?.isConnected && model.options) void model.persistence.activate();
+  }
+}
+window.addEventListener('tsukenya:native-conflict-ready', installRecovery);
+installRecovery();
 const guarded = (api: TradingApi): TradingApi => guardTradingDirectories(model, api);
 // Clear rendered private fields synchronously, including before a401 redirect.
 function denyWorkspace(message: string) {
+  model.persistence?.leave();
   model.deny(message);
   root?.unmount();
   root = undefined;
@@ -34,6 +45,7 @@ function denyWorkspace(message: string) {
 }
 window.ReactStock = {
   async mount(host, options) {
+    installRecovery();
     const ticket = ++mountGeneration;
     unregisterFreshness?.();
     unregisterFreshness = undefined;
@@ -53,6 +65,7 @@ window.ReactStock = {
       );
     }
     await model.activate(next);
+    if (ticket === mountGeneration && element === host) await model.persistence?.activate();
     if (ticket !== mountGeneration || element !== host || !host.isConnected) return;
     if (model.state.error) throw Error(model.state.error);
     unregisterFreshness = registerTradingReader({
@@ -85,6 +98,7 @@ window.ReactStock = {
     mountGeneration++;
     unregisterFreshness?.();
     unregisterFreshness = undefined;
+    model.persistence?.leave();
     model.leave();
     root?.unmount();
     root = undefined;

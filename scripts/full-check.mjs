@@ -35,6 +35,8 @@ delete isolatedEnv.QA_CATALOG_DRAFT_FROM;
 delete isolatedEnv.QA_REFERENCE_MANAGEMENT_FROM;
 delete isolatedEnv.QA_CONTACT_TASK_FROM;
 delete isolatedEnv.QA_CAMPAIGN_DRAFT_FROM;
+delete isolatedEnv.QA_ASSORTMENT_FROM;
+delete isolatedEnv.QA_ASSORTMENT_COMPAT_FROM;
 delete isolatedEnv.QA_CUSTOMER_REPORT_FROM;
 delete isolatedEnv.QA_CUSTOMER_REPORT_PORT;
 delete isolatedEnv.CUSTOMER_REPORT_PROOF_DIR;
@@ -350,6 +352,9 @@ else:raise RuntimeError('Disposable PostgreSQL TCP startup failed')`], { env: da
       await run('node', ['tests/customer-report-freshness-ui.cjs'], { env: { ...browserEnv, QA_CUSTOMER_REPORT_FROM: customerReportStage } });
     }
     await run('node', ['tests/assortment-drafts-ui.cjs'], { env: browserEnv });
+    for (const assortmentStage of ['raw', 'unknown', 'rejected', 'privacy', 'scope', 'ack']) {
+      await run('node', ['tests/assortment-recovery-ui.cjs'], { env: { ...browserEnv, QA_ASSORTMENT_FROM: assortmentStage } });
+    }
     await run('node', ['tests/erp-settings-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/erp-date-boundary-ui.cjs'], { env: browserEnv });
     await run('node', ['tests/reports-date-ui.cjs'], { env: browserEnv });
