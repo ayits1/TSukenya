@@ -9,7 +9,7 @@ from django.db import transaction
 from django.db.models import Q,Sum
 from django.utils import timezone
 from .models import IdeaProject,ProjectTask,ProjectExpense,ProjectOperation,Document,Store,Voucher
-from .services import require,Conflict,ledger_lock,get,scope,expense_permission,audit,day
+from .services import require,Conflict,BusinessError,current_actor,ledger_lock,get,scope,expense_permission,audit,day
 from .historical_reports import read_snapshot
 from .browsing import page_number,page_bounds,positive_integer
 from .business_audit import change,select
@@ -20,6 +20,13 @@ PLAN_FIELDS={'title','problem','hypothesis','responsible','plannedBudget','metri
 
 def owner(user):
     if not user.is_active or user.profile.role!='owner':raise PermissionDenied('Проєкти розвитку доступні лише активному власнику.')
+
+
+def read_owner(user):
+    """Refresh cached HTTP identity inside the caller's readonly snapshot."""
+    try:user=current_actor(user)
+    except BusinessError as error:raise PermissionDenied('Доступ до проєктів відкликано.') from error
+    owner(user);return user
 
 
 def allowed_projects(user):
@@ -61,9 +68,10 @@ def decimal(value,label,places=4,nonnegative=False):
 
 
 def idea_info(user,identifier_value):
-    owner(user);document=get(Document,'ideas/'+identifier(identifier_value,'Ідея'),'Ідея');require(isinstance(document.data,dict),'Некоректні дані ідеї.')
-    project=allowed_projects(user).filter(idea=document).first()
-    return {'id':identifier_value,'title':document.data.get('title') if isinstance(document.data.get('title'),str) else '', 'text':document.data.get('text') if isinstance(document.data.get('text'),str) else '', 'reaction':document.data.get('reaction') if document.data.get('reaction') in ('yes','no',None) else None,'revision':token(document),'project':str(project.pk) if project else None}
+    with read_snapshot():
+        user=read_owner(user);document=get(Document,'ideas/'+identifier(identifier_value,'Ідея'),'Ідея');require(isinstance(document.data,dict),'Некоректні дані ідеї.')
+        project=allowed_projects(user).filter(idea=document).first()
+        return {'id':identifier_value,'title':document.data.get('title') if isinstance(document.data.get('title'),str) else '', 'text':document.data.get('text') if isinstance(document.data.get('text'),str) else '', 'reaction':document.data.get('reaction') if document.data.get('reaction') in ('yes','no',None) else None,'revision':token(document),'project':str(project.pk) if project else None}
 
 
 def business(project):
@@ -89,6 +97,7 @@ def project_json(project,user,params=None):
 
 def list_projects(user,params):
     with read_snapshot():
+        user=read_owner(user)
         query=allowed_projects(user).select_related('responsible').order_by('-created_at','pk');search=text(params.get('q',''),'Пошук',250)
         if search:query=query.filter(title__icontains=search)
         state=params.get('state')
@@ -98,18 +107,21 @@ def list_projects(user,params):
 
 
 def detail(user,project_id,params):
-    with read_snapshot():return project_json(get(IdeaProject,project_id,'Проєкт'),user,params)
+    with read_snapshot():
+        user=read_owner(user)
+        return project_json(get(IdeaProject,project_id,'Проєкт'),user,params)
 
 
 def options(user,params):
     with read_snapshot():
-        owner(user);stores=Store.objects.filter(active=True).order_by('pk')
+        user=read_owner(user);stores=Store.objects.filter(active=True).order_by('pk')
         if user.profile.store_id is not None:stores=stores.filter(pk=user.profile.store_id)
         return {'stores':list(stores.values('id','name')),'networkAllowed':user.profile.store_id is None,'users':list(User.objects.filter(is_active=True).order_by('username').values('id','username'))}
 
 
 def candidates(user,project_id,params):
     with read_snapshot():
+        user=read_owner(user)
         project=get(IdeaProject,project_id,'Проєкт');access(user,project);purpose=params.get('purpose');search=text(params.get('q',''),'Пошук',250)
         if purpose=='tasks':
             query=Document.objects.filter(path__startswith='tasks/').filter(Q(data__scope='development')|Q(data__scope__isnull=True)|Q(data__scope=None)).exclude(initiative_task__isnull=False).exclude(path__startswith='tasks/auto_').exclude(path__startswith='tasks/reprint_').order_by('pk')
@@ -127,6 +139,7 @@ def candidates(user,project_id,params):
 def source_detail(user,project_id,params):
     """A current source read grants no ownership or financial mutation privilege."""
     with read_snapshot():
+        user=read_owner(user)
         project=get(IdeaProject,project_id,'Проєкт');access(user,project)
         if params.get('task'):
             document=get(Document,'tasks/'+identifier(params['task'],'Задача'),'Задача');require(isinstance(document.data,dict),'Некоректна задача.');link=ProjectTask.objects.filter(document=document).first();require(link is None or link.project_id==project.pk,'Задача вже належить іншому проєкту.')

@@ -358,7 +358,8 @@
       !registered ||
       preparing ||
       active?.d.open ||
-      window.ManagedAlerts?.pending()
+      window.ManagedAlerts?.pending() ||
+      window.BusinessInitiatives?.pending?.()
     )
       return;
     preparing = true;
