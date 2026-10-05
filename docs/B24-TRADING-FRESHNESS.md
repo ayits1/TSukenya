@@ -98,3 +98,33 @@ Reports залишається окремим manual reader: його впров
 ## Прийняття та розгортання · 05.10.2026
 
 Прийнято у PR114 (`9ee4d20`) та розгорнуто. У поточному прийнятому main `d35b614` source/assets/health і matching worker звірені, дані до/після релізу однакові. Capacity/cache/cursor лишаються відкритими.
+
+## Відкладене оновлення та фільтри · 05.10.2026
+
+Sales/Purchases/Finance/Staff зберігають підтверджену policy під час
+асинхронної перевірки доступу. Reset відбувається лише у callback поточного
+committed refresh після перевірки blocked у coordinator. Якщо користувач
+встигає ввести фільтр, його поля та пошук залишаються доступними; чернетка
+не підмінюється підтвердженим запитом. Права role/store перевіряються як раніше.
+
+У Purchases hasFilterDraft порівнює однаково впорядковані пари ключ/значення
+обох запитів. Раніше список пар порівнювався з об’єктом, тому незмінений
+фільтр помилково блокував кожне фонове оновлення.
+
+Докази: новий Purchases unit спочатку FAIL, після виправлення PASS;
+цільові freshness unit5 PASS. Actual headless policy-race: Sales prefix PASS,
+Purchases/Finance/Staff окремий завершений tail PASS. Затриманий bootstrap
+поєднано з введенням raw фільтра; підтверджено видимий/доступний пошук,
+збереження тексту та окремий явний GET, без business POST. Metadata token
+для цього frontend сценарію синтетичний: серверні trigger/counter докази
+залишаються попередніми незміненими тестами. Вузький scope включено в
+явний test:full; повний набір у цій задачі не запускався.
+
+Reports period/balances та ABC перевіряють bootstrap також після report GET
+(і descriptor GET) перед показом результату. Зміна role/store/user/CSRF
+під час очікування очищає приватний стан, а не відображає запізнілий звіт.
+Нові deferred report та ABC тести спочатку FAIL, після виправлення PASS;
+Reports unit16 PASS. Це не enrollment звітів у cheap metadata polling:
+цей окремий пункт плану залишається відкритим. Типи, targeted lint і
+matching Vite build PASS. Зміни не зачіпають серверне проведення, гроші,
+залишки або зарплату. Deployment підтверджується окремо.

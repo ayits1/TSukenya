@@ -16,6 +16,18 @@ import { fixtureApi as staffApi, options as staffOptions } from '../../features/
 import { ApiError } from './client';
 
 describe('Remote refresh uses confirmed filters without discarding newer raw input', () => {
+  it('purchases distinguishes an unchanged committed query from an unsubmitted filter', async () => {
+    const api = purchasesApi(),
+      model = new PurchasesModel(api);
+    await model.activate(purchasesOptions);
+    expect(model.hasFilterDraft()).toBe(false);
+    model.edit({ q: 'new unsubmitted supplier' });
+    expect(model.hasFilterDraft()).toBe(true);
+    await model.search();
+    expect(model.hasFilterDraft()).toBe(false);
+    model.leave();
+  });
+
   it('sales/purchases preserve committed query even after read failure and retry', async () => {
     const sale = salesApi(),
       sales = new SalesModel(sale);

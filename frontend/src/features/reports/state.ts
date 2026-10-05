@@ -86,6 +86,8 @@ export class ReportsModel {
           if (!live()) throw new DOMException('Скасовано', 'AbortError');
           const result = await abc.read(filters, page, signal);
           if (!live()) throw new DOMException('Скасовано', 'AbortError');
+          await this.options!.directoryApi.bootstrap(signal);
+          if (!live()) throw new DOMException('Скасовано', 'AbortError');
           return result;
         } catch (error) {
           if (live()) this.privacy(error);
@@ -284,6 +286,9 @@ export class ReportsModel {
         if (!live()) return;
         selected = result.items[0] ?? null;
       }
+      // A grant established before the report GET cannot authorize its late result.
+      await this.options.directoryApi.bootstrap(c.signal);
+      if (!live()) return;
       this.emit({
         data,
         committed: { ...query, page: data.page },

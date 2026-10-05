@@ -102,6 +102,57 @@ describe('Reports strict whole-screen contract', () => {
   });
 });
 describe('Reports state', () => {
+  it('does not expose a report after authority changes while its GET is pending', async () => {
+    let auth = options.bootstrap;
+    const response = deferred<ReturnType<typeof fixturePage>>(),
+      started = deferred<void>();
+    const model = new ReportsModel(api, financeApi, abcApi);
+    await model.activate({
+      ...options,
+      directoryApi: { ...options.directoryApi, bootstrap: async () => auth },
+    });
+    model.api = {
+      read: () => {
+        started.resolve();
+        return response.promise;
+      },
+    };
+    const read = model.apply();
+    await started.promise;
+    auth = { ...auth, role: 'accountant' };
+    response.resolve(fixturePage(model.query()));
+    await read;
+    expect(model.state.denied).toBe(true);
+    expect(model.state.data).toBeNull();
+    expect(model.state.committed).toBeNull();
+    expect(model.ready()).toBe(false);
+    model.leave();
+  });
+  it('does not return an ABC result after the current session changes during GET', async () => {
+    let auth = options.bootstrap;
+    const response = deferred<Awaited<ReturnType<typeof abcApi.read>>>(),
+      started = deferred<void>();
+    const model = new ReportsModel(api, financeApi, {
+      read: () => {
+        started.resolve();
+        return response.promise;
+      },
+    });
+    await model.activate({
+      ...options,
+      directoryApi: { ...options.directoryApi, bootstrap: async () => auth },
+    });
+    await model.mode('abc');
+    const read = model.abc.read(model.state.abc, 1, new AbortController().signal);
+    await started.promise;
+    auth = { ...auth, csrf: 'replacement-session' };
+    response.resolve(await abcApi.read(model.state.abc));
+    await expect(read).rejects.toMatchObject({ status: 403 });
+    expect(model.state.denied).toBe(true);
+    expect(model.state.data).toBeNull();
+    model.leave();
+  });
+
   it('source revalidation rejects newly readable cashier documents and changed owner store', async () => {
     for (const update of [
       { role: 'cashier' as const, storeId: 1 },

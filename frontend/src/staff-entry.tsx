@@ -63,6 +63,8 @@ window.ReactStaff = {
       readStamp: () => model.accessToken(),
       blocked: () => model.hasFilterDraft() || model.state.busy || model.state.actionBusy,
       refresh: async () => {
+        // Reset only after the coordinator has accepted the committed read.
+        model.allowPolicyRefresh();
         await model.refreshCommitted();
         return !model.state.error && !!model.state.data;
       },
@@ -73,7 +75,6 @@ window.ReactStaff = {
         if (fresh.role !== options.bootstrap.role || fresh.storeId !== options.bootstrap.storeId)
           throw Object.assign(Error('Доступ змінився.'), { status: 403 });
         next.bootstrap = fresh;
-        model.allowPolicyRefresh();
       },
       deny: () => denyWorkspace('Доступ змінився. Перечитайте контекст обліку.'),
     });

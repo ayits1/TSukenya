@@ -1,7 +1,7 @@
 /* Only changed trading freshness families. Disposable SQLite, two real sessions, bundled headless. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
-const stage=process.env.QA_TRADING_FRESHNESS_FROM||'all';if(!['all','readers','readers-tail','abort','dirty','unknown','privacy'].includes(stage))throw Error('Unknown QA_TRADING_FRESHNESS_FROM');
+const stage=process.env.QA_TRADING_FRESHNESS_FROM||'all';if(!['all','readers','readers-tail','abort','dirty','unknown','privacy','policy-race'].includes(stage))throw Error('Unknown QA_TRADING_FRESHNESS_FROM');
 const root=path.resolve(__dirname,'..'),python=process.env.PYTHON_BIN||'python3',port=Number(process.env.QA_TRADING_FRESHNESS_PORT||18286),base='http://localhost:'+port,password='synthetic-freshness-password',proof=process.env.TRADING_FRESHNESS_PROOF_DIR||'/tmp/tsukenya-trading-freshness-proof';fs.mkdirSync(proof,{recursive:true});
 const data=fs.mkdtempSync(path.join(os.tmpdir(),'tsukenya-trading-freshness-')),env={...process.env};for(const key of Object.keys(env))if(/^(DB_|PG|OWNER_|DJANGO_|TSUKENYA_REQUIRE_POSTGRES|DATABASE_URL$|POSTGRES_URL$)/.test(key))delete env[key];Object.assign(env,{DATA_DIR:data,ERP_DB_PATH:path.join(data,'qa.sqlite3'),HOST:'127.0.0.1',PORT:String(port),DJANGO_SETTINGS_MODULE:'server.settings',DJANGO_SECRET_KEY:'synthetic-trading-freshness-only-key-at-least-fifty-characters',OWNER_USERNAME:'tester'});
 env.OWNER_PASSWORD_HASH=execFileSync(python,['-c',`from server.auth import hash_password;print(hash_password('${password}'))`],{cwd:root,env,encoding:'utf8'}).trim();
@@ -32,6 +32,49 @@ shift=CashShift.objects.create(store=s,account=cash,employee=e,opened_by=u,openi
 print(json.dumps({'store':s.pk,'warehouse':w.pk,'supplier':supplier.pk,'customer':customer.pk,'bank':bank.pk,'cash':cash.pk,'employee':e.pk,'shift':shift.pk,'day':day}))`));
  browser=await chromium.launch({headless:true});page=await browser.newPage({viewport:{width:1440,height:1000}});other=await browser.newPage();page.setDefaultTimeout(12000);for(const p of [page,other]){await p.route('https://fonts.googleapis.com/**',r=>r.abort());await p.route('https://fonts.gstatic.com/**',r=>r.abort());p.on('pageerror',e=>errors.push(e.message));await require('./browser-login.cjs')(p,base,password);}
  page.on('request',r=>{if(r.url().includes('/api/')){if(!['GET','HEAD'].includes(r.method())&&!r.url().includes('/api/v1/trading/directories/details'))writes.push({url:r.url(),method:r.method()});else reads.push(r.url());}});page.on('dialog',d=>d.accept());
+
+ if(stage==='policy-race'){
+  await page.addInitScript(()=>{
+   const original=window.fetch;
+   window.fetch=async(input,options)=>{
+    const url=String(input),forceVersion=window.__raceVersion&&url.includes('/api/v1/trading/versions');
+    if(forceVersion){const headers=new Headers(options?.headers);headers.delete('If-None-Match');options={...options,headers};}
+    const response=await original(input,options);
+    if(forceVersion){
+     window.__raceVersion=false;
+     const raw=await response.clone().json();
+     for(const key of Object.keys(raw.versions))raw.versions[key]='b'.repeat(64);
+     return new Response(JSON.stringify(raw),{status:200,headers:{'Content-Type':'application/json','ETag':'"tsukenya-trading-v1-'+ 'b'.repeat(64)+'"'}});
+    }
+    if(window.__raceBootstrap&&url.includes('/api/v1/trading/bootstrap')){
+     window.__raceBootstrap=false;window.__racePending=true;
+     await new Promise(resolve=>window.__raceRelease=resolve);
+    }
+    return response;
+   };
+  });
+  await page.reload();
+  const selected=process.argv[2]?.split(',')||['sales','purchases','finance','staff'];
+  assert(selected.length&&selected.every(r=>['sales','purchases','finance','staff'].includes(r)));
+  for(const resource of selected){
+   await page.goto(base+'/?qa-policy='+resource+'#trade/'+resource);
+   const host=app(resource),search=host.getByRole('button',{name:'Знайти',exact:true}).first();
+   await search.waitFor();await wait(async()=>await search.isEnabled(),'initial filter '+resource);
+   await blur();await page.waitForTimeout(200);
+   await page.evaluate(()=>{window.__racePending=false;window.__raceBootstrap=true;window.__raceVersion=true;window.dispatchEvent(new Event('focus'));});
+   await wait(()=>page.evaluate(()=>window.__racePending===true),'delayed revalidation '+resource);
+   const input=host.getByRole('textbox',{name:/^Пошук/}).first();
+   await input.fill('newer raw filter');
+   await page.evaluate(()=>{document.activeElement?.blur();window.__raceRelease();});
+   await page.waitForTimeout(200);
+   assert.equal(await input.inputValue(),'newer raw filter');
+   assert(await search.isVisible(),'committed controls remain visible '+resource);
+   assert(await search.isEnabled(),'user can submit the newer filter '+resource);
+   assert.equal(writes.length,0);
+   await search.click();await wait(async()=>await search.isEnabled(),'explicit user read '+resource);
+   mark('Actual '+resource+' deferred revalidation retains confirmed policy/raw filter/search; explicit GET remains usable');
+  }
+ }
  if(['all','readers','readers-tail'].includes(stage)){
   if(stage!=='readers-tail'){
   await visit('stock','Залишки');assert.match(await quantity(),/^5\s/);await receive(7);await blur();await wait(async()=>/^12\s/.test(await quantity()),'remote stock quantity12');mark('Two sessions: receipt on B updates current stock on A through versions + bounded GET');
