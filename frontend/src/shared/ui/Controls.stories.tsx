@@ -152,3 +152,41 @@ export const ServerSearchLoading: Story = {
     await expect(within(document.body).queryByText('Нічого не знайдено')).not.toBeInTheDocument();
   },
 };
+
+/** The overlay may become shorter than its list when the mobile keyboard reduces available space. */
+export const ConstrainedDropdown: Story = {
+  render: () => (
+    <>
+      <style>{'.tk-popover { max-height: 160px !important; }'}</style>
+      <ComboBox
+        label="Товар у короткому списку"
+        options={Array.from({ length: 40 }, (_, index) => ({
+          id: String(index),
+          label: `Товар ${String(index + 1).padStart(2, '0')} — довга українська назва`,
+        }))}
+        defaultSelectedKey="0"
+      />
+    </>
+  ),
+  play: async ({ canvasElement }) => {
+    const input = within(canvasElement).getByRole('combobox');
+    await userEvent.click(input);
+    const list = within(document.body).getByRole('listbox');
+    const popup = list.closest<HTMLElement>('.tk-popover')!;
+    // The story forces the same short space that React Aria receives from the visible viewport.
+    await waitFor(() => {
+      expect(list.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+        popup.getBoundingClientRect().bottom - 4,
+      );
+      expect(list.scrollHeight).toBeGreaterThan(list.clientHeight);
+    });
+    await userEvent.keyboard('{ArrowDown}'.repeat(40));
+    await expect(list.scrollTop).toBeGreaterThan(0);
+    await userEvent.keyboard('{Enter}');
+    await expect(input).toHaveValue('Товар 40 — довга українська назва');
+    await userEvent.click(within(canvasElement).getByRole('button', { name: /Відкрити список/ }));
+    await userEvent.keyboard('{Escape}');
+    await expect(input).toHaveFocus();
+    await expect(input).toHaveValue('Товар 40 — довга українська назва');
+  },
+};
