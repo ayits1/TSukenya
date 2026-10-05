@@ -108,3 +108,11 @@ failure tails, dependency0025 та міграція0026 описані в
 [SETTING-DRAFT-PERSISTENCE.md](SETTING-DRAFT-PERSISTENCE.md).
 Це закриває лише ці три P3 consumers; standalone post/reverse/delete та решта
 сімей лишаються окремою роботою.
+
+## Initiative family · окремий пакет
+
+Усі11 дій реального `app/initiatives.js` мають власний P0 codec, raw/frozen
+request, creator-bound readonly receipt, independent current selection grant
+і explicit Apply/Save. [INITIATIVE-DRAFT-PERSISTENCE.md](INITIATIVE-DRAFT-PERSISTENCE.md)
+описує серверні/actual UI докази й точні межі. Це не закриває решту B06 family
+і не дає generic task adapter обходити initiative transitions.
