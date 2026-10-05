@@ -93,3 +93,6 @@ explicit Restore/Apply/Save та current privacy. Exact coverage, runtime401/403
 quota/route/late-response і compatibility докази: [MANAGED-ALERT-DRAFT-PERSISTENCE.md](MANAGED-ALERT-DRAFT-PERSISTENCE.md).
 11 initiative actions та решта P2/P3 лишаються окремою роботою; цей enrollment
 не є generic bypass і не означає завершення всього B06.
+## Standalone касові зміни · окремий пакет
+
+Actual open/close редактори й cold launcher підключені до P0 із immutable UUID receipt, confirmed identity перед current GET, separate Apply/Save та fresh privacy. Точні stage/prefix/tail proofs і межі наведено в [CASH-SHIFT-DRAFT-PERSISTENCE.md](CASH-SHIFT-DRAFT-PERSISTENCE.md). Posting/reverse/settings залишаються окремими відкритими сім’ями.
