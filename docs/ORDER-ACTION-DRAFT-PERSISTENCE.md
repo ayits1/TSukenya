@@ -184,3 +184,31 @@ selector без `button[form=tradeVoucherForm]`; він виправлений �
 Доказ не означає новий whole-old-family run: попередній успішний prefix
 перевикористано, цей tail почався з еквівалентного partial checkpoint.
 Viewer source/QA ancestry до власної доставки не входить.
+
+## Інтеграція на прийняті PR124/125
+
+Private checkout `/tmp/tsukenya-order-action-integration`, base
+`9bdb3387b5c1242c5b30e341ae634c633067b06e`: PR124 bounded viewer і PR125 Docker
+вже прийняті та розгорнуті. Pending catalogue пакет не включено.
+Власні frozen commits перенесено без private QA/viewer dependency commits.
+Єдиний textual conflict — `frontend/src/native-conflict-entry.tsx`:
+збережено імпорт, Window type та runtime export для обох `NativeDocumentView`
+і `NativeOrderAction`. Автоматично merged ERP/hooks зберігають прийнятий
+viewer read/grant/action-host dispatch. Static byte comparison усього
+`documentActions`/`viewVoucher` region з accepted base PASS.
+
+Full runner реєструє default п’ять дій Order5 і окремі guard/policy/validation/
+expiry/cold/opening stages; exact inherited `QA_ORDER_ACTION_FROM` очищено.
+До document-details додано окремий `QA_DOCUMENT_VIEW_STAGE=actions`:
+actual page2 reservation Enter/pointer → exact context/no POST. Його selector
+також уже очищається. Existing original B10 registration збережено; нова
+Order5 registration не додає дублювання compat-prefix/tail до full run.
+
+Нова перевірка інтеграції: types і matching frontend build PASS; JS syntax
+семи змінених modules/tests/runner, OpenAPI JSON, entry format, diff check,
+`makemigrations --check --dry-run --noinput` (isolated SQLite, no schema
+changes) PASS. `npm run test:full -- --plan` PASS, без тестів/контейнерів/DB.
+Static registry assertion підтвердив exact stage names/selector scrub і два
+exports. Runtime поведінка при resolution не змінювалась; попередні PG/unit,
+п’ять native action сімейних proofs, final compat-tail і авторський page2
+Enter/pointer proof перевикористано без повтору. Browser/server не запускали.
