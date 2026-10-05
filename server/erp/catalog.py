@@ -258,18 +258,29 @@ def save_product(request, user, identifier=None):
         document = Document(path='products/' + identifier)
         data = new_product_data(config)
     require(not (set(value) - PRODUCT_FIELDS - {'revision', 'pricingRevision'}), 'Запит містить невідомі поля товару.')
+    from .import_index import drain, indexed_duplicate, legacy_recipe_lookup, IndexLimit
+    needs_index = request.method == 'DELETE' or not data.get('name') or (
+        'name' in value and name_key(value['name']) != name_key(data.get('name'))
+    ) or ('unit' in value and value['unit'] != data.get('unit'))
+    if needs_index:
+        try:
+            _, pending = drain()
+        except IndexLimit as exc:
+            return response({'error': str(exc), 'code': 'catalog_index_limit'}, 409)
+        if pending:
+            return response({'error': 'Індекс каталогу ще оновлюється. Запит товару не записано; повторіть збереження після завершення оновлення.', 'code': 'catalog_index_pending'}, 409)
     if request.method == 'DELETE':
         from .models import VoucherLine, StockLot, PromotionPrice, RecipeVersion, RecipeComponent, ProductionInput
         require(not ProductionInput.objects.filter(product=document).exists(),'Товар збережено як інгредієнт виробничого документа.')
         require(not RecipeVersion.objects.filter(product=document).exists() and not RecipeComponent.objects.filter(product=document).exists(), 'Товар використовується в затверджених рецептурах. Приховайте його замість видалення.')
         require(not PromotionPrice.objects.filter(product=document).exists(), 'Товар використовується в історії акцій. Приховайте його замість видалення.')
         require(not VoucherLine.objects.filter(product=document).exists() and not StockLot.objects.filter(product=document).exists(), 'Товар уже використовується в обліку. Його не можна видалити.')
-        require(not any(any(str(row.get('product')) == identifier for row in item.data.get('recipe', [])) for item in Document.objects.filter(path__startswith='products/')), 'Товар використовується у рецептурі.')
+        require(not legacy_recipe_lookup(identifier, document.path), 'Товар використовується у рецептурі.')
         subject = document.path; document.delete(); audit(user, 'catalog_changed', subject, {'method': 'DELETE', 'contract': 'v1', **audit_change(before, None, observed=value.get('revision'))})
         return response({'ok': True})
     old = dict(data)
-    data = normalise_product({key: item for key, item in value.items() if key not in {'revision', 'pricingRevision'}}, old, document.path, config=config, old_config=config)
-    if duplicate_name(data, old, document.path): return response(DUPLICATE_NAME, 409)
+    data = normalise_product({key: item for key, item in value.items() if key not in {'revision', 'pricingRevision'}}, old, document.path, config=config, old_config=config, legacy_recipe_lookup=legacy_recipe_lookup)
+    if indexed_duplicate(data, old, document.path): return response(DUPLICATE_NAME, 409)
     from .promotion_history import observe_prices
     if old.get('name'):observe_prices(user,[document],'catalog','Редагування товару',seed=True)
     document.data = data; document.save()
@@ -335,8 +346,8 @@ def normalise_product(value, old, path, *, validate_references=True, config=None
             reason = unit_in_use(path, old, legacy_recipe_lookup=legacy_recipe_lookup)
             require(reason is None, f'Одиницю обліку «{old.get("unit") or "шт"}» змінити не можна: {reason}. Для іншої фасовки створіть окремий товар.')
     guard_unit()
-    from .catalog_references import reference_records
-    references = reference_records() if references is None and (validate_references or bind_references) else references
+    from .catalog_scoped_references import scoped_records
+    references = scoped_records((old, data)) if references is None and (validate_references or bind_references) else references
     if validate_references:
         from .catalog_references import validate_reference_fields
         validate_reference_fields(data, old, creating=not bool(old.get('name')), references=references)
@@ -402,6 +413,9 @@ def handle_catalog(request, user):
     from .views import response
     path = request.path.rstrip('/')
     collection = '/api/v1/catalog/products'
+    if path in {'/api/v1/catalog/selection/page', '/api/v1/catalog/selection/facets'} and request.method == 'GET':
+        from .catalog_selection import handle
+        return handle(request, user)
     selection_match=re.fullmatch(r'/api/v1/catalog/price-results/(pricing|import)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/selection-preview',path)
     if selection_match and request.method=='POST':
         from .catalog_price_selection import preview

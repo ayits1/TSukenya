@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { decodePage, decodeProduct, decodeReferences, referenceKey } from './api';
+import { decodeFacetPage, decodePage, decodeProduct, decodeReferences, referenceKey } from './api';
 import { catalogPage, catalogProducts } from './fixtures';
 test('reference boundary rejects unknown fields, missing parent metadata and repeated ids', () => {
   expect(referenceKey('  НАПОЇ  без   цукру ')).toBe(referenceKey('Напої без цукру'));
@@ -45,4 +45,35 @@ test('expiry threshold preserves explicit zero and rejects non-integer or coerce
   expect(decodeProduct({ ...product, expiryAlertDays: 3650 }).expiryAlertDays).toBe(3650);
   for (const expiryAlertDays of [true, '7', 7.5, -1, 3651, [7], {}])
     expect(() => decodeProduct({ ...product, expiryAlertDays })).toThrow();
+});
+
+test('bounded pages do not pretend paged facets are a complete empty universe', () => {
+  const page = { ...catalogPage, contract: 'catalog-page-v2', facets: null, facetMode: 'paged' };
+  expect(decodePage(page).facets).toBeNull();
+  for (const invalid of [
+    { ...page, facets: {} },
+    { ...page, facetMode: undefined },
+    { ...page, items: [] },
+    { ...page, products: [] },
+  ])
+    expect(() => decodePage(invalid)).toThrow();
+  const facet = {
+    contract: 'catalog-facets-v1',
+    field: 'category',
+    q: '',
+    items: ['Кава'],
+    total: 1,
+    page: 1,
+    pages: 1,
+    limit: 30,
+  };
+  expect(decodeFacetPage(facet, 'category', '').items).toEqual(['Кава']);
+  for (const invalid of [
+    { ...facet, field: 'type' },
+    { ...facet, q: 'new' },
+    { ...facet, total: 31 },
+    { ...facet, items: [] },
+    { ...facet, cost: '1.23' },
+  ])
+    expect(() => decodeFacetPage(invalid, 'category', '')).toThrow();
 });

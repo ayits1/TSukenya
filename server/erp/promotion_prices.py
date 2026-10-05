@@ -40,9 +40,15 @@ class PriceResolver:
         if product_paths is not None:
             prices = prices.filter(product_id__in=set(product_paths))
         self.candidates = {}
-        for item in prices:
+        for item in prices.iterator(chunk_size=200):
             campaign = item.campaign
-            self.candidates.setdefault(item.product_id, []).append((item.price, str(campaign.pk), campaign))
+            if item.price <= 0: continue
+            candidate = (item.price, str(campaign.pk), campaign)
+            previous = self.candidates.get(item.product_id)
+            # The smallest positive amount is the only possible campaign winner:
+            # if it is not below regular, no higher candidate can be valid either.
+            if previous is None or candidate[:2] < previous[0][:2]:
+                self.candidates[item.product_id] = [candidate]
 
     def resolve(self, document):
         from .catalog import regular_price, promotion_amount

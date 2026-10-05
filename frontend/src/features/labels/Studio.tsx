@@ -933,6 +933,7 @@ function StudioWorkspace({
       }}
       filters={memory.filters}
       facets={page.data?.facets || { type: [], category: [], pack: [] }}
+      {...(catalog.facets ? { facetApi: catalog.facets } : {})}
       onFiltersChange={(filters) =>
         setMemory((current) => ({ ...current, filters: { ...filters, page: 1, limit: 20 } }))
       }

@@ -3,7 +3,14 @@ import { TextField } from '../../shared/ui/TextField';
 import { ComboBox } from '../../shared/ui/ComboBox';
 import { CatalogVisibility } from './CatalogVisibility';
 import { Select } from '../../shared/ui/Select';
-import { hasEffectivePromotion, type Filters, type Product, type ProductPage } from './api';
+import {
+  hasEffectivePromotion,
+  type FacetApi,
+  type Filters,
+  type Product,
+  type ProductPage,
+} from './api';
+import { CatalogFacet } from './CatalogFacet';
 
 const currency = (value: string | null) =>
   value === null
@@ -26,6 +33,7 @@ export function CatalogView({
   message = '',
   onReferences,
   showVisibility = true,
+  facetApi,
 }: {
   showVisibility?: boolean;
   data: ProductPage;
@@ -36,6 +44,7 @@ export function CatalogView({
   busy?: boolean;
   message?: string;
   onReferences?: () => void;
+  facetApi?: FacetApi;
 }) {
   const change = (patch: Partial<Filters>) => onFilters({ ...filters, ...patch, page: 1 });
   const start = (data.page - 1) * data.limit;
@@ -70,30 +79,68 @@ export function CatalogView({
           value={filters.q}
           onChange={(q) => change({ q })}
         />
-        <ComboBox
-          label="Група"
-          options={choices(data.facets.type, 'Усі групи', filters.type)}
-          selectedKey={filters.type || '*'}
-          onSelectionChange={(key) =>
-            change({ type: key === '*' ? '' : String(key), category: '', pack: '' })
-          }
-        />
-        <ComboBox
-          label="Категорія"
-          isDisabled={busy}
-          options={choices(data.facets.category, 'Усі категорії', filters.category)}
-          selectedKey={filters.category || '*'}
-          onSelectionChange={(key) =>
-            change({ category: key === '*' ? '' : String(key), pack: '' })
-          }
-        />
-        <ComboBox
-          label="Пакування"
-          isDisabled={busy}
-          options={choices(data.facets.pack, 'Усе пакування', filters.pack)}
-          selectedKey={filters.pack || '*'}
-          onSelectionChange={(key) => change({ pack: key === '*' ? '' : String(key) })}
-        />
+        {facetApi ? (
+          <CatalogFacet
+            label="Група"
+            allLabel="Усі групи"
+            field="type"
+            filters={filters}
+            value={filters.type}
+            load={facetApi}
+            onChange={(type) => change({ type, category: '', pack: '' })}
+          />
+        ) : (
+          <ComboBox
+            label="Група"
+            options={choices(data.facets?.type || [], 'Усі групи', filters.type)}
+            selectedKey={filters.type || '*'}
+            onSelectionChange={(key) =>
+              change({ type: key === '*' ? '' : String(key), category: '', pack: '' })
+            }
+          />
+        )}
+        {facetApi ? (
+          <CatalogFacet
+            label="Категорія"
+            allLabel="Усі категорії"
+            field="category"
+            filters={filters}
+            value={filters.category}
+            load={facetApi}
+            disabled={busy}
+            onChange={(category) => change({ category, pack: '' })}
+          />
+        ) : (
+          <ComboBox
+            label="Категорія"
+            isDisabled={busy}
+            options={choices(data.facets?.category || [], 'Усі категорії', filters.category)}
+            selectedKey={filters.category || '*'}
+            onSelectionChange={(key) =>
+              change({ category: key === '*' ? '' : String(key), pack: '' })
+            }
+          />
+        )}
+        {facetApi ? (
+          <CatalogFacet
+            label="Пакування"
+            allLabel="Усе пакування"
+            field="pack"
+            filters={filters}
+            value={filters.pack}
+            load={facetApi}
+            disabled={busy}
+            onChange={(pack) => change({ pack })}
+          />
+        ) : (
+          <ComboBox
+            label="Пакування"
+            isDisabled={busy}
+            options={choices(data.facets?.pack || [], 'Усе пакування', filters.pack)}
+            selectedKey={filters.pack || '*'}
+            onSelectionChange={(key) => change({ pack: key === '*' ? '' : String(key) })}
+          />
+        )}
         <Select
           label="Акція"
           options={[
