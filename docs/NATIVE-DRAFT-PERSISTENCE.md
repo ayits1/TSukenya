@@ -91,7 +91,7 @@ Inline amount/category, new-name/Create та LegacyEditors.edit/update/reviewCre
 raw відкладення, immutable first intent, creator identity/current barriers,
 explicit Restore/Apply/Save та current privacy. Exact coverage, runtime401/403,
 quota/route/late-response і compatibility докази: [MANAGED-ALERT-DRAFT-PERSISTENCE.md](MANAGED-ALERT-DRAFT-PERSISTENCE.md).
-11 initiative actions та решта P2/P3 лишаються окремою роботою; цей enrollment
+initiative actions та решта P2/P3 лишаються окремою роботою; цей enrollment
 не є generic bypass і не означає завершення всього B06.
 ## Standalone касові зміни · окремий пакет
 

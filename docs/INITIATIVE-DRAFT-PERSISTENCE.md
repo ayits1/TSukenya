@@ -198,3 +198,15 @@ adapter для іншої B06 family, не змінює money/stock/expense attr
   current role change надалі приховує private form/list. Його результат
   перевіряється окремо на інтегрованій версії з обома pending guards
   (`ManagedAlerts` і `BusinessInitiatives`); авторська base — PR115.
+
+## Інтеграція з прийнятим main · 05.10.2026
+
+Пакет інтегровано після прийнятих PR116–120. Обидва pending guards
+(ManagedAlerts і BusinessInitiatives) збережено; QA env registry містить
+об’єднання чинних cash/settings/managed/facets та initiative scopes.
+Один додатковий actual UI scope `QA_INITIATIVE_DRAFT_FROM=coexistence`
+успішний: десять повторних prepareInline зберігають активну форму і raw
+без циклу читання/рендеру; актуальне відкликання ролі приховує форму/список,
+бізнес POST відсутні. Matching frontend build, синтаксис, diff check,
+статична browser policy PASS; full runner лише `--plan`. Незмінені
+серверні та індивідуальні native proofs вище використано повторно.
