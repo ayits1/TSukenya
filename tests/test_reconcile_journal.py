@@ -29,7 +29,7 @@ class ReconcileJournalTests(TransactionTestCase):
         self.assertEqual(receipt,{'contract':'reconciliation-receipt-v1','id':key,'source':'scheduler','status':'clean','checksVersion':1,'issues':0})
         self.assertEqual((Voucher.objects.count(),StockEntry.objects.count(),CashEntry.objects.count(),AuditEvent.objects.count()),(0,0,0,0))
         again=StringIO()
-        with mock.patch('server.erp.management.commands.reconcile.reconcile',side_effect=AssertionError('exact retry must not scan')):
+        with mock.patch('server.erp.management.commands.reconcile.reconcile',side_effect=AssertionError('exact retry must not scan')),mock.patch('server.erp.reconcile_journal.saved_report',side_effect=AssertionError('compact receipt must not materialize findings')):
             call_command('reconcile','--record','--source','scheduler','--run-id',key,'--receipt-json',stdout=again,stderr=StringIO())
         self.assertEqual(json.loads(again.getvalue()),receipt)
         self.assertEqual(ReconciliationRun.objects.count(),1)

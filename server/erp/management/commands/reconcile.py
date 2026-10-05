@@ -34,7 +34,7 @@ class Command(BaseCommand):
             if isolation not in {'repeatable read','serializable'} or read_only!='on':
                 raise CommandError('Звірка всередині транзакції PostgreSQL потребує REPEATABLE READ або SERIALIZABLE та READ ONLY. Запустіть команду поза поточною транзакцією.')
         if saved:
-            report=journal.saved_report(saved)
+            report=None if options['receipt_json'] else journal.saved_report(saved)
         else:
             started=timezone.now()
             try:
@@ -46,10 +46,10 @@ class Command(BaseCommand):
                 if not options['record']:raise
                 report={'checks':{},'issues':0,'counts':{},'error':'snapshot_failed'}
                 saved=journal.record(run_id,options['source'],report,started,timezone.now(),'snapshot_failed')
-                report=journal.saved_report(saved)
+                report=None if options['receipt_json'] else journal.saved_report(saved)
             if options['record'] and saved is None:
                 saved=journal.record(run_id,options['source'],report,started,timezone.now())
-                report=journal.saved_report(saved)
+                report=None if options['receipt_json'] else journal.saved_report(saved)
         if options['record']:self.stderr.write(f'Журнал звірки: {saved.pk}.')
         if options['receipt_json']:
             self.stdout.write(json.dumps({'contract':'reconciliation-receipt-v1','id':str(saved.pk),'source':saved.source,'status':saved.status,'checksVersion':saved.checks_version,'issues':saved.issue_count},separators=(',',':')))
