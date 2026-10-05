@@ -18,6 +18,13 @@ export const tradingResources = [
   'staff_documents',
   'directories',
   'policy',
+  'customers_contacts',
+  'customers_metrics',
+  'customers_debts',
+  'reports_period',
+  'reports_balances',
+  'reports_salary',
+  'reports_abc',
 ] as const;
 export type TradingResource = components['schemas']['TradingResource'];
 export type TradingRole = components['schemas']['TradingRole'];
@@ -41,7 +48,7 @@ declare global {
 /** Native modal dirty/unknown state joins the reader's own action/draft hold. */
 declare global {
   interface Window {
-    Trade?: { freshnessBlocked?: () => boolean };
+    Trade?: { freshnessBlocked?: () => boolean; freshnessDeny?: () => void };
   }
 }
 export function registerTradingReader(input: FreshnessRegistration): () => void {

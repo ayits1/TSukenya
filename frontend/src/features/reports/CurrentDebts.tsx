@@ -1,4 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { flushSync } from 'react-dom';
+import type { CommittedReader } from '../../shared/api/committedReader';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { Button } from '../../shared/ui/Button';
 import { TextField } from '../../shared/ui/TextField';
 import { Select } from '../../shared/ui/Select';
@@ -23,10 +25,12 @@ export function CurrentDebts({
   model,
   store,
   epoch,
+  onReader,
 }: {
   model: ReportsModel;
   store: number | null;
   epoch: number;
+  onReader?: (reader: CommittedReader | null) => void;
 }) {
   const [draft, setDraft] = useState(() => filters(store)),
     [selected, setSelected] = useState<DirectoryItem | null>(null),
@@ -40,10 +44,13 @@ export function CurrentDebts({
     pager = useRef<HTMLSpanElement>(null),
     retry = useRef<HTMLButtonElement>(null);
   const load = useCallback(
-    async (query: Queries['debts'], page = 1, focus = false) => {
+    async (query: Queries['debts'], page = 1, focus = false, signal?: AbortSignal) => {
       abort.current?.abort();
       const c = new AbortController();
       abort.current = c;
+      const cancel = () => c.abort();
+      signal?.addEventListener('abort', cancel, { once: true });
+      if (signal?.aborted) c.abort();
       const token = ++sequence.current;
       intent.current = { query: { ...query }, page };
       const live = () => !c.signal.aborted && token === sequence.current && model.isCurrent(epoch);
@@ -57,16 +64,23 @@ export function CurrentDebts({
         if (!live()) return;
         if (result.policy.role !== auth.role || result.policy.store !== auth.storeId)
           throw new ApiError(403, 'Права на борги змінилися.');
+        await model.options!.directoryApi.bootstrap(c.signal);
+        if (!live()) return false;
         committed.current = { query: { ...query }, page: result.page };
         setData(result);
+        return true;
       } catch (e) {
         if (!live() || (e instanceof Error && e.name === 'AbortError')) return;
         model.privacy(e);
         if (!model.state.denied)
           setError(e instanceof Error ? e.message : 'Не вдалося прочитати борги.');
+        return false;
       } finally {
-        if (live()) {
-          setBusy(false);
+        signal?.removeEventListener('abort', cancel);
+        if (token === sequence.current && model.isCurrent(epoch)) {
+          // A remote refresh resolves only after the rendered hold has cleared.
+          if (signal) flushSync(() => setBusy(false));
+          else setBusy(false);
           if (focus)
             requestAnimationFrame(() => {
               if (live()) (retry.current ?? pager.current)?.focus();
@@ -91,6 +105,28 @@ export function CurrentDebts({
   }, [load, store]);
   const disabled = busy || model.state.busy || model.state.actionBusy || model.state.denied,
     edit = (patch: Partial<typeof draft>) => setDraft((old) => ({ ...old, ...patch }));
+  const readerState = useRef({ draft, busy });
+  useLayoutEffect(() => {
+    readerState.current = { draft, busy };
+  }, [draft, busy]);
+  useEffect(() => {
+    if (!onReader) return;
+    onReader({
+      store: () => (committed.current ? committed.current.query.store : store),
+      stamp: () => sequence.current,
+      blocked: () =>
+        !committed.current ||
+        readerState.current.busy ||
+        JSON.stringify(readerState.current.draft) !== JSON.stringify(committed.current.query),
+      refresh: (signal) => {
+        const saved = committed.current;
+        return saved
+          ? load(saved.query, saved.page, false, signal).then(Boolean)
+          : Promise.resolve(false);
+      },
+    });
+    return () => onReader(null);
+  }, [onReader, load, store]);
   const valid =
     (!draft.from || !draft.to || draft.from <= draft.to) &&
     (!draft.due_from || !draft.due_to || draft.due_from <= draft.due_to);

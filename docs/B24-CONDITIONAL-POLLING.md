@@ -60,3 +60,7 @@ PromotionCampaign використовує `starts_on`/`ends_on` DateField, бе
 Опційний `scripts/benchmark-state-conditional.py` відмовляється працювати поза явно заданим localhost61144/tsukenya_polling; створює/видаляє власну test DB. [Сирий результат](b24-conditional.json): 500SKU, 1 чинна кампанія/50 акційних позицій, 10 cashiers, 50 незмінних GET, **3 SQL, 304, 0 raw body bytes**; median 12.704ms, P95 33.813ms у threads одного Django Client процесу. Це лише handler probe, не wire traffic, Caddy/Gunicorn capacity чи production SLA. [Попередній baseline](API-GROWTH-BASELINE.md) залишено історичним.
 
 Обмеження: changed/initial 200 поки містить весь чинний legacy catalogue; delta/tombstone cursor і cached server snapshots не реалізовано. Counters додають row writes тільки до відповідних мутацій; benchmark їх пропускної здатності не заявлено. Через залишений legacy контракт owner scopes описані вище. Повної регресії, VPS, backup, production/Sheet writes, push або deploy не було.
+
+### Окремий trading namespace: Customers/Reports
+
+Portal metadata contract не додає financial arrays або customer domain. Remote актуальність Customers і всіх режимів звітів реалізовано окремими additive trading version resources0029 та actual committed reader hooks; [межа й докази](B24-CUSTOMER-REPORT-FRESHNESS.md). Попередня фраза про відсутність customer polling стосувалася лише portal metadata пакета.

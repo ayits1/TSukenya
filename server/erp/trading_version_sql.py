@@ -4,6 +4,7 @@ Historical migration 0024 imports its frozen helper directly, not this wrapper.
 """
 from types import SimpleNamespace
 from .migration_helpers.trading_versions_0024_sql import register_sqlite as frozen_register
+from .migration_helpers.customer_report_0029_sql import register_sqlite as register_reports
 
 
 class PricingProjection:
@@ -25,3 +26,4 @@ class PricingProjection:
 
 def register_sqlite(connection):
     frozen_register(SimpleNamespace(connection=PricingProjection(connection.connection)))
+    register_reports(connection)

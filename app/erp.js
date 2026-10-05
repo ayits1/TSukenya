@@ -175,7 +175,7 @@ if(tab==='customers'&&window.ReactCustomers){
  cancelShiftControls();cancelFinanceControls();window.ReactCustomers.leave();
  window.TradeDirectories.dispose(main());main().innerHTML='<div id="react-customers"></div>';applyRole();
  window.ReactCustomers.mount(document.getElementById('react-customers'),{
-  stores:[],directoryApi:window.TradeDirectories.api,selectedStore:window.TradeDirectories.get('stores',filterStore),store:Number(filterStore)||null,
+  bootstrap:E,stores:[],directoryApi:window.TradeDirectories.api,selectedStore:window.TradeDirectories.get('stores',filterStore),store:Number(filterStore)||null,
   onStore:id=>{filterStore=id===null?'':String(id);},
   onEdit:async id=>{await load();if(generation===token&&current===tab){await entityForm('parties',id,'customer');}},
   onHistory:async (id,store,partyName)=>{const chosen=await documentBrowser.history(id,{store:store||'',partyName});if(chosen&&generation===token&&current===tab)await viewVoucher(chosen.id);}

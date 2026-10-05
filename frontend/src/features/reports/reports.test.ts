@@ -413,3 +413,93 @@ it('preserves retired native codec metadata/arrays/counts/scales invariants', ()
     expect(() => decodePage(p, query, true)).toThrow();
   }
 });
+
+describe('Reports scoped conditional freshness committed reads', () => {
+  it('keeps primary page/filters and blocks unapplied draft, with separate debt child', async () => {
+    const calls: unknown[] = [];
+    const model = new ReportsModel(
+      {
+        ...api,
+        read: async (q) => {
+          calls.push(q);
+          return fixturePage(q);
+        },
+      },
+      financeApi,
+      abcApi,
+    );
+    await model.activate(options);
+    let child = 0;
+    model.reader('debts', {
+      store: () => null,
+      stamp: () => 1,
+      blocked: () => false,
+      refresh: async () => {
+        child++;
+        return true;
+      },
+    });
+    const saved = { ...model.state.committed! };
+    model.searchText('raw not applied');
+    expect(model.freshnessBlocked()).toBe(true);
+    expect(await model.refreshCommitted(new AbortController().signal)).toBe(false);
+    expect(calls).toHaveLength(1);
+    model.searchText(saved.q);
+    expect(await model.refreshCommitted(new AbortController().signal)).toBe(true);
+    expect(calls[1]).toEqual(saved);
+    expect(child).toBe(1);
+    expect(model.state.q).toBe(saved.q);
+    model.edit({ store: 99 });
+    expect(model.freshnessStore()).toBe(saved.store);
+    expect(model.freshnessBlocked()).toBe(true);
+  });
+  it('uses actual ABC child confirmed store/page; dirty thresholds block without remount', async () => {
+    const model = new ReportsModel(api, financeApi, abcApi);
+    await model.activate(options);
+    await model.mode('abc');
+    let dirty = true,
+      refreshes = 0;
+    model.reader('abc', {
+      store: () => 1,
+      stamp: () => 4,
+      blocked: () => dirty,
+      refresh: async () => {
+        refreshes++;
+        return true;
+      },
+    });
+    expect(model.freshnessStore()).toBe(1);
+    expect(await model.refreshCommitted(new AbortController().signal)).toBe(false);
+    dirty = false;
+    expect(await model.refreshCommitted(new AbortController().signal)).toBe(true);
+    expect(refreshes).toBe(1);
+    model.leave();
+    expect(await model.refreshCommitted(new AbortController().signal)).toBe(false);
+  });
+  it('aborted current refresh releases busy without accepting a late issued401', async () => {
+    const gate = deferred<ReturnType<typeof fixturePage>>();
+    let held = false;
+    const model = new ReportsModel(
+      { ...api, read: (q) => (held ? gate.promise : Promise.resolve(fixturePage(q))) },
+      financeApi,
+      abcApi,
+    );
+    await model.activate(options);
+    model.reader('debts', {
+      store: () => null,
+      stamp: () => 1,
+      blocked: () => false,
+      refresh: async () => true,
+    });
+    held = true;
+    const signal = new AbortController(),
+      pending = model.refreshCommitted(signal.signal);
+    await Promise.resolve();
+    await Promise.resolve();
+    signal.abort();
+    gate.reject(new ApiError(401, 'obsolete'));
+    expect(await pending).toBe(false);
+    expect(model.state.denied).toBe(false);
+    expect(model.state.busy).toBe(false);
+  });
+});
