@@ -94,3 +94,7 @@ Reports залишається окремим manual reader: його впров
 ## SQLite: історичний не-object payload
 
 До прийняття0024 CI виявив, що SQLite projection намагалася читати `.get()` у масиву payload. Виправлено тільки адаптер умови мережевої витрати: ключ читається лише у dict, як PostgreSQL JSON-key extraction; перевірка структури бізнесовим читачем зберігається. Два чинні сценарії malformed source та monthly legacy fact пройшли цільово на ізольованій SQLite. PostgreSQL SQL, ціни, проведення й accepted міграції не змінено; helper0024 ще не прийнятий.
+
+## Прийняття та розгортання · 05.10.2026
+
+Прийнято у PR114 (`9ee4d20`) та розгорнуто. У поточному прийнятому main `d35b614` source/assets/health і matching worker звірені, дані до/після релізу однакові. Capacity/cache/cursor лишаються відкритими.

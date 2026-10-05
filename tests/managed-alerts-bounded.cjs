@@ -1,7 +1,24 @@
+/* Transport lifetime checks; lifecycle/pinning/reload are covered by actual managed UI scopes. */
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const id='auto_'+'a'.repeat(32),task={id,title:'Умова',revision:'b'.repeat(32),_alertKey:'stock:1',_alertActive:true,permissions:{canEdit:true,canDelete:false}},bodies=[],queue=[];
-const window={PortalApi:{session:async()=>({csrf:'qa'})}};let pinned=false,failRead=false;
-vm.runInNewContext(fs.readFileSync('app/managed-alerts.js','utf8'),{window,crypto:{randomUUID:()=> 'first-key'},fetch:async(url,opts)=>{bodies.push(JSON.parse(opts.body));const x=queue.shift();if(x instanceof Error)throw x;return {ok:x.status===200,status:x.status,json:async()=>x.value};}});
-const m=window.ManagedAlerts;m.configure({lookup:()=>task,tasks:()=>[],pin:()=>pinned=true,unpin:()=>pinned=false,render:()=>{},toast:()=>{},refresh:async()=>{if(failRead)throw Error('GET503');return task;}});
-const trigger=action=>m.handle({dataset:{alertId:id,alertAction:action}});
-(async()=>{queue.push(Error('unknown'));await trigger('accept');assert(m.row(task).includes('data-alert-action="retry"'));assert(pinned);queue.push({status:403,value:{error:'Права'}});await trigger('retry');assert(m.row(task).includes('data-alert-action="retry"'),'unknown original survives later4xx');assert.deepEqual(bodies[0],bodies[1]);failRead=true;queue.push({status:200,value:{task:{id,revision:'c'.repeat(32),data:{title:'Умова'}},replayed:true,appliedRevision:'c'.repeat(32),appliedCycle:1}});await trigger('retry');assert.deepEqual(bodies[0],bodies[2]);assert(!m.row(task).includes('data-alert-action="retry"'));assert(m.row(task).includes('data-alert-action="refresh"'));failRead=false;await trigger('refresh');assert.equal(bodies.length,3);assert(!pinned);console.log('MANAGED BOUNDED PASS: pin, unknown→4xx frozen retry, strict ACK, confirmedGETfail GET-only unpin');})().catch(e=>{console.error(e);process.exitCode=1});
+const actor={draftOwner:'a',draftSession:'b',role:'owner',storeId:null,networkOwner:true,csrf:'test'},body={action:'accept',revision:'c'.repeat(32),idempotencyKey:'11111111-1111-4111-8111-111111111111'};
+let session=async()=>actor,fetcher,live=true,rechecks=0,revokes=0;
+const window={addEventListener:()=>{},dispatchEvent:()=>revokes++,PortalApi:{session:(...args)=>session(...args)},NativeDraftRecovery:{controller:{check:async()=>rechecks++}}};
+const source=fs.readFileSync('app/managed-alerts.js','utf8').replace('window.ManagedAlerts = {','window.ManagedAlertProbe = {request,hide,records,activate:value=>active=value}; window.ManagedAlerts = {');
+vm.runInNewContext(source,{window,DOMException,Event,fetch:(...args)=>fetcher(...args)});
+const request=()=>window.ManagedAlertProbe.request('/api/erp/alerts/tasks/auto_'+ 'a'.repeat(32)+'/actions','POST',body,actor,undefined,()=>live);
+(async()=>{
+ let renders=0;const unpinned=[],probe=window.ManagedAlertProbe;
+ window.ManagedAlerts.configure({render:()=>renders++,unpin:id=>unpinned.push(id)});
+ probe.hide();probe.hide();assert.equal(renders,0,'P0 checks without managed rows must not remount inline editors');
+ probe.records.set('one',{});probe.hide();probe.hide();assert.equal(renders,1,'changed managed pins render once, repeated suspension is inert');assert.deepEqual(unpinned,['one']);
+ const title={},accessButton={},active={d:{open:true,isConnected:true,querySelector:()=>title},body:{hidden:false},foot:{hidden:false},access:{hidden:true,querySelector:()=>accessButton},current:{private:true},busy:true};
+ probe.activate(active);probe.hide();assert.equal(renders,1);assert.equal(active.body.hidden,true);assert.equal(active.foot.hidden,true);assert.equal(active.current,null);assert.equal(active.access.hidden,false);assert.equal(accessButton.disabled,true);probe.activate(null);
+ let release,posts=0;session=()=>new Promise(r=>release=r);fetcher=async()=>{posts++;};const pending=request();live=false;release(actor);await assert.rejects(pending,{name:'AbortError'});assert.equal(posts,0,'closed preflight must not POST');
+ live=true;session=async()=>actor;fetcher=async()=>({status:200,ok:true,json:()=>new Promise(r=>release=r)});const late=request();await new Promise(r=>setImmediate(r));live=false;release({ok:true});await assert.rejects(late,{name:'AbortError'});
+ live=true;fetcher=()=>new Promise(r=>release=r);const late401=request();await new Promise(r=>setImmediate(r));live=false;release({status:401,ok:false,json:async()=>({})});await assert.rejects(late401,{name:'AbortError'});assert.equal(revokes,0,'obsolete401 cannot revoke');
+ live=true;fetcher=async()=>({status:401,ok:false,json:async()=>{throw Error('bad JSON');}});await assert.rejects(request(),{status:401});assert.equal(revokes,1,'current401 revokes even malformed JSON');
+ session=async()=>({...actor,storeId:2});await assert.rejects(request(),{name:'AbortError'});assert.equal(rechecks,1,'session mismatch requires current P0 check');
+ session=async()=>actor;const sent=[];fetcher=async(_,opts)=>{sent.push(JSON.parse(opts.body));throw Error('offline');};await assert.rejects(request(),/Відповідь не отримано/);fetcher=async(_,opts)=>{sent.push(JSON.parse(opts.body));return {status:409,ok:false,json:async()=>({error:'later409'})};};await assert.rejects(request(),/later409/);assert.deepEqual(sent[0],sent[1]);assert.deepEqual(sent[0],body);
+ const notices=[];window.ManagedAlerts.configure({lookup:()=>({_alertKey:'stock'}),tasks:()=>[],toast:s=>notices.push(s)});await window.ManagedAlerts.handle({dataset:{alertId:'auto_'+'a'.repeat(32),alertAction:'accept'}});assert.equal(notices.length,1,'unavailable persistence is a visible refusal, not an unhandled action');
+ console.log('MANAGED TRANSPORT PASS: final-session/JSON lifetime, current vs obsolete401, scope mismatch, unknown/later409 exact body');
+})().catch(e=>{console.error(e);process.exitCode=1;});

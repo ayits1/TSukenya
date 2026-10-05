@@ -199,3 +199,7 @@ callers і серверні права запису не змінювалися.
 - Matching build/scoped ESLint/native syntax PASS. Нові stages входять у
   default actual harness; існуючий full-runner scrub stage/port збережено.
   Дев'ять секцій, геометрію, PG oracle та повний набір повторно не запускали.
+
+## Прийняття та розгортання · 05.10.2026
+
+Прийнято у PR113 (`e50f852`) та розгорнуто. У поточному прийнятому main `d35b614` source/assets/health і matching worker звірені, дані до/після релізу однакові. Це не нова повна регресія.
