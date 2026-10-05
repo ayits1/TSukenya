@@ -22,6 +22,28 @@ class ReconcileJournalTests(TransactionTestCase):
         self.store=Store.objects.create(name='Синтетичний магазин');LedgerLock.objects.create(pk=1)
         self.now=timezone.now();self.today=timezone.localdate();self.old=self.today-timedelta(days=10)
 
+    def test_compact_scheduler_receipt_and_exact_replay_do_not_expose_report(self):
+        key=str(uuid.uuid4());output=StringIO()
+        call_command('reconcile','--record','--source','scheduler','--run-id',key,'--receipt-json',stdout=output,stderr=StringIO())
+        receipt=json.loads(output.getvalue())
+        self.assertEqual(receipt,{'contract':'reconciliation-receipt-v1','id':key,'source':'scheduler','status':'clean','checksVersion':1,'issues':0})
+        self.assertEqual((Voucher.objects.count(),StockEntry.objects.count(),CashEntry.objects.count(),AuditEvent.objects.count()),(0,0,0,0))
+        again=StringIO()
+        with mock.patch('server.erp.management.commands.reconcile.reconcile',side_effect=AssertionError('exact retry must not scan')):
+            call_command('reconcile','--record','--source','scheduler','--run-id',key,'--receipt-json',stdout=again,stderr=StringIO())
+        self.assertEqual(json.loads(again.getvalue()),receipt)
+        self.assertEqual(ReconciliationRun.objects.count(),1)
+
+    def test_compact_failed_receipt_is_confirmed_without_private_error_and_invalid_flags_rejected(self):
+        key=str(uuid.uuid4());output=StringIO()
+        with mock.patch('server.erp.management.commands.reconcile.reconcile',side_effect=RuntimeError('PRIVATE')),self.assertRaises(CommandError):
+            call_command('reconcile','--record','--source','scheduler','--run-id',key,'--receipt-json',stdout=output,stderr=StringIO())
+        self.assertEqual(json.loads(output.getvalue())['status'],'failed')
+        self.assertNotIn('PRIVATE',output.getvalue())
+        for args in [('--receipt-json',),('--record','--receipt-json','--json')]:
+            with self.assertRaises(CommandError):call_command('reconcile',*args,stdout=StringIO(),stderr=StringIO())
+        self.assertEqual(ReconciliationRun.objects.count(),1)
+
     def event(self, at, boundary, detail=None):
         event=AuditEvent.objects.create(user=self.user, action='period_changed',subject='ledger',detail=detail if detail is not None else {'date':boundary.isoformat() if boundary else None,'reason':'Синтетична причина'})
         AuditEvent.objects.filter(pk=event.pk).update(at=at);return event

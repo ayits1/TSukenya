@@ -10,6 +10,7 @@ class Command(BaseCommand):
     help='Read-only ledger reconciliation: stock lots, document totals, double posting, payroll and reversals. Exits non-zero on any mismatch.'
     def add_arguments(self,parser):
         parser.add_argument('--json',action='store_true',help='Print the report as JSON.')
+        parser.add_argument('--receipt-json',action='store_true',help='Print only the compact technical receipt; requires --record.')
         parser.add_argument('--record',action='store_true',help='Store a technical result after the read-only snapshot completes.')
         parser.add_argument('--run-id',help='Immutable technical receipt UUID; exact retries reuse the saved result.')
         parser.add_argument('--source',choices=['manual','scheduler'],default='manual')
@@ -19,6 +20,7 @@ class Command(BaseCommand):
         # A nested caller must already provide the same stable, read-only snapshot.
         # READ COMMITTED creates a different snapshot for every SELECT and is unsafe here.
         outermost=not connection.in_atomic_block
+        if options['receipt_json'] and (not options['record'] or options['json']):raise CommandError('--receipt-json потребує --record і не поєднується з --json.')
         if options['run_id'] and not options['record']:raise CommandError('--run-id потребує --record.')
         if options['record'] and not outermost:raise CommandError('Журнал не записується всередині іншої транзакції.')
         run_id=options['run_id'] or str(uuid.uuid4())
@@ -49,6 +51,10 @@ class Command(BaseCommand):
                 saved=journal.record(run_id,options['source'],report,started,timezone.now())
                 report=journal.saved_report(saved)
         if options['record']:self.stderr.write(f'Журнал звірки: {saved.pk}.')
+        if options['receipt_json']:
+            self.stdout.write(json.dumps({'contract':'reconciliation-receipt-v1','id':str(saved.pk),'source':saved.source,'status':saved.status,'checksVersion':saved.checks_version,'issues':saved.issue_count},separators=(',',':')))
+            if saved.status != 'clean':raise CommandError('Звірка потребує уваги; дивіться технічний журнал.')
+            return
         if saved and saved.error_code:raise CommandError('Запуск звірки не завершено; облік не виправлявся. Для нової спроби використайте новий ID.')
         if options['json']:self.stdout.write(json.dumps(report,ensure_ascii=False,indent=2))
         else:
