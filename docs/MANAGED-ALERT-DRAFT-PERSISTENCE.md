@@ -151,3 +151,36 @@ assertion перевіряв storage до завершення async session bin
 Unchanged PG6/економіка/lock proofs reused. WebKit, screen reader, load/performance,
 завершення всього B06, initiatives, rollout не заявляються. Full, VPS, Google Sheet,
 production data, generic ordinary-task codec й catalogue не чіпали.
+
+## Інтеграція з ordinary portal drafts після PR115
+
+На accepted `d35b6149` із managed commits виявлено дві взаємодії з реальним
+`PortalDraftRecovery`: безумовний `ManagedAlerts.hide → render → mountInline →
+check(false) → hide` замінював DOM без кінця; після усунення порожнього циклу
+фоновий inline mount ще міг призупинити щойно відкритий managed діалог до Save.
+
+- `hide` синхронно ховає приватний діалог; shell render виконується лише після
+  фактичного очищення managed rows/pins. Повторна suspension без цих змін не
+  перемальовує портал і не скидає звичайне введення.
+- `ManagedAlerts.pending()` позначає відкриття/відкритий діалог. Ordinary inline
+  prepare в цей час не починає конкурентну P0 перевірку. Після закриття чинний
+  render повторно читає доступ до inline форми. Fresh checks самої managed дії,
+  generation, receipt, storage/controller та business endpoint незмінені.
+- `tests/managed-alerts-bounded.cjs` PASS: порожня/повторна suspension без render,
+  pin change з одним render, private dialog hide навіть без pins; попередні
+  transport lifetime assertions також PASS.
+- Лише affected actual `lifecycle` scope на інтегрованому build: **PASS**, 8 дій і
+  8 receipts для auto/reprint; повторні ordinary inline mounts зберігають той самий
+  DOM; exact title/date raw переживають усі managed рендери без ordinary POST;
+  current owner→cashier прибирає приватну форму й локальні недоступні записи без
+  додаткової бізнес-дії. Артефакт
+  `/tmp/tsukenya-managed-portal-integration-final/lifecycle-partial.json`, лог
+  `/tmp/tsukenya-managed-portal-integration-final.log` (terminal0).
+
+Перші failure artifacts збережено: root
+`/tmp/tsukenya-managed-integration-lifecycle` (detached controls) і
+`/tmp/tsukenya-managed-portal-fix-lifecycle` (background inline suspension).
+Повторювався тільки affected lifecycle після відповідної source правки.
+Matching frontend build reused із root integration `5dd9857`; React/codec не
+змінено, нова збірка не потрібна. Syntax PASS; PG6 та попередні окремі B06 scopes
+не повторювали, бо endpoint/codec inputs незмінені. Full/production не запускали.

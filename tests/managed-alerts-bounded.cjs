@@ -3,10 +3,16 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const actor={draftOwner:'a',draftSession:'b',role:'owner',storeId:null,networkOwner:true,csrf:'test'},body={action:'accept',revision:'c'.repeat(32),idempotencyKey:'11111111-1111-4111-8111-111111111111'};
 let session=async()=>actor,fetcher,live=true,rechecks=0,revokes=0;
 const window={addEventListener:()=>{},dispatchEvent:()=>revokes++,PortalApi:{session:(...args)=>session(...args)},NativeDraftRecovery:{controller:{check:async()=>rechecks++}}};
-const source=fs.readFileSync('app/managed-alerts.js','utf8').replace('window.ManagedAlerts = {','window.ManagedAlertProbe = {request}; window.ManagedAlerts = {');
+const source=fs.readFileSync('app/managed-alerts.js','utf8').replace('window.ManagedAlerts = {','window.ManagedAlertProbe = {request,hide,records,activate:value=>active=value}; window.ManagedAlerts = {');
 vm.runInNewContext(source,{window,DOMException,Event,fetch:(...args)=>fetcher(...args)});
 const request=()=>window.ManagedAlertProbe.request('/api/erp/alerts/tasks/auto_'+ 'a'.repeat(32)+'/actions','POST',body,actor,undefined,()=>live);
 (async()=>{
+ let renders=0;const unpinned=[],probe=window.ManagedAlertProbe;
+ window.ManagedAlerts.configure({render:()=>renders++,unpin:id=>unpinned.push(id)});
+ probe.hide();probe.hide();assert.equal(renders,0,'P0 checks without managed rows must not remount inline editors');
+ probe.records.set('one',{});probe.hide();probe.hide();assert.equal(renders,1,'changed managed pins render once, repeated suspension is inert');assert.deepEqual(unpinned,['one']);
+ const title={},accessButton={},active={d:{open:true,isConnected:true,querySelector:()=>title},body:{hidden:false},foot:{hidden:false},access:{hidden:true,querySelector:()=>accessButton},current:{private:true},busy:true};
+ probe.activate(active);probe.hide();assert.equal(renders,1);assert.equal(active.body.hidden,true);assert.equal(active.foot.hidden,true);assert.equal(active.current,null);assert.equal(active.access.hidden,false);assert.equal(accessButton.disabled,true);probe.activate(null);
  let release,posts=0;session=()=>new Promise(r=>release=r);fetcher=async()=>{posts++;};const pending=request();live=false;release(actor);await assert.rejects(pending,{name:'AbortError'});assert.equal(posts,0,'closed preflight must not POST');
  live=true;session=async()=>actor;fetcher=async()=>({status:200,ok:true,json:()=>new Promise(r=>release=r)});const late=request();await new Promise(r=>setImmediate(r));live=false;release({ok:true});await assert.rejects(late,{name:'AbortError'});
  live=true;fetcher=()=>new Promise(r=>release=r);const late401=request();await new Promise(r=>setImmediate(r));live=false;release({status:401,ok:false,json:async()=>({})});await assert.rejects(late401,{name:'AbortError'});assert.equal(revokes,0,'obsolete401 cannot revoke');

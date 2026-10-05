@@ -80,19 +80,23 @@
   function hide() {
     ++generation;
     authorized = null;
+    const rowsChanged = records.size > 0;
     for (const id of records.keys()) configured?.unpin?.(id);
     records.clear();
-    configured?.render();
-    if (!active || !live(active)) return;
-    const a = active;
-    a.hidden = true;
-    a.current = null;
-    a.d.querySelector("#managedAlertTitle").textContent =
-      "Локальна чернетка призупинена";
-    a.body.hidden = true;
-    a.foot.hidden = true;
-    a.access.hidden = false;
-    a.access.querySelector("[data-alert-access]").disabled = a.busy;
+    if (active && live(active)) {
+      const a = active;
+      a.hidden = true;
+      a.current = null;
+      a.d.querySelector("#managedAlertTitle").textContent =
+        "Локальна чернетка призупинена";
+      a.body.hidden = true;
+      a.foot.hidden = true;
+      a.access.hidden = false;
+      a.access.querySelector("[data-alert-access]").disabled = a.busy;
+    }
+    // P0 suspends every codec before each read, including inline draft mounts.
+    // Only changed managed rows need a shell render; otherwise it remounts P0 forever.
+    if (rowsChanged) configured?.render();
   }
   function show(a) {
     a.hidden = false;
@@ -709,6 +713,7 @@
     configure,
     handle,
     canLeave,
+    pending: () => !!opening || !!active,
     pinned: () => [...records.keys()],
     register,
   };

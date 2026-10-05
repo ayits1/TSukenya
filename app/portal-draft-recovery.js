@@ -354,7 +354,13 @@
   }
   async function prepareInline() {
     register();
-    if (!registered || preparing || active?.d.open) return;
+    if (
+      !registered ||
+      preparing ||
+      active?.d.open ||
+      window.ManagedAlerts?.pending()
+    )
+      return;
     preparing = true;
     const token = ++inlineSequence,
       path = location.hash,
