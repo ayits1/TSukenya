@@ -149,8 +149,9 @@ stale409/local Apply, source revision і partial sale/reserved quantity;
 не включено до власної доставки. Нема заяви whole compat PASS, original
 Enter assertion збережена. Stage `release` перевіряє exact ID на page2
 65-record history для обох50/30-page DTO; target — шостий старий запис,
-не перший ID за припущенням. Runtime після viewerfix ще потрібний лише для
-цього affected tail. Інші завершені family/PG перевірки не повторювалися.
+не перший ID за припущенням. Новий viewer keyboard/pointer callback окремо
+перевірив його автор; доказ stage release сім’ї не повторювали. Інші
+завершені family/PG перевірки не повторювалися.
 
 Фінальний власний source baseline — accepted105e2e3 (PR123); лише own range
 після нього. Matching build повторено після additive rebase; unchanged PG/
@@ -162,5 +163,24 @@ unit/native inputs reused. Order controls не додають нової пол�
 ізольований synthetic checkpoint створює еквівалентні два резерви та
 partial sale/reserved1 через unchanged server services. PASS prefix не
 повторюється; всі наступні original release0.500/close used1/date-clear/
-optional minimum/audit assertions лишаються. Новий tail поки pending
-оновленого bounded viewer, а не оголошений PASS.
+optional minimum/audit assertions лишаються.
+
+## Остаточний affected compatibility tail
+
+`QA_ORDER_ACTION_FROM=compat-tail` terminal PASS у private QA composition
+`ad45c21612ae1465826453ad7e498f3ca904087b` (viewer b1d6905 поверх692e8de,
+own tests/controller copied з869f092 + нижчеописаний selector fix).
+Команда — та сама isolated command вище з
+`QA_OUTPUT_DIR=/tmp/tsukenya-order-action-proof/compat-tail-final`.
+`compat-tail-report.json` має три явні action POST: release0.500, close і
+expected_date blank. Перевірено reserved0.5 → reserved0/used1, date null,
+нові optional minimum/date порожні, actual44px external voucher submit
+buttons, owner business audit before/after/reason та Escape focus.
+`order-1440.png` і `purchase-terms-320.png` переглянуто, обрізання немає.
+
+Перший tail дійшов до purchase-terms geometry і виявив лише тестовий
+selector без `button[form=tradeVoucherForm]`; він виправлений без зміни
+44px/count>0 assertions. Failure artifacts збережено у `compat-tail/`.
+Доказ не означає новий whole-old-family run: попередній успішний prefix
+перевикористано, цей tail почався з еквівалентного partial checkpoint.
+Viewer source/QA ancestry до власної доставки не входить.
