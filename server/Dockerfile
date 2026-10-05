@@ -5,6 +5,7 @@ COPY frontend/package.json frontend/package.json
 COPY tools/api-contracts/package.json tools/api-contracts/package.json
 RUN npm ci
 COPY app/csv.js app/csv.js
+COPY contracts/ contracts/
 COPY frontend/ frontend/
 RUN npm run build:frontend
 
