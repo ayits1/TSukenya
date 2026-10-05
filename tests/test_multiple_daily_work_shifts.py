@@ -14,10 +14,10 @@ from django.utils import timezone
 from server.erp.models import AuditEvent, CashShift, Employee, Profile, Store, User, Voucher, WorkShift, WorkShiftCreateReceipt
 from server.erp.services import BusinessError, Conflict, post_voucher, record_revision, save_voucher
 from server.erp.views import work_shift_save
-from tests.test_unit_and_drafts import ApiFixture
+from tests.test_unit_and_drafts import TransactionApiFixture
 
 
-class MultipleDailyWorkShiftTests(ApiFixture):
+class MultipleDailyWorkShiftTests(TransactionApiFixture):
     def setUp(self):
         super().setUp()
         self.employee = Employee.objects.create(name='Працівник двох змін', store=self.store,

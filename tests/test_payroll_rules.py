@@ -3,6 +3,7 @@ import json
 from datetime import timedelta
 from decimal import Decimal
 from django.db import connection
+from django.test import TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from server.erp.models import *
@@ -13,9 +14,13 @@ from tests import test_erp
 from tests.test_erp import AccountingFixture
 
 
-class PayrollRuleTests(AccountingFixture):
+class PayrollRuleTests(TransactionTestCase):
+    v = AccountingFixture.v
+
     def setUp(self):
-        super().setUp()
+        from tests.catalog_index_fixture import clear_flushed_catalogue_tombstones
+        clear_flushed_catalogue_tombstones()
+        AccountingFixture.setUp(self)
         day = lambda n: (timezone.localdate() - timedelta(days=n)).isoformat()
         self.d3, self.d2, self.yesterday = day(3), day(2), day(1)  # stock and cash, sale and shift, accrual; the return is posted today
         self.v('cash_opening', amount=1000, account=self.cash.pk, date=self.d3); self.v('receipt', 20, 5, date=self.d3)
