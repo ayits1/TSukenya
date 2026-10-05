@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { normalizedTerms } from './persistence';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../shared/ui/Button';
 import { ConflictComparison } from '../../shared/ui/ConflictComparison';
@@ -19,15 +28,16 @@ import {
   labelCopies,
   printIssues,
 } from './domain';
-import type { LabelConfig, LabelField, LabelProduct, LabelSettings } from './domain';
+import type { LabelField, LabelProduct } from './domain';
 import type { LabelApi, Proof, Workspace } from './api';
-import { LABEL_MERGE_FIELDS } from './conflict';
+import { RAW_LABEL_MERGE_FIELDS, baseline, raw, type Raw } from './persistence';
+import type { LabelRecovery } from './recovery';
 import type { PricingRequestGuard } from '../promotions/PricingContext';
 import { OperationSelectionReview } from './OperationSelectionReview';
 import type { PriceOperation } from './operationSelection';
 import type { PromotionApi, PromotionContext } from '../promotions/api';
 
-type Draft = { config: LabelConfig; settings: LabelSettings };
+type Draft = Raw;
 export type StudioMemory = {
   selection: Record<string, number>;
   records: Record<string, LabelProduct>;
@@ -68,7 +78,108 @@ function outputWait<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-export function Studio({
+export function Studio(props: StudioProps) {
+  return props.recovery || props.requireRecovery ? (
+    <StudioAccess {...props} />
+  ) : (
+    <OrdinaryStudio {...props} />
+  );
+}
+function StudioAccess(props: StudioProps) {
+  const readOnlyApi = useMemo(
+    () => ({
+      ...props.api,
+      workspace: async (signal?: AbortSignal) => ({
+        ...(await props.api.workspace(signal)),
+        canEdit: false,
+      }),
+      save: async () => {
+        throw Error('Локальне сховище чернеток недоступне.');
+      },
+    }),
+    [props.api],
+  );
+  const [instance] = useState(() => crypto.randomUUID());
+  const access = useQuery({
+    queryKey: ['label-access', instance],
+    queryFn: ({ signal }) => props.api.workspace(signal),
+    retry: false,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+  if (!access.data)
+    return (
+      <section className="tk-root tk-studio">
+        <p role="status">{access.error ? access.error.message : 'Завантажуємо студію…'}</p>
+        {access.error ? <Button onPress={() => void access.refetch()}>Повторити</Button> : null}
+      </section>
+    );
+  if (!access.data.canEdit) return <OrdinaryStudio {...props} />;
+  if (props.recovery) return <PersistentStudio {...props} recovery={props.recovery} />;
+  return (
+    <>
+      <p role="status">
+        Локальне сховище чернеток недоступне. Перегляд і друк працюють; для редагування відновіть
+        доступ до сховища та перезавантажте сторінку.
+      </p>
+      <OrdinaryStudio {...props} api={readOnlyApi} />
+    </>
+  );
+}
+type StudioProps = Parameters<typeof OrdinaryStudio>[0] & {
+  recovery?: LabelRecovery;
+  requireRecovery?: boolean;
+};
+function PersistentStudio(props: StudioProps & { recovery: LabelRecovery }) {
+  const manager = props.recovery;
+  const view = useSyncExternalStore(manager.subscribe, manager.snapshot);
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (host.current) void manager.mount(host.current);
+    return () => manager.leave();
+  }, [manager]);
+  return (
+    <>
+      {view.phase !== 'ready' ? (
+        <section className="tk-root tk-studio" aria-label="Відновлення макета">
+          <h2>Макет і реквізити цінників</h2>
+          <p role={view.phase === 'error' ? 'alert' : 'status'}>
+            {view.error ||
+              (view.phase === 'offer'
+                ? 'У цій вкладці є незавершена чернетка макета.'
+                : 'Перевіряємо доступ до макета…')}
+          </p>
+          {view.phase === 'checking' ? (
+            <Button onPress={() => manager.cancel()}>Скасувати перевірку макета</Button>
+          ) : null}
+          {view.phase === 'offer' ? (
+            <>
+              <Button onPress={() => void manager.restore()}>Відновити чернетку макета</Button>
+              <Button onPress={() => void manager.discard()}>Відкинути чернетку макета</Button>
+            </>
+          ) : null}
+          {view.phase === 'error' ? (
+            <Button onPress={() => void (manager.payload() ? manager.read() : manager.start())}>
+              Повторити перевірку макета
+            </Button>
+          ) : null}
+        </section>
+      ) : null}
+      <div className="tk-label-recovery-workspace" ref={host} hidden={view.phase !== 'ready'}>
+        {view.workspace ? (
+          <StudioWorkspace
+            {...props}
+            key={view.generation}
+            initial={view.workspace}
+            recovery={manager}
+          />
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function OrdinaryStudio({
   api,
   catalog,
   onDirty,
@@ -145,6 +256,7 @@ export function Studio({
 
 function StudioWorkspace({
   api,
+  recovery,
   catalog,
   initial,
   onDirty,
@@ -168,6 +280,7 @@ function StudioWorkspace({
   promotions?: PromotionApi | undefined;
   onOperationApply?: ((context: PromotionContext) => void) | undefined;
   onOperationCancel?: (() => void) | undefined;
+  recovery?: LabelRecovery;
   api: LabelApi;
   catalog: CatalogApi;
   initial: Workspace;
@@ -177,8 +290,16 @@ function StudioWorkspace({
   onMemory: (value: StudioMemory) => void;
 }) {
   const client = useQueryClient();
-  const [saved, setSaved] = useState(initial),
-    [draft, setDraft] = useState<Draft>({ config: initial.config, settings: initial.settings });
+  const recovered = recovery?.payload(),
+    original = recovered ? baseline(recovered.baseline) : null;
+  const [saved, setSaved] = useState(
+      original ? { ...initial, ...original.original, revision: original.revision } : initial,
+    ),
+    [draft, setDraft] = useState<Draft>(
+      recovered
+        ? raw(recovered.draft)
+        : { config: initial.config, settings: initial.settings, fontSizes: {} },
+    );
   const [history, setHistory] = useState<{ past: Draft[]; future: Draft[] }>({
     past: [],
     future: [],
@@ -190,7 +311,9 @@ function StudioWorkspace({
     [previewQuery, setPreviewQuery] = useState(''),
     [previewSearch, setPreviewSearch] = useState('');
   const [error, setError] = useState(''),
-    [saveState, setSaveState] = useState<'idle' | 'saving' | 'error' | 'conflict'>('idle');
+    [saveState, setSaveState] = useState<'idle' | 'saving' | 'error' | 'conflict'>(
+      original?.review ? 'conflict' : 'idle',
+    );
   const [comparison, setComparison] = useState<{
       base: Draft;
       mine: Draft;
@@ -238,7 +361,8 @@ function StudioWorkspace({
   const edits = useRef(0),
     reloads = useRef(0),
     lastEdit = useRef<{ key: string; at: number } | null>(null);
-  const dirty = !equal({ config: saved.config, settings: saved.settings }, draft);
+  const dirty = !equal({ config: saved.config, settings: saved.settings, fontSizes: {} }, draft);
+  const unknown = !!recovery?.payload()?.firstIntent;
   const canEdit = saved.canEdit && !saved.warnings.length;
   useEffect(() => {
     onDirty(dirty);
@@ -335,7 +459,7 @@ function StudioWorkspace({
     setComparisonNotice(notice);
   };
   const compare = async () => {
-    if (!canEdit || busy.current || saveState !== 'conflict' || comparisonBusy) return;
+    if (!canEdit || unknown || busy.current || saveState !== 'conflict' || comparisonBusy) return;
     const token = ++comparisonRequests.current,
       controller = new AbortController(),
       edit = edits.current,
@@ -350,10 +474,11 @@ function StudioWorkspace({
     const current = () =>
       alive.current && token === comparisonRequests.current && !controller.signal.aborted;
     try {
-      const server = await api.workspace(controller.signal);
+      const server = recovery ? await recovery.read(false) : await api.workspace(controller.signal);
+      if (!server) return;
       if (!current() || edit !== edits.current) return;
       setComparison({
-        base: { config: saved.config, settings: saved.settings },
+        base: { config: saved.config, settings: saved.settings, fontSizes: {} },
         mine: draft,
         server,
         edit,
@@ -387,12 +512,18 @@ function StudioWorkspace({
     const merged = resolveThreeWay(
       comparison.base,
       comparison.mine,
-      { config: comparison.server.config, settings: comparison.server.settings },
-      LABEL_MERGE_FIELDS,
+      { config: comparison.server.config, settings: comparison.server.settings, fontSizes: {} },
+      RAW_LABEL_MERGE_FIELDS,
       comparisonChoices,
     );
     if (!merged) return;
     // Only accept a fresh baseline and a local merged draft. Saving is a separate user action.
+    try {
+      recovery?.apply(merged, comparison.server);
+    } catch (cause) {
+      setError(message(cause));
+      return;
+    }
     setSaved(comparison.server);
     edits.current++;
     lastEdit.current = null;
@@ -412,6 +543,12 @@ function StudioWorkspace({
     );
     // A colour drag reports every intermediate value. Consecutive changes of the same property
     // without a pause form one undo step instead of filling the 40-step history.
+    let persistenceError = '';
+    try {
+      recovery?.capture(next);
+    } catch (cause) {
+      persistenceError = message(cause);
+    }
     const now = Date.now(),
       previous = lastEdit.current;
     const merge = !!mergeKey && previous?.key === mergeKey && now - previous.at < 1500;
@@ -420,7 +557,7 @@ function StudioWorkspace({
       setHistory((current) => ({ past: [...current.past, draft].slice(-40), future: [] }));
     edits.current++;
     setDraft(next);
-    setError('');
+    setError(persistenceError);
     if (saveState !== 'conflict') setSaveState('idle');
     invalidate();
   };
@@ -428,6 +565,12 @@ function StudioWorkspace({
     if (!canEdit || busy.current || saveState === 'saving') return;
     const next = redo ? history.future[0] : history.past.at(-1);
     if (!next) return;
+    try {
+      recovery?.capture(next);
+    } catch (cause) {
+      setError(message(cause));
+      return;
+    }
     closeComparison();
     lastEdit.current = null;
     edits.current++;
@@ -453,17 +596,31 @@ function StudioWorkspace({
     invalidate();
   };
   const save = async () => {
-    if (!canEdit || !dirty || busy.current || saveState === 'saving' || saveState === 'conflict')
+    if (
+      !canEdit ||
+      !dirty ||
+      unknown ||
+      busy.current ||
+      saveState === 'saving' ||
+      saveState === 'conflict'
+    )
       return;
     setSaveState('saving');
     setError('');
     try {
-      const result = await api.save(saved.revision, draft.config, draft.settings);
+      const normalized = recovery ? null : normalizedTerms(draft);
+      const result = recovery
+        ? await recovery.save(draft)
+        : await api.save(saved.revision, normalized!.config, normalized!.settings);
+      if (!result) {
+        if (alive.current) setSaveState('idle');
+        return;
+      }
       if (!alive.current) return;
       setSaved(result);
       lastEdit.current = null;
       edits.current++;
-      setDraft({ config: result.config, settings: result.settings });
+      setDraft({ config: result.config, settings: result.settings, fontSizes: {} });
       setHistory({ past: [], future: [] });
       setSaveState('idle');
       onChanged();
@@ -476,6 +633,10 @@ function StudioWorkspace({
   const reload = async () => {
     if (busy.current || saveState === 'saving') return;
     if (dirty && !confirm('Замінити чернетку збереженим макетом?')) return;
+    if (recovery) {
+      await recovery.discard();
+      return;
+    }
     closeComparison();
     // An edit, undo or newer reload while waiting wins: a late response must not replace
     // that draft or clear its undo history.
@@ -490,7 +651,7 @@ function StudioWorkspace({
       setSaved(workspace);
       lastEdit.current = null;
       edits.current++;
-      setDraft({ config: workspace.config, settings: workspace.settings });
+      setDraft({ config: workspace.config, settings: workspace.settings, fontSizes: {} });
       setHistory({ past: [], future: [] });
       setSaveState('idle');
       setError('');
@@ -788,6 +949,24 @@ function StudioWorkspace({
       }
       selectedField={field}
       onSelectField={setField}
+      rawFontSize={draft.fontSizes[field]}
+      onRawFontSize={(value) => {
+        const number = Number(value.replace(',', '.'));
+        change({
+          ...draft,
+          fontSizes: { ...draft.fontSizes, [field]: value },
+          config:
+            /^\d+(?:[.,]\d+)?$/.test(value.trim()) && number >= 5 && number <= 72
+              ? {
+                  ...draft.config,
+                  styles: {
+                    ...draft.config.styles,
+                    [field]: { ...draft.config.styles[field], size: number },
+                  },
+                }
+              : draft.config,
+        });
+      }}
       onConfigChange={(config, mergeKey) => change({ ...draft, config }, mergeKey)}
       onSettingsChange={(settings, storeIdx) =>
         change({
@@ -799,11 +978,13 @@ function StudioWorkspace({
       onResetField={() => {
         const styles = { ...draft.config.styles };
         delete styles[field];
-        change({ ...draft, config: { ...draft.config, styles } });
+        const fontSizes = { ...draft.fontSizes };
+        delete fontSizes[field];
+        change({ ...draft, fontSizes, config: { ...draft.config, styles } });
       }}
       onResetTemplate={() => {
         if (confirm('Скинути оформлення всіх елементів?'))
-          change({ ...draft, config: defaultConfig() });
+          change({ ...draft, fontSizes: {}, config: defaultConfig() });
       }}
       onApplyPreset={(preset) => {
         if (confirm('Застосувати готове оформлення до всіх цінників?')) {
@@ -813,6 +994,7 @@ function StudioWorkspace({
           if (chosen)
             change({
               ...draft,
+              fontSizes: {},
               config: {
                 ...chosen.config,
                 size: draft.config.size,
@@ -822,6 +1004,7 @@ function StudioWorkspace({
         }
       }}
       saveStatus={saveStatus}
+      saveBlocked={unknown}
       onSave={() => void save()}
       onReload={() => void reload()}
       onCompare={(trigger) => {
@@ -831,6 +1014,22 @@ function StudioWorkspace({
       comparisonBusy={comparisonBusy}
       comparison={
         <div className="tk-studio-comparison">
+          {unknown ? (
+            <div role="status">
+              <p>
+                Результат первісного збереження ще не підтверджено. Нові правки не замінюють цей
+                запит.
+              </p>
+              <Button onPress={() => void recovery?.read()}>Звірити збереження макета</Button>
+              <Button
+                onPress={() =>
+                  void recovery?.save(draft, true).catch((cause) => setError(message(cause)))
+                }
+              >
+                Повторити первісний запит макета
+              </Button>
+            </div>
+          ) : null}
           {comparisonBusy ? (
             <div>
               <p role="status">
@@ -860,8 +1059,12 @@ function StudioWorkspace({
                 rows={compareThreeWay(
                   comparison.base,
                   comparison.mine,
-                  { config: comparison.server.config, settings: comparison.server.settings },
-                  LABEL_MERGE_FIELDS,
+                  {
+                    config: comparison.server.config,
+                    settings: comparison.server.settings,
+                    fontSizes: {},
+                  },
+                  RAW_LABEL_MERGE_FIELDS,
                 )}
                 choices={comparisonChoices}
                 onChoice={(id, choice) =>

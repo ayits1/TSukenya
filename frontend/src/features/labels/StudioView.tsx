@@ -47,6 +47,8 @@ export type StudioFilters = {
   promotion: string;
 };
 export type StudioViewProps = {
+  rawFontSize?: string | undefined;
+  onRawFontSize?: (value: string) => void;
   config: LabelConfig;
   settings: LabelSettings;
   previewSettings?: LabelSettings;
@@ -59,6 +61,7 @@ export type StudioViewProps = {
   onResetField: () => void;
   onResetTemplate: () => void;
   onApplyPreset: (preset: PresetId) => void;
+  saveBlocked?: boolean;
   saveStatus: 'saved' | 'dirty' | 'saving' | 'error' | 'conflict';
   onSave: () => void;
   onReload: () => void;
@@ -354,6 +357,7 @@ export function StudioView(props: StudioViewProps) {
                   variant="primary"
                   onPress={props.onSave}
                   isDisabled={
+                    props.saveBlocked ||
                     saveStatus === 'saved' ||
                     saveStatus === 'saving' ||
                     saveStatus === 'conflict' ||
@@ -693,15 +697,25 @@ export function StudioView(props: StudioViewProps) {
                 isDisabled={locked}
               />
               <div className="tk-studio-pair">
-                <NumericField
-                  label="Розмір, pt"
-                  min={5}
-                  max={72}
-                  step={0.5}
-                  value={style.size}
-                  onChange={(size) => changeStyle({ size })}
-                  disabled={locked}
-                />
+                {props.onRawFontSize ? (
+                  <TextField
+                    label="Розмір, pt"
+                    inputMode="decimal"
+                    value={props.rawFontSize ?? String(style.size)}
+                    onChange={props.onRawFontSize}
+                    isDisabled={locked}
+                  />
+                ) : (
+                  <NumericField
+                    label="Розмір, pt"
+                    min={5}
+                    max={72}
+                    step={0.5}
+                    value={style.size}
+                    onChange={(size) => changeStyle({ size })}
+                    disabled={locked}
+                  />
+                )}
                 <label className="tk-studio-color">
                   Колір
                   <input

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Studio, initialStudioMemory } from './features/labels/Studio';
 import type { StudioMemory } from './features/labels/Studio';
 import { createLabelApi } from './features/labels/api';
+import { LabelRecovery } from './features/labels/recovery';
 import { PricingContext } from './features/promotions/PricingContext';
 import './shared/ui/controls.css';
 import { createOperationPriceApi } from './shared/api/operationPrices';
@@ -34,6 +35,15 @@ const results = createOperationPriceApi();
 let operation: PriceOperation | null = null;
 const client = new QueryClient(),
   api = createLabelApi();
+let recovery: LabelRecovery | undefined;
+function installRecovery() {
+  if (!recovery && window.NativeDraftRecovery) {
+    recovery = new LabelRecovery(window.NativeDraftRecovery);
+    draw();
+  }
+}
+window.addEventListener('tsukenya:native-conflict-ready', installRecovery);
+
 let root: Root | undefined,
   container: HTMLElement | undefined,
   dirty = false,
@@ -71,6 +81,8 @@ function draw() {
                 );
               }}
               api={api}
+              requireRecovery
+              {...(recovery ? { recovery } : {})}
               catalog={catalog}
               onDirty={onDirty}
               onChanged={onChanged}
@@ -90,6 +102,7 @@ window.ReactLabels = {
     container = element;
     dirty = false;
     root = createRoot(element);
+    installRecovery();
     draw();
   },
   leave() {
@@ -126,4 +139,5 @@ window.CatalogPriceWorkflow = {
     window.TSUKENYA_OPEN_PRICE_LABELS(kind, id);
   },
 };
+installRecovery();
 window.dispatchEvent(new Event('tsukenya:labels-ready'));

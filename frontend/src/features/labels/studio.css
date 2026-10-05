@@ -577,6 +577,13 @@ html:has(#react-labels .tk-studio) {
   margin-top: 16px;
 }
 @media (min-width: 1200px) and (min-height: 720px) {
+  body[data-layout='studio'] .tk-label-recovery-workspace:not([hidden]) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
   body[data-layout='studio'] .tk-studio {
     display: flex;
     flex: 1 1 auto;
@@ -730,12 +737,15 @@ html:has(#react-labels .tk-studio) {
     gap: 8px;
   }
   .tk-studio-save {
-    flex: 1;
+    flex: 1 1 100%;
+    justify-content: space-between;
   }
   .tk-studio-save > [role='status'] {
     max-width: 110px;
   }
   .tk-studio-save > .tk-button {
+    flex-shrink: 0;
+    white-space: nowrap;
     padding-inline: 10px;
   }
   .tk-studio-workspace {
