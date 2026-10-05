@@ -89,9 +89,15 @@ export class StaffModel {
       });
   }
   async activate(options: Options) {
+    const store = options.bootstrap.storeId ?? options.store;
+    if (
+      store !== this.state.store ||
+      this.options?.bootstrap.role !== options.bootstrap.role ||
+      this.options?.bootstrap.storeId !== options.bootstrap.storeId
+    )
+      this.committed.clear();
     this.options = options;
     this.active = true;
-    const store = options.bootstrap.storeId ?? options.store;
     this.emit({
       policy: null,
       store,
@@ -145,6 +151,7 @@ export class StaffModel {
   }
   async store(id: number | null, item: DirectoryItem | null) {
     if (this.state.denied) return;
+    if (id !== this.state.store) this.committed.clear();
     this.emit({ store: id, selectedStore: item, filters: initial().filters, focus: null });
     this.options?.onStore(id);
     await this.refresh();
@@ -156,7 +163,9 @@ export class StaffModel {
   }
   async refreshCommitted() {
     const confirmed = this.committed.get(this.state.view);
-    await this.refresh(confirmed);
+    // No successful read in this scope yet: an optional background refresh must
+    // neither revive another store nor submit the user's unconfirmed filters.
+    if (confirmed) await this.refresh(confirmed);
   }
   async refresh(confirmed?: { query: Queries[Resource]; page: number }) {
     if (!this.active || !this.options) return;

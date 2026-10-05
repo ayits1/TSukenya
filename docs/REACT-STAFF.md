@@ -123,3 +123,45 @@ multiple-work-shifts, workshift-draft-reload, trade-dialog-ux, directory-toolbar
 Staff branch. Native form/detail fields та cash/payroll selectors залишилися;
 не додавайте production alias/duplicate handlers. Цей файл описує actual migration
 та власні цільові proofs; readiness старої full matrix окремо не підтверджена.
+
+
+## Незалежне рев’ю `2d6ccc1`
+
+Review checkout `/tmp/tsukenya-staff-review` не змінював frozen author source.
+Fresh `current_actor` усередині READ ONLY RR, scope/role, scalar salary/document
+projections, bounded note/HMAC і точні збережені salary terms переглянуті без
+змін backend/posting. Author PG/SQLite та geometry докази повторно не запускалися.
+
+Виправлено дві frontend межі, обидві спочатку відтворені окремими unit tests
+(`/tmp/tsukenya-staff-review-before.log`, 2 очікувані FAIL):
+
+1. Proxy довідників мав лише workspace generation guard. Late401/403 від
+   скасованого пошуку ComboBox міг приховати актуальний workspace. Guard тепер
+   перевіряє також AbortSignal саме цього виклику; чинний нескасований403 далі
+   прибирає приватні дані. Helper винесено в feature `guard.ts` для прямого тесту.
+2. Committed-query cache зберігав попередній магазин після зміни контексту й503.
+   Його очищують при зміні магазину/role scope. Без успішного читання в новому
+   контексті optional `refreshCommitted()` нічого не читає: не повертає старий
+   магазин і не надсилає ще не підтверджений пошук. Явний Find/Retry не змінено.
+   `activate()` сам встановлює options після порівняння попереднього контексту.
+
+Нові targeted unit **2 PASS**: canceled401/current403 і failed-store scope /
+новіше не submitted введення (`/tmp/tsukenya-staff-review-unit.log`). Matching
+TypeScript/Vite build, scoped ESLint, Prettier, JS syntax/diff перевірені:
+`/tmp/tsukenya-staff-review-build-final.log`, `/tmp/tsukenya-staff-review-static.log`.
+
+Actual native `QA_STAFF_FROM=review-directory` **PASS**:
+`/tmp/tsukenya-staff-review-directory-final/review-directory-report.json`.
+Справжній ComboBox abort старого пошуку, transport навмисно повертає late401;
+актуальні таблиця/3 tabs/actions збережені. Native Add через Enter та Escape
+повертає opener, бізнес-записів0. Початковий browser assertion перевіряв tabs,
+поки RAC popover тимчасово приховував решту accessibility tree; виправлено тільки
+fixture (Escape перед accessibility assertion), failure збережено в
+`/tmp/tsukenya-staff-review-directory/`. Native scope входить також у `all`, тому
+додаткова ручна реєстрація full runner не потрібна. Full suite не запускався.
+
+Останнє видалення передчасного `model.options = next` не змінює перевірений
+canceled-directory шлях; matching build оновлено, новий broad/browser run не
+запускався. Optional coordinator лишається непідключеним. Старі native Staff
+consumers усе ще потребують описаної вище test-only адаптації; review не оголошує
+їх перевіреними або весь migration/full matrix завершеним. Push/VPS відсутні.

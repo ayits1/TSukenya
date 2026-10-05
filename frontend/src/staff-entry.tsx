@@ -4,7 +4,7 @@ import { I18nProvider } from 'react-aria-components';
 import { Staff } from './features/staff/Staff';
 import { StaffModel, type Options } from './features/staff/state';
 import { createStaffApi } from './features/staff/api';
-import type { TradingApi } from './features/trading/api';
+import { guardStaffDirectories } from './features/staff/guard';
 import './shared/ui/controls.css';
 declare global {
   interface Window {
@@ -16,33 +16,9 @@ declare global {
 }
 let root: Root | undefined, element: HTMLElement | undefined;
 const model = new StaffModel(createStaffApi());
-const guarded = (api: TradingApi): TradingApi =>
-  new Proxy(api, {
-    get(target, key) {
-      const value = Reflect.get(target, key);
-      if (typeof value !== 'function') return value;
-      return async (...args: unknown[]) => {
-        const token = model.accessToken();
-        try {
-          return await Reflect.apply(value, target, args);
-        } catch (error) {
-          if (
-            error &&
-            typeof error === 'object' &&
-            'status' in error &&
-            (error.status === 401 || error.status === 403) &&
-            model.isCurrent(token)
-          )
-            model.deny(error instanceof Error ? error.message : 'Доступ відкликано.');
-          throw error;
-        }
-      };
-    },
-  });
 window.ReactStaff = {
   async mount(host, options) {
-    const next = { ...options, directoryApi: guarded(options.directoryApi) };
-    model.options = next;
+    const next = { ...options, directoryApi: guardStaffDirectories(model, options.directoryApi) };
     if (element !== host) {
       root?.unmount();
       root = createRoot(host);
