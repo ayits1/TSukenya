@@ -66,8 +66,17 @@ class ReferenceIndex(Mapping):
         require(pages*size<=MAX_DISK,'Довідники перевищили ліміт тимчасового диска. Виправте джерело й повторіть читання.')
     def __len__(self):return self.db.execute('SELECT COUNT(*) FROM items').fetchone()[0]
     def __iter__(self):
-        for row in self.db.execute('SELECT id FROM items ORDER BY position'):yield row[0]
+        check()
+        cursor=self.db.execute('SELECT id FROM items ORDER BY position')
+        try:
+            while True:
+                check()
+                row=cursor.fetchone()
+                if row is None:return
+                yield row[0]
+        finally:cursor.close()
     def __getitem__(self,identifier):
+        check()
         row=self.db.execute('SELECT data FROM items WHERE id=?',(identifier,)).fetchone()
         if row is None:raise KeyError(identifier)
         item=json.loads(row[0]);item['aliases']=Aliases(self,identifier);return item
@@ -75,6 +84,7 @@ class ReferenceIndex(Mapping):
     def values(self):
         for identifier in self:yield self[identifier]
     def put(self,item):
+        check()
         identifier=item['id'];position=self.db.execute('SELECT position FROM items WHERE id=?',(identifier,)).fetchone()
         if position is None:self.position+=1;position=(self.position,)
         encoded=json.dumps({key:value for key,value in item.items() if key!='aliases'},ensure_ascii=False,separators=(',',':'))

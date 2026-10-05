@@ -1,5 +1,5 @@
 """Small deterministic operation-budget rollback; no load benchmark."""
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from django.test import TransactionTestCase, RequestFactory, SimpleTestCase
 from server.erp.catalog_budget import budget,check,BudgetExceeded
 from server.erp.models import Document,AuditEvent
@@ -17,6 +17,56 @@ class NestedBudgetTests(SimpleTestCase):
                 with budget(120):
                     clock[0]=1.1
                     with self.assertRaises(BudgetExceeded):check()
+
+
+class ReferenceIndexBudgetTests(SimpleTestCase):
+    def index(self):
+        from server.erp.catalog_reference_index import ReferenceIndex
+        with patch.object(ReferenceIndex,'build'):
+            index=ReferenceIndex()
+        self.addCleanup(index.close)
+        for identifier in ('first','second'):
+            index.put({'id':identifier,'field':'type','value':identifier,'parentType':'','state':'active'})
+        return index
+
+    def test_expired_iterator_refuses_before_consuming_next_disk_row(self):
+        index=self.index();database=index.db;consumed=[];cursors=[];clock=[0]
+        class Cursor:
+            def __init__(self,cursor):self.cursor=cursor;self.closed=False
+            def __iter__(self):return self
+            def __next__(self):
+                row=self.fetchone()
+                if row is None:raise StopIteration
+                return row
+            def fetchone(self):
+                row=self.cursor.fetchone()
+                if row is not None:consumed.append(row)
+                return row
+            def close(self):self.closed=True;self.cursor.close()
+        def execute(*args):
+            cursor=Cursor(database.execute(*args));cursors.append(cursor);return cursor
+        index.db=Mock(wraps=database);index.db.execute.side_effect=execute
+        with patch('server.erp.catalog_budget.monotonic',side_effect=lambda:clock[0]):
+            with budget(1):
+                rows=iter(index);self.assertEqual(next(rows),'first');clock[0]=1.1
+                with self.assertRaises(BudgetExceeded):next(rows)
+        self.assertEqual(consumed,[('first',)])
+        self.assertTrue(cursors[0].closed)
+
+    def test_expired_direct_get_and_put_refuse_before_disk_access_or_position_change(self):
+        index=self.index()
+        self.assertEqual(list(index),['first','second'])
+        self.assertEqual([item['id'] for item in index.values()],['first','second'])
+        database=index.db;index.db=Mock(wraps=database);clock=[0]
+        with patch('server.erp.catalog_budget.monotonic',side_effect=lambda:clock[0]):
+            with budget(1):
+                clock[0]=1.1
+                with self.assertRaises(BudgetExceeded):index['first']
+                with self.assertRaises(BudgetExceeded):
+                    index.put({'id':'third','field':'type','value':'third','parentType':'','state':'active'})
+        index.db.execute.assert_not_called()
+        self.assertEqual(index.position,2)
+        self.assertEqual(database.execute('SELECT count(*) FROM items').fetchone()[0],2)
 
 
 class AtomicBudgetTests(TransactionTestCase):
