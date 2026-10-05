@@ -78,3 +78,15 @@ Freshness revalidate читає original side-effect-free `options.directoryApi.
 Усі5 enrolled registrations/session listeners мають `denyWorkspace`: model deny + **синхронний root.unmount** до redirect, з очищенням root/host reference. Native dialog/P0 suspend/revoke лишаються чинними; private fields не чекають React async render або beforeunload.
 
 `QA_TRADING_FRESHNESS_FROM=abort` terminalPASS `/tmp/tsukenya-trading-freshness-proof/abort-report.json`: actual Finance reader, init-script transport перед реальним reload capturefetch; delayed bootstrap ignoringabort401 → hidden/suspend → obsolete answer → authorized rows/session preserved → visible focus GET4.56. Далі actual isolated PortalSession deletion: versions401 і session401, beforeunload snapshot має zero private Finance rows, closed native dialog, no private raw уP0 storage перед login navigation. Zero business mutations. `/tmp/tsukenya-trading-freshness-native-abort.log`, `abort-server.log`; failed harness attempts не є доказами. Попередні role403/raw/readers та serverPG докази reused, broad families не повторено. Matching build (включно TypeScript), scoped lint/syntax PASS.
+
+## Інтеграція цільових перевірок
+
+Node coordinator сценарій включено у quick CI. Explicit full runner включає
+actual freshness families та окремий `abort` tail; QA stage/port/proof selectors
+очищаються зі спадкового середовища. Виконано лише syntax, Node сценарій і
+`test:full -- --plan`, без нового повного прогону. Нові UI artifact reports
+записують SHA фактичного checkout замість історичного dependency label.
+
+Reports залишається окремим manual reader: його впровадження не зараховується
+до автоматичного freshness enrollment цим пакетом. Capacity100k, cursor/cache
+та tombstone потребують власних подальших доказів.
