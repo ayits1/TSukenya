@@ -128,3 +128,34 @@ Fault injection `storage` також відтворює наявні повід�
 ### Перевірка під час рев’ю
 
 Виправлено зіставлення `style.per100.size`: незавершений текст розміру та числове значення тепер узгоджуються разом, як для інших елементів. Цільовий тест спочатку відтворив втрату тексту, після виправлення пройшов; перевірено обидва вибори у конфлікті. Типи, збірка та lint змінених файлів пройшли.
+
+## CI129 · Тест приватності workspace у власній транзакції
+
+У приймальному PostgreSQL CI метод
+`TaskScopeTests.test_settings_allowlist_and_development_privacy_without_read_mutation`
+успадковував mutable-транзакцію Django `TestCase`. Чинний strict workspace GET
+правильно повертав HTTP400: «Звіт усередині транзакції потребує REPEATABLE READ та
+READ ONLY.» Старий fixture одразу читав `config`/`canEdit`, тому CI показував п’ять
+`KeyError` замість первісної HTTP-помилки.
+
+Лише цей метод перенесено до `TaskScopeWorkspaceTests(TransactionTestCase)` через
+спільний plain `TaskScopeFixture`. Усі privacy/allowlist/deep-copy та незмінність
+settings/project assertions збережено. Кожне читання `/api/state` і label workspace
+додатково перевіряє HTTP200 та відсутність DML/DDL через `CaptureQueriesContext`.
+Решта десяти тестів лишається на `TestCase`; їхні тіла й спільні fixture helpers
+зіставлено через AST без змін. Production `read_snapshot` та фінансові правила
+не змінювалися.
+
+Перевірено лише зачеплений метод:
+
+- До перенесення: PostgreSQL, 1 метод / 5 очікуваних відмов HTTP400, лог
+  `/tmp/tsukenya-label-ci-fixture-red-pg.log`.
+- Після: PostgreSQL18.6 **1 PASS**, 0.350s,
+  `/tmp/tsukenya-label-ci-fixture-green-pg.log`.
+- SQLite **1 PASS**, 0.031s,
+  `/tmp/tsukenya-label-ci-fixture-green-sqlite.log`.
+
+PG використовував перевірений локальний QA container, лише `127.0.0.1:61144`,
+унікальні власні role/base/test database та середовище без успадкованих DB/PG
+параметрів. Test database видалив Django; власні base і role прибрані окремо.
+Повного набору, браузера, production-тестів чи розгортання не було.
