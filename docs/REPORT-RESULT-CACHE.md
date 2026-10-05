@@ -26,7 +26,10 @@ thresholds, current Kyiv day, дозволені scoped counters з явними
 PG xmin — додатковий discriminator, не абсолютна ідентичність після restore чи
 wraparound. TTL обмежує життєвий цикл; після DB restore потрібно видалити саме
 цей приватний cache namespace перед його повторним використанням.
-Page/q/section/ABC class — читання повного образу, не частини ключа. Mutation,
+Чинний compatibility foreign-store→empty report зберігається: empty effective
+scope не вибирає ЖОДНИХ foreign/global source counters. Невидима активність не
+змінює навіть час його cached projection. Page/q/section/ABC class — читання
+повного образу, не частини ключа. Mutation,
 pricing guards і permission grants не користуються цим кешем.
 
 ## Читання й публікація
@@ -125,3 +128,6 @@ accounting/date/late-return oracles повторно не запускаютьс
 `/tmp/tsukenya-report-cache-proof/manifest.json`. Public doc не містить business
 exports чи credentials. Packet1 freshness/contracts, cursors/tombstones/100k
 capacity та повний B24 залишаються окремими відкритими межами.
+
+Foreign-empty compatibility/privacy closing target: terminal PG PASS; чужий
+posted expense/Store caption не перебудовує empty image, zero counter SQL.

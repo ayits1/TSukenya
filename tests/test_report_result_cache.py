@@ -253,3 +253,15 @@ with override_settings(REPORT_RESULT_CACHE_DIR=sys.argv[1]),mock.patch.object(re
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual(json.loads(result.stdout),expected)
         self.assertEqual(len(list(cache.root().glob('*.sqlite3'))),1)
+
+    def test_foreign_empty_compatibility_hit_never_observes_hidden_store_counters(self):
+        foreign=Store.objects.create(name='Foreign');manager=self.user('manager',self.store);self.login(manager)
+        params={'mode':'period','store':str(foreign.pk)}
+        first=self.get('/api/v1/trading/reports/summary',params)
+        self.assertTrue(all(count==0 for count in first['counts'].values()))
+        Voucher.objects.create(kind='expense',status='posted',date=self.today,store=foreign,created_by=self.u,total=99)
+        Store.objects.filter(pk=foreign.pk).update(name='Hidden changed caption')
+        with mock.patch.object(reports,'period',side_effect=AssertionError('hidden foreign event invalidated empty projection')),CaptureQueriesContext(connection) as queries:
+            second=self.get('/api/v1/trading/reports/summary',params)
+        self.assertEqual(first,second)
+        self.assertFalse(any('erp_tradingversion' in q['sql'].lower() for q in queries))

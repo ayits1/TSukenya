@@ -70,7 +70,9 @@ def key(user, mode, params, stores, day):
     if mode!='abc' and user.profile.role in {'owner','accountant'}:resources.append('reports_salary')
     selected=params['store']
     keys=[]
-    for resource in resources:
+    # Legacy foreign selection deliberately yields an empty report. It has no
+    # source dependencies: never select a hidden foreign/global activity counter.
+    for resource in resources if stores else []:
         prefix=resource+':'+user.profile.role+':'
         keys += [prefix+'global',prefix+('all' if selected is None else 'store:'+str(selected))]
     query=TradingVersion.objects.filter(pk__in=keys)
