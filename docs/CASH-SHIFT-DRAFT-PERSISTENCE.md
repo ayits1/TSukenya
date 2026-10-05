@@ -46,3 +46,18 @@ Full registry включає шість cash stages і scrub `QA_CASH_DRAFT_FROM
 ## Залишки
 
 Standalone posting/reverse, voucher DELETE, period/fiscal/discount/settings actions — наступні окремі whole families; credentials ніколи не зберігаються. Managed tasks/initiative mutations та P2/P3 closure цим пакетом не заявляються. Не додаються нові persistence-after-other-session гарантії чи нові owner бізнес-рішення.
+
+## Root integration after accepted PR116
+
+Own source16a94/test-doc727f3 commits інтегровано на acceptedfb920 без старих
+залежностей. Conflicts у loader, native entry та full registry вирішено
+additively: ordinary/managed recovery й старі stages збережено. Root matching
+frontend build67964/types94881 PASS; syntax/diff/plan-only PASS.
+
+Affected actual `cash-actions` на інтегрованому коді terminal PASS77453:
+keyboard account/employee → open → explicit finish → current close callback →
+counted0.13; рівно2 business POST та один authoritative cash_difference0.13.
+Артефакт `/tmp/tsukenya-cash-integration-callback/cash-actions-report.json`; лог
+`/tmp/tsukenya-cash-integration-callback.log`. Endpoint/codec proofs незмінні й
+використані повторно, full/production mutation не запускалися. Прийняття й
+розгортання пакета ще не підтверджені.
