@@ -1,3 +1,4 @@
+const reports=require('./reports-navigation.cjs');
 const staff=require('./staff-navigation.cjs');
 const {waitForTradingRoute}=require('./trading-document-controls.cjs');
 /* Kyiv calendar boundaries, with all writes confined to disposable local SQLite. */
@@ -59,8 +60,11 @@ print(json.dumps({'today':str(today),'yesterday':str(today-timedelta(days=1)),'p
  const persisted=await(await ctx.request.get(base+'/api/erp/vouchers/'+voucher)).json();assert.equal(persisted.date,seed.today);assert.deepEqual(persisted.payload.shift_ids,[work]);
  for(const date of [seed.yesterday,seed.tomorrow]){const bad=await api('POST','/api/erp/vouchers',{kind:'expense',date,store:seed.store,account:seed.account,amount:'1',payload:{}});assert.equal(bad.status(),400);}
  // Explicit financial report uses the existing B17 end<=Kyiv today rule; legacy/default history remains compatible.
- await go('reports');const report=page.locator('[data-report-form]');await bounds(report.locator('[name=from]'),{min:'',max:seed.today});await bounds(report.locator('[name=to]'),{min:'',max:seed.today});
- await report.locator('[name=from]').fill(seed.today);await report.locator('[name=to]').fill(seed.yesterday);response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/trading/reports/summary');await report.locator('[type=submit]').press('Enter');assert.equal((await response).status(),400);await page.locator('[data-report-error]').filter({hasText:'Не вдалося прочитати звіт'}).waitFor();
+ await go('reports');await reports.ready(page);const report=reports.form(page);
+ await reports.date(page,'По',seed.tomorrow);assert.equal(await report.getByRole('button',{name:'Показати',exact:true}).isDisabled(),true,'Future cutoff refused by actual DatePicker/form');await reports.date(page,'По',seed.yesterday);await reports.date(page,'З',seed.today);
+ assert.equal(await report.getByRole('button',{name:'Показати',exact:true}).isDisabled(),true,'Reversed date range cannot submit from actual UI');await reports.host(page).getByText('Виберіть коректний період не пізніше сьогодні.',{exact:true}).waitFor();
+ response=await ctx.request.get(base+'/api/v1/trading/reports/rows?mode=period&section=products&page=1&from='+seed.today+'&to='+seed.yesterday);assert.equal(response.status(),400,'Authoritative Django reversed-range refusal preserved');
+ response=await ctx.request.get(base+'/api/v1/trading/reports/rows?mode=period&section=products&page=1&from='+seed.today+'&to='+seed.tomorrow);assert.equal(response.status(),400,'Authoritative Django future-cutoff refusal preserved');
  for(const endpoint of ['report','work-shifts','shifts']){assert.equal((await ctx.request.get(base+'/api/erp/'+endpoint+'?from='+seed.tomorrow+'&to='+seed.tomorrow)).status(),200);assert.equal((await ctx.request.get(base+'/api/erp/'+endpoint+'?from='+seed.tomorrow+'&to='+seed.today)).status(),400);}
  assert.deepEqual(errors,[]);console.log('PASS: Kyiv ±30s midnight in Los Angeles browser; native period/work/payroll daily min/max; real Django invalid400 and boundary200/201; period→work→payroll draft persists; Enter/Space/Escape and320px; report/history range ordering and future ranges. Disposable SQLite only. No source fix needed.');
 })().catch(async error=>{if(page)await page.screenshot({path:path.join(os.tmpdir(),'tsukenya-date-boundary-failure.png')}).catch(()=>{});console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.kill('SIGTERM');if(server.exitCode===null)await new Promise(resolve=>server.once('exit',resolve));fs.rmSync(data,{recursive:true,force:true});});
