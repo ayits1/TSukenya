@@ -166,7 +166,7 @@ Host127.0.0.1/port61144/DB_NAMEtsukenya_b24_catalogue_capacity обов’язк
 
 ## Інтеграція з portal/managed recovery
 
-Own catalogue commit інтегровано поверх accepted PR115 та пакета PR116 без
+Own catalogue commit інтегровано поверх accepted PR115 та прийнятого PR116 без
 копіювання старих залежностей гілки. Full registry додатково очищає
 `QA_FACETS_FROM`, тому targeted tail не звужує майбутній явний full pass.
 Registry syntax, diff і `test:full -- --plan` PASS; full не запускали.
