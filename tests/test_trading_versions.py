@@ -227,6 +227,21 @@ class TradingVersionsTests(TransactionTestCase):
         self.assertNotEqual(self.token(),old)
 
     def test_migration_reverse_reinstall_and_absent_register(self):
+        # Runtime wrapper/spec replacement cannot alter the historical installer.
+        import importlib
+        from unittest.mock import patch
+        migration=importlib.import_module('server.erp.migrations.0024_trading_versions')
+        with patch('server.erp.trading_version_spec.RESOURCES', {}), patch('server.erp.trading_version_sql.register_sqlite', side_effect=AssertionError('mutable runtime wrapper')):
+            from server.erp.migration_helpers import trading_versions_0024_sql as frozen
+            self.assertEqual(frozen.install_pg.__module__, 'server.erp.migration_helpers.trading_versions_0024_sql')
+            self.assertIsNotNone(migration.install)
+
+        import inspect
+        from server.erp.migration_helpers.trading_versions_0024_sql import related, register_sqlite
+        for route in ('voucher','lot','order_line','payment','source','settlement'):
+            self.assertNotIn('to_jsonb',related('next',route))
+            self.assertNotIn('payload',related('next',route))
+        self.assertNotIn('SELECT *',inspect.getsource(register_sqlite))
         from django.db.migrations.executor import MigrationExecutor
         executor=MigrationExecutor(connection);final=executor.loader.graph.leaf_nodes('erp')
         try:

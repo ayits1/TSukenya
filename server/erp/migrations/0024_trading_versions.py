@@ -2,12 +2,12 @@ from django.db import migrations, models
 
 
 def install(apps, schema_editor):
-    from server.erp import trading_version_sql as sql
+    from server.erp.migration_helpers import trading_versions_0024_sql as sql
     (sql.install_pg if schema_editor.connection.vendor == 'postgresql' else sql.install_sqlite)(schema_editor.connection)
 
 
 def uninstall(apps, schema_editor):
-    from server.erp import trading_version_sql as sql
+    from server.erp.migration_helpers import trading_versions_0024_sql as sql
     (sql.uninstall_pg if schema_editor.connection.vendor == 'postgresql' else sql.uninstall_sqlite)(schema_editor.connection)
 
 
