@@ -152,6 +152,28 @@ describe('Label durable workspace', () => {
     expect(merged!.config.storeIdx).toBe(1);
     expect(merged!.fontSizes.price).toBe('');
   });
+  it('reviews unfinished per100 font size and keeps the chosen raw and typed size together', () => {
+    const base = raw(payload().draft),
+      mine = structuredClone(base),
+      server = structuredClone(base);
+    base.config.styles.per100 = { size: 9 };
+    mine.config.styles.per100 = { size: 9 };
+    mine.fontSizes.per100 = '';
+    server.config.styles.per100 = { size: 10 };
+    const rows = compareThreeWay(base, mine, server, RAW_LABEL_MERGE_FIELDS);
+    expect(rows.find((row) => row.id === 'style.per100.size')?.status).toBe('conflict');
+    expect(resolveThreeWay(base, mine, server, RAW_LABEL_MERGE_FIELDS, {})).toBeNull();
+    const chosenMine = resolveThreeWay(base, mine, server, RAW_LABEL_MERGE_FIELDS, {
+      'style.per100.size': 'mine',
+    });
+    expect(chosenMine!.fontSizes.per100).toBe('');
+    expect(chosenMine!.config.styles.per100!.size).toBe(9);
+    const chosenServer = resolveThreeWay(base, mine, server, RAW_LABEL_MERGE_FIELDS, {
+      'style.per100.size': 'server',
+    });
+    expect(chosenServer!.fontSizes.per100).toBeUndefined();
+    expect(chosenServer!.config.styles.per100!.size).toBe(10);
+  });
   it('captures synchronously and quota blocks first POST without replacing durable prior raw', async () => {
     const s = setup();
     await s.manager.mount(s.host);

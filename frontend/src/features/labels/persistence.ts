@@ -287,7 +287,7 @@ export function reject(p: Payload, value: unknown): Payload {
 
 /** A typed point-size and its unfinished text are one merge unit. */
 export const RAW_LABEL_MERGE_FIELDS: MergeField<Raw>[] = LABEL_MERGE_FIELDS.map((field) => {
-  const match = /^style\.([a-zA-Z]+)\.size$/.exec(field.id);
+  const match = /^style\.([a-zA-Z0-9]+)\.size$/.exec(field.id);
   const key = match?.[1] as LabelField | undefined;
   return {
     ...field,
