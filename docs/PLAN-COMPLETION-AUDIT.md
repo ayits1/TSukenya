@@ -8,7 +8,7 @@
 
 ## Актуальний прийнятий стан · 05.10.2026
 
-Історична матриця нижче не є оцінкою поточного main `9f2adf8`.
+Історична матриця нижче не є оцінкою поточного main `d35b614`.
 
 - #107: фактичні продажі й касові зміни на React; [REACT-SALES](REACT-SALES.md).
 - #108: bounded settlement readers, звірка й підсумки; [B24-BOUNDED-SETTLEMENTS](B24-BOUNDED-SETTLEMENTS.md).
@@ -16,9 +16,11 @@
 - #110: увесь React Finance із п’ятьма вкладками та чинними native діями; [REACT-FINANCE](REACT-FINANCE.md), [FINANCE-TEST-MIGRATION](FINANCE-TEST-MIGRATION.md).
 - #111: відновлення raw полів витрат, immutable intent, незалежні dirty units та session/privacy guards; [EXPENSE-DRAFT-PERSISTENCE](EXPENSE-DRAFT-PERSISTENCE.md). DELETE і весь P2/P3 цим пакетом не закрито.
 - #112: увесь React workspace команди й зарплати з трьома вкладками, bounded scalar readers, native редакторами та чинними обліковими правилами; [REACT-STAFF](REACT-STAFF.md), [STAFF-TEST-COMPATIBILITY](STAFF-TEST-COMPATIBILITY.md).
-- React Reports підготовлено в окремій гілці: весь екран, поточні борги, ABC, CSV, privacy та native callbacks; [REACT-REPORTS](REACT-REPORTS.md). Прийняття й розгортання цього пакета ще не підтверджено.
+- #113: увесь React Reports, поточні борги, ABC, CSV, privacy та guarded native callbacks; прийнято й розгорнуто, [REACT-REPORTS](REACT-REPORTS.md).
+- #114: scoped торгові версії й remote freshness для Stock/Purchases/Sales/Finance/Staff, transactional PG/SQLite counters; прийнято й розгорнуто, [B24-TRADING-FRESHNESS](B24-TRADING-FRESHNESS.md). Capacity/cache/cursor цим пакетом не закриті.
+- #115: raw ordinary task/idea CREATE/full та inline UPDATE і чинний task/expense DELETE recovery; прийнято й розгорнуто, [PORTAL-DRAFT-PERSISTENCE](PORTAL-DRAFT-PERSISTENCE.md). Managed/initiative/P1/P3 залишаються окремими сім’ями.
 
-На VPS підтверджено accepted `9f2adf8` (#112, включає #111): source/assets/health,
+На VPS підтверджено accepted `d35b614` (#115, включає #113–114): source/assets/health,
 matching worker, read-only стан обліку до/після однаковий, reconcile без розбіжностей.
 Production mutation-тестів і нової повної регресії не виконували. Релізи авторизовані
 власником; виключення0.1 зберігається.
@@ -26,9 +28,8 @@ Production mutation-тестів і нової повної регресії н�
 React Staff прийнято й розгорнуто; точні independent review та actual
 native/layout/privacy/compatibility докази наведено у [REACT-STAFF](REACT-STAFF.md)
 та [STAFF-TEST-COMPATIBILITY](STAFF-TEST-COMPATIBILITY.md). Це не новий повний PASS
-старих сімейств. Reports підготовлено окремим пакетом; його merge/deployment ще
-не підтверджені. Native editors/setup залишаються native.
-Решта B24 freshness/capacity, B22/B23 зовнішні інтеграції, loyalty/channel рішення
+старих сімейств. Reports прийнято й розгорнуто у #113. Native editors/setup залишаються native.
+Решта B24 capacity/cache/cursor/freshness enrollment, B22/B23 зовнішні інтеграції, loyalty/channel рішення
 та operations scheduler потребують власних matching доказів. Увесь план залишається активним.
 
 ## Подальші прийняті зміни · main 4fe824a · 04.10.2026
