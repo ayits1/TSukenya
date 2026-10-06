@@ -121,7 +121,7 @@ async function checkNavigation() {
   await design.click();
 
   for (const [width, height] of [[1440, 900], [1280, 720], [1440, 600], [320, 900]]) {
-    const desktop = width >= 1200 && height >= 720;
+    const desktop = width >= 1200 && height >= 600;
     await page.setViewportSize({ width, height });
     await page.evaluate(() => window.scrollTo(0, 0));
     const layout = await page.evaluate(() => {

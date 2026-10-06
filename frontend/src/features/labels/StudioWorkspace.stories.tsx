@@ -170,7 +170,7 @@ export const IndependentPanesAndKeyboard: Story = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement),
       studio = canvasElement.querySelector<HTMLElement>('.tk-studio')!;
-    const desktop = matchMedia('(min-width:1200px) and (min-height:720px)').matches;
+    const desktop = matchMedia('(min-width:1200px) and (min-height:600px)').matches;
     const save = c.getByRole('button', { name: 'Зберегти макет' });
     if (desktop) {
       await waitFor(() =>
@@ -251,7 +251,7 @@ export const ConflictHasBoundedRegion: Story = {
     const notices = c.getByRole('region', { name: 'Повідомлення та узгодження змін' });
     const cancel = c.getByRole('button', { name: 'Повернутися до чернетки' });
     cancel.focus();
-    if (matchMedia('(min-width:1200px) and (min-height:720px)').matches) {
+    if (matchMedia('(min-width:1200px) and (min-height:600px)').matches) {
       await waitFor(() => expect(notices.scrollTop).toBeGreaterThan(0));
       await expect(hit(cancel)).toBe(true);
       await expect(hit(save)).toBe(true);
@@ -267,30 +267,20 @@ export const EmptyReviewLayout: Story = {
   args: { emptyReview: true },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await expect(c.getByRole('button', { name: 'Зберегти макет' })).toBeDisabled();
-    await expect(c.getByRole('button', { name: 'Друкувати' })).toBeDisabled();
+    await expect(c.queryByRole('button', { name: 'Зберегти макет' })).toBeNull();
+    await expect(c.queryByRole('button', { name: 'Скасувати зміну' })).toBeNull();
+    await expect(c.queryByRole('button', { name: 'Друкувати' })).toBeNull();
+    await expect(c.queryByRole('alert')).toBeNull();
+    await expect(c.getByRole('heading', { name: 'Ще немає товарів для друку' })).toBeVisible();
     const studio = canvasElement.querySelector<HTMLElement>('.tk-studio')!;
     await expect(studio.scrollWidth).toBeLessThanOrEqual(studio.clientWidth + 1);
-    if (matchMedia('(max-width:650px)').matches) {
-      const status = studio.querySelector<HTMLElement>('.tk-studio-save > [role="status"]')!;
-      const history = studio.querySelector<HTMLElement>('.tk-studio-history')!;
-      const save = c.getByRole('button', { name: 'Зберегти макет' });
-      await expect(status.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-        save.getBoundingClientRect().bottom,
-      );
-      await expect(history.getBoundingClientRect().right).toBeLessThanOrEqual(
-        save.getBoundingClientRect().left,
-      );
-      const actions = studio.querySelector<HTMLElement>('.tk-studio-review-actions')!;
-      for (const button of actions.querySelectorAll('button')) {
-        const box = button.getBoundingClientRect();
-        await expect(box.height).toBeGreaterThanOrEqual(44);
-        await expect(box.left).toBeGreaterThanOrEqual(actions.getBoundingClientRect().left);
-        await expect(box.right).toBeLessThanOrEqual(actions.getBoundingClientRect().right + 1);
-      }
-    }
-    c.getByRole('tab', { name: 'Перевірка перед друком' }).focus();
-    await userEvent.keyboard('{ArrowLeft}');
+    await userEvent.click(c.getByRole('button', { name: 'Обрати товари' }));
     await expect(c.getByRole('tab', { name: 'Товари для друку' })).toHaveAttribute('data-selected');
+    await expect(c.queryByRole('button', { name: 'Скасувати зміну' })).toBeNull();
+    await userEvent.click(c.getByRole('button', { name: 'Редагувати макет' }));
+    await expect(c.getByRole('button', { name: 'Зберегти макет' })).toBeDisabled();
+    await expect(c.getByRole('button', { name: 'Скасувати зміну' })).toBeVisible();
+    await userEvent.click(c.getByRole('button', { name: 'Додати цей товар до друку' }));
+    await expect(c.getByRole('button', { name: 'У друці · 1 коп.' })).toBeDisabled();
   },
 };

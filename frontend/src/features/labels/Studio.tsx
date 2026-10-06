@@ -587,10 +587,11 @@ function StudioWorkspace({
     const next = Math.max(0, Math.min(500, Math.round(quantity)));
     if (!Number.isFinite(next)) return;
     const product = page.data?.items.find((product) => product.id === id);
+    const record = product ? toLabel(product) : previewProduct?.id === id ? previewProduct : null;
     setMemory((current) => ({
       ...current,
       selection: { ...current.selection, [id]: next },
-      records: { ...current.records, ...(product ? { [id]: toLabel(product) } : {}) },
+      records: { ...current.records, ...(record ? { [id]: record } : {}) },
     }));
     setError('');
     invalidate();
@@ -672,6 +673,10 @@ function StudioWorkspace({
     setTab('review');
     setAcknowledged(false);
     setError('');
+    if (!selection.length) {
+      setProof(null);
+      return;
+    }
     if (dirty) {
       setProof(null);
       setError('Збережіть макет перед перевіркою друку.');

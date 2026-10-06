@@ -155,7 +155,7 @@
 
 /* Studio desktop contract: the shell and React workspace share the viewport.
    Small or short windows keep normal document flow and scrolling. */
-@media (min-width:1200px) and (min-height:720px) {
+@media (min-width:1200px) and (min-height:600px) {
   body[data-layout="studio"] .portal-shell { height:100dvh;min-height:0; }
   body[data-layout="studio"] .wrap { display:flex;flex-direction:column;min-height:0;max-width:none;padding:16px 24px 20px; }
   body[data-layout="studio"] .section-heading { flex:none;margin-bottom:12px; }

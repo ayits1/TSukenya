@@ -31,7 +31,7 @@ Escape, Close та backdrop закривають його з поверненн�
 
 Лише фактичний React-маршрут `#operations/tags` встановлює `body[data-layout='studio']`.
 При відсутньому React-модулі та інших маршрутах атрибут прибирається.
-Fixed workspace вмикається **одночасно за ширини ≥1200 px і висоти ≥720 px**:
+Fixed workspace вмикається **одночасно за ширини ≥1200 px і висоти ≥600 px**:
 
 - shell має висоту `100dvh`, а `wrap → #main → #react-labels` — flex/min-height:0;
 - оболонка залишає компактний h1 та skip link; великий опис і eyebrow приховані;
