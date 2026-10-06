@@ -38,7 +38,7 @@
 .tk-pricing-context--toolbar > .tk-promotion-actions {
   margin: 0;
 }
-@media (min-width: 1200px) and (min-height: 720px) {
+@media (min-width: 1200px) and (min-height: 600px) {
   body[data-layout='studio'] #react-labels > .tk-pricing-context {
     flex: 0 0 auto;
     max-height: 32dvh;
@@ -173,7 +173,7 @@
   background: var(--tk-paper);
   box-shadow: 0 8px 24px #20272c14;
 }
-@media (min-width: 1200px) and (min-height: 720px) {
+@media (min-width: 1200px) and (min-height: 600px) {
   body[data-layout='studio'] #react-labels {
     position: relative;
   }

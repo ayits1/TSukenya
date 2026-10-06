@@ -112,7 +112,7 @@ html:has(#react-labels .tk-studio) {
 }
 .tk-studio-workspace {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 280px;
+  grid-template-columns: 208px minmax(0, 1fr) 280px;
 }
 .tk-studio-layers {
   min-width: 0;
@@ -182,6 +182,31 @@ html:has(#react-labels .tk-studio) {
   gap: 12px;
   color: var(--tk-muted);
   font-size: 12px;
+}
+.tk-studio-stage-foot .tk-button {
+  font-size: 12px;
+  padding-inline: 12px;
+  background: var(--tk-paper);
+}
+.tk-studio-review-empty {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 16px;
+  min-height: 240px;
+  padding: 32px 20px;
+  text-align: center;
+  background: #f5f7f5;
+  border: 1px solid var(--tk-line);
+  border-radius: 8px;
+}
+.tk-studio-review-empty p {
+  max-width: 380px;
+  color: var(--tk-muted);
+}
+.tk-studio[data-view='products'] .tk-studio-save,
+.tk-studio[data-view='review'] .tk-studio-save {
+  gap: 12px;
 }
 .tk-studio-canvas {
   display: grid;
@@ -576,7 +601,7 @@ html:has(#react-labels .tk-studio) {
 .tk-studio-proof {
   margin-top: 16px;
 }
-@media (min-width: 1200px) and (min-height: 720px) {
+@media (min-width: 1200px) and (min-height: 600px) {
   body[data-layout='studio'] .tk-label-recovery-workspace:not([hidden]) {
     display: flex;
     flex: 1;
@@ -678,7 +703,7 @@ html:has(#react-labels .tk-studio) {
   }
 }
 /* A short or narrow viewport uses page flow; no hidden off-screen inspector. */
-@media (max-width: 1199px), (max-height: 719px) {
+@media (max-width: 1199px), (max-height: 599px) {
   .tk-studio-commandbar {
     flex-wrap: wrap;
   }
@@ -830,7 +855,7 @@ html:has(#react-labels .tk-studio) {
 .tk-story:has(.tk-desktop-studio-story) {
   max-width: none;
 }
-@media (min-width: 1200px) and (min-height: 720px) {
+@media (min-width: 1200px) and (min-height: 600px) {
   .tk-desktop-studio-story {
     display: flex;
     height: min(696px, calc(100dvh - 24px));

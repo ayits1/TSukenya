@@ -325,22 +325,24 @@ export function StudioView(props: StudioViewProps) {
             </Tab>
           </TabList>
           <header className="tk-studio-heading">
-            <div className="tk-studio-history">
-              <Button
-                aria-label="Скасувати зміну"
-                onPress={() => props.onUndo?.()}
-                isDisabled={locked || !props.canUndo}
-              >
-                <span title="Скасувати останню зміну">Скасувати</span>
-              </Button>
-              <Button
-                aria-label="Повторити зміну"
-                onPress={() => props.onRedo?.()}
-                isDisabled={locked || !props.canRedo}
-              >
-                <span title="Повторити скасовану зміну">Повторити</span>
-              </Button>
-            </div>
+            {selectedTab === 'design' ? (
+              <div className="tk-studio-history">
+                <Button
+                  aria-label="Скасувати зміну"
+                  onPress={() => props.onUndo?.()}
+                  isDisabled={locked || !props.canUndo}
+                >
+                  <span title="Скасувати останню зміну">Скасувати</span>
+                </Button>
+                <Button
+                  aria-label="Повторити зміну"
+                  onPress={() => props.onRedo?.()}
+                  isDisabled={locked || !props.canRedo}
+                >
+                  <span title="Повторити скасовану зміну">Повторити</span>
+                </Button>
+              </div>
+            ) : null}
             <div className="tk-studio-save">
               <span
                 role="status"
@@ -352,7 +354,7 @@ export function StudioView(props: StudioViewProps) {
               >
                 {SAVE_LABELS[saveStatus]}
               </span>
-              {canEdit ? (
+              {canEdit && selectedTab === 'design' ? (
                 <Button
                   variant="primary"
                   onPress={props.onSave}
@@ -365,6 +367,10 @@ export function StudioView(props: StudioViewProps) {
                   }
                 >
                   Зберегти макет
+                </Button>
+              ) : canEdit ? (
+                <Button onPress={() => props.onTabChange('design')} isDisabled={props.outputBusy}>
+                  Редагувати макет
                 </Button>
               ) : (
                 <span className="tk-studio-note">Перегляд без редагування</span>
@@ -651,7 +657,18 @@ export function StudioView(props: StudioViewProps) {
               ) : null}
               <div className="tk-studio-stage-foot">
                 <span>Вибрано: {fieldName(selectedField)}</span>
-                <span>Натисніть елемент у макеті</span>
+                {props.previewProduct ? (
+                  <Button
+                    onPress={() => props.onQuantityChange(props.previewProduct!.id, 1)}
+                    isDisabled={props.outputBusy || !!props.selection[props.previewProduct.id]}
+                  >
+                    {props.selection[props.previewProduct.id]
+                      ? `У друці · ${props.selection[props.previewProduct.id]} коп.`
+                      : 'Додати цей товар до друку'}
+                  </Button>
+                ) : (
+                  <span>Натисніть елемент у макеті</span>
+                )}
               </div>
             </div>
             <aside className="tk-studio-properties" aria-label="Параметри елемента">
@@ -995,42 +1012,47 @@ export function StudioView(props: StudioViewProps) {
                   · A4 · поля 8 мм · масштаб друку 100%
                 </p>
               </div>
-              <div className="tk-studio-review-actions" aria-busy={props.outputBusy}>
-                <Button
-                  ref={reviewRef}
-                  onPress={props.onReview}
-                  isDisabled={props.preparing || props.outputBusy}
-                >
-                  Оновити перевірку
-                </Button>
-                <Button onPress={() => props.onTabChange('products')} isDisabled={props.outputBusy}>
-                  Змінити товари
-                </Button>
-                {props.onCsv ? (
+              {quantities.length ? (
+                <div className="tk-studio-review-actions" aria-busy={props.outputBusy}>
                   <Button
-                    ref={csvRef}
-                    onPress={props.onCsv}
+                    ref={reviewRef}
+                    onPress={props.onReview}
+                    isDisabled={props.preparing || props.outputBusy}
+                  >
+                    Оновити перевірку
+                  </Button>
+                  <Button
+                    onPress={() => props.onTabChange('products')}
+                    isDisabled={props.outputBusy}
+                  >
+                    Змінити товари
+                  </Button>
+                  {props.onCsv ? (
+                    <Button
+                      ref={csvRef}
+                      onPress={props.onCsv}
+                      isDisabled={!props.canOutput || props.outputBusy}
+                    >
+                      Експорт CSV
+                    </Button>
+                  ) : null}
+                  <Button
+                    ref={pdfRef}
+                    onPress={props.onExport}
                     isDisabled={!props.canOutput || props.outputBusy}
                   >
-                    Експорт CSV
+                    Завантажити PDF
                   </Button>
-                ) : null}
-                <Button
-                  ref={pdfRef}
-                  onPress={props.onExport}
-                  isDisabled={!props.canOutput || props.outputBusy}
-                >
-                  Завантажити PDF
-                </Button>
-                <Button
-                  ref={printRef}
-                  variant="primary"
-                  onPress={props.onPrint}
-                  isDisabled={!props.canOutput || props.outputBusy}
-                >
-                  Друкувати
-                </Button>
-              </div>
+                  <Button
+                    ref={printRef}
+                    variant="primary"
+                    onPress={props.onPrint}
+                    isDisabled={!props.canOutput || props.outputBusy}
+                  >
+                    Друкувати
+                  </Button>
+                </div>
+              ) : null}
             </div>
             {props.outputBusy && props.outputState ? (
               <div className="tk-studio-output" aria-label="Підготовка виводу">
@@ -1075,7 +1097,20 @@ export function StudioView(props: StudioViewProps) {
               aria-label="Перегляд аркушів і перевірки"
               tabIndex={0}
             >
-              {props.validationErrors.length ? (
+              {!quantities.length ? (
+                <div className="tk-studio-review-empty">
+                  <h3>Ще немає товарів для друку</h3>
+                  <p>Оберіть товари та кількість цінників, щоб переглянути аркуші.</p>
+                  <Button
+                    variant="primary"
+                    onPress={() => props.onTabChange('products')}
+                    isDisabled={props.outputBusy}
+                  >
+                    Обрати товари
+                  </Button>
+                </div>
+              ) : null}
+              {quantities.length && props.validationErrors.length ? (
                 <div role="alert" className="tk-studio-alert">
                   <strong>Перед друком потрібно виправити</strong>
                   <ul>
@@ -1101,7 +1136,7 @@ export function StudioView(props: StudioViewProps) {
               {props.preparing ? (
                 <p role="status">Завантажуємо актуальні ціни та перевіряємо макет…</p>
               ) : null}
-              <div className="tk-studio-proof">{props.review}</div>{' '}
+              {quantities.length ? <div className="tk-studio-proof">{props.review}</div> : null}
             </div>
           </div>
         </TabPanel>
