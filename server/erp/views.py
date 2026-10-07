@@ -478,8 +478,13 @@ def work_shift_save(user,value):
     return response({'id':s.pk})
 
 def portal(request):
+    from .report_result_cache import Unavailable as ReportUnavailable
     try:
         return handle(request)
+    except ReportUnavailable as exc:
+        result=response({'error':str(exc),'code':'report_read_unavailable'},503)
+        result['Retry-After']='2'
+        return result
     except Conflict as exc:
         return response({'error':str(exc),'code':exc.code,**exc.extra},409)
     except BusinessError as exc:

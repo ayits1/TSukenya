@@ -1,6 +1,7 @@
 """Bounded report transport with exact disk-backed aggregation, not business snapshots.
 Every request owns a current READ ONLY / REPEATABLE READ accounting-date read.
-The private spool is removed after a page, export completion, error or cancellation.
+Complete derived images may be reused after fresh scoped authorization/counters.
+Disposable builds and active reader leases are cleaned on errors/cancellation.
 """
 import csv
 import io
@@ -47,32 +48,65 @@ def batches(query, size=200):
 
 class Spool:
     """JSON records on private temporary disk; one decoded aggregate in Python at a time."""
+    def __init__(self, path=None, readonly=False, deadline=None, max_bytes=None):
+        self.path=path;self.readonly=readonly;self.deadline=deadline;self.max_bytes=max_bytes
+
     def __enter__(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='tsukenya-report-')
+        self.directory=None
+        if self.path is None:
+            self.directory=tempfile.TemporaryDirectory(prefix='tsukenya-report-')
+            self.path=self.directory.name+'/rows.sqlite3'
         try:
-            path=self.directory.name + '/rows.sqlite3'
-            self.db = sqlite3.connect(path)
-            os.chmod(path, 0o600)
-            self.db.execute('PRAGMA cache_size=-2048')
-            self.db.execute('PRAGMA temp_store=FILE')
-            self.db.execute('CREATE TABLE rows (section TEXT, key TEXT, value TEXT, PRIMARY KEY(section,key))')
-            self.db.create_collation('decimal', lambda a,b: (Decimal(a)>Decimal(b))-(Decimal(a)<Decimal(b)))
-            self.db.create_function('fold', 1, lambda s: str(s or '').casefold())
+            self.db=sqlite3.connect(self.path.as_uri()+'?mode=ro' if self.readonly else str(self.path),uri=self.readonly)
+            if not self.readonly:os.chmod(self.path,0o600)
+            self.db.create_collation('decimal',lambda a,b:(Decimal(a)>Decimal(b))-(Decimal(a)<Decimal(b)))
+            self.db.create_function('fold',1,lambda s:str(s or '').casefold(),deterministic=True)
+            self.db.execute('PRAGMA cache_size=-2048');self.db.execute('PRAGMA temp_store=FILE')
+            if self.deadline is not None:
+                self.db.set_progress_handler(lambda:int(__import__('time').monotonic()>=self.deadline),1000)
+            if not self.readonly:
+                # Disposable derived image: no journal/WAL/sort copy. Indices are
+                # populated incrementally from empty and bounded by page count.
+                self.db.execute('PRAGMA journal_mode=OFF')
+                if self.max_bytes:
+                    size=self.db.execute('PRAGMA page_size').fetchone()[0]
+                    self.db.execute('PRAGMA max_page_count='+str(self.max_bytes//size))
+                self.db.execute('CREATE TABLE rows (section TEXT,key TEXT,value TEXT,PRIMARY KEY(section,key))')
+                caption="COALESCE(json_extract(value,'$.name'),json_extract(value,'$.party'),json_extract(value,'$.category'),'')"
+                self.db.execute('CREATE INDEX rows_caption ON rows(section,'+caption+',key)')
+                for field in ('result','shortage'):
+                    self.db.execute("CREATE INDEX rows_"+field+" ON rows(section,json_extract(value,'$."+field+"') COLLATE decimal DESC,"+caption+",key)")
         except BaseException:
             if hasattr(self,'db'):self.db.close()
-            self.directory.cleanup()
+            if self.directory:self.directory.cleanup()
             raise
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self,*args):
         try:self.db.close()
-        finally:self.directory.cleanup()
+        finally:
+            if self.directory:self.directory.cleanup()
+
+    def checkpoint(self):
+        if self.deadline is not None:
+            from .report_result_cache import check
+            check(self.deadline)
+
+    def scan(self,section):
+        # Aggregation finalizers may update sort fields. Stable key order prevents
+        # revisiting/skipping rows after an index change, unlike output ordering.
+        cursor=self.db.execute('SELECT key,value FROM rows WHERE section=? ORDER BY key',(section,))
+        try:
+            while records:=cursor.fetchmany(100):
+                for key,value in records:self.checkpoint();yield key,json.loads(value)
+        finally:cursor.close()
 
     def get(self, section, key):
         record = self.db.execute('SELECT value FROM rows WHERE section=? AND key=?', (section,str(key))).fetchone()
         return json.loads(record[0]) if record else None
 
     def put(self, section, key, value):
+        self.checkpoint()
         value = json.dumps(value, ensure_ascii=False, default=str, separators=(',',':'))
         self.db.execute('INSERT INTO rows VALUES (?,?,?) ON CONFLICT(section,key) DO UPDATE SET value=excluded.value', (section,str(key),value))
 
@@ -99,7 +133,7 @@ class Spool:
         if limit is not None: sql += ' LIMIT ? OFFSET ?'; args += [limit,offset]
         cursor = self.db.execute(sql,args)
         while records := cursor.fetchmany(100):
-            for key,value in records: yield key,json.loads(value)
+            for key,value in records: self.checkpoint();yield key,json.loads(value)
 
 
 def product_finish(row):
@@ -151,9 +185,9 @@ def period(user, params, spool, stores, scoped):
         spool.add('products',line.product_id,initial,changes)
     for entry in effective_entries(CashEntry,end,start).filter(account__store_id__in=ids).exclude(voucher__kind='cash_opening').select_related('account').iterator(chunk_size=200):
         whole['cash_net']+=entry.amount; spool.add('by_store',entry.account.store_id,{}, {'cash_net':entry.amount})
-    for key,row in spool.rows('products'): spool.put('products',key,product_finish(row))
-    for key,row in spool.rows('by_store'): spool.put('by_store',key,{**row,**totals({k:Decimal(row[k]) for k in whole})})
-    for key,row in spool.rows('expenses_by_category'): spool.put('expenses_by_category',key,{**row,'amount':str(money(Decimal(row['amount'])))})
+    for key,row in spool.scan('products'): spool.put('products',key,product_finish(row))
+    for key,row in spool.scan('by_store'): spool.put('by_store',key,{**row,**totals({k:Decimal(row[k]) for k in whole})})
+    for key,row in spool.scan('expenses_by_category'): spool.put('expenses_by_category',key,{**row,'amount':str(money(Decimal(row['amount'])))})
     cashier_rows(user,ids,start,end,spool)
     whole['expenses']+=unallocated
     return {'mode':'period','from':start.isoformat(),'to':end.isoformat(),**totals(whole),'unallocated_expenses':str(money(unallocated)),
@@ -197,7 +231,7 @@ def cashier_rows(user,ids,start,end,spool):
                         used=min(max(ZERO,returned.total-returned.cost if worker['basis']=='profit' else returned.total),remaining)
                         spool.put('_basis',worker['id'],{'amount':str(remaining-used)})
                         if start<=returned.date:spool.add('cashiers',key,initial(employee,name),{'late_return_bonus':used*Decimal(worker['percent'])/Decimal(100)})
-    for key,row in spool.rows('cashiers'):
+    for key,row in spool.scan('cashiers'):
         seconds=int(Decimal(row.pop('seconds')));revenue=Decimal(row['revenue']);shortage=Decimal(row['shortage']);surplus=Decimal(row['surplus'])
         row.update(shifts=int(Decimal(row['shifts'])),with_difference=int(Decimal(row['with_difference'])),hours=str((Decimal(seconds)/3600).quantize(Decimal('.1'))),revenue_per_hour=str(money(revenue*3600/seconds)) if seconds>=360 else None,net=str(money(surplus-shortage)))
         for field in ('shortage','surplus','revenue'): row[field]=str(money(Decimal(row[field])))
@@ -213,13 +247,13 @@ def balances(user,params,spool,stores):
     for entry in children.stock_captions(stock).order_by('pk').iterator(chunk_size=children.CHUNK):
         lot=entry.lot
         spool.add('stock',lot.pk,{'lot':lot.pk,'code':lot.code,'warehouse':lot.warehouse_id,'warehouse_name':lot.warehouse.name,'store':lot.warehouse.store_id,'product':lot.product_id.split('/',1)[1],'name':children.stock_caption(entry,'name',''), 'unit':children.stock_caption(entry,'unit','шт'),'expiry':lot.expiry.isoformat() if lot.expiry else None,'quantity':'0','value':'0'}, {'quantity':entry.quantity,'value':entry.value})
-    for key,row in spool.rows('stock'):
+    for key,row in spool.scan('stock'):
         quantity,value=Decimal(row['quantity']),Decimal(row['value'])
         if not quantity and not value: spool.db.execute('DELETE FROM rows WHERE section=? AND key=?',('stock',key));continue
         stock_value+=value;row.update(quantity=str(quantity.quantize(Decimal('.001'))),value=str(money(value)),expired=bool(row['expiry'] and row['expiry']<cutoff.isoformat()));spool.put('stock',key,row)
     for account in CashAccount.objects.filter(store_id__in=ids).order_by('pk').iterator(chunk_size=200): spool.put('cash',account.pk,{'account':account.pk,'name':account.name,'store':account.store_id,'kind':account.kind,'amount':'0'})
     for entry in effective_entries(CashEntry,cutoff).filter(account__store_id__in=ids).iterator(chunk_size=200): cash_total+=entry.amount;spool.add('cash',entry.account_id,{}, {'amount':entry.amount})
-    for key,row in spool.rows('cash'): spool.put('cash',key,{**row,'amount':str(money(Decimal(row['amount'])))})
+    for key,row in spool.scan('cash'): spool.put('cash',key,{**row,'amount':str(money(Decimal(row['amount'])))})
     sources=children.headers(Voucher.objects.filter(store_id__in=ids,date__lte=cutoff,status__in=['posted','reversed'],kind__in=['sale','receipt','debt_opening']).select_related('party').order_by('pk'),party=True)
     for batch in batches(sources):
         batch=[source for source in batch if active_at(source,cutoff) and source.party_id]
@@ -252,17 +286,29 @@ def balances(user,params,spool,stores):
 
 
 @contextmanager
-def built(user,params):
-    with read_snapshot(), Spool() as spool:
-        current=actor(user); mode=params.get('mode','period');require(mode in SECTIONS,'Некоректний режим звіту.')
-        stores,scoped=stores_for(current,params)
-        data=balances(current,params,spool,stores) if mode=='balances' else period(current,params,spool,stores,scoped)
-        sections=[s for s in SECTIONS[mode] if s!='payroll_debts' or current.profile.role in {'owner','accountant'}]
-        data.update(contract=CONTRACT,store=int(params['store']) if params.get('store') else current.profile.store_id,
-                    scope_name=stores[0].name if scoped and stores else 'Усі доступні магазини' if not scoped else 'Магазин поза доступним контекстом',
-                    generated_at=timezone.now().isoformat(),basis='accounting_dates',reversal_policy='kyiv_reversed_at',snapshot='current',snapshot_notice=NOTICE,
-                    counts={s:spool.count(s) for s in sections},can_view_payroll=current.profile.role in {'owner','accountant'})
-        yield spool,data
+def built(user, params):
+    from . import report_result_cache as cache
+    with read_snapshot(), cache.read_limits() as deadline:
+        current=actor(user);mode=params.get('mode','period')
+        require(mode in SECTIONS,'Невідомий режим звіту.')
+        stores,scoped=stores_for(current,params);today=timezone.localdate(timezone=KYIV)
+        normalized={'store':int(params['store']) if params.get('store') else current.profile.store_id}
+        if mode=='period':
+            start=day(params.get('from') or today.replace(day=1).isoformat());end=day(params.get('to') or today.isoformat())
+            require(start<=end<=today,'Період має закінчуватись не раніше початку й не пізніше сьогодні.')
+            normalized.update({'from':start.isoformat(),'to':end.isoformat()})
+        else:
+            end=day(params.get('as_of') or today.isoformat());require(end<=today,'Дата залишків не може бути в майбутньому.')
+            normalized['as_of']=end.isoformat()
+        require_reversal_dates([s.pk for s in stores],end)
+        def populate(spool):
+            data=period(current,normalized,spool,stores,scoped) if mode=='period' else balances(current,normalized,spool,stores)
+            sections=[s for s in SECTIONS[mode] if s!='payroll_debts' or current.profile.role in {'owner','accountant'}]
+            data.update(contract=CONTRACT,store=normalized['store'],scope_name=stores[0].name if scoped and stores else 'Усі доступні магазини' if not scoped else 'Магазин поза доступним контекстом',
+                generated_at=timezone.now().isoformat(),basis='accounting_dates',reversal_policy='kyiv_reversed_at',snapshot='current',
+                snapshot_notice=NOTICE,counts={s:spool.count(s) for s in sections},can_view_payroll=current.profile.role in {'owner','accountant'})
+            return data
+        with cache.image(current,mode,normalized,stores,today,populate,deadline) as result:yield result
 
 
 def summary(user,params):
